@@ -2,7 +2,6 @@ use std::collections::HashMap;
 use std::sync::LazyLock;
 
 use crate::app::{ContextPage, Message};
-use crate::fl;
 use cosmic::Core;
 use cosmic::widget::Id;
 use cosmic::{Element, widget::menu};

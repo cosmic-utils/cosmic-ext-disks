@@ -12,12 +12,12 @@ use cosmic::cosmic_config::{self, CosmicConfigEntry};
 use cosmic::iced::alignment::{Horizontal, Vertical};
 use cosmic::iced::{Length, Subscription};
 use cosmic::widget::text::heading;
-use cosmic::widget::{self, Space, container, icon, menu, nav_bar};
+use cosmic::widget::{self, Space, icon, menu, nav_bar};
 use cosmic::{Application, ApplicationExt, Apply, Element, iced_widget};
 use futures_util::{SinkExt, StreamExt};
 use hardware::bytes_to_pretty;
 use hardware::disks::{DiskManager, DriveModel};
-use hardware::{CreatePartitionInfo, Drive, Partition};
+use hardware::{CreatePartitionInfo, Drive};
 use std::collections::HashMap;
 use std::time::Duration;
 

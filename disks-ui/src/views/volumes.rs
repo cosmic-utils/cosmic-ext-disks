@@ -2,7 +2,7 @@ use cosmic::{
     Element, Task,
     cosmic_theme::palette::WithAlpha,
     iced::{Alignment, Background, Length, Shadow},
-    iced_widget::{self, column, row},
+    iced_widget::{self, column},
     widget::{
         self, container, icon,
         text::{caption, caption_heading},
@@ -32,6 +32,7 @@ pub enum CreateMessage {
     PasswordProectedUpdate(bool),
     EraseUpdate(bool),
     PartitionTypeUpdate(usize),
+    #[allow(dead_code)]
     Continue,
     Cancel,
     Partition(CreatePartitionInfo),

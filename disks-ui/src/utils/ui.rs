@@ -1,12 +1,12 @@
+#![allow(dead_code)]
 use hardware::pretty_to_bytes;
-
 use std::borrow::Cow;
 
 use cosmic::{
     Element, Theme,
     cosmic_theme::Spacing,
     iced::{self, Alignment, Background, Border, Color, Length, Shadow, alignment},
-    iced_widget::{self, column, row},
+    iced_widget::{self, row},
     widget::{self, button, container},
 };
 

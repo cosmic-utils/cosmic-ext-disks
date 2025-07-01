@@ -1,16 +1,12 @@
 use super::volumes::CreateMessage;
+use crate::app::Message;
 use crate::utils::labelled_spinner;
-use crate::{app::Message, utils};
 use cosmic::{
-    Element,
-    iced::{Length, wgpu::util},
-    iced_widget,
-    widget::{
-        button, checkbox, container, dialog, dropdown, slider, spin_button, text_input, toggler,
-    },
+    Element, iced_widget,
+    widget::{button, checkbox, dialog, dropdown, slider, text_input, toggler},
 };
 use hardware::bytes_to_pretty;
-use hardware::{COMMON_PARTITION_NAMES, CreatePartitionInfo, PARTITION_NAMES};
+use hardware::{COMMON_PARTITION_NAMES, CreatePartitionInfo};
 use std::borrow::Cow;
 
 pub fn confirmation<'a>(
@@ -51,7 +47,7 @@ pub fn create_partition<'a>(create: CreatePartitionInfo) -> Element<'a, Message>
         text_input("Volume name", create_clone.name)
             .label("Volume Name")
             .on_input(|t| CreateMessage::NameUpdate(t).into()),
-        slider((0.0..=len), size, |v| CreateMessage::SizeUpdate(v as u64)
+        slider(0.0..=len, size, |v| CreateMessage::SizeUpdate(v as u64)
             .into()),
         labelled_spinner("Partition Size", size_pretty, size, step, 0., len, |v| {
             println!("value: {}", v);
