@@ -13,9 +13,9 @@ use crate::{
     app::{Message, ShowDialog},
     fl,
 };
-use hardware::bytes_to_pretty;
-use hardware::disks::{DriveModel, PartitionModel};
-use hardware::{CreatePartitionInfo, Drive, Partition};
+use disks_dbus::bytes_to_pretty;
+use disks_dbus::{DriveModel, PartitionModel};
+use disks_dbus::{CreatePartitionInfo};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum VolumesControlMessage {

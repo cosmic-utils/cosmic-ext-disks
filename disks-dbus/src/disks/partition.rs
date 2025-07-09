@@ -1,7 +1,7 @@
 use super::DiskError;
 use anyhow::Result;
 use enumflags2::{BitFlags, bitflags};
-use hardware_common::{Partition, Usage};
+use crate::Usage;
 use std::{collections::HashMap, path::Path};
 use udisks2::{
     Client,
@@ -108,22 +108,13 @@ impl PartitionModel {
 
         Ok(type_str)
     }
-}
 
-impl Partition for PartitionModel {
-    fn name(&self) -> String {
-        // let mut name = self.name.clone();
-        // if name.len() == 0 {
-        //     name = format!("Partition {}", &self.number);
-        // } else {
-        //     name = format!("Partition {}: {}", &self.number, name);
-        // }
+    pub fn name(&self) -> String {
 
-        // name
         format!("Partition {}", &self.number)
     }
 
-    async fn connect(&mut self) -> Result<()> {
+    pub async fn connect(&mut self) -> Result<()> {
         if self.connection.is_none() {
             self.connection = Some(Connection::system().await?);
         }
@@ -131,7 +122,7 @@ impl Partition for PartitionModel {
         Ok(())
     }
 
-    async fn mount(&self) -> Result<()> {
+    pub async fn mount(&self) -> Result<()> {
         if self.connection.is_none() {
             return Err(DiskError::NotConnected(self.name.clone()).into());
         }
@@ -146,7 +137,7 @@ impl Partition for PartitionModel {
         Ok(())
     }
 
-    async fn unmount(&self) -> Result<()> {
+    pub async fn unmount(&self) -> Result<()> {
         if self.connection.is_none() {
             return Err(DiskError::NotConnected(self.name.clone()).into());
         }
@@ -161,7 +152,7 @@ impl Partition for PartitionModel {
         Ok(())
     }
 
-    async fn delete(&self) -> Result<()> {
+   pub async fn delete(&self) -> Result<()> {
         if self.connection.is_none() {
             return Err(DiskError::NotConnected(self.name.clone()).into());
         }
@@ -180,7 +171,7 @@ impl Partition for PartitionModel {
         Ok(())
     }
 
-    async fn format(&self, name: String, erase: bool, partion_type: String) -> Result<()> {
+    pub async fn format(&self, name: String, erase: bool, partion_type: String) -> Result<()> {
         if self.connection.is_none() {
             return Err(DiskError::NotConnected(self.name.clone()).into());
         }
@@ -189,7 +180,7 @@ impl Partition for PartitionModel {
     }
 
     //TODO: implement
-    async fn edit_partition(&self, partition_type: String, name: String, flags: u64) -> Result<()> {
+    pub async fn edit_partition(&self, partition_type: String, name: String, flags: u64) -> Result<()> {
         if self.connection.is_none() {
             return Err(DiskError::NotConnected(self.name.clone()).into());
         }
@@ -198,7 +189,7 @@ impl Partition for PartitionModel {
     }
 
     //TODO: implement
-    async fn edit_filesystem_label(&self, label: String) -> Result<()> {
+   pub  async fn edit_filesystem_label(&self, label: String) -> Result<()> {
         if self.connection.is_none() {
             return Err(DiskError::NotConnected(self.name.clone()).into());
         }
@@ -207,7 +198,7 @@ impl Partition for PartitionModel {
     }
 
     //TODO: implement
-    async fn change_passphrase(&self) -> Result<()> {
+    pub async fn change_passphrase(&self) -> Result<()> {
         if self.connection.is_none() {
             return Err(DiskError::NotConnected(self.name.clone()).into());
         }
@@ -215,7 +206,7 @@ impl Partition for PartitionModel {
     }
 
     //TODO: implement
-    async fn resize(&self, new_size_bytes: u64) -> Result<()> {
+    pub async fn resize(&self, new_size_bytes: u64) -> Result<()> {
         if self.connection.is_none() {
             return Err(DiskError::NotConnected(self.name.clone()).into());
         }
@@ -223,7 +214,7 @@ impl Partition for PartitionModel {
     }
 
     //TODO: implement
-    async fn check_filesystem(&self) -> Result<()> {
+    pub async fn check_filesystem(&self) -> Result<()> {
         if self.connection.is_none() {
             return Err(DiskError::NotConnected(self.name.clone()).into());
         }
@@ -231,7 +222,7 @@ impl Partition for PartitionModel {
     }
 
     //TODO: implement
-    async fn repair_filesystem(&self) -> Result<()> {
+    pub async fn repair_filesystem(&self) -> Result<()> {
         if self.connection.is_none() {
             return Err(DiskError::NotConnected(self.name.clone()).into());
         }
@@ -239,7 +230,7 @@ impl Partition for PartitionModel {
     }
 
     //TODO: implement
-    async fn take_ownership(&self, recursive: bool) -> Result<()> {
+    pub async fn take_ownership(&self, recursive: bool) -> Result<()> {
         if self.connection.is_none() {
             return Err(DiskError::NotConnected(self.name.clone()).into());
         }
@@ -247,7 +238,7 @@ impl Partition for PartitionModel {
     }
 
     //TODO: implement. See how edit mount options -> User session defaults works in gnome-disks.
-    async fn default_mount_options(&self) -> Result<()> {
+    pub async fn default_mount_options(&self) -> Result<()> {
         if self.connection.is_none() {
             return Err(DiskError::NotConnected(self.name.clone()).into());
         }
@@ -255,7 +246,7 @@ impl Partition for PartitionModel {
     }
 
     //TODO: implement. Look at gnome-disks -> partition -> edit mount options. Likely make all params optional.
-    async fn edit_mount_options(
+    pub async fn edit_mount_options(
         &self,
         mount_at_startup: bool,
         show_in_ui: bool,
@@ -275,7 +266,7 @@ impl Partition for PartitionModel {
     }
 
     //TODO: implement
-    async fn edit_encrytion_options(&self) -> Result<()> {
+    pub async fn edit_encrytion_options(&self) -> Result<()> {
         if self.connection.is_none() {
             return Err(DiskError::NotConnected(self.name.clone()).into());
         }
@@ -283,7 +274,7 @@ impl Partition for PartitionModel {
     }
 
     //TODO: implement. creates a *.img of self.
-    async fn create_image(&self, output_path: String) -> Result<()> {
+    pub async fn create_image(&self, output_path: String) -> Result<()> {
         if self.connection.is_none() {
             return Err(DiskError::NotConnected(self.name.clone()).into());
         }

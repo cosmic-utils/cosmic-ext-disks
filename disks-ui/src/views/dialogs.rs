@@ -6,8 +6,8 @@ use cosmic::{
     Element, iced_widget,
     widget::{button, checkbox, dialog, dropdown, slider, text_input, toggler},
 };
-use hardware::bytes_to_pretty;
-use hardware::{COMMON_PARTITION_NAMES, CreatePartitionInfo};
+use disks_dbus::bytes_to_pretty;
+use disks_dbus::{COMMON_PARTITION_NAMES, CreatePartitionInfo};
 use std::borrow::Cow;
 
 pub fn confirmation<'a>(
@@ -37,7 +37,7 @@ pub fn create_partition<'a>(create: CreatePartitionInfo) -> Element<'a, Message>
 
     let size_pretty = bytes_to_pretty(&create.size, false);
     let free_pretty = bytes_to_pretty(&free_bytes, false);
-    let step = hardware::get_step(&create.size);
+    let step = disks_dbus::get_step(&create.size);
 
     println!("step: {step}");
 

@@ -15,9 +15,9 @@ use cosmic::widget::text::heading;
 use cosmic::widget::{self, Space, icon, menu, nav_bar};
 use cosmic::{Application, ApplicationExt, Apply, Element, iced_widget};
 use futures_util::{SinkExt, StreamExt};
-use hardware::bytes_to_pretty;
-use hardware::disks::{DiskManager, DriveModel};
-use hardware::{CreatePartitionInfo, Drive};
+use disks_dbus::bytes_to_pretty;
+use disks_dbus::{DiskManager, DriveModel};
+use disks_dbus::{CreatePartitionInfo};
 use std::collections::HashMap;
 use std::time::Duration;
 
@@ -302,7 +302,7 @@ impl Application for AppModel {
                 };
                 iced_widget::column![
                     iced_widget::column![
-                        heading(drive.pretty_name()),
+                        heading(drive.name()),
                         Space::new(0, 10),
                         labelled_info("Model", &drive.model),
                         labelled_info("Serial", &drive.serial),
@@ -352,10 +352,10 @@ impl Application for AppModel {
 
                     while let Some(event) = stream.next().await {
                         match event {
-                            hardware::disks::DeviceEvent::Added(s) => {
+                            disks_dbus::DeviceEvent::Added(s) => {
                                 let _ = c.send(Message::DriveAdded(s)).await;
                             }
-                            hardware::disks::DeviceEvent::Removed(s) => {
+                            disks_dbus::DeviceEvent::Removed(s) => {
                                 let _ = c.send(Message::DriveRemoved(s)).await;
                             }
                         }
@@ -480,7 +480,7 @@ impl Application for AppModel {
                             if drive.block_path == s.clone() {
                                 self.nav
                                     .insert()
-                                    .text(drive.pretty_name())
+                                    .text(drive.name())
                                     .data::<VolumesControl>(VolumesControl::new(drive.clone()))
                                     .data::<DriveModel>(drive)
                                     .icon(icon::from_name(icon))
@@ -488,7 +488,7 @@ impl Application for AppModel {
                             } else {
                                 self.nav
                                     .insert()
-                                    .text(drive.pretty_name())
+                                    .text(drive.name())
                                     .data::<VolumesControl>(VolumesControl::new(drive.clone()))
                                     .data::<DriveModel>(drive)
                                     .icon(icon::from_name(icon));
@@ -497,7 +497,7 @@ impl Application for AppModel {
                         None => {
                             self.nav
                                 .insert()
-                                .text(drive.pretty_name())
+                                .text(drive.name())
                                 .data::<VolumesControl>(VolumesControl::new(drive.clone()))
                                 .data::<DriveModel>(drive)
                                 .icon(icon::from_name(icon));

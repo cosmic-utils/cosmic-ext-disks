@@ -1,5 +1,5 @@
 #![allow(dead_code)]
-use hardware::pretty_to_bytes;
+use disks_dbus::pretty_to_bytes;
 use std::borrow::Cow;
 
 use cosmic::{

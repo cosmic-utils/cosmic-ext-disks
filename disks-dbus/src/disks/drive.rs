@@ -8,7 +8,7 @@ use udisks2::{
 };
 use zbus::{Connection, zvariant::OwnedObjectPath};
 
-use hardware_common::{COMMON_PARTITION_TYPES, CreatePartitionInfo, Drive, get_usage_data};
+use crate::{COMMON_PARTITION_TYPES, CreatePartitionInfo, get_usage_data};
 
 use super::{PartitionModel, manager::UDisks2ManagerProxy};
 
@@ -218,14 +218,12 @@ impl DriveModel {
 
         Ok(drives)
     }
-}
 
-impl Drive for DriveModel {
-    fn pretty_name(&self) -> String {
+    pub fn name(&self) -> String {
         self.name.split("/").last().unwrap().replace("_", " ") //TODO: Handle unwrap
     }
 
-    async fn eject(&self) -> Result<()> {
+    pub async fn eject(&self) -> Result<()> {
         let proxy = DriveProxy::builder(&self.connection)
             .path(self.path.clone())?
             .build()
@@ -234,7 +232,7 @@ impl Drive for DriveModel {
         Ok(())
     }
 
-    async fn power_off(&self) -> Result<()> {
+    pub async fn power_off(&self) -> Result<()> {
         let proxy = DriveProxy::builder(&self.connection)
             .path(self.path.clone())?
             .build()
@@ -243,7 +241,7 @@ impl Drive for DriveModel {
         Ok(())
     }
 
-    async fn create_partition(&self, info: CreatePartitionInfo) -> Result<()> {
+    pub async fn create_partition(&self, info: CreatePartitionInfo) -> Result<()> {
         let partition_table_proxy = PartitionTableProxy::builder(&self.connection)
             .path(self.block_path.clone())?
             .build()
