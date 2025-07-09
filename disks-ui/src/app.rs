@@ -154,8 +154,8 @@ impl Application for AppModel {
         match self.dialog {
             Some(ref d) => match d {
                 ShowDialog::DeletePartition(name) => Some(dialogs::confirmation(
-                    format!("Delete {}", name),
-                    format!("Are you sure you wish to delete {}?", name),
+                    fl!("delete", name = name),
+                    fl!("delete-confirmation", name = name),
                     VolumesControlMessage::Delete.into(),
                     Some(Message::CloseDialog),
                 )),
@@ -217,7 +217,7 @@ impl Application for AppModel {
     /// events received by widgets will be passed to the update method.
     fn view(&self) -> Element<Self::Message> {
         match self.nav.active_data::<DriveModel>() {
-            None => widget::text::title1("No disk selected")
+            None => widget::text::title1(fl!("no-disk-selected"))
                 .apply(widget::container)
                 .width(Length::Fill)
                 .height(Length::Fill)
@@ -236,9 +236,10 @@ impl Application for AppModel {
                     Some(p) => {
                         let mut name = p.name.clone();
                         if name.len() == 0 {
-                            name = format!("Partition {}", &p.number);
+                            name = fl!("partition-number", number = p.number);
                         } else {
-                            name = format!("Partition {}: {}", &p.number, name);
+                            name =
+                                fl!("partition-number-with-name", number = p.number, name = name);
                         }
 
                         let mut type_str = p.id_type.clone().to_uppercase();
@@ -248,42 +249,42 @@ impl Application for AppModel {
                             Some(usage) => iced_widget::column![
                                 heading(name),
                                 Space::new(0, 10),
-                                labelled_info("Size", bytes_to_pretty(&p.size, true)),
-                                labelled_info("Usage", bytes_to_pretty(&usage.used, false)),
+                                labelled_info(fl!("size"), bytes_to_pretty(&p.size, true)),
+                                labelled_info(fl!("usage"), bytes_to_pretty(&usage.used, false)),
                                 link_info(
-                                    "Mounted at",
+                                    fl!("mounted-at"),
                                     &usage.mount_point,
                                     Message::OpenPath(usage.mount_point.clone())
                                 ),
-                                labelled_info("Contents", &type_str),
+                                labelled_info(fl!("contents"), &type_str),
                                 labelled_info(
-                                    "Device",
+                                    fl!("device"),
                                     match p.device_path {
                                         Some(s) => {
                                             s
                                         }
-                                        None => "Unresolved".into(),
+                                        None => fl!("unresolved"),
                                     }
                                 ),
-                                labelled_info("UUID", &p.uuid),
+                                labelled_info(fl!("uuid"), &p.uuid),
                             ]
                             .spacing(5),
 
                             None => iced_widget::column![
                                 heading(name),
                                 Space::new(0, 10),
-                                labelled_info("Size", bytes_to_pretty(&p.size, true)),
-                                labelled_info("Contents", &type_str),
+                                labelled_info(fl!("size"), bytes_to_pretty(&p.size, true)),
+                                labelled_info(fl!("contents"), &type_str),
                                 labelled_info(
-                                    "Device",
+                                    fl!("device"),
                                     match p.device_path {
                                         Some(s) => {
                                             s
                                         }
-                                        None => "Unresolved".into(),
+                                        None => fl!("unresolved"),
                                     }
                                 ),
-                                labelled_info("UUID", &p.uuid),
+                                labelled_info(fl!("uuid"), &p.uuid),
                             ]
                             .spacing(5),
                         }

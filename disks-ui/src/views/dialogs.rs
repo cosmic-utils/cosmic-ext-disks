@@ -1,5 +1,6 @@
 use super::volumes::CreateMessage;
 use crate::app::Message;
+use crate::fl;
 use crate::utils::labelled_spinner;
 use cosmic::{
     Element, iced_widget,
@@ -18,10 +19,12 @@ pub fn confirmation<'a>(
     let mut dialog = dialog::dialog()
         .title(title)
         .body(prompt)
-        .primary_action(button::destructive("Ok").on_press(ok_message.into()));
+        .primary_action(button::destructive(fl!("ok")).on_press(ok_message.into()));
 
     match cancel_message {
-        Some(c) => dialog = dialog.secondary_action(button::standard("Cancel").on_press(c.into())),
+        Some(c) => {
+            dialog = dialog.secondary_action(button::standard(fl!("cancel")).on_press(c.into()))
+        }
         None => {}
     };
 
@@ -44,47 +47,63 @@ pub fn create_partition<'a>(create: CreatePartitionInfo) -> Element<'a, Message>
     let create_clone = create.clone();
 
     let mut content = iced_widget::column![
-        text_input("Volume name", create_clone.name)
-            .label("Volume Name")
+        text_input(fl!("volume-name"), create_clone.name)
+            .label(fl!("volume-name"))
             .on_input(|t| CreateMessage::NameUpdate(t).into()),
         slider(0.0..=len, size, |v| CreateMessage::SizeUpdate(v as u64)
             .into()),
-        labelled_spinner("Partition Size", size_pretty, size, step, 0., len, |v| {
-            println!("value: {}", v);
-            CreateMessage::SizeUpdate(v as u64).into()
-        }),
-        labelled_spinner("Free Space", free_pretty, free, step, 0., len, move |v| {
-            println!("value: {}", v);
+        labelled_spinner(
+            fl!("partition-size"),
+            size_pretty,
+            size,
+            step,
+            0.,
+            len,
+            |v| {
+                println!("value: {}", v);
+                CreateMessage::SizeUpdate(v as u64).into()
+            }
+        ),
+        labelled_spinner(
+            fl!("free-space"),
+            free_pretty,
+            free,
+            step,
+            0.,
+            len,
+            move |v| {
+                println!("value: {}", v);
 
-            CreateMessage::SizeUpdate((len - v) as u64).into()
-        }),
+                CreateMessage::SizeUpdate((len - v) as u64).into()
+            }
+        ),
         toggler(create_clone.erase)
-            .label("Erase")
+            .label(fl!("erase"))
             .on_toggle(|v| CreateMessage::EraseUpdate(v).into()),
         dropdown(
             &*COMMON_PARTITION_NAMES,
             Some(create_clone.selected_partitition_type),
             |v| CreateMessage::PartitionTypeUpdate(v).into()
         ),
-        checkbox("Password Protected", create.password_protected)
+        checkbox(fl!("password-protected"), create.password_protected)
             .on_toggle(|v| CreateMessage::PasswordProectedUpdate(v).into()),
     ];
 
     if create.password_protected {
         content = content.push(
             text_input::secure_input("", create_clone.password, None, true)
-                .label("Password")
+                .label(fl!("password"))
                 .on_input(|v| CreateMessage::PasswordUpdate(v).into()),
         );
 
         content = content.push(
             text_input::secure_input("", create_clone.confirmed_password, None, true)
-                .label("Confirm")
+                .label(fl!("confirm"))
                 .on_input(|v| CreateMessage::ConfirmedPasswordUpdate(v).into()),
         );
     }
 
-    let mut continue_button = button::destructive("Continue");
+    let mut continue_button = button::destructive(fl!("continue"));
 
     // if create.can_continue
     //{
@@ -92,9 +111,9 @@ pub fn create_partition<'a>(create: CreatePartitionInfo) -> Element<'a, Message>
     //}
 
     dialog::dialog()
-        .title("Create Partition")
+        .title(fl!("create-partition"))
         .control(content.spacing(20.))
         .primary_action(continue_button)
-        .secondary_action(button::standard("Cancel").on_press(CreateMessage::Cancel.into()))
+        .secondary_action(button::standard(fl!("cancel")).on_press(CreateMessage::Cancel.into()))
         .into()
 }

@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::sync::LazyLock;
 
 use crate::app::{ContextPage, Message};
+use crate::fl;
 use cosmic::Core;
 use cosmic::widget::Id;
 use cosmic::{Element, widget::menu};
@@ -19,30 +20,38 @@ pub fn menu_view(
         Message::Surface,
         vec![
             (
-                "Image".into(),
+                fl!("menu-image"),
                 vec![
-                    menu::Item::Button("New Disk Image", None, MenuAction::NewDiskImage),
-                    menu::Item::Button("Attach Disk Image", None, MenuAction::AttachDisk),
-                    menu::Item::Button("Create Disk From Drive", None, MenuAction::CreateDiskFrom),
-                    menu::Item::Button("Restore Image to Drive", None, MenuAction::RestoreImageTo),
+                    menu::Item::Button(fl!("new-disk-image"), None, MenuAction::NewDiskImage),
+                    menu::Item::Button(fl!("attach-disk-image"), None, MenuAction::AttachDisk),
+                    menu::Item::Button(
+                        fl!("create-disk-from-drive"),
+                        None,
+                        MenuAction::CreateDiskFrom,
+                    ),
+                    menu::Item::Button(
+                        fl!("restore-image-to-drive"),
+                        None,
+                        MenuAction::RestoreImageTo,
+                    ),
                 ],
             ),
             (
-                "Disk".into(),
+                fl!("menu-disk"),
                 vec![
-                    menu::Item::Button("Eject", None, MenuAction::Eject),
-                    menu::Item::Button("Power Off", None, MenuAction::PowerOff),
-                    menu::Item::Button("Format Disk", None, MenuAction::Format),
-                    menu::Item::Button("Benchmark Disk", None, MenuAction::Benchmark),
-                    menu::Item::Button("SMART Data & Self-Tests", None, MenuAction::SmartData),
-                    menu::Item::Button("Drive Settings", None, MenuAction::DriveSettings),
-                    menu::Item::Button("Standby Now", None, MenuAction::StandbyNow),
-                    menu::Item::Button("Wake-up From Standby", None, MenuAction::Wakeup),
+                    menu::Item::Button(fl!("eject"), None, MenuAction::Eject),
+                    menu::Item::Button(fl!("power-off"), None, MenuAction::PowerOff),
+                    menu::Item::Button(fl!("format-disk"), None, MenuAction::Format),
+                    menu::Item::Button(fl!("benchmark-disk"), None, MenuAction::Benchmark),
+                    menu::Item::Button(fl!("smart-data-self-tests"), None, MenuAction::SmartData),
+                    menu::Item::Button(fl!("drive-settings"), None, MenuAction::DriveSettings),
+                    menu::Item::Button(fl!("standby-now"), None, MenuAction::StandbyNow),
+                    menu::Item::Button(fl!("wake-up-from-standby"), None, MenuAction::Wakeup),
                 ],
             ),
             (
-                "View".into(),
-                vec![menu::Item::Button("about", None, MenuAction::About)],
+                fl!("menu-view"),
+                vec![menu::Item::Button(fl!("about"), None, MenuAction::About)],
             ),
         ],
     )]

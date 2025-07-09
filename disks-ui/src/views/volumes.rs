@@ -9,7 +9,10 @@ use cosmic::{
     },
 };
 
-use crate::app::{Message, ShowDialog};
+use crate::{
+    app::{Message, ShowDialog},
+    fl,
+};
 use hardware::bytes_to_pretty;
 use hardware::disks::{DriveModel, PartitionModel};
 use hardware::{CreatePartitionInfo, Drive, Partition};
@@ -98,7 +101,7 @@ impl ToggleState {
 impl Segment {
     pub fn free_space(offset: u64, size: u64) -> Self {
         Self {
-            label: "Free Space".into(),
+            label: fl!("free-space-segment"),
             name: "".into(),
             partition_type: "".into(),
             size,
@@ -122,7 +125,7 @@ impl Segment {
     pub fn new(partition: &PartitionModel) -> Self {
         let mut name = partition.name.clone();
         if name.len() < 1 {
-            name = "Filesystem".into();
+            name = fl!("filesystem");
         }
 
         let mut type_str = partition.id_type.clone().to_uppercase();
@@ -193,7 +196,7 @@ impl Segment {
         if self.is_free_space {
             container(
                 iced_widget::column![
-                    caption_heading("Free space").center(),
+                    caption_heading(fl!("free-space-caption")).center(),
                     caption(bytes_to_pretty(&self.size, false)).center()
                 ]
                 .spacing(5)
