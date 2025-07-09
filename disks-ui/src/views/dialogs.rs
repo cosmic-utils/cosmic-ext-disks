@@ -6,8 +6,8 @@ use cosmic::{
     Element, iced_widget,
     widget::{button, checkbox, dialog, dropdown, slider, text_input, toggler},
 };
-use disks_dbus::bytes_to_pretty;
-use disks_dbus::{COMMON_PARTITION_NAMES, CreatePartitionInfo};
+use disks_dbus::{bytes_to_pretty, get_valid_partition_names};
+use disks_dbus::{ CreatePartitionInfo};
 use std::borrow::Cow;
 
 pub fn confirmation<'a>(
@@ -43,6 +43,9 @@ pub fn create_partition<'a>(create: CreatePartitionInfo) -> Element<'a, Message>
 
     let create_clone = create.clone();
 
+    let valid_partition_types = get_valid_partition_names(create.table_type.clone());
+
+
     let mut content = iced_widget::column![
         text_input(fl!("volume-name"), create_clone.name)
             .label(fl!("volume-name"))
@@ -77,8 +80,7 @@ pub fn create_partition<'a>(create: CreatePartitionInfo) -> Element<'a, Message>
         toggler(create_clone.erase)
             .label(fl!("erase"))
             .on_toggle(|v| CreateMessage::EraseUpdate(v).into()),
-        dropdown(
-            &*COMMON_PARTITION_NAMES,
+        dropdown(valid_partition_types,
             Some(create_clone.selected_partitition_type),
             |v| CreateMessage::PartitionTypeUpdate(v).into()
         ),

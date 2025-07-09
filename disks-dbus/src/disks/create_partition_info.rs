@@ -11,4 +11,6 @@ pub struct CreatePartitionInfo {
     pub password: String,
     pub confirmed_password: String,
     pub can_continue: bool,
+    pub filesystem_type: String,
+    pub table_type: String,
 }

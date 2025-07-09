@@ -77,6 +77,7 @@ pub struct Segment {
     pub is_free_space: bool,
     pub width: u16,
     pub partition: Option<PartitionModel>,
+    pub table_type: String,
 }
 
 #[derive(Copy, Clone)]
@@ -99,7 +100,7 @@ impl ToggleState {
 }
 
 impl Segment {
-    pub fn free_space(offset: u64, size: u64) -> Self {
+    pub fn free_space(offset: u64, size: u64, table_type: String) -> Self {
         Self {
             label: fl!("free-space-segment"),
             name: "".into(),
@@ -110,6 +111,7 @@ impl Segment {
             is_free_space: true,
             width: 0,
             partition: None,
+            table_type: table_type,
         }
     }
 
@@ -118,6 +120,7 @@ impl Segment {
             max_size: self.size,
             offset: self.offset,
             size: self.size,
+            table_type: self.table_type.clone(),
             ..Default::default()
         }
     }
@@ -141,12 +144,13 @@ impl Segment {
             is_free_space: false,
             width: 0,
             partition: Some(partition.clone()),
+            table_type: partition.table_type.clone(),
         }
     }
 
     pub fn get_segments(drive: &DriveModel) -> Vec<Segment> {
         if drive.partitions.is_empty() {
-            return vec![Segment::free_space(0, drive.size)];
+            return vec![Segment::free_space(0, drive.size, drive.partition_table_type.clone().unwrap_or("".to_string()))];
         }
 
         let mut ordered_partitions = drive.partitions.clone();
@@ -168,6 +172,7 @@ impl Segment {
                 segments.push(Segment::free_space(
                     current_offset,
                     p.offset - current_offset,
+                    drive.partition_table_type.clone().unwrap_or("".to_string())
                 ));
                 current_offset = p.offset;
             }
@@ -181,6 +186,7 @@ impl Segment {
             segments.push(Segment::free_space(
                 current_offset,
                 drive.size - current_offset,
+                drive.partition_table_type.clone().unwrap_or("".to_string())
             ));
         }
 

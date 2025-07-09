@@ -29,6 +29,7 @@ pub struct PartitionModel {
     pub usage: Option<Usage>,
     connection: Option<Connection>,
     pub drive_path: String,
+    pub table_type: String,
 }
 
 impl PartitionModel {
@@ -64,6 +65,8 @@ impl PartitionModel {
             _ => partition_proxy.type_().await?,
         };
 
+
+
         Ok(Self {
             is_contained: partition_proxy.is_contained().await?,
             is_container: partition_proxy.is_container().await?,
@@ -81,6 +84,7 @@ impl PartitionModel {
             usage,
             connection: Some(Connection::system().await?),
             drive_path: drive_path,
+            table_type: table_proxy.type_().await?,
         })
     }
 
