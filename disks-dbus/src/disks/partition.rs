@@ -1,7 +1,7 @@
 use super::DiskError;
+use crate::Usage;
 use anyhow::Result;
 use enumflags2::{BitFlags, bitflags};
-use crate::Usage;
 use std::{collections::HashMap, path::Path};
 use udisks2::{
     Client,
@@ -110,7 +110,6 @@ impl PartitionModel {
     }
 
     pub fn name(&self) -> String {
-
         format!("Partition {}", &self.number)
     }
 
@@ -152,7 +151,7 @@ impl PartitionModel {
         Ok(())
     }
 
-   pub async fn delete(&self) -> Result<()> {
+    pub async fn delete(&self) -> Result<()> {
         if self.connection.is_none() {
             return Err(DiskError::NotConnected(self.name.clone()).into());
         }
@@ -180,7 +179,12 @@ impl PartitionModel {
     }
 
     //TODO: implement
-    pub async fn edit_partition(&self, partition_type: String, name: String, flags: u64) -> Result<()> {
+    pub async fn edit_partition(
+        &self,
+        partition_type: String,
+        name: String,
+        flags: u64,
+    ) -> Result<()> {
         if self.connection.is_none() {
             return Err(DiskError::NotConnected(self.name.clone()).into());
         }
@@ -189,7 +193,7 @@ impl PartitionModel {
     }
 
     //TODO: implement
-   pub  async fn edit_filesystem_label(&self, label: String) -> Result<()> {
+    pub async fn edit_filesystem_label(&self, label: String) -> Result<()> {
         if self.connection.is_none() {
             return Err(DiskError::NotConnected(self.name.clone()).into());
         }

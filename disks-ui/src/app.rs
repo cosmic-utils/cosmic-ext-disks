@@ -14,10 +14,10 @@ use cosmic::iced::{Length, Subscription};
 use cosmic::widget::text::heading;
 use cosmic::widget::{self, Space, icon, menu, nav_bar};
 use cosmic::{Application, ApplicationExt, Apply, Element, iced_widget};
-use futures_util::{SinkExt, StreamExt};
+use disks_dbus::CreatePartitionInfo;
 use disks_dbus::bytes_to_pretty;
 use disks_dbus::{DiskManager, DriveModel};
-use disks_dbus::{CreatePartitionInfo};
+use futures_util::{SinkExt, StreamExt};
 use std::collections::HashMap;
 use std::time::Duration;
 

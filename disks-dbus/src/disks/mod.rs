@@ -1,11 +1,11 @@
+mod create_partition_info;
 mod drive;
 mod manager;
 mod partition;
-mod create_partition_info;
 
+pub use create_partition_info::*;
 pub use drive::*;
 pub use manager::*;
-pub use create_partition_info::*;
 pub use partition::PartitionModel;
 use thiserror::Error;
 
