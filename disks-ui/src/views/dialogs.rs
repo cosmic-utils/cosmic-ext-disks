@@ -19,13 +19,10 @@ pub fn confirmation<'a>(
     let mut dialog = dialog::dialog()
         .title(title)
         .body(prompt)
-        .primary_action(button::destructive(fl!("ok")).on_press(ok_message.into()));
+        .primary_action(button::destructive(fl!("ok")).on_press(ok_message));
 
-    match cancel_message {
-        Some(c) => {
-            dialog = dialog.secondary_action(button::standard(fl!("cancel")).on_press(c.into()))
-        }
-        None => {}
+    if let Some(c) = cancel_message {
+        dialog = dialog.secondary_action(button::standard(fl!("cancel")).on_press(c))
     };
 
     dialog.into()
@@ -42,7 +39,7 @@ pub fn create_partition<'a>(create: CreatePartitionInfo) -> Element<'a, Message>
     let free_pretty = bytes_to_pretty(&free_bytes, false);
     let step = hardware::get_step(&create.size);
 
-    println!("step: {}", step);
+    println!("step: {step}");
 
     let create_clone = create.clone();
 
@@ -60,7 +57,7 @@ pub fn create_partition<'a>(create: CreatePartitionInfo) -> Element<'a, Message>
             0.,
             len,
             |v| {
-                println!("value: {}", v);
+                println!("value: {v}");
                 CreateMessage::SizeUpdate(v as u64).into()
             }
         ),
@@ -72,7 +69,7 @@ pub fn create_partition<'a>(create: CreatePartitionInfo) -> Element<'a, Message>
             0.,
             len,
             move |v| {
-                println!("value: {}", v);
+                println!("value: {v}");
 
                 CreateMessage::SizeUpdate((len - v) as u64).into()
             }

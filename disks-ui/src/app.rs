@@ -131,14 +131,14 @@ impl Application for AppModel {
                 match DriveModel::get_drives().await {
                     Ok(drives) => Some(drives),
                     Err(e) => {
-                        println!("Error: {}", e);
-                        return None;
+                        println!("Error: {e}");
+                        None
                     }
                 }
             },
             |drives| match drives {
-                None => return Message::None.into(),
-                Some(drives) => return Message::UpdateNav(drives, None).into(),
+                None => Message::None.into(),
+                Some(drives) => Message::UpdateNav(drives, None).into(),
             },
         );
 
@@ -235,7 +235,7 @@ impl Application for AppModel {
                 let info = match segment.partition.clone() {
                     Some(p) => {
                         let mut name = p.name.clone();
-                        if name.len() == 0 {
+                        if name.is_empty() {
                             name = fl!("partition-number", number = p.number);
                         } else {
                             name =
@@ -344,7 +344,7 @@ impl Application for AppModel {
                     let manager = match DiskManager::new().await {
                         Ok(m) => m,
                         Err(e) => {
-                            println!("Error creating DiskManager: {}", e);
+                            println!("Error creating DiskManager: {e}");
                             return;
                         }
                     };
@@ -418,14 +418,14 @@ impl Application for AppModel {
                         match DriveModel::get_drives().await {
                             Ok(drives) => Some(drives),
                             Err(e) => {
-                                println!("Error: {}", e);
-                                return None;
+                                println!("Error: {e}");
+                                None
                             }
                         }
                     },
                     move |drives| match drives {
-                        None => return Message::None.into(),
-                        Some(drives) => return Message::UpdateNav(drives, None).into(),
+                        None => Message::None.into(),
+                        Some(drives) => Message::UpdateNav(drives, None).into(),
                     },
                 );
             }
@@ -435,14 +435,14 @@ impl Application for AppModel {
                         match DriveModel::get_drives().await {
                             Ok(drives) => Some(drives),
                             Err(e) => {
-                                println!("Error: {}", e);
-                                return None;
+                                println!("Error: {e}");
+                                None
                             }
                         }
                     },
                     move |drives| match drives {
-                        None => return Message::None.into(),
-                        Some(drives) => return Message::UpdateNav(drives, None).into(),
+                        None => Message::None.into(),
+                        Some(drives) => Message::UpdateNav(drives, None).into(),
                     },
                 );
             }
@@ -450,10 +450,10 @@ impl Application for AppModel {
             Message::UpdateNav(drive_models, selected) => {
                 let selected = match selected {
                     Some(s) => Some(s),
-                    None => match self.nav.active_data::<DriveModel>() {
-                        Some(d) => Some(d.block_path.clone()),
-                        None => None,
-                    },
+                    None => self
+                        .nav
+                        .active_data::<DriveModel>()
+                        .map(|d| d.block_path.clone()),
                 };
 
                 self.nav.clear();
@@ -461,7 +461,7 @@ impl Application for AppModel {
                 let selected = match selected {
                     Some(s) => Some(s),
                     None => {
-                        if selected.is_none() && drive_models.len() > 0 {
+                        if selected.is_none() && !drive_models.is_empty() {
                             Some(drive_models.first().unwrap().block_path.clone())
                         } else {
                             None
@@ -517,17 +517,16 @@ impl Application for AppModel {
                             match DriveModel::get_drives().await {
                                 Ok(drives) => Some(drives),
                                 Err(e) => {
-                                    println!("Error: {}", e);
-                                    return None;
+                                    println!("Error: {e}");
+                                    None
                                 }
                             }
                         },
                         move |drives| match drives {
-                            None => return Message::None.into(),
-                            Some(drives) => return Message::UpdateNav(drives, None).into(),
+                            None => Message::None.into(),
+                            Some(drives) => Message::UpdateNav(drives, None).into(),
                         },
                     );
-                } else {
                 }
             }
             Message::PowerOff => todo!(),

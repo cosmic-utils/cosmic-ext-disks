@@ -41,21 +41,21 @@ pub enum CreateMessage {
     Partition(CreatePartitionInfo),
 }
 
-impl Into<VolumesControlMessage> for CreateMessage {
-    fn into(self) -> VolumesControlMessage {
-        VolumesControlMessage::CreateMessage(self)
+impl From<CreateMessage> for VolumesControlMessage {
+    fn from(val: CreateMessage) -> Self {
+        VolumesControlMessage::CreateMessage(val)
     }
 }
 
-impl Into<Message> for CreateMessage {
-    fn into(self) -> Message {
-        Message::VolumesMessage(VolumesControlMessage::CreateMessage(self))
+impl From<CreateMessage> for Message {
+    fn from(val: CreateMessage) -> Self {
+        Message::VolumesMessage(VolumesControlMessage::CreateMessage(val))
     }
 }
 
-impl Into<Message> for VolumesControlMessage {
-    fn into(self) -> Message {
-        Message::VolumesMessage(self)
+impl From<VolumesControlMessage> for Message {
+    fn from(val: VolumesControlMessage) -> Self {
+        Message::VolumesMessage(val)
     }
 }
 
@@ -124,7 +124,7 @@ impl Segment {
 
     pub fn new(partition: &PartitionModel) -> Self {
         let mut name = partition.name.clone();
-        if name.len() < 1 {
+        if name.is_empty() {
             name = fl!("filesystem");
         }
 
@@ -145,7 +145,7 @@ impl Segment {
     }
 
     pub fn get_segments(drive: &DriveModel) -> Vec<Segment> {
-        if drive.partitions.len() == 0 {
+        if drive.partitions.is_empty() {
             return vec![Segment::free_space(0, drive.size)];
         }
 
@@ -234,7 +234,7 @@ impl VolumesControl {
         Self {
             model,
             selected_segment: 0,
-            segments: segments,
+            segments,
         }
     }
 
@@ -252,9 +252,9 @@ impl VolumesControl {
                 }
             }
             VolumesControlMessage::Mount => {
-                let segment = self.segments.get(self.selected_segment.clone()).cloned();
-                match segment.clone() {
-                    Some(s) => match s.partition {
+                let segment = self.segments.get(self.selected_segment).cloned();
+                if let Some(s) = segment.clone() {
+                    match s.partition {
                         Some(p) => {
                             return Task::perform(
                                 async move {
@@ -276,15 +276,14 @@ impl VolumesControl {
                             );
                         }
                         None => return Task::none(),
-                    },
-                    None => {}
+                    }
                 }
                 return Task::none();
             }
             VolumesControlMessage::Unmount => {
-                let segment = self.segments.get(self.selected_segment.clone()).cloned();
-                match segment.clone() {
-                    Some(s) => match s.partition {
+                let segment = self.segments.get(self.selected_segment).cloned();
+                if let Some(s) = segment.clone() {
+                    match s.partition {
                         Some(p) => {
                             return Task::perform(
                                 async move {
@@ -306,13 +305,12 @@ impl VolumesControl {
                             );
                         }
                         None => return Task::none(),
-                    },
-                    None => {}
+                    }
                 }
                 return Task::none();
             }
             VolumesControlMessage::Delete => {
-                let segment = self.segments.get(self.selected_segment.clone()).cloned();
+                let segment = self.segments.get(self.selected_segment).cloned();
                 let task = match segment.clone() {
                     Some(s) => match s.partition {
                         Some(p) => Task::perform(
@@ -451,7 +449,7 @@ impl VolumesControl {
                   None =>widget::button::custom(icon::from_name( "media-playback-start-symbolic")).on_press(VolumesControlMessage::Mount.into()),
               }
             }
-            None =>widget::button::custom(icon::from_name( "list-add-symbolic")).on_press(Message::Dialog(ShowDialog::AddPartition(selected.get_create_info())).into()),
+            None =>widget::button::custom(icon::from_name( "list-add-symbolic")).on_press(Message::Dialog(ShowDialog::AddPartition(selected.get_create_info()))),
         }.into());
 
         //TODO Get better icons
@@ -460,9 +458,9 @@ impl VolumesControl {
             action_bar.push(widget::horizontal_space().into());
             action_bar.push(
                 widget::button::custom(icon::from_name("edit-delete-symbolic"))
-                    .on_press(
-                        Message::Dialog(ShowDialog::DeletePartition(selected.name.clone())).into(),
-                    )
+                    .on_press(Message::Dialog(ShowDialog::DeletePartition(
+                        selected.name.clone(),
+                    )))
                     .into(),
             );
         }
