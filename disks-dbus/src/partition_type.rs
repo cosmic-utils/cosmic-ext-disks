@@ -98,7 +98,7 @@ pub static COMMON_GPT_TYPES: [PartitionTypeInfo; 8] = [
         "c12a7328-f81f-11d2-ba4b-00a0c93ec93b",
         "EFI System",
         PartitionTypeInfoFlags::System,
-        "fat32"
+        "vfat"
     ),
     // Linux filesystem - ext4 is most common
     PartitionTypeInfo::new(
@@ -152,7 +152,7 @@ pub static COMMON_GPT_TYPES: [PartitionTypeInfo; 8] = [
         "ebd0a0a2-b9e5-4433-87c0-68b6b72699c7",
         "Microsoft Basic Data (FAT32)",
         PartitionTypeInfoFlags::None,
-        "fat32"
+        "vfat"
     ),
     // Microsoft Basic Data - exFAT
     PartitionTypeInfo::new(
@@ -201,7 +201,7 @@ pub static COMMON_DOS_TYPES: [PartitionTypeInfo; 6] = [
         "0x0c",
         "FAT32 (LBA)",
         PartitionTypeInfoFlags::None,
-        "fat32"
+        "vfat"
     ),
     // NTFS/exFAT/HPFS - NTFS
     PartitionTypeInfo::new(

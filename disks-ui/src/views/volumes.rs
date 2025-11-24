@@ -380,7 +380,14 @@ impl VolumesControl {
                         }
                         CreateMessage::Continue => todo!(),
                         CreateMessage::Cancel => todo!(),
-                        CreateMessage::Partition(create_partition_info) => {
+                        CreateMessage::Partition(mut create_partition_info) => {
+
+                            //println!("{:?}", create_partition_info);
+
+                            if create_partition_info.name.is_empty()
+                            {
+                                create_partition_info.name = fl!("untitled").to_string();
+                            }
                             let model = self.model.clone();
                             let task = Task::perform(
                                 async move {

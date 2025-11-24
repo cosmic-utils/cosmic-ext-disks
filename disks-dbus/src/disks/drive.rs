@@ -301,8 +301,11 @@ impl DriveModel {
                 .await?;
 
             let mut options = HashMap::new();
-            if !info.erase {
-                options.insert("erase", Value::from("none"));
+            if info.erase {
+                options.insert("erase", Value::from("zero"));
+            }
+            if !info.name.is_empty() {
+                options.insert("label", Value::from(info.name.clone()));
             }
 
             block_proxy.format(partition_info.filesystem_type, options).await?;
