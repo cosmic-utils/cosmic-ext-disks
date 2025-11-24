@@ -146,11 +146,11 @@ impl Application for AppModel {
     }
 
     /// Elements to pack at the start of the header bar.
-    fn header_start(&self) -> Vec<Element<Self::Message>> {
+    fn header_start(&self) -> Vec<Element<'_, Self::Message>> {
         menu_view(&self.core, &self.key_binds)
     }
 
-    fn dialog(&self) -> Option<Element<Self::Message>> {
+    fn dialog(&self) -> Option<Element<'_, Self::Message>> {
         match self.dialog {
             Some(ref d) => match d {
                 ShowDialog::DeletePartition(name) => Some(dialogs::confirmation(
@@ -167,7 +167,7 @@ impl Application for AppModel {
     }
 
     /// Allows overriding the default nav bar widget.
-    fn nav_bar(&self) -> Option<Element<cosmic::Action<Self::Message>>> {
+    fn nav_bar(&self) -> Option<Element<'_, cosmic::Action<Self::Message>>> {
         if !self.core().nav_bar_active() {
             return None;
         }
@@ -197,7 +197,7 @@ impl Application for AppModel {
     }
 
     /// Display a context drawer if the context page is requested.
-    fn context_drawer(&self) -> Option<context_drawer::ContextDrawer<Self::Message>> {
+    fn context_drawer(&self) -> Option<context_drawer::ContextDrawer<'_, Self::Message>> {
         if !self.core.window.show_context {
             return None;
         }
@@ -215,7 +215,7 @@ impl Application for AppModel {
     ///
     /// Application events will be processed through the view. Any messages emitted by
     /// events received by widgets will be passed to the update method.
-    fn view(&self) -> Element<Self::Message> {
+    fn view(&self) -> Element<'_, Self::Message> {
         match self.nav.active_data::<DriveModel>() {
             None => widget::text::title1(fl!("no-disk-selected"))
                 .apply(widget::container)
