@@ -8,8 +8,8 @@ A Disk utility application for the Cosmic Desktop.
 
 ### Prerequisites
 You will need the following packages for partition type support:
- - `ntfs-3g'
- - 'dosfstools`
+ - `ntfs-3g`
+ - `dosfstools`
 
 
 ### What Works
