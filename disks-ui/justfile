@@ -1,4 +1,4 @@
-name := 'cosmos-disks'
+name := 'cosmic-ext-disks'
 appid := 'com.cosmos.Disks'
 
 rootdir := ''

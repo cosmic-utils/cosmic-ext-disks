@@ -1,0 +1,87 @@
+name: Main
+
+on:
+  push:
+    branches: [ main ]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: rustup update
+      - uses: Swatinem/rust-cache@v2
+      - name: install system deps
+        run: sudo apt install libxkbcommon-dev
+      - name: Run tests
+        run: cargo test --workspace --all-features
+      - name: Run clippy
+        run: cargo clippy --workspace --all-features
+      - name: Run rustfmt
+        run: cargo fmt --all --check --verbose
+
+  publish:
+    name: Build and Publish
+    needs: [test]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - run: rustup update
+      - uses: Swatinem/rust-cache@v2
+      - name: install system deps
+        run: sudo apt install libxkbcommon-dev
+
+      - name: Get Next Version
+        id: semver
+        uses: paulhatch/semantic-version@v5.4.0
+        with:
+          tag_prefix: "v"
+          major_pattern: "(MAJOR)"
+          minor_pattern: "(MINOR)"
+          version_format: "${major}.${minor}.${patch}"
+          version_from_branch: false
+
+      - name: Set version
+        run: |
+          VERSION="${{ steps.semver.outputs.version }}"
+          if [ -z "$VERSION" ]; then
+            VERSION="0.0.1"
+          fi
+          echo "Calculated version: $VERSION"
+          
+          # Update disks-dbus version
+          sed -i 's/^version = ".*"/version = "'$VERSION'"/' disks-dbus/Cargo.toml
+          
+          # Update disks-ui version
+          sed -i 's/^version = ".*"/version = "'$VERSION'"/' disks-ui/Cargo.toml
+          
+          # Update workspace dependency in root Cargo.toml
+          # We replace the line defining the dependency to include the version
+          sed -i 's|disks-dbus = { package = "cosmic-ext-disks-dbus", path = "disks-dbus" }|disks-dbus = { package = "cosmic-ext-disks-dbus", path = "disks-dbus", version = "'$VERSION'" }|' Cargo.toml
+
+      - name: Build
+        run: cargo build --workspace --release
+
+      - name: Publish cosmic-ext-disks-dbus
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+        run: |
+           cd disks-dbus
+           cargo publish --allow-dirty --no-verify
+
+      - name: Wait for index update
+        run: sleep 30
+
+      - name: Publish cosmic-ext-disks
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+        run: |
+           cd disks-ui
+           cargo publish --allow-dirty --no-verify

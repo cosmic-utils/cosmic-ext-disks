@@ -6,14 +6,14 @@
   <name>Disks</name>
   <summary>An application for the COSMIC™ desktop</summary>
   <icon type="remote" width="64" height="64" scale="1">
-    https://github.com/stoorps/disks.git/raw/main/resources/icons/hicolor/scalable/apps/icon.svg
+    https://github.com/cosmic-utils/cosmic-ext-disks/raw/main/resources/icons/hicolor/scalable/apps/icon.svg
   </icon>
-  <url type="vcs-browser">https://github.com/stoorps/disks.git</url>
+  <url type="vcs-browser">https://github.com/cosmic-utils/cosmic-ext-disks</url>
   <launchable type="desktop-id">com.cosmic.Disks.desktop</launchable>
   <provides>
     <id>com.cosmic.Disks</id>
     <binaries>
-      <binary>cdisks</binary>
+      <binary>cosmic-ext-disks</binary>
     </binaries>
   </provides>
   <requires>
