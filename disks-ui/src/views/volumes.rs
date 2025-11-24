@@ -11,7 +11,7 @@ use cosmic::{
 
 use crate::{
     app::{Message, ShowDialog},
-    fl, utils::info,
+    fl,
 };
 use disks_dbus::CreatePartitionInfo;
 use disks_dbus::bytes_to_pretty;
@@ -111,7 +111,7 @@ impl Segment {
             is_free_space: true,
             width: 0,
             partition: None,
-            table_type: table_type,
+            table_type,
         }
     }
 
@@ -150,7 +150,11 @@ impl Segment {
 
     pub fn get_segments(drive: &DriveModel) -> Vec<Segment> {
         if drive.partitions.is_empty() {
-            return vec![Segment::free_space(0, drive.size, drive.partition_table_type.clone().unwrap_or("".to_string()))];
+            return vec![Segment::free_space(
+                0,
+                drive.size,
+                drive.partition_table_type.clone().unwrap_or("".to_string()),
+            )];
         }
 
         let mut ordered_partitions = drive.partitions.clone();
@@ -172,7 +176,7 @@ impl Segment {
                 segments.push(Segment::free_space(
                     current_offset,
                     p.offset - current_offset,
-                    drive.partition_table_type.clone().unwrap_or("".to_string())
+                    drive.partition_table_type.clone().unwrap_or("".to_string()),
                 ));
                 current_offset = p.offset;
             }
@@ -186,19 +190,19 @@ impl Segment {
         if current_offset < hidden_trailing_bytes {
             let trailing_size = drive.size.saturating_sub(current_offset);
             if trailing_size > 0 {
-                segments.push(Segment::free_space(current_offset, 
+                segments.push(Segment::free_space(
+                    current_offset,
                     trailing_size,
-                    drive.partition_table_type.clone().unwrap_or("".to_string())));
+                    drive.partition_table_type.clone().unwrap_or("".to_string()),
+                ));
             }
         }
 
         //Figure out Portion value
         segments.iter_mut().for_each(|s| {
             if drive.size > 0 {
-                s.width = (((s.size as f64 / drive.size as f64) * 1000.)
-                    .log10()
-                    .ceil() as u16)
-                    .max(1);
+                s.width =
+                    (((s.size as f64 / drive.size as f64) * 1000.).log10().ceil() as u16).max(1);
             } else {
                 s.width = 1;
             }
@@ -381,11 +385,9 @@ impl VolumesControl {
                         CreateMessage::Continue => todo!(),
                         CreateMessage::Cancel => todo!(),
                         CreateMessage::Partition(mut create_partition_info) => {
-
                             //println!("{:?}", create_partition_info);
 
-                            if create_partition_info.name.is_empty()
-                            {
+                            if create_partition_info.name.is_empty() {
                                 create_partition_info.name = fl!("untitled").to_string();
                             }
                             let model = self.model.clone();

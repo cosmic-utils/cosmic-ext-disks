@@ -65,8 +65,6 @@ impl PartitionModel {
             _ => partition_proxy.type_().await?,
         };
 
-
-
         Ok(Self {
             is_contained: partition_proxy.is_contained().await?,
             is_container: partition_proxy.is_container().await?,
