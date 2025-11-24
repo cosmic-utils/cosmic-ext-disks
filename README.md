@@ -16,7 +16,7 @@ You will need the following packages for partition type support:
  * Read disk info (Slight issues with offset)
  * Delete partition 
  * Create Partition 
-    * GPT paritition scheme only currently
+    * GPT partition scheme only currently
     * EXT4, vFAT, extFAT & NTFS tested so far
     * Issue with sizing... 2.1MB is left unused currently.
 
