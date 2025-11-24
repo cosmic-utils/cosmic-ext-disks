@@ -85,3 +85,12 @@ jobs:
         run: |
            cd disks-ui
            cargo publish --allow-dirty --no-verify
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: v${{ steps.semver.outputs.version }}
+          name: v${{ steps.semver.outputs.version }}
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
