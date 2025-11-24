@@ -38,9 +38,11 @@ pub struct PartitionTypeInfo {
     /// A partition type
     pub ty: &'static str,
     /// Name of the partition
-    pub(crate) name: &'static str,
+    pub name: &'static str,
     /// Flags describing the partition type
     pub flags: PartitionTypeInfoFlags,
+    /// Default filesystem type for this partition type
+    pub filesystem_type: &'static str,
 }
 
 impl PartitionTypeInfo {
@@ -50,6 +52,7 @@ impl PartitionTypeInfo {
         ty: &'static str,
         name: &'static str,
         flags: PartitionTypeInfoFlags,
+        filesystem_type: &'static str,
     ) -> Self {
         //TODO: wrap name with gettext call
         Self {
@@ -58,6 +61,7 @@ impl PartitionTypeInfo {
             ty,
             name,
             flags,
+            filesystem_type,
         }
     }
 
@@ -69,169 +73,150 @@ impl PartitionTypeInfo {
     }
 }
 
-pub static PARTITION_NAMES: LazyLock<Vec<String>> = LazyLock::new(|| {
-    PARTITION_TYPES
-        .iter()
-        .map(|p| format!("{} - {}", p.name, p.ty))
-        .collect()
-});
+pub fn get_valid_partition_names(table_type: String) -> Vec<String> {
+    match table_type.as_str() {
+        "gpt" => COMMON_GPT_TYPES
+            .iter()
+            .map(|p| format!("{} - {}", p.name, p.ty))
+            .collect(),
+        "dos" => COMMON_DOS_TYPES
+            .iter()
+            .map(|p| format!("{} - {}", p.name, p.ty))
+            .collect(),
+        _ => vec![],
+    }
+}
 
-pub static COMMON_PARTITION_NAMES: LazyLock<Vec<String>> = LazyLock::new(|| {
-    COMMON_PARTITION_TYPES
-        .iter()
-        .map(|p| format!("{} - {}", p.name, p.ty))
-        .collect()
-});
-
-pub static COMMON_PARTITION_TYPES: [PartitionTypeInfo; 20] = [
-    // System/Boot partitions
+pub static COMMON_GPT_TYPES: [PartitionTypeInfo; 8] = [
+    // EFI System Partition - typically FAT32
     PartitionTypeInfo::new(
         "gpt",
         "generic",
         "c12a7328-f81f-11d2-ba4b-00a0c93ec93b",
         "EFI System",
         PartitionTypeInfoFlags::System,
+        "vfat",
     ),
-    PartitionTypeInfo::new(
-        "gpt",
-        "generic",
-        "21686148-6449-6e6f-744e-656564454649",
-        "BIOS Boot",
-        PartitionTypeInfoFlags::System,
-    ),
-    // Common Linux partitions
+    // Linux filesystem - ext4 is most common
     PartitionTypeInfo::new(
         "gpt",
         "linux",
-        "4f68bce3-e8cd-4db1-96e7-fbcaf984b709",
-        "Linux Root Partition (x86_64)",
+        "0fc63daf-8483-4772-8e79-3d69d8477de4",
+        "Linux Filesystem (ext4)",
         PartitionTypeInfoFlags::None,
+        "ext4",
     ),
+    // Linux filesystem - ext3
+    PartitionTypeInfo::new(
+        "gpt",
+        "linux",
+        "0fc63daf-8483-4772-8e79-3d69d8477de4",
+        "Linux Filesystem (ext3)",
+        PartitionTypeInfoFlags::None,
+        "ext3",
+    ),
+    // Linux filesystem - xfs
+    PartitionTypeInfo::new(
+        "gpt",
+        "linux",
+        "0fc63daf-8483-4772-8e79-3d69d8477de4",
+        "Linux Filesystem (XFS)",
+        PartitionTypeInfoFlags::None,
+        "xfs",
+    ),
+    // Linux swap
     PartitionTypeInfo::new(
         "gpt",
         "linux",
         "0657fd6d-a4ab-43c4-84e5-0933c84b4f4f",
         "Linux Swap",
         PartitionTypeInfoFlags::Swap,
+        "swap",
     ),
-    PartitionTypeInfo::new(
-        "gpt",
-        "linux",
-        "0fc63daf-8483-4772-8e79-3d69d8477de4",
-        "Linux Filesystem",
-        PartitionTypeInfoFlags::None,
-    ),
-    PartitionTypeInfo::new(
-        "gpt",
-        "linux",
-        "e6d6d379-f507-44c2-a23c-238f2a3df928",
-        "Linux LVM",
-        PartitionTypeInfoFlags::Raid,
-    ),
-    // Microsoft partitions
+    // Microsoft Basic Data - NTFS
     PartitionTypeInfo::new(
         "gpt",
         "microsoft",
         "ebd0a0a2-b9e5-4433-87c0-68b6b72699c7",
-        "Basic Data",
+        "Microsoft Basic Data (NTFS)",
         PartitionTypeInfoFlags::None,
+        "ntfs",
     ),
-    // DOS/MBR partition types
+    // Microsoft Basic Data - FAT32
     PartitionTypeInfo::new(
-        "dos",
-        "generic",
-        "0x05",
-        "Extended",
-        PartitionTypeInfoFlags::CreateOnly,
+        "gpt",
+        "microsoft",
+        "ebd0a0a2-b9e5-4433-87c0-68b6b72699c7",
+        "Microsoft Basic Data (FAT32)",
+        PartitionTypeInfoFlags::None,
+        "vfat",
     ),
+    // Microsoft Basic Data - exFAT
     PartitionTypeInfo::new(
-        "dos",
-        "generic",
-        "0xee",
-        "EFI GPT",
-        PartitionTypeInfoFlags::System,
+        "gpt",
+        "microsoft",
+        "ebd0a0a2-b9e5-4433-87c0-68b6b72699c7",
+        "Microsoft Basic Data (exFAT)",
+        PartitionTypeInfoFlags::None,
+        "exfat",
     ),
-    PartitionTypeInfo::new(
-        "dos",
-        "linux",
-        "0x82",
-        "Linux swap",
-        PartitionTypeInfoFlags::Swap,
-    ),
+];
+
+// DOS/MBR partition types with common filesystem types
+pub static COMMON_DOS_TYPES: [PartitionTypeInfo; 6] = [
+    // Linux filesystem - ext4
     PartitionTypeInfo::new(
         "dos",
         "linux",
         "0x83",
-        "Linux",
+        "Linux (ext4)",
         PartitionTypeInfoFlags::None,
+        "ext4",
     ),
+    // Linux filesystem - ext3
     PartitionTypeInfo::new(
         "dos",
         "linux",
-        "0x8e",
-        "Linux LVM",
-        PartitionTypeInfoFlags::Raid,
+        "0x83",
+        "Linux (ext3)",
+        PartitionTypeInfoFlags::None,
+        "ext3",
     ),
+    // Linux swap
     PartitionTypeInfo::new(
         "dos",
-        "microsoft",
-        "0x07",
-        "NTFS/exFAT/HPFS",
-        PartitionTypeInfoFlags::None,
+        "linux",
+        "0x82",
+        "Linux Swap",
+        PartitionTypeInfoFlags::Swap,
+        "swap",
     ),
+    // FAT32 (LBA)
     PartitionTypeInfo::new(
         "dos",
         "microsoft",
         "0x0c",
         "FAT32 (LBA)",
         PartitionTypeInfoFlags::None,
+        "vfat",
     ),
-    // Apple partitions
+    // NTFS/exFAT/HPFS - NTFS
     PartitionTypeInfo::new(
-        "gpt",
-        "apple",
-        "48465300-0000-11aa-aa11-00306543ecac",
-        "Apple HFS+",
+        "dos",
+        "microsoft",
+        "0x07",
+        "NTFS",
         PartitionTypeInfoFlags::None,
+        "ntfs",
     ),
+    // NTFS/exFAT/HPFS - exFAT
     PartitionTypeInfo::new(
-        "gpt",
-        "apple",
-        "7c3457ef-0000-11aa-aa11-00306543ecac",
-        "Apple APFS",
+        "dos",
+        "microsoft",
+        "0x07",
+        "exFAT",
         PartitionTypeInfoFlags::None,
-    ),
-    // Recovery/Diagnostic partitions
-    PartitionTypeInfo::new(
-        "gpt",
-        "generic",
-        "bc13c2ff-59e6-4262-a352-b275fd6f7172",
-        "Extended Boot",
-        PartitionTypeInfoFlags::None,
-    ),
-    // ZFS
-    PartitionTypeInfo::new(
-        "gpt",
-        "generic",
-        "6a898cc3-1dd2-11b2-99a6-080020736631",
-        "ZFS",
-        PartitionTypeInfoFlags::None,
-    ),
-    // FreeBSD
-    PartitionTypeInfo::new(
-        "gpt",
-        "other",
-        "516e7cb4-6ecf-11d6-8ff8-00022d09712b",
-        "FreeBSD Data",
-        PartitionTypeInfoFlags::None,
-    ),
-    // ChromeOS
-    PartitionTypeInfo::new(
-        "gpt",
-        "other",
-        "3cb8e202-3b7e-47dd-8a3c-7ff2a13cfcec",
-        "ChromeOS Root Filesystem",
-        PartitionTypeInfoFlags::None,
+        "exfat",
     ),
 ];
 
@@ -245,6 +230,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "024dee41-33e7-11d3-9d69-0008c781f39f",
         "MBR Partition Scheme",
         PartitionTypeInfoFlags::System,
+        "",
     ),
     PartitionTypeInfo::new(
         "gpt",
@@ -252,6 +238,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "c12a7328-f81f-11d2-ba4b-00a0c93ec93b",
         "EFI System",
         PartitionTypeInfoFlags::System,
+        "",
     ),
     PartitionTypeInfo::new(
         "gpt",
@@ -259,6 +246,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "21686148-6449-6e6f-744e-656564454649",
         "BIOS Boot",
         PartitionTypeInfoFlags::System,
+        "",
     ),
     // This is also defined in the Apple and Solaris section
     PartitionTypeInfo::new(
@@ -267,6 +255,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "6a898cc3-1dd2-11b2-99a6-080020736631",
         "ZFS",
         PartitionTypeInfoFlags::None,
+        "",
     ),
     // Extended Boot Partition, see http://www.freedesktop.org/wiki/Specifications/BootLoaderSpec/
     PartitionTypeInfo::new(
@@ -275,6 +264,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "bc13c2ff-59e6-4262-a352-b275fd6f7172",
         "Extended Boot Partition",
         PartitionTypeInfoFlags::None,
+        "",
     ),
     // Discoverable Linux Partitions, see http://systemd.io/DISCOVERABLE_PARTITIONS/
     PartitionTypeInfo::new(
@@ -283,6 +273,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "6523f8ae-3eb1-4e2a-a05a-18b695ae656f",
         "Linux Root Partition (Alpha)",
         PartitionTypeInfoFlags::None,
+        "",
     ),
     PartitionTypeInfo::new(
         "gpt",
@@ -290,6 +281,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "d27f46ed-2919-4cb8-bd25-9531f3c16534",
         "Linux Root Partition (ARC)",
         PartitionTypeInfoFlags::None,
+        "",
     ),
     PartitionTypeInfo::new(
         "gpt",
@@ -297,6 +289,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "69dad710-2ce4-4e3c-b16c-21a1d49abed3",
         "Linux Root Partition (32-bit ARM)",
         PartitionTypeInfoFlags::None,
+        "",
     ),
     PartitionTypeInfo::new(
         "gpt",
@@ -304,6 +297,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "b921b045-1df0-41c3-af44-4c6f280d3fae",
         "Linux Root Partition (64-bit ARM/AArch64)",
         PartitionTypeInfoFlags::None,
+        "",
     ),
     PartitionTypeInfo::new(
         "gpt",
@@ -311,6 +305,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "993d8d3d-f80e-4225-855a-9daf8ed7ea97",
         "Linux Root Partition (Itanium/IA-64)",
         PartitionTypeInfoFlags::None,
+        "",
     ),
     PartitionTypeInfo::new(
         "gpt",
@@ -318,6 +313,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "77055800-792c-4f94-b39a-98c91b762bb6",
         "Linux Root Partition (LoongArch 64-bit)",
         PartitionTypeInfoFlags::None,
+        "",
     ),
     PartitionTypeInfo::new(
         "gpt",
@@ -325,6 +321,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "37c58c8a-d913-4156-a25f-48b1b64e07f0",
         "Linux Root Partition (32-bit MIPS LittleEndian/mipsel)",
         PartitionTypeInfoFlags::None,
+        "",
     ),
     PartitionTypeInfo::new(
         "gpt",
@@ -332,6 +329,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "700bda43-7a34-4507-b179-eeb93d7a7ca3",
         "Linux Root Partition (64-bit MIPS LittleEndian/mips64el)",
         PartitionTypeInfoFlags::None,
+        "",
     ),
     PartitionTypeInfo::new(
         "gpt",
@@ -339,6 +337,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "1aacdb3b-5444-4138-bd9e-e5c2239b2346",
         "Linux Root Partition (HPPA/PARISC)",
         PartitionTypeInfoFlags::None,
+        "",
     ),
     PartitionTypeInfo::new(
         "gpt",
@@ -346,6 +345,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "1de3f1ef-fa98-47b5-8dcd-4a860a654d78",
         "Linux Root Partition (32-bit PowerPC)",
         PartitionTypeInfoFlags::None,
+        "",
     ),
     PartitionTypeInfo::new(
         "gpt",
@@ -353,6 +353,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "912ade1d-a839-4913-8964-a10eee08fbd2",
         "Linux Root Partition (64-bit PowerPC BigEndian)",
         PartitionTypeInfoFlags::None,
+        "",
     ),
     PartitionTypeInfo::new(
         "gpt",
@@ -360,6 +361,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "c31c45e6-3f39-412e-80fb-4809c4980599",
         "Linux Root Partition (64-bit PowerPC LittleEndian)",
         PartitionTypeInfoFlags::None,
+        "",
     ),
     PartitionTypeInfo::new(
         "gpt",
@@ -367,6 +369,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "60d5a7fe-8e7d-435c-b714-3dd8162144e1",
         "Linux Root Partition (RISC-V 32-bit)",
         PartitionTypeInfoFlags::None,
+        "",
     ),
     PartitionTypeInfo::new(
         "gpt",
@@ -374,6 +377,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "72ec70a6-cf74-40e6-bd49-4bda08e8f224",
         "Linux Root Partition (RISC-V 64-bit)",
         PartitionTypeInfoFlags::None,
+        "",
     ),
     PartitionTypeInfo::new(
         "gpt",
@@ -381,6 +385,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "08a7acea-624c-4a20-91e8-6e0fa67d23f9",
         "Linux Root Partition (s390)",
         PartitionTypeInfoFlags::None,
+        "",
     ),
     PartitionTypeInfo::new(
         "gpt",
@@ -388,6 +393,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "5eead9a9-fe09-4a1e-a1d7-520d00531306",
         "Linux Root Partition (s390x)",
         PartitionTypeInfoFlags::None,
+        "",
     ),
     PartitionTypeInfo::new(
         "gpt",
@@ -395,6 +401,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "c50cdd70-3862-4cc3-90e1-809a8c93ee2c",
         "Linux Root Partition (TILE-Gx)",
         PartitionTypeInfoFlags::None,
+        "",
     ),
     PartitionTypeInfo::new(
         "gpt",
@@ -402,6 +409,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "44479540-f297-41b2-9af7-d131d5f0458a",
         "Linux Root Partition (x86)",
         PartitionTypeInfoFlags::None,
+        "",
     ),
     PartitionTypeInfo::new(
         "gpt",
@@ -409,6 +417,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "4f68bce3-e8cd-4db1-96e7-fbcaf984b709",
         "Linux Root Partition (amd64/x86_64)",
         PartitionTypeInfoFlags::None,
+        "",
     ),
     PartitionTypeInfo::new(
         "gpt",
@@ -416,6 +425,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "e18cf08c-33ec-4c0d-8246-c6c6fb3da024",
         "Linux /usr/ Partition (Alpha)",
         PartitionTypeInfoFlags::None,
+        "",
     ),
     PartitionTypeInfo::new(
         "gpt",
@@ -423,6 +433,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "7978a683-6316-4922-bbee-38bff5a2fecc",
         "Linux /usr/ Partition (ARC)",
         PartitionTypeInfoFlags::None,
+        "",
     ),
     PartitionTypeInfo::new(
         "gpt",
@@ -430,6 +441,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "7d0359a3-02b3-4f0a-865c-654403e70625",
         "Linux /usr/ Partition (32-bit ARM)",
         PartitionTypeInfoFlags::None,
+        "",
     ),
     PartitionTypeInfo::new(
         "gpt",
@@ -437,6 +449,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "b0e01050-ee5f-4390-949a-9101b17104e9",
         "Linux /usr/ Partition (64-bit ARM/AArch64)",
         PartitionTypeInfoFlags::None,
+        "",
     ),
     PartitionTypeInfo::new(
         "gpt",
@@ -444,6 +457,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "4301d2a6-4e3b-4b2a-bb94-9e0b2c4225ea",
         "Linux /usr/ Partition (Itanium/IA-64)",
         PartitionTypeInfoFlags::None,
+        "",
     ),
     PartitionTypeInfo::new(
         "gpt",
@@ -451,6 +465,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "e611c702-575c-4cbe-9a46-434fa0bf7e3f",
         "Linux /usr/ Partition (LoongArch 64-bit)",
         PartitionTypeInfoFlags::None,
+        "",
     ),
     PartitionTypeInfo::new(
         "gpt",
@@ -458,6 +473,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "0f4868e9-9952-4706-979f-3ed3a473e947",
         "Linux /usr/ Partition (32-bit MIPS LittleEndian/mipsel)",
         PartitionTypeInfoFlags::None,
+        "",
     ),
     PartitionTypeInfo::new(
         "gpt",
@@ -465,6 +481,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "c97c1f32-ba06-40b4-9f22-236061b08aa8",
         "Linux /usr/ Partition (64-bit MIPS LittleEndian/mips64el)",
         PartitionTypeInfoFlags::None,
+        "",
     ),
     PartitionTypeInfo::new(
         "gpt",
@@ -472,6 +489,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "dc4a4480-6917-4262-a4ec-db9384949f25",
         "Linux /usr/ Partition (HPPA/PARISC)",
         PartitionTypeInfoFlags::None,
+        "",
     ),
     PartitionTypeInfo::new(
         "gpt",
@@ -479,6 +497,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "7d14fec5-cc71-415d-9d6c-06bf0b3c3eaf",
         "Linux /usr/ Partition (32-bit PowerPC)",
         PartitionTypeInfoFlags::None,
+        "",
     ),
     PartitionTypeInfo::new(
         "gpt",
@@ -486,6 +505,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "2c9739e2-f068-46b3-9fd0-01c5a9afbcca",
         "Linux /usr/ Partition (64-bit PowerPC BigEndian)",
         PartitionTypeInfoFlags::None,
+        "",
     ),
     PartitionTypeInfo::new(
         "gpt",
@@ -493,6 +513,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "15bb03af-77e7-4d4a-b12b-c0d084f7491c",
         "Linux /usr/ Partition (64-bit PowerPC LittleEndian)",
         PartitionTypeInfoFlags::None,
+        "",
     ),
     PartitionTypeInfo::new(
         "gpt",
@@ -500,6 +521,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "b933fb22-5c3f-4f91-af90-e2bb0fa50702",
         "Linux /usr/ Partition (RISC-V 32-bit)",
         PartitionTypeInfoFlags::None,
+        "",
     ),
     PartitionTypeInfo::new(
         "gpt",
@@ -507,6 +529,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "beaec34b-8442-439b-a40b-984381ed097d",
         "Linux /usr/ Partition (RISC-V 64-bit)",
         PartitionTypeInfoFlags::None,
+        "",
     ),
     PartitionTypeInfo::new(
         "gpt",
@@ -514,6 +537,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "cd0f869b-d0fb-4ca0-b141-9ea87cc78d66",
         "Linux /usr/ Partition (s390)",
         PartitionTypeInfoFlags::None,
+        "",
     ),
     PartitionTypeInfo::new(
         "gpt",
@@ -521,6 +545,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "8a4f5770-50aa-4ed3-874a-99b710db6fea",
         "Linux /usr/ Partition (s390x)",
         PartitionTypeInfoFlags::None,
+        "",
     ),
     PartitionTypeInfo::new(
         "gpt",
@@ -528,6 +553,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "55497029-c7c1-44cc-aa39-815ed1558630",
         "Linux /usr/ Partition (TILE-Gx)",
         PartitionTypeInfoFlags::None,
+        "",
     ),
     PartitionTypeInfo::new(
         "gpt",
@@ -535,6 +561,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "75250d76-8cc6-458e-bd66-bd47cc81a812",
         "Linux /usr/ Partition (x86)",
         PartitionTypeInfoFlags::None,
+        "",
     ),
     PartitionTypeInfo::new(
         "gpt",
@@ -542,6 +569,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "8484680c-9521-48c6-9c11-b0720656f69e",
         "Linux /usr/ Partition (amd64/x86_64)",
         PartitionTypeInfoFlags::None,
+        "",
     ),
     PartitionTypeInfo::new(
         "gpt",
@@ -549,6 +577,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "fc56d9e9-e6e5-4c06-be32-e74407ce09a5",
         "Linux Root Verity Partition (Alpha)",
         PartitionTypeInfoFlags::None,
+        "",
     ),
     PartitionTypeInfo::new(
         "gpt",
@@ -556,6 +585,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "24b2d975-0f97-4521-afa1-cd531e421b8d",
         "Linux Root Verity Partition (ARC)",
         PartitionTypeInfoFlags::None,
+        "",
     ),
     PartitionTypeInfo::new(
         "gpt",
@@ -563,6 +593,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "7386cdf2-203c-47a9-a498-f2ecce45a2d6",
         "Linux Root Verity Partition (32-bit ARM)",
         PartitionTypeInfoFlags::None,
+        "",
     ),
     PartitionTypeInfo::new(
         "gpt",
@@ -570,6 +601,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "df3300ce-d69f-4c92-978c-9bfb0f38d820",
         "Linux Root Verity Partition (64-bit ARM/AArch64)",
         PartitionTypeInfoFlags::None,
+        "",
     ),
     PartitionTypeInfo::new(
         "gpt",
@@ -577,6 +609,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "86ed10d5-b607-45bb-8957-d350f23d0571",
         "Linux Root Verity Partition (Itanium/IA-64)",
         PartitionTypeInfoFlags::None,
+        "",
     ),
     PartitionTypeInfo::new(
         "gpt",
@@ -584,6 +617,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "f3393b22-e9af-4613-a948-9d3bfbd0c535",
         "Linux Root Verity Partition (LoongArch 64-bit)",
         PartitionTypeInfoFlags::None,
+        "",
     ),
     PartitionTypeInfo::new(
         "gpt",
@@ -591,6 +625,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "d7d150d2-2a04-4a33-8f12-16651205ff7b",
         "Linux Root Verity Partition (32-bit MIPS LittleEndian/mipsel)",
         PartitionTypeInfoFlags::None,
+        "",
     ),
     PartitionTypeInfo::new(
         "gpt",
@@ -598,6 +633,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "16b417f8-3e06-4f57-8dd2-9b5232f41aa6",
         "Linux Root Verity Partition (64-bit MIPS LittleEndian/mips64el)",
         PartitionTypeInfoFlags::None,
+        "",
     ),
     PartitionTypeInfo::new(
         "gpt",
@@ -605,6 +641,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "d212a430-fbc5-49f9-a983-a7feef2b8d0e",
         "Linux Root Verity Partition (HPPA/PARISC)",
         PartitionTypeInfoFlags::None,
+        "",
     ),
     PartitionTypeInfo::new(
         "gpt",
@@ -612,6 +649,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "906bd944-4589-4aae-a4e4-dd983917446a",
         "Linux Root Verity Partition (64-bit PowerPC LittleEndian)",
         PartitionTypeInfoFlags::None,
+        "",
     ),
     PartitionTypeInfo::new(
         "gpt",
@@ -619,6 +657,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "9225a9a3-3c19-4d89-b4f6-eeff88f17631",
         "Linux Root Verity Partition (64-bit PowerPC BigEndian)",
         PartitionTypeInfoFlags::None,
+        "",
     ),
     PartitionTypeInfo::new(
         "gpt",
@@ -626,6 +665,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "98cfe649-1588-46dc-b2f0-add147424925",
         "Linux Root Verity Partition (32-bit PowerPC)",
         PartitionTypeInfoFlags::None,
+        "",
     ),
     PartitionTypeInfo::new(
         "gpt",
@@ -633,6 +673,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "ae0253be-1167-4007-ac68-43926c14c5de",
         "Linux Root Verity Partition (RISC-V 32-bit)",
         PartitionTypeInfoFlags::None,
+        "",
     ),
     PartitionTypeInfo::new(
         "gpt",
@@ -640,6 +681,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "b6ed5582-440b-4209-b8da-5ff7c419ea3d",
         "Linux Root Verity Partition (RISC-V 64-bit)",
         PartitionTypeInfoFlags::None,
+        "",
     ),
     PartitionTypeInfo::new(
         "gpt",
@@ -647,6 +689,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "7ac63b47-b25c-463b-8df8-b4a94e6c90e1",
         "Linux Root Verity Partition (s390)",
         PartitionTypeInfoFlags::None,
+        "",
     ),
     PartitionTypeInfo::new(
         "gpt",
@@ -654,6 +697,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "b325bfbe-c7be-4ab8-8357-139e652d2f6b",
         "Linux Root Verity Partition (s390x)",
         PartitionTypeInfoFlags::None,
+        "",
     ),
     PartitionTypeInfo::new(
         "gpt",
@@ -661,6 +705,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "966061ec-28e4-4b2e-b4a5-1f0a825a1d84",
         "Linux Root Verity Partition (TILE-Gx)",
         PartitionTypeInfoFlags::None,
+        "",
     ),
     PartitionTypeInfo::new(
         "gpt",
@@ -668,6 +713,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "2c7357ed-ebd2-46d9-aec1-23d437ec2bf5",
         "Linux Root Verity Partition (amd64/x86_64)",
         PartitionTypeInfoFlags::None,
+        "",
     ),
     PartitionTypeInfo::new(
         "gpt",
@@ -675,6 +721,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "d13c5d3b-b5d1-422a-b29f-9454fdc89d76",
         "Linux Root Verity Partition (x86)",
         PartitionTypeInfoFlags::None,
+        "",
     ),
     PartitionTypeInfo::new(
         "gpt",
@@ -682,6 +729,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "8cce0d25-c0d0-4a44-bd87-46331bf1df67",
         "Linux /usr/ Verity Partition (Alpha)",
         PartitionTypeInfoFlags::None,
+        "",
     ),
     PartitionTypeInfo::new(
         "gpt",
@@ -689,6 +737,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "fca0598c-d880-4591-8c16-4eda05c7347c",
         "Linux /usr/ Verity Partition (ARC)",
         PartitionTypeInfoFlags::None,
+        "",
     ),
     PartitionTypeInfo::new(
         "gpt",
@@ -696,6 +745,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "c215d751-7bcd-4649-be90-6627490a4c05",
         "Linux /usr/ Verity Partition (32-bit ARM)",
         PartitionTypeInfoFlags::None,
+        "",
     ),
     PartitionTypeInfo::new(
         "gpt",
@@ -703,6 +753,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "6e11a4e7-fbca-4ded-b9e9-e1a512bb664e",
         "Linux /usr/ Verity Partition (64-bit ARM/AArch64)",
         PartitionTypeInfoFlags::None,
+        "",
     ),
     PartitionTypeInfo::new(
         "gpt",
@@ -710,6 +761,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "6a491e03-3be7-4545-8e38-83320e0ea880",
         "Linux /usr/ Verity Partition (Itanium/IA-64)",
         PartitionTypeInfoFlags::None,
+        "",
     ),
     PartitionTypeInfo::new(
         "gpt",
@@ -717,6 +769,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "f46b2c26-59ae-48f0-9106-c50ed47f673d",
         "Linux /usr/ Verity Partition (LoongArch 64-bit)",
         PartitionTypeInfoFlags::None,
+        "",
     ),
     PartitionTypeInfo::new(
         "gpt",
@@ -724,6 +777,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "46b98d8d-b55c-4e8f-aab3-37fca7f80752",
         "Linux /usr/ Verity Partition (32-bit MIPS LittleEndian/mipsel)",
         PartitionTypeInfoFlags::None,
+        "",
     ),
     PartitionTypeInfo::new(
         "gpt",
@@ -731,6 +785,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "3c3d61fe-b5f3-414d-bb71-8739a694a4ef",
         "Linux /usr/ Verity Partition (64-bit MIPS LittleEndian/mips64el)",
         PartitionTypeInfoFlags::None,
+        "",
     ),
     PartitionTypeInfo::new(
         "gpt",
@@ -738,6 +793,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "5843d618-ec37-48d7-9f12-cea8e08768b2",
         "Linux /usr/ Verity Partition (HPPA/PARISC)",
         PartitionTypeInfoFlags::None,
+        "",
     ),
     PartitionTypeInfo::new(
         "gpt",
@@ -745,6 +801,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "ee2b9983-21e8-4153-86d9-b6901a54d1ce",
         "Linux /usr/ Verity Partition (64-bit PowerPC LittleEndian)",
         PartitionTypeInfoFlags::None,
+        "",
     ),
     PartitionTypeInfo::new(
         "gpt",
@@ -752,6 +809,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "bdb528a5-a259-475f-a87d-da53fa736a07",
         "Linux /usr/ Verity Partition (64-bit PowerPC BigEndian)",
         PartitionTypeInfoFlags::None,
+        "",
     ),
     PartitionTypeInfo::new(
         "gpt",
@@ -759,6 +817,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "df765d00-270e-49e5-bc75-f47bb2118b09",
         "Linux /usr/ Verity Partition (32-bit PowerPC)",
         PartitionTypeInfoFlags::None,
+        "",
     ),
     PartitionTypeInfo::new(
         "gpt",
@@ -766,6 +825,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "cb1ee4e3-8cd0-4136-a0a4-aa61a32e8730",
         "Linux /usr/ Verity Partition (RISC-V 32-bit)",
         PartitionTypeInfoFlags::None,
+        "",
     ),
     PartitionTypeInfo::new(
         "gpt",
@@ -773,6 +833,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "8f1056be-9b05-47c4-81d6-be53128e5b54",
         "Linux /usr/ Verity Partition (RISC-V 64-bit)",
         PartitionTypeInfoFlags::None,
+        "",
     ),
     PartitionTypeInfo::new(
         "gpt",
@@ -780,6 +841,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "b663c618-e7bc-4d6d-90aa-11b756bb1797",
         "Linux /usr/ Verity Partition (s390)",
         PartitionTypeInfoFlags::None,
+        "",
     ),
     PartitionTypeInfo::new(
         "gpt",
@@ -787,6 +849,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "31741cc4-1a2a-4111-a581-e00b447d2d06",
         "Linux /usr/ Verity Partition (s390x)",
         PartitionTypeInfoFlags::None,
+        "",
     ),
     PartitionTypeInfo::new(
         "gpt",
@@ -794,6 +857,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "2fb4bf56-07fa-42da-8132-6b139f2026ae",
         "Linux /usr/ Verity Partition (TILE-Gx)",
         PartitionTypeInfoFlags::None,
+        "",
     ),
     PartitionTypeInfo::new(
         "gpt",
@@ -801,6 +865,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "77ff5f63-e7b6-4633-acf4-1565b864c0e6",
         "Linux /usr/ Verity Partition (amd64/x86_64)",
         PartitionTypeInfoFlags::None,
+        "",
     ),
     PartitionTypeInfo::new(
         "gpt",
@@ -808,6 +873,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "8f461b0d-14ee-4e81-9aa9-049b6fb97abd",
         "Linux /usr/ Verity Partition (x86)",
         PartitionTypeInfoFlags::None,
+        "",
     ),
     PartitionTypeInfo::new(
         "gpt",
@@ -815,6 +881,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "d46495b7-a053-414f-80f7-700c99921ef8",
         "Linux Root Verity Signature Partition (Alpha)",
         PartitionTypeInfoFlags::None,
+        "",
     ),
     PartitionTypeInfo::new(
         "gpt",
@@ -822,6 +889,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "143a70ba-cbd3-4f06-919f-6c05683a78bc",
         "Linux Root Verity Signature Partition (ARC)",
         PartitionTypeInfoFlags::None,
+        "",
     ),
     PartitionTypeInfo::new(
         "gpt",
@@ -829,6 +897,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "42b0455f-eb11-491d-98d3-56145ba9d037",
         "Linux Root Verity Signature Partition (32-bit ARM)",
         PartitionTypeInfoFlags::None,
+        "",
     ),
     PartitionTypeInfo::new(
         "gpt",
@@ -836,6 +905,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "6db69de6-29f4-4758-a7a5-962190f00ce3",
         "Linux Root Verity Signature Partition (64-bit ARM/AArch64)",
         PartitionTypeInfoFlags::None,
+        "",
     ),
     PartitionTypeInfo::new(
         "gpt",
@@ -843,6 +913,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "e98b36ee-32ba-4882-9b12-0ce14655f46a",
         "Linux Root Verity Signature Partition (Itanium/IA-64)",
         PartitionTypeInfoFlags::None,
+        "",
     ),
     PartitionTypeInfo::new(
         "gpt",
@@ -850,6 +921,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "5afb67eb-ecc8-4f85-ae8e-ac1e7c50e7d0",
         "Linux Root Verity Signature Partition (LoongArch 64-bit)",
         PartitionTypeInfoFlags::None,
+        "",
     ),
     PartitionTypeInfo::new(
         "gpt",
@@ -857,6 +929,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "c919cc1f-4456-4eff-918c-f75e94525ca5",
         "Linux Root Verity Signature Partition (32-bit MIPS LittleEndian/mipsel)",
         PartitionTypeInfoFlags::None,
+        "",
     ),
     PartitionTypeInfo::new(
         "gpt",
@@ -864,6 +937,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "904e58ef-5c65-4a31-9c57-6af5fc7c5de7",
         "Linux Root Verity Signature Partition (64-bit MIPS LittleEndian/mips64el)",
         PartitionTypeInfoFlags::None,
+        "",
     ),
     PartitionTypeInfo::new(
         "gpt",
@@ -871,6 +945,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "15de6170-65d3-431c-916e-b0dcd8393f25",
         "Linux Root Verity Signature Partition (HPPA/PARISC)",
         PartitionTypeInfoFlags::None,
+        "",
     ),
     PartitionTypeInfo::new(
         "gpt",
@@ -878,6 +953,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "d4a236e7-e873-4c07-bf1d-bf6cf7f1c3c6",
         "Linux Root Verity Signature Partition (64-bit PowerPC LittleEndian)",
         PartitionTypeInfoFlags::None,
+        "",
     ),
     PartitionTypeInfo::new(
         "gpt",
@@ -885,6 +961,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "f5e2c20c-45b2-4ffa-bce9-2a60737e1aaf",
         "Linux Root Verity Signature Partition (64-bit PowerPC BigEndian)",
         PartitionTypeInfoFlags::None,
+        "",
     ),
     PartitionTypeInfo::new(
         "gpt",
@@ -892,6 +969,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "1b31b5aa-add9-463a-b2ed-bd467fc857e7",
         "Linux Root Verity Signature Partition (32-bit PowerPC)",
         PartitionTypeInfoFlags::None,
+        "",
     ),
     PartitionTypeInfo::new(
         "gpt",
@@ -899,6 +977,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "3a112a75-8729-4380-b4cf-764d79934448",
         "Linux Root Verity Signature Partition (RISC-V 32-bit)",
         PartitionTypeInfoFlags::None,
+        "",
     ),
     PartitionTypeInfo::new(
         "gpt",
@@ -906,6 +985,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "efe0f087-ea8d-4469-821a-4c2a96a8386a",
         "Linux Root Verity Signature Partition (RISC-V 64-bit)",
         PartitionTypeInfoFlags::None,
+        "",
     ),
     PartitionTypeInfo::new(
         "gpt",
@@ -913,6 +993,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "3482388e-4254-435a-a241-766a065f9960",
         "Linux Root Verity Signature Partition (s390)",
         PartitionTypeInfoFlags::None,
+        "",
     ),
     PartitionTypeInfo::new(
         "gpt",
@@ -920,6 +1001,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "c80187a5-73a3-491a-901a-017c3fa953e9",
         "Linux Root Verity Signature Partition (s390x)",
         PartitionTypeInfoFlags::None,
+        "",
     ),
     PartitionTypeInfo::new(
         "gpt",
@@ -927,6 +1009,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "b3671439-97b0-4a53-90f7-2d5a8f3ad47b",
         "Linux Root Verity Signature Partition (TILE-Gx)",
         PartitionTypeInfoFlags::None,
+        "",
     ),
     PartitionTypeInfo::new(
         "gpt",
@@ -934,6 +1017,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "41092b05-9fc8-4523-994f-2def0408b176",
         "Linux Root Verity Signature Partition (amd64/x86_64)",
         PartitionTypeInfoFlags::None,
+        "",
     ),
     PartitionTypeInfo::new(
         "gpt",
@@ -941,6 +1025,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "5996fc05-109c-48de-808b-23fa0830b676",
         "Linux Root Verity Signature Partition (x86)",
         PartitionTypeInfoFlags::None,
+        "",
     ),
     PartitionTypeInfo::new(
         "gpt",
@@ -948,6 +1033,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "5c6e1c76-076a-457a-a0fe-f3b4cd21ce6e",
         "Linux /usr/ Verity Signature Partition (Alpha)",
         PartitionTypeInfoFlags::None,
+        "",
     ),
     PartitionTypeInfo::new(
         "gpt",
@@ -955,6 +1041,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "94f9a9a1-9971-427a-a400-50cb297f0f35",
         "Linux /usr/ Verity Signature Partition (ARC)",
         PartitionTypeInfoFlags::None,
+        "",
     ),
     PartitionTypeInfo::new(
         "gpt",
@@ -962,6 +1049,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "d7ff812f-37d1-4902-a810-d76ba57b975a",
         "Linux /usr/ Verity Signature Partition (32-bit ARM)",
         PartitionTypeInfoFlags::None,
+        "",
     ),
     PartitionTypeInfo::new(
         "gpt",
@@ -969,6 +1057,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "c23ce4ff-44bd-4b00-b2d4-b41b3419e02a",
         "Linux /usr/ Verity Signature Partition (64-bit ARM/AArch64)",
         PartitionTypeInfoFlags::None,
+        "",
     ),
     PartitionTypeInfo::new(
         "gpt",
@@ -976,6 +1065,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "8de58bc2-2a43-460d-b14e-a76e4a17b47f",
         "Linux /usr/ Verity Signature Partition (Itanium/IA-64)",
         PartitionTypeInfoFlags::None,
+        "",
     ),
     PartitionTypeInfo::new(
         "gpt",
@@ -983,6 +1073,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "b024f315-d330-444c-8461-44bbde524e99",
         "Linux /usr/ Verity Signature Partition (LoongArch 64-bit)",
         PartitionTypeInfoFlags::None,
+        "",
     ),
     PartitionTypeInfo::new(
         "gpt",
@@ -990,6 +1081,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "3e23ca0b-a4bc-4b4e-8087-5ab6a26aa8a9",
         "Linux /usr/ Verity Signature Partition (32-bit MIPS LittleEndian/mipsel)",
         PartitionTypeInfoFlags::None,
+        "",
     ),
     PartitionTypeInfo::new(
         "gpt",
@@ -997,6 +1089,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "f2c2c7ee-adcc-4351-b5c6-ee9816b66e16",
         "Linux /usr/ Verity Signature Partition (64-bit MIPS LittleEndian/mips64el)",
         PartitionTypeInfoFlags::None,
+        "",
     ),
     PartitionTypeInfo::new(
         "gpt",
@@ -1004,6 +1097,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "450dd7d1-3224-45ec-9cf2-a43a346d71ee",
         "Linux /usr/ Verity Signature Partition (HPPA/PARISC)",
         PartitionTypeInfoFlags::None,
+        "",
     ),
     PartitionTypeInfo::new(
         "gpt",
@@ -1011,6 +1105,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "c8bfbd1e-268e-4521-8bba-bf314c399557",
         "Linux /usr/ Verity Signature Partition (64-bit PowerPC LittleEndian)",
         PartitionTypeInfoFlags::None,
+        "",
     ),
     PartitionTypeInfo::new(
         "gpt",
@@ -1018,6 +1113,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "0b888863-d7f8-4d9e-9766-239fce4d58af",
         "Linux /usr/ Verity Signature Partition (64-bit PowerPC BigEndian)",
         PartitionTypeInfoFlags::None,
+        "",
     ),
     PartitionTypeInfo::new(
         "gpt",
@@ -1025,6 +1121,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "7007891d-d371-4a80-86a4-5cb875b9302e",
         "Linux /usr/ Verity Signature Partition (32-bit PowerPC)",
         PartitionTypeInfoFlags::None,
+        "",
     ),
     PartitionTypeInfo::new(
         "gpt",
@@ -1032,6 +1129,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "c3836a13-3137-45ba-b583-b16c50fe5eb4",
         "Linux /usr/ Verity Signature Partition (RISC-V 32-bit)",
         PartitionTypeInfoFlags::None,
+        "",
     ),
     PartitionTypeInfo::new(
         "gpt",
@@ -1039,6 +1137,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "d2f9000a-7a18-453f-b5cd-4d32f77a7b32",
         "Linux /usr/ Verity Signature Partition (RISC-V 64-bit)",
         PartitionTypeInfoFlags::None,
+        "",
     ),
     PartitionTypeInfo::new(
         "gpt",
@@ -1046,6 +1145,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "17440e4f-a8d0-467f-a46e-3912ae6ef2c5",
         "Linux /usr/ Verity Signature Partition (s390)",
         PartitionTypeInfoFlags::None,
+        "",
     ),
     PartitionTypeInfo::new(
         "gpt",
@@ -1053,6 +1153,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "3f324816-667b-46ae-86ee-9b0c0c6c11b4",
         "Linux /usr/ Verity Signature Partition (s390x)",
         PartitionTypeInfoFlags::None,
+        "",
     ),
     PartitionTypeInfo::new(
         "gpt",
@@ -1060,6 +1161,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "4ede75e2-6ccc-4cc8-b9c7-70334b087510",
         "Linux /usr/ Verity Signature Partition (TILE-Gx)",
         PartitionTypeInfoFlags::None,
+        "",
     ),
     PartitionTypeInfo::new(
         "gpt",
@@ -1067,6 +1169,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "e7bb33fb-06cf-4e81-8273-e543b413e2e2",
         "Linux /usr/ Verity Signature Partition (amd64/x86_64)",
         PartitionTypeInfoFlags::None,
+        "",
     ),
     PartitionTypeInfo::new(
         "gpt",
@@ -1074,6 +1177,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "974a71c0-de41-43c3-be5d-5c5ccd1ad2c0",
         "Linux /usr/ Verity Signature Partition (x86)",
         PartitionTypeInfoFlags::None,
+        "",
     ),
     PartitionTypeInfo::new(
         "gpt",
@@ -1081,6 +1185,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "4d21b016-b534-45c2-a9fb-5c16e091fd2d",
         "Linux Variable Data Partition",
         PartitionTypeInfoFlags::None,
+        "",
     ),
     PartitionTypeInfo::new(
         "gpt",
@@ -1088,6 +1193,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "7ec6f557-3bc5-4aca-b293-16ef5df639d1",
         "Linux Temporary Data Partition",
         PartitionTypeInfoFlags::None,
+        "",
     ),
     PartitionTypeInfo::new(
         "gpt",
@@ -1095,6 +1201,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "773f91ef-66d4-49b5-bd83-d683bf40ad16",
         "Linux Per-user Home Partition",
         PartitionTypeInfoFlags::None,
+        "",
     ),
     PartitionTypeInfo::new(
         "gpt",
@@ -1102,6 +1209,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "933ac7e1-2eb4-4f13-b844-0e14e2aef915",
         "Linux Home Partition",
         PartitionTypeInfoFlags::None,
+        "",
     ),
     PartitionTypeInfo::new(
         "gpt",
@@ -1109,6 +1217,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "3b8f8425-20e0-4f3b-907f-1a25a76f98e8",
         "Linux Server Data Partition",
         PartitionTypeInfoFlags::None,
+        "",
     ),
     // Linux
     PartitionTypeInfo::new(
@@ -1117,6 +1226,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "0657fd6d-a4ab-43c4-84e5-0933c84b4f4f",
         "Linux Swap",
         PartitionTypeInfoFlags::Swap,
+        "",
     ),
     PartitionTypeInfo::new(
         "gpt",
@@ -1124,6 +1234,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "0fc63daf-8483-4772-8e79-3d69d8477de4",
         "Linux Filesystem",
         PartitionTypeInfoFlags::None,
+        "",
     ),
     PartitionTypeInfo::new(
         "gpt",
@@ -1131,6 +1242,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "a19d880f-05fc-4d3b-a006-743f0f84911e",
         "Linux RAID",
         PartitionTypeInfoFlags::Raid,
+        "",
     ),
     PartitionTypeInfo::new(
         "gpt",
@@ -1138,6 +1250,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "e6d6d379-f507-44c2-a23c-238f2a3df928",
         "Linux LVM",
         PartitionTypeInfoFlags::Raid,
+        "",
     ),
     PartitionTypeInfo::new(
         "gpt",
@@ -1145,6 +1258,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "8da63339-0007-60c0-c436-083ac8230908",
         "Linux Reserved",
         PartitionTypeInfoFlags::None,
+        "",
     ),
     // Microsoft
     PartitionTypeInfo::new(
@@ -1153,6 +1267,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "ebd0a0a2-b9e5-4433-87c0-68b6b72699c7",
         "Basic Data",
         PartitionTypeInfoFlags::None,
+        "",
     ),
     PartitionTypeInfo::new(
         "gpt",
@@ -1160,6 +1275,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "e3c9e316-0b5c-4db8-817d-f92df00215ae",
         "Microsoft Reserved",
         PartitionTypeInfoFlags::None,
+        "",
     ),
     PartitionTypeInfo::new(
         "gpt",
@@ -1167,6 +1283,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "5808c8aa-7e8f-42e0-85d2-e1e90434cfb3",
         "Microsoft LDM metadata",
         PartitionTypeInfoFlags::None,
+        "",
     ),
     PartitionTypeInfo::new(
         "gpt",
@@ -1174,6 +1291,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "af9b60a0-1431-4f62-bc68-3311714a69ad",
         "Microsoft LDM data",
         PartitionTypeInfoFlags::None,
+        "",
     ),
     PartitionTypeInfo::new(
         "gpt",
@@ -1181,6 +1299,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "de94bba4-06d1-4d40-a16a-bfd50179d6ac",
         "Microsoft Windows Recovery Environment",
         PartitionTypeInfoFlags::None,
+        "",
     ),
     // Apple OS X
     PartitionTypeInfo::new(
@@ -1189,6 +1308,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "48465300-0000-11aa-aa11-00306543ecac",
         "Apple HFS/HFS+",
         PartitionTypeInfoFlags::None,
+        "",
     ),
     PartitionTypeInfo::new(
         "gpt",
@@ -1196,6 +1316,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "7c3457ef-0000-11aa-aa11-00306543ecac",
         "Apple APFS",
         PartitionTypeInfoFlags::None,
+        "",
     ),
     PartitionTypeInfo::new(
         "gpt",
@@ -1203,6 +1324,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "55465300-0000-11aa-aa11-00306543ecac",
         "Apple UFS",
         PartitionTypeInfoFlags::None,
+        "",
     ),
     PartitionTypeInfo::new(
         "gpt",
@@ -1210,6 +1332,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "6a898cc3-1dd2-11b2-99a6-080020736631",
         "Apple ZFS",
         PartitionTypeInfoFlags::None,
+        "",
     ), // same as ZFS
     PartitionTypeInfo::new(
         "gpt",
@@ -1217,6 +1340,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "52414944-0000-11aa-aa11-00306543ecac",
         "Apple RAID",
         PartitionTypeInfoFlags::Raid,
+        "",
     ),
     PartitionTypeInfo::new(
         "gpt",
@@ -1224,6 +1348,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "52414944-5f4f-11aa-aa11-00306543ecac",
         "Apple RAID (offline)",
         PartitionTypeInfoFlags::Raid,
+        "",
     ),
     PartitionTypeInfo::new(
         "gpt",
@@ -1231,6 +1356,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "426f6f74-0000-11aa-aa11-00306543ecac",
         "Apple Boot",
         PartitionTypeInfoFlags::System,
+        "",
     ),
     PartitionTypeInfo::new(
         "gpt",
@@ -1238,6 +1364,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "4c616265-6c00-11aa-aa11-00306543ecac",
         "Apple Label",
         PartitionTypeInfoFlags::None,
+        "",
     ),
     PartitionTypeInfo::new(
         "gpt",
@@ -1245,6 +1372,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "5265636f-7665-11aa-aa11-00306543ecac",
         "Apple TV Recovery",
         PartitionTypeInfoFlags::System,
+        "",
     ),
     PartitionTypeInfo::new(
         "gpt",
@@ -1252,6 +1380,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "53746f72-6167-11aa-aa11-00306543ecac",
         "Apple Core Storage",
         PartitionTypeInfoFlags::Raid,
+        "",
     ),
     // HP-UX
     PartitionTypeInfo::new(
@@ -1260,6 +1389,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "75894c1e-3aeb-11d3-b7c1-7b03a0000000",
         "HP-UX Data",
         PartitionTypeInfoFlags::None,
+        "",
     ),
     PartitionTypeInfo::new(
         "gpt",
@@ -1267,6 +1397,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "e2a1e728-32e3-11d6-a682-7b03a0000000",
         "HP-UX Service",
         PartitionTypeInfoFlags::None,
+        "",
     ),
     // FreeBSD
     PartitionTypeInfo::new(
@@ -1275,6 +1406,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "83bd6b9d-7f41-11dc-be0b-001560b84f0f",
         "FreeBSD Boot",
         PartitionTypeInfoFlags::None,
+        "",
     ),
     PartitionTypeInfo::new(
         "gpt",
@@ -1282,6 +1414,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "516e7cb4-6ecf-11d6-8ff8-00022d09712b",
         "FreeBSD Data",
         PartitionTypeInfoFlags::None,
+        "",
     ),
     PartitionTypeInfo::new(
         "gpt",
@@ -1289,6 +1422,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "516e7cb5-6ecf-11d6-8ff8-00022d09712b",
         "FreeBSD Swap",
         PartitionTypeInfoFlags::Swap,
+        "",
     ),
     PartitionTypeInfo::new(
         "gpt",
@@ -1296,6 +1430,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "516e7cb6-6ecf-11d6-8ff8-00022d09712b",
         "FreeBSD UFS",
         PartitionTypeInfoFlags::None,
+        "",
     ),
     PartitionTypeInfo::new(
         "gpt",
@@ -1303,6 +1438,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "516e7cb8-6ecf-11d6-8ff8-00022d09712b",
         "FreeBSD Vinum",
         PartitionTypeInfoFlags::Raid,
+        "",
     ),
     PartitionTypeInfo::new(
         "gpt",
@@ -1310,6 +1446,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "516e7cba-6ecf-11d6-8ff8-00022d09712b",
         "FreeBSD ZFS",
         PartitionTypeInfoFlags::None,
+        "",
     ),
     // Solaris
     PartitionTypeInfo::new(
@@ -1318,6 +1455,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "6a82cb45-1dd2-11b2-99a6-080020736631",
         "Solaris Boot",
         PartitionTypeInfoFlags::None,
+        "",
     ),
     PartitionTypeInfo::new(
         "gpt",
@@ -1325,6 +1463,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "6a85cf4d-1dd2-11b2-99a6-080020736631",
         "Solaris Root",
         PartitionTypeInfoFlags::None,
+        "",
     ),
     PartitionTypeInfo::new(
         "gpt",
@@ -1332,6 +1471,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "6a87c46f-1dd2-11b2-99a6-080020736631",
         "Solaris Swap",
         PartitionTypeInfoFlags::Swap,
+        "",
     ),
     PartitionTypeInfo::new(
         "gpt",
@@ -1339,6 +1479,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "6a8b642b-1dd2-11b2-99a6-080020736631",
         "Solaris Backup",
         PartitionTypeInfoFlags::None,
+        "",
     ),
     PartitionTypeInfo::new(
         "gpt",
@@ -1346,6 +1487,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "6a898cc3-1dd2-11b2-99a6-080020736631",
         "Solaris /usr",
         PartitionTypeInfoFlags::None,
+        "",
     ), // same as ZFS
     PartitionTypeInfo::new(
         "gpt",
@@ -1353,6 +1495,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "6a8ef2e9-1dd2-11b2-99a6-080020736631",
         "Solaris /var",
         PartitionTypeInfoFlags::None,
+        "",
     ),
     PartitionTypeInfo::new(
         "gpt",
@@ -1360,6 +1503,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "6a90ba39-1dd2-11b2-99a6-080020736631",
         "Solaris /home",
         PartitionTypeInfoFlags::None,
+        "",
     ),
     PartitionTypeInfo::new(
         "gpt",
@@ -1367,6 +1511,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "6a9283a5-1dd2-11b2-99a6-080020736631",
         "Solaris Alternate Sector",
         PartitionTypeInfoFlags::None,
+        "",
     ),
     PartitionTypeInfo::new(
         "gpt",
@@ -1374,6 +1519,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "6a945a3b-1dd2-11b2-99a6-080020736631",
         "Solaris Reserved",
         PartitionTypeInfoFlags::None,
+        "",
     ),
     PartitionTypeInfo::new(
         "gpt",
@@ -1381,6 +1527,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "6a9630d1-1dd2-11b2-99a6-080020736631",
         "Solaris Reserved (2)",
         PartitionTypeInfoFlags::None,
+        "",
     ),
     PartitionTypeInfo::new(
         "gpt",
@@ -1388,6 +1535,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "6a980767-1dd2-11b2-99a6-080020736631",
         "Solaris Reserved (3)",
         PartitionTypeInfoFlags::None,
+        "",
     ),
     PartitionTypeInfo::new(
         "gpt",
@@ -1395,6 +1543,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "6a96237f-1dd2-11b2-99a6-080020736631",
         "Solaris Reserved (4)",
         PartitionTypeInfoFlags::None,
+        "",
     ),
     PartitionTypeInfo::new(
         "gpt",
@@ -1402,6 +1551,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "6a8d2ac7-1dd2-11b2-99a6-080020736631",
         "Solaris Reserved (5)",
         PartitionTypeInfoFlags::None,
+        "",
     ),
     // NetBSD
     PartitionTypeInfo::new(
@@ -1410,6 +1560,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "49f48d32-b10e-11dc-b99b-0019d1879648",
         "NetBSD Swap",
         PartitionTypeInfoFlags::Swap,
+        "",
     ),
     PartitionTypeInfo::new(
         "gpt",
@@ -1417,6 +1568,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "49f48d5a-b10e-11dc-b99b-0019d1879648",
         "NetBSD FFS",
         PartitionTypeInfoFlags::None,
+        "",
     ),
     PartitionTypeInfo::new(
         "gpt",
@@ -1424,6 +1576,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "49f48d82-b10e-11dc-b99b-0019d1879648",
         "NetBSD LFS",
         PartitionTypeInfoFlags::None,
+        "",
     ),
     PartitionTypeInfo::new(
         "gpt",
@@ -1431,6 +1584,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "49f48daa-b10e-11dc-b99b-0019d1879648",
         "NetBSD RAID",
         PartitionTypeInfoFlags::Raid,
+        "",
     ),
     PartitionTypeInfo::new(
         "gpt",
@@ -1438,6 +1592,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "2db519c4-b10f-11dc-b99b-0019d1879648",
         "NetBSD Concatenated",
         PartitionTypeInfoFlags::None,
+        "",
     ),
     PartitionTypeInfo::new(
         "gpt",
@@ -1445,6 +1600,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "2db519ec-b10f-11dc-b99b-0019d1879648",
         "NetBSD Encrypted",
         PartitionTypeInfoFlags::None,
+        "",
     ),
     // VMWare, see http://blogs.vmware.com/vsphere/2011/08/vsphere-50-storage-features-part-7-gpt.html
     PartitionTypeInfo::new(
@@ -1453,6 +1609,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "aa31e02a-400f-11db-9590-000c2911d1b8",
         "VMWare VMFS",
         PartitionTypeInfoFlags::None,
+        "",
     ),
     PartitionTypeInfo::new(
         "gpt",
@@ -1460,6 +1617,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "9d275380-40ad-11db-bf97-000c2911d1b8",
         "VMWare vmkcore",
         PartitionTypeInfoFlags::None,
+        "",
     ),
     // ChromeOS, see http://www.chromium.org/chromium-os/chromiumos-design-docs/disk-format
     PartitionTypeInfo::new(
@@ -1468,6 +1626,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "cab6e88e-abf3-4102-a07a-d4bb9be3c1d3",
         "ChromeOS Firmware",
         PartitionTypeInfoFlags::None,
+        "",
     ),
     PartitionTypeInfo::new(
         "gpt",
@@ -1475,6 +1634,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "fe3a2a5d-4f32-41a7-b725-accc3285a309",
         "ChromeOS Kernel",
         PartitionTypeInfoFlags::None,
+        "",
     ),
     PartitionTypeInfo::new(
         "gpt",
@@ -1482,6 +1642,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "3cb8e202-3b7e-47dd-8a3c-7ff2a13cfcec",
         "ChromeOS Root Filesystem",
         PartitionTypeInfoFlags::None,
+        "",
     ),
     PartitionTypeInfo::new(
         "gpt",
@@ -1489,6 +1650,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "2e0a753d-9e48-43b0-8337-b15192cb1b5e",
         "ChromeOS Reserved",
         PartitionTypeInfoFlags::None,
+        "",
     ),
     // Intel Partition Types
     //     FFS = Fast Flash Standby, aka Intel Rapid start
@@ -1499,6 +1661,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "d3bfe2de-3daf-11df-ba40-e3a556d89593",
         "Intel FFS Reserved",
         PartitionTypeInfoFlags::None,
+        "",
     ),
     // see http://developer.apple.com/documentation/mac/devices/devices-126.html
     //     http://lists.apple.com/archives/Darwin-drivers/2003/May/msg00021.html
@@ -1508,6 +1671,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "Apple_Unix_SVR2",
         "Apple UFS",
         PartitionTypeInfoFlags::None,
+        "",
     ),
     PartitionTypeInfo::new(
         "apm",
@@ -1515,6 +1679,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "Apple_HFS",
         "Apple HFS/HFS",
         PartitionTypeInfoFlags::None,
+        "",
     ),
     PartitionTypeInfo::new(
         "apm",
@@ -1522,6 +1687,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "Apple_partition_map",
         "Apple Partition Map",
         PartitionTypeInfoFlags::None,
+        "",
     ),
     PartitionTypeInfo::new(
         "apm",
@@ -1529,6 +1695,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "Apple_Free",
         "Unused",
         PartitionTypeInfoFlags::None,
+        "",
     ),
     PartitionTypeInfo::new(
         "apm",
@@ -1536,6 +1703,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "Apple_Scratch",
         "Empty",
         PartitionTypeInfoFlags::None,
+        "",
     ),
     PartitionTypeInfo::new(
         "apm",
@@ -1543,6 +1711,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "Apple_Driver",
         "Driver",
         PartitionTypeInfoFlags::None,
+        "",
     ),
     PartitionTypeInfo::new(
         "apm",
@@ -1550,6 +1719,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "Apple_Driver43",
         "Driver 4.3",
         PartitionTypeInfoFlags::None,
+        "",
     ),
     PartitionTypeInfo::new(
         "apm",
@@ -1557,6 +1727,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "Apple_PRODOS",
         "ProDOS file system",
         PartitionTypeInfoFlags::None,
+        "",
     ),
     PartitionTypeInfo::new(
         "apm",
@@ -1564,6 +1735,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "DOS_FAT_12",
         "FAT 12",
         PartitionTypeInfoFlags::None,
+        "",
     ),
     PartitionTypeInfo::new(
         "apm",
@@ -1571,6 +1743,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "DOS_FAT_16",
         "FAT 16",
         PartitionTypeInfoFlags::None,
+        "",
     ),
     PartitionTypeInfo::new(
         "apm",
@@ -1578,6 +1751,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "DOS_FAT_32",
         "FAT 32",
         PartitionTypeInfoFlags::None,
+        "",
     ),
     PartitionTypeInfo::new(
         "apm",
@@ -1585,6 +1759,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "Windows_FAT_16",
         "FAT 16 (Windows)",
         PartitionTypeInfoFlags::None,
+        "",
     ),
     PartitionTypeInfo::new(
         "apm",
@@ -1592,6 +1767,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "Windows_FAT_32",
         "FAT 32 (Windows)",
         PartitionTypeInfoFlags::None,
+        "",
     ),
     // see http://www.win.tue.nl/~aeb/partitions/partition_types-1.html
     PartitionTypeInfo::new(
@@ -1600,6 +1776,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "0x05",
         "Extended",
         PartitionTypeInfoFlags::CreateOnly,
+        "",
     ),
     PartitionTypeInfo::new(
         "dos",
@@ -1607,6 +1784,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "0xee",
         "EFI GPT",
         PartitionTypeInfoFlags::System,
+        "",
     ),
     PartitionTypeInfo::new(
         "dos",
@@ -1614,6 +1792,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "0xef",
         "EFI (FAT-12/16/32)",
         PartitionTypeInfoFlags::System,
+        "",
     ),
     PartitionTypeInfo::new(
         "dos",
@@ -1621,6 +1800,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "0x82",
         "Linux swap",
         PartitionTypeInfoFlags::Swap,
+        "",
     ),
     PartitionTypeInfo::new(
         "dos",
@@ -1628,6 +1808,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "0x83",
         "Linux",
         PartitionTypeInfoFlags::None,
+        "",
     ),
     PartitionTypeInfo::new(
         "dos",
@@ -1635,6 +1816,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "0x85",
         "Linux Extended",
         PartitionTypeInfoFlags::CreateOnly,
+        "",
     ),
     PartitionTypeInfo::new(
         "dos",
@@ -1642,6 +1824,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "0x8e",
         "Linux LVM",
         PartitionTypeInfoFlags::Raid,
+        "",
     ),
     PartitionTypeInfo::new(
         "dos",
@@ -1649,6 +1832,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "0xfd",
         "Linux RAID auto",
         PartitionTypeInfoFlags::Raid,
+        "",
     ),
     PartitionTypeInfo::new(
         "dos",
@@ -1656,6 +1840,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "0x01",
         "FAT12",
         PartitionTypeInfoFlags::None,
+        "",
     ),
     PartitionTypeInfo::new(
         "dos",
@@ -1663,6 +1848,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "0x04",
         "FAT16 <32M",
         PartitionTypeInfoFlags::None,
+        "",
     ),
     PartitionTypeInfo::new(
         "dos",
@@ -1670,6 +1856,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "0x06",
         "FAT16",
         PartitionTypeInfoFlags::None,
+        "",
     ),
     PartitionTypeInfo::new(
         "dos",
@@ -1677,6 +1864,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "0x07",
         "NTFS/exFAT/HPFS",
         PartitionTypeInfoFlags::None,
+        "",
     ),
     PartitionTypeInfo::new(
         "dos",
@@ -1684,6 +1872,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "0x0b",
         "W95 FAT32",
         PartitionTypeInfoFlags::None,
+        "",
     ),
     PartitionTypeInfo::new(
         "dos",
@@ -1691,6 +1880,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "0x0c",
         "W95 FAT32 (LBA)",
         PartitionTypeInfoFlags::None,
+        "",
     ),
     PartitionTypeInfo::new(
         "dos",
@@ -1698,6 +1888,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "0x0e",
         "W95 FAT16 (LBA)",
         PartitionTypeInfoFlags::None,
+        "",
     ),
     PartitionTypeInfo::new(
         "dos",
@@ -1705,6 +1896,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "0x0f",
         "W95 Ext d (LBA)",
         PartitionTypeInfoFlags::CreateOnly,
+        "",
     ),
     PartitionTypeInfo::new(
         "dos",
@@ -1712,6 +1904,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "0x11",
         "Hidden FAT12",
         PartitionTypeInfoFlags::Hidden,
+        "",
     ),
     PartitionTypeInfo::new(
         "dos",
@@ -1719,6 +1912,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "0x14",
         "Hidden FAT16 <32M",
         PartitionTypeInfoFlags::Hidden,
+        "",
     ),
     PartitionTypeInfo::new(
         "dos",
@@ -1726,6 +1920,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "0x16",
         "Hidden FAT16",
         PartitionTypeInfoFlags::Hidden,
+        "",
     ),
     PartitionTypeInfo::new(
         "dos",
@@ -1733,6 +1928,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "0x17",
         "Hidden HPFS/NTFS",
         PartitionTypeInfoFlags::Hidden,
+        "",
     ),
     PartitionTypeInfo::new(
         "dos",
@@ -1740,6 +1936,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "0x1b",
         "Hidden W95 FAT32",
         PartitionTypeInfoFlags::Hidden,
+        "",
     ),
     PartitionTypeInfo::new(
         "dos",
@@ -1747,6 +1944,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "0x1c",
         "Hidden W95 FAT32 (LBA)",
         PartitionTypeInfoFlags::Hidden,
+        "",
     ),
     PartitionTypeInfo::new(
         "dos",
@@ -1754,14 +1952,23 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "0x1e",
         "Hidden W95 FAT16 (LBA)",
         PartitionTypeInfoFlags::Hidden,
+        "",
     ),
-    PartitionTypeInfo::new("dos", "other", "0x10", "OPUS", PartitionTypeInfoFlags::None),
+    PartitionTypeInfo::new(
+        "dos",
+        "other",
+        "0x10",
+        "OPUS",
+        PartitionTypeInfoFlags::None,
+        "",
+    ),
     PartitionTypeInfo::new(
         "dos",
         "other",
         "0x12",
         "Compaq diagnostics",
         PartitionTypeInfoFlags::None,
+        "",
     ),
     PartitionTypeInfo::new(
         "dos",
@@ -1769,6 +1976,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "0x3c",
         "PartitionMagic",
         PartitionTypeInfoFlags::None,
+        "",
     ),
     PartitionTypeInfo::new(
         "dos",
@@ -1776,6 +1984,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "0x81",
         "Minix",
         PartitionTypeInfoFlags::None,
+        "",
     ), // cf. http://en.wikipedia.org/wiki/MINIX_file_system
     PartitionTypeInfo::new(
         "dos",
@@ -1783,6 +1992,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "0x84",
         "Hibernation",
         PartitionTypeInfoFlags::None,
+        "",
     ),
     PartitionTypeInfo::new(
         "dos",
@@ -1790,6 +2000,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "0xa0",
         "Hibernation",
         PartitionTypeInfoFlags::None,
+        "",
     ),
     PartitionTypeInfo::new(
         "dos",
@@ -1797,6 +2008,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "0xa5",
         "FreeBSD",
         PartitionTypeInfoFlags::None,
+        "",
     ),
     PartitionTypeInfo::new(
         "dos",
@@ -1804,6 +2016,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "0xa6",
         "OpenBSD",
         PartitionTypeInfoFlags::None,
+        "",
     ),
     PartitionTypeInfo::new(
         "dos",
@@ -1811,6 +2024,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "0xa8",
         "Mac OS X",
         PartitionTypeInfoFlags::None,
+        "",
     ),
     PartitionTypeInfo::new(
         "dos",
@@ -1818,6 +2032,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "0xaf",
         "Mac OS X",
         PartitionTypeInfoFlags::None,
+        "",
     ),
     PartitionTypeInfo::new(
         "dos",
@@ -1825,6 +2040,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "0xbe",
         "Solaris boot",
         PartitionTypeInfoFlags::None,
+        "",
     ),
     PartitionTypeInfo::new(
         "dos",
@@ -1832,6 +2048,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "0xbf",
         "Solaris",
         PartitionTypeInfoFlags::None,
+        "",
     ),
     PartitionTypeInfo::new(
         "dos",
@@ -1839,6 +2056,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "0xeb",
         "BeOS BFS",
         PartitionTypeInfoFlags::None,
+        "",
     ),
     PartitionTypeInfo::new(
         "dos",
@@ -1846,5 +2064,6 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "0xec",
         "SkyOS SkyFS",
         PartitionTypeInfoFlags::None,
+        "",
     ),
 ];

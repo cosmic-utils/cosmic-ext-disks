@@ -36,6 +36,7 @@ erase = Erase
 password-protected = Password Protected
 password = Password
 confirm = Confirm
+untitled = Untitled
 
 # Main view
 no-disk-selected = No disk selected

@@ -29,6 +29,7 @@ pub struct PartitionModel {
     pub usage: Option<Usage>,
     connection: Option<Connection>,
     pub drive_path: String,
+    pub table_type: String,
 }
 
 impl PartitionModel {
@@ -81,6 +82,7 @@ impl PartitionModel {
             usage,
             connection: Some(Connection::system().await?),
             drive_path: drive_path,
+            table_type: table_proxy.type_().await?,
         })
     }
 

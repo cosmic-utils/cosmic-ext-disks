@@ -1,14 +1,17 @@
 use std::collections::HashMap;
 
-use anyhow::Result;
+use anyhow::{Result, anyhow};
 use tracing::{error, info, warn};
 use udisks2::{
     Client, block::BlockProxy, drive::DriveProxy, partition::PartitionProxy,
     partitiontable::PartitionTableProxy,
 };
-use zbus::{Connection, zvariant::OwnedObjectPath};
+use zbus::{
+    Connection,
+    zvariant::{OwnedObjectPath, Value},
+};
 
-use crate::{COMMON_PARTITION_TYPES, CreatePartitionInfo, get_usage_data};
+use crate::{COMMON_DOS_TYPES, COMMON_GPT_TYPES, CreatePartitionInfo, get_usage_data};
 
 use super::{PartitionModel, manager::UDisks2ManagerProxy};
 
@@ -257,19 +260,75 @@ impl DriveModel {
             .build()
             .await?;
 
-        let partition_type = &COMMON_PARTITION_TYPES[info.selected_partitition_type].ty;
+        // Get the current partition table type
+        let table_type = self
+            .partition_table_type
+            .as_ref()
+            .ok_or_else(|| anyhow::anyhow!("No partition table type available"))?;
+
+        // Find a partition type that matches the table type
+        let partition_info = match table_type.as_str() {
+            "gpt" => COMMON_GPT_TYPES
+                .get(info.selected_partitition_type)
+                .ok_or_else(|| anyhow::anyhow!("Invalid partition type index for GPT")),
+            "msdos" => COMMON_DOS_TYPES
+                .get(info.selected_partitition_type)
+                .ok_or_else(|| anyhow::anyhow!("Invalid partition type index for MSDOS")),
+            _ => {
+                return Err(anyhow::anyhow!(
+                    "Unsupported partition table type: {}",
+                    table_type
+                ));
+            }
+        }?;
+
+        // Verify the selected partition type is compatible with the table type
+        if partition_info.table_type != table_type {
+            return Err(anyhow::anyhow!(
+                "Partition type '{}' is not compatible with partition table type '{}'",
+                partition_info.name,
+                table_type
+            ));
+        }
+
+        let partition_type = partition_info.ty;
 
         partition_table_proxy
-            .create_partition_and_format(
+            .create_partition(
                 info.offset,
                 info.size,
                 partition_type,
                 &info.name,
                 HashMap::new(),
-                partition_type,
-                HashMap::new(),
             )
             .await?;
+
+        // get the newly created block device for the partition
+        let partition_paths = partition_table_proxy.partitions().await?;
+        let partition_path = partition_paths.last().cloned();
+        if let Some(path) = partition_path {
+            let block_proxy = BlockProxy::builder(&self.connection)
+                .path(&path)?
+                .build()
+                .await?;
+
+            let mut options = HashMap::new();
+            if info.erase {
+                options.insert("erase", Value::from("zero"));
+            }
+            if !info.name.is_empty() {
+                options.insert("label", Value::from(info.name.clone()));
+            }
+
+            block_proxy
+                .format(partition_info.filesystem_type, options)
+                .await?;
+
+            // Optionally, you can mount the partition here if needed
+            // partition_proxy.mount(HashMap::new()).await?;
+        } else {
+            return Err(anyhow::anyhow!("No partitions found after creation"));
+        }
 
         Ok(())
     }

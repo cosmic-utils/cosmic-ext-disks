@@ -6,8 +6,8 @@ use cosmic::{
     Element, iced_widget,
     widget::{button, checkbox, dialog, dropdown, slider, text_input, toggler},
 };
-use disks_dbus::bytes_to_pretty;
-use disks_dbus::{COMMON_PARTITION_NAMES, CreatePartitionInfo};
+use disks_dbus::CreatePartitionInfo;
+use disks_dbus::{bytes_to_pretty, get_valid_partition_names};
 use std::borrow::Cow;
 
 pub fn confirmation<'a>(
@@ -39,9 +39,9 @@ pub fn create_partition<'a>(create: CreatePartitionInfo) -> Element<'a, Message>
     let free_pretty = bytes_to_pretty(&free_bytes, false);
     let step = disks_dbus::get_step(&create.size);
 
-    println!("step: {step}");
-
     let create_clone = create.clone();
+
+    let valid_partition_types = get_valid_partition_names(create.table_type.clone());
 
     let mut content = iced_widget::column![
         text_input(fl!("volume-name"), create_clone.name)
@@ -56,10 +56,7 @@ pub fn create_partition<'a>(create: CreatePartitionInfo) -> Element<'a, Message>
             step,
             0.,
             len,
-            |v| {
-                println!("value: {v}");
-                CreateMessage::SizeUpdate(v as u64).into()
-            }
+            |v| { CreateMessage::SizeUpdate(v as u64).into() }
         ),
         labelled_spinner(
             fl!("free-space"),
@@ -68,17 +65,13 @@ pub fn create_partition<'a>(create: CreatePartitionInfo) -> Element<'a, Message>
             step,
             0.,
             len,
-            move |v| {
-                println!("value: {v}");
-
-                CreateMessage::SizeUpdate((len - v) as u64).into()
-            }
+            move |v| { CreateMessage::SizeUpdate((len - v) as u64).into() }
         ),
         toggler(create_clone.erase)
             .label(fl!("erase"))
             .on_toggle(|v| CreateMessage::EraseUpdate(v).into()),
         dropdown(
-            &*COMMON_PARTITION_NAMES,
+            valid_partition_types,
             Some(create_clone.selected_partitition_type),
             |v| CreateMessage::PartitionTypeUpdate(v).into()
         ),
