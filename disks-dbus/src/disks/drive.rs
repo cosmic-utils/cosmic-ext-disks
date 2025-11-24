@@ -48,10 +48,20 @@ impl DriveModel {
         block_path: &str,
         drive_proxy: &DriveProxy<'_>,
     ) -> Result<Self> {
+        let mut size = drive_proxy.size().await?;
+        if size == 0 {
+            let connection = Connection::system().await?;
+            let block_proxy = BlockProxy::builder(&connection)
+                .path(block_path)?
+                .build()
+                .await?;
+            size = block_proxy.size().await?;
+        }
+
         Ok(DriveModel {
             name: path.to_owned(),
             path: path.to_string(),
-            size: drive_proxy.size().await?,
+            size,
             id: drive_proxy.id().await?,
             model: drive_proxy.model().await?,
             serial: drive_proxy.serial().await?,

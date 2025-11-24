@@ -11,7 +11,7 @@ use cosmic::{
 
 use crate::{
     app::{Message, ShowDialog},
-    fl,
+    fl, utils::info,
 };
 use disks_dbus::CreatePartitionInfo;
 use disks_dbus::bytes_to_pretty;
@@ -182,17 +182,26 @@ impl Segment {
         }
 
         //TODO: Hack to hide weird end portion... find out what this is.
-        if current_offset < drive.size - 5242880 {
-            segments.push(Segment::free_space(
-                current_offset,
-                drive.size - current_offset,
-                drive.partition_table_type.clone().unwrap_or("".to_string())
-            ));
+        let hidden_trailing_bytes = drive.size.saturating_sub(5_242_880);
+        if current_offset < hidden_trailing_bytes {
+            let trailing_size = drive.size.saturating_sub(current_offset);
+            if trailing_size > 0 {
+                segments.push(Segment::free_space(current_offset, 
+                    trailing_size,
+                    drive.partition_table_type.clone().unwrap_or("".to_string())));
+            }
         }
 
         //Figure out Portion value
         segments.iter_mut().for_each(|s| {
-            s.width = (((s.size as f64 / drive.size as f64) * 1000.).log10().ceil() as u16).max(1);
+            if drive.size > 0 {
+                s.width = (((s.size as f64 / drive.size as f64) * 1000.)
+                    .log10()
+                    .ceil() as u16)
+                    .max(1);
+            } else {
+                s.width = 1;
+            }
         });
 
         segments
@@ -401,7 +410,7 @@ impl VolumesControl {
         Task::none()
     }
 
-    pub fn view(&self) -> Element<Message> {
+    pub fn view(&self) -> Element<'_, Message> {
         let segment_buttons: Vec<Element<Message>> = self
             .segments
             .iter()
