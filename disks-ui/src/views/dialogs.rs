@@ -39,8 +39,6 @@ pub fn create_partition<'a>(create: CreatePartitionInfo) -> Element<'a, Message>
     let free_pretty = bytes_to_pretty(&free_bytes, false);
     let step = disks_dbus::get_step(&create.size);
 
-    println!("step: {step}");
-
     let create_clone = create.clone();
 
     let valid_partition_types = get_valid_partition_names(create.table_type.clone());
@@ -60,7 +58,6 @@ pub fn create_partition<'a>(create: CreatePartitionInfo) -> Element<'a, Message>
             0.,
             len,
             |v| {
-                println!("value: {v}");
                 CreateMessage::SizeUpdate(v as u64).into()
             }
         ),
@@ -72,7 +69,6 @@ pub fn create_partition<'a>(create: CreatePartitionInfo) -> Element<'a, Message>
             0.,
             len,
             move |v| {
-                println!("value: {v}");
 
                 CreateMessage::SizeUpdate((len - v) as u64).into()
             }

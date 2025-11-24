@@ -6,7 +6,7 @@ use udisks2::{
     Client, block::BlockProxy, drive::DriveProxy, partition::PartitionProxy,
     partitiontable::PartitionTableProxy,
 };
-use zbus::{Connection, zvariant::OwnedObjectPath};
+use zbus::{Connection, zvariant::{OwnedObjectPath, Value}};
 
 use crate::{get_usage_data, CreatePartitionInfo, COMMON_DOS_TYPES, COMMON_GPT_TYPES};
 
@@ -300,7 +300,12 @@ impl DriveModel {
                 .build()
                 .await?;
 
-            block_proxy.format(&info.filesystem_type, HashMap::new()).await?;
+            let mut options = HashMap::new();
+            if !info.erase {
+                options.insert("erase", Value::from("none"));
+            }
+
+            block_proxy.format(partition_info.filesystem_type, options).await?;
 
             // Optionally, you can mount the partition here if needed
             // partition_proxy.mount(HashMap::new()).await?;
