@@ -29,7 +29,7 @@ enumflags2 = "0.7.12"
 
 
 # workspace dependencies
-disks-dbus = { path = "disks-dbus" }
+disks-dbus = { package = "cosmic-ext-disks-dbus", path = "disks-dbus" }
 
 # build dependencies
 vergen = { version = "9.0",  features = ["build", "cargo", "rustc", "si"]  }

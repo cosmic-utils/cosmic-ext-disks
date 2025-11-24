@@ -1,5 +1,5 @@
 [package]
-name = "disks-dbus"
+name = "cosmic-ext-disks-dbus"
 description = "DBus interface for disk management"
 version = "0.1.0"
 edition = "2024"

@@ -1,10 +1,10 @@
 [package]
-name = "disks-ui"
+name = "cosmic-ext-disks"
 version = "0.1.0"
 edition = "2024"
 license = "MPL-2.0"
 description = "A Disk utility for the COSMIC™ desktop"
-repository = "https://github.com/stoorps/disks.git"
+repository = "https://github.com/cosmic-utils/cosmic-ext-disks"
 
 [build-dependencies]
 vergen = { workspace = true }
