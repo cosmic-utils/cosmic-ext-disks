@@ -25,6 +25,11 @@ I am currently actively developing this again after a 5 month hiatus, so this li
 ### What doesn't work
 Everything else!
 
+### Device insert/remove updates
+Device discovery updates are driven by UDisks2 DBus signals (ObjectManager `InterfacesAdded`/`InterfacesRemoved`).
+
+If signal subscription fails at runtime, the app falls back to periodic polling (slower interval) and prints a message to stderr indicating the fallback.
+
 
 ### Future Plans
 
