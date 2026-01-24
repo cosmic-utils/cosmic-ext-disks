@@ -591,7 +591,7 @@ impl VolumesControl {
         match selected.kind {
             DiskSegmentKind::Partition => {
                 if let Some(p) = selected.partition.as_ref() {
-                    let button = if p.usage.is_some() {
+                    let button = if p.is_mounted() {
                         widget::button::custom(icon::from_name("media-playback-stop-symbolic"))
                             .on_press(VolumesControlMessage::Unmount.into())
                     } else {

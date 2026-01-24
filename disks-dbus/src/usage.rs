@@ -1,8 +1,7 @@
-use anyhow::Result;
-use serde::Deserialize;
-use std::process::Command;
+use anyhow::{Context, Result};
+use std::{ffi::CString, mem::MaybeUninit};
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone)]
 pub struct Usage {
     pub filesystem: String,
     pub blocks: u64,
@@ -12,27 +11,40 @@ pub struct Usage {
     pub mount_point: String,
 }
 
-pub fn get_usage_data() -> Result<Vec<Usage>> {
-    let output = Command::new("df").arg("--block-size=1").output()?;
+pub fn usage_for_mount_point(mount_point: &str, filesystem: Option<&str>) -> Result<Usage> {
+    let mount_point_c = CString::new(mount_point)
+        .with_context(|| format!("mount point contains NUL byte: {mount_point:?}"))?;
 
-    let text = String::from_utf8(output.stdout)?;
-    let lines: Vec<&str> = text.lines().collect();
-
-    let mut usages = vec![];
-    for ln in 1..lines.len() {
-        let values: Vec<&str> = lines[ln].split_whitespace().collect();
-
-        if values.len() == 6 {
-            usages.push(Usage {
-                filesystem: values[0].to_string(),
-                blocks: values[1].parse()?,
-                used: values[2].parse()?,
-                available: values[3].parse()?,
-                percent: values[4].trim_end_matches('%').parse()?,
-                mount_point: values[5].to_string(),
-            });
-        }
+    let mut stat = MaybeUninit::<libc::statvfs>::uninit();
+    let rc = unsafe { libc::statvfs(mount_point_c.as_ptr(), stat.as_mut_ptr()) };
+    if rc != 0 {
+        return Err(std::io::Error::last_os_error())
+            .with_context(|| format!("statvfs failed for mount point {mount_point:?}"));
     }
 
-    Ok(usages)
+    let stat = unsafe { stat.assume_init() };
+    let frsize = if stat.f_frsize > 0 {
+        u64::from(stat.f_frsize)
+    } else {
+        u64::from(stat.f_bsize)
+    };
+
+    let total = u64::from(stat.f_blocks).saturating_mul(frsize);
+    let free = u64::from(stat.f_bfree).saturating_mul(frsize);
+    let available = u64::from(stat.f_bavail).saturating_mul(frsize);
+    let used = total.saturating_sub(free);
+    let percent = if total == 0 {
+        0
+    } else {
+        ((used.saturating_mul(100)) / total).min(100) as u32
+    };
+
+    Ok(Usage {
+        filesystem: filesystem.unwrap_or_default().to_string(),
+        blocks: total,
+        used,
+        available,
+        percent,
+        mount_point: mount_point.to_string(),
+    })
 }

@@ -251,49 +251,40 @@ impl Application for AppModel {
                         let mut type_str = p.id_type.clone().to_uppercase();
                         type_str = format!("{} - {}", type_str, p.partition_type.clone());
 
-                        match &p.usage {
-                            Some(usage) => iced_widget::column![
-                                heading(name),
-                                Space::new(0, 10),
-                                labelled_info(fl!("size"), bytes_to_pretty(&p.size, true)),
-                                labelled_info(fl!("usage"), bytes_to_pretty(&usage.used, false)),
-                                link_info(
-                                    fl!("mounted-at"),
-                                    &usage.mount_point,
-                                    Message::OpenPath(usage.mount_point.clone())
-                                ),
-                                labelled_info(fl!("contents"), &type_str),
-                                labelled_info(
-                                    fl!("device"),
-                                    match p.device_path {
-                                        Some(s) => {
-                                            s
-                                        }
-                                        None => fl!("unresolved"),
-                                    }
-                                ),
-                                labelled_info(fl!("uuid"), &p.uuid),
-                            ]
-                            .spacing(5),
+                        let mut col = iced_widget::column![
+                            heading(name),
+                            Space::new(0, 10),
+                            labelled_info(fl!("size"), bytes_to_pretty(&p.size, true)),
+                        ]
+                        .spacing(5);
 
-                            None => iced_widget::column![
-                                heading(name),
-                                Space::new(0, 10),
-                                labelled_info(fl!("size"), bytes_to_pretty(&p.size, true)),
-                                labelled_info(fl!("contents"), &type_str),
-                                labelled_info(
-                                    fl!("device"),
-                                    match p.device_path {
-                                        Some(s) => {
-                                            s
-                                        }
-                                        None => fl!("unresolved"),
-                                    }
-                                ),
-                                labelled_info(fl!("uuid"), &p.uuid),
-                            ]
-                            .spacing(5),
+                        if let Some(usage) = &p.usage {
+                            col = col.push(labelled_info(
+                                fl!("usage"),
+                                bytes_to_pretty(&usage.used, false),
+                            ));
                         }
+
+                        if let Some(mount_point) = p.mount_points.first() {
+                            col = col.push(link_info(
+                                fl!("mounted-at"),
+                                mount_point,
+                                Message::OpenPath(mount_point.clone()),
+                            ));
+                        }
+
+                        col = col
+                            .push(labelled_info(fl!("contents"), &type_str))
+                            .push(labelled_info(
+                                fl!("device"),
+                                match p.device_path {
+                                    Some(s) => s,
+                                    None => fl!("unresolved"),
+                                },
+                            ))
+                            .push(labelled_info(fl!("uuid"), &p.uuid));
+
+                        col
                     }
                     None => iced_widget::column![
                         heading(&segment.label),
