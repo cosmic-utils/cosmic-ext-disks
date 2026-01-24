@@ -3,7 +3,7 @@
 Branch: `fix/device-change-detection-signals`
 
 Source:
-- Audit: `.pigentic/audits/2026-01-24T00-37-04Z.md`
+- Audit: `.copi/audits/2026-01-24T00-37-04Z.md`
 - Gap: **GAP-008 — Device change detection is polling-based (1s) instead of signal-based**
 
 ## Context
