@@ -8,8 +8,6 @@ repository = "https://github.com/cosmic-utils/cosmic-ext-disks"
 
 [build-dependencies]
 vergen = { workspace = true }
-vergen-git2 = { workspace = true }
-vergen-gitcl = { workspace = true }
 
 [dependencies]
 futures-util = { workspace = true }

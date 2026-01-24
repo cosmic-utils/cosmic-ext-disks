@@ -348,7 +348,15 @@ impl Application for AppModel {
                             return;
                         }
                     };
-                    let mut stream = manager.device_event_stream(Duration::from_secs(1));
+                    let mut stream = match manager.device_event_stream_signals().await {
+                        Ok(stream) => stream,
+                        Err(e) => {
+                            eprintln!(
+                                "Falling back to polling-based device updates (signals unavailable): {e}"
+                            );
+                            manager.device_event_stream(Duration::from_secs(10))
+                        }
+                    };
 
                     while let Some(event) = stream.next().await {
                         match event {
