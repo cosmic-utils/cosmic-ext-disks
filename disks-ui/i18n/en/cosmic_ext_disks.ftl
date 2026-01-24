@@ -63,5 +63,7 @@ delete-confirmation = Are you sure you wish to delete { $name }?
 
 # Volume segments
 free-space-segment = Free Space
+reserved-space-segment = Reserved
 filesystem = Filesystem
 free-space-caption = Free space
+reserved-space-caption = Reserved space

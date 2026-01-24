@@ -2,6 +2,7 @@
 pub enum DiskSegmentKind {
     Partition,
     FreeSpace,
+    Reserved,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -54,6 +55,15 @@ impl DiskSegment {
         }
     }
 
+    pub fn reserved(offset: u64, size: u64) -> Self {
+        Self {
+            kind: DiskSegmentKind::Reserved,
+            offset,
+            size,
+            partition_id: None,
+        }
+    }
+
     pub fn partition(id: usize, offset: u64, size: u64) -> Self {
         Self {
             kind: DiskSegmentKind::Partition,
@@ -64,13 +74,80 @@ impl DiskSegment {
     }
 }
 
+const GPT_ALIGNMENT_BYTES: u64 = 1024 * 1024;
+
+fn align_up(value: u64, alignment: u64) -> u64 {
+    if alignment == 0 {
+        return value;
+    }
+    ((value + alignment - 1) / alignment) * alignment
+}
+
+fn push_aligned_gap_segments(
+    segments: &mut Vec<DiskSegment>,
+    gap_start: u64,
+    gap_end: u64,
+    alignment_bytes: u64,
+) {
+    if gap_end <= gap_start {
+        return;
+    }
+
+    let aligned_start = align_up(gap_start, alignment_bytes);
+
+    if aligned_start >= gap_end {
+        segments.push(DiskSegment::reserved(gap_start, gap_end - gap_start));
+        return;
+    }
+
+    if aligned_start > gap_start {
+        segments.push(DiskSegment::reserved(gap_start, aligned_start - gap_start));
+    }
+
+    segments.push(DiskSegment::free_space(
+        aligned_start,
+        gap_end - aligned_start,
+    ));
+}
+
 pub fn compute_disk_segments(
     disk_size: u64,
     mut partitions: Vec<PartitionExtent>,
+    usable_range: Option<(u64, u64)>,
 ) -> SegmentComputation {
     let mut anomalies = Vec::new();
 
     if partitions.is_empty() {
+        if let Some((usable_start, usable_end)) = usable_range {
+            let usable_end = usable_end.min(disk_size);
+            if usable_start < usable_end {
+                let mut segments = Vec::new();
+
+                if usable_start > 0 {
+                    segments.push(DiskSegment::reserved(0, usable_start));
+                }
+
+                push_aligned_gap_segments(
+                    &mut segments,
+                    usable_start,
+                    usable_end,
+                    GPT_ALIGNMENT_BYTES,
+                );
+
+                if usable_end < disk_size {
+                    segments.push(DiskSegment::reserved(
+                        usable_end,
+                        disk_size.saturating_sub(usable_end),
+                    ));
+                }
+
+                return SegmentComputation {
+                    segments,
+                    anomalies,
+                };
+            }
+        }
+
         return SegmentComputation {
             segments: vec![DiskSegment::free_space(0, disk_size)],
             anomalies,
@@ -80,34 +157,63 @@ pub fn compute_disk_segments(
     partitions.sort_by(|a, b| a.offset.cmp(&b.offset));
 
     let mut segments = Vec::new();
-    let mut current_offset = 0u64;
+
+    let (range_start, range_end, alignment_bytes) = match usable_range {
+        Some((usable_start, usable_end)) if usable_start < usable_end => {
+            let usable_end = usable_end.min(disk_size);
+            if usable_start < usable_end {
+                if usable_start > 0 {
+                    segments.push(DiskSegment::reserved(0, usable_start));
+                }
+                (usable_start, usable_end, Some(GPT_ALIGNMENT_BYTES))
+            } else {
+                (0u64, disk_size, None)
+            }
+        }
+        _ => (0u64, disk_size, None),
+    };
+
+    let mut current_offset = range_start;
 
     for partition in partitions {
         if partition.size == 0 {
             continue;
         }
 
-        if partition.offset >= disk_size {
+        if partition.offset >= range_end {
             anomalies.push(SegmentAnomaly::PartitionStartsPastDisk {
                 id: partition.id,
                 partition_offset: partition.offset,
-                disk_size,
+                disk_size: range_end,
             });
 
-            if current_offset < disk_size {
-                segments.push(DiskSegment::free_space(
-                    current_offset,
-                    disk_size.saturating_sub(current_offset),
-                ));
+            if current_offset < range_end {
+                if let Some(alignment) = alignment_bytes {
+                    push_aligned_gap_segments(&mut segments, current_offset, range_end, alignment);
+                } else {
+                    segments.push(DiskSegment::free_space(
+                        current_offset,
+                        range_end.saturating_sub(current_offset),
+                    ));
+                }
             }
             break;
         }
 
         if partition.offset > current_offset {
-            segments.push(DiskSegment::free_space(
-                current_offset,
-                partition.offset - current_offset,
-            ));
+            if let Some(alignment) = alignment_bytes {
+                push_aligned_gap_segments(
+                    &mut segments,
+                    current_offset,
+                    partition.offset,
+                    alignment,
+                );
+            } else {
+                segments.push(DiskSegment::free_space(
+                    current_offset,
+                    partition.offset - current_offset,
+                ));
+            }
             current_offset = partition.offset;
         } else if partition.offset < current_offset {
             anomalies.push(SegmentAnomaly::PartitionOverlapsPrevious {
@@ -118,13 +224,13 @@ pub fn compute_disk_segments(
         }
 
         let partition_end = partition.offset.saturating_add(partition.size);
-        let effective_end = if partition_end > disk_size {
+        let effective_end = if partition_end > range_end {
             anomalies.push(SegmentAnomaly::PartitionEndPastDisk {
                 id: partition.id,
                 partition_end,
-                disk_size,
+                disk_size: range_end,
             });
-            disk_size
+            range_end
         } else {
             partition_end
         };
@@ -143,15 +249,26 @@ pub fn compute_disk_segments(
             current_offset = effective_offset.saturating_add(effective_size);
         }
 
-        if current_offset >= disk_size {
+        if current_offset >= range_end {
             break;
         }
     }
 
-    if current_offset < disk_size {
-        segments.push(DiskSegment::free_space(
-            current_offset,
-            disk_size.saturating_sub(current_offset),
+    if current_offset < range_end {
+        if let Some(alignment) = alignment_bytes {
+            push_aligned_gap_segments(&mut segments, current_offset, range_end, alignment);
+        } else {
+            segments.push(DiskSegment::free_space(
+                current_offset,
+                range_end.saturating_sub(current_offset),
+            ));
+        }
+    }
+
+    if range_end < disk_size {
+        segments.push(DiskSegment::reserved(
+            range_end,
+            disk_size.saturating_sub(range_end),
         ));
     }
 
@@ -171,14 +288,14 @@ mod tests {
 
     #[test]
     fn empty_partitions_is_single_free_space() {
-        let res = compute_disk_segments(1000, vec![]);
+        let res = compute_disk_segments(1000, vec![], None);
         assert_eq!(res.segments, vec![DiskSegment::free_space(0, 1000)]);
         assert!(res.anomalies.is_empty());
     }
 
     #[test]
     fn single_partition_with_trailing_free() {
-        let res = compute_disk_segments(1000, vec![part(0, 100, 200)]);
+        let res = compute_disk_segments(1000, vec![part(0, 100, 200)], None);
         assert_eq!(
             res.segments,
             vec![
@@ -191,7 +308,7 @@ mod tests {
 
     #[test]
     fn multiple_partitions_with_gaps_and_unsorted_input() {
-        let res = compute_disk_segments(1000, vec![part(1, 600, 100), part(0, 100, 200)]);
+        let res = compute_disk_segments(1000, vec![part(1, 600, 100), part(0, 100, 200)], None);
         assert_eq!(
             res.segments,
             vec![
@@ -206,7 +323,7 @@ mod tests {
 
     #[test]
     fn overlapping_partitions_do_not_panic_and_remain_ordered() {
-        let res = compute_disk_segments(1000, vec![part(0, 100, 300), part(1, 200, 200)]);
+        let res = compute_disk_segments(1000, vec![part(0, 100, 300), part(1, 200, 200)], None);
         assert!(
             res.anomalies
                 .iter()
@@ -224,7 +341,7 @@ mod tests {
 
     #[test]
     fn partition_end_past_disk_is_clamped() {
-        let res = compute_disk_segments(1000, vec![part(0, 900, 200)]);
+        let res = compute_disk_segments(1000, vec![part(0, 900, 200)], None);
         assert!(
             res.anomalies
                 .iter()
@@ -241,7 +358,7 @@ mod tests {
 
     #[test]
     fn extremely_small_partitions_are_preserved_as_non_zero_size() {
-        let res = compute_disk_segments(1000, vec![part(0, 10, 1)]);
+        let res = compute_disk_segments(1000, vec![part(0, 10, 1)], None);
         assert_eq!(
             res.segments,
             vec![
@@ -249,6 +366,23 @@ mod tests {
                 DiskSegment::partition(0, 10, 1),
                 DiskSegment::free_space(11, 989)
             ]
+        );
+    }
+
+    #[test]
+    fn gpt_reserved_and_alignment_padding_is_not_free_space() {
+        // Usable range begins before 1MiB alignment.
+        let res =
+            compute_disk_segments(10 * 1024 * 1024, vec![], Some((34 * 512, 10 * 1024 * 1024)));
+        assert!(
+            res.segments
+                .iter()
+                .any(|s| s.kind == DiskSegmentKind::Reserved)
+        );
+        assert!(
+            res.segments.iter().all(
+                |s| s.kind != DiskSegmentKind::FreeSpace || s.offset % GPT_ALIGNMENT_BYTES == 0
+            )
         );
     }
 }

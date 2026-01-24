@@ -1,10 +1,12 @@
 mod create_partition_info;
 mod drive;
+mod gpt;
 mod manager;
 mod partition;
 
 pub use create_partition_info::*;
 pub use drive::*;
+pub use gpt::*;
 pub use manager::*;
 pub use partition::PartitionModel;
 use thiserror::Error;

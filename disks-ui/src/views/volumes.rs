@@ -75,7 +75,7 @@ pub struct Segment {
     pub size: u64,
     pub offset: u64,
     pub state: bool,
-    pub is_free_space: bool,
+    pub kind: DiskSegmentKind,
     pub width: u16,
     pub partition: Option<PartitionModel>,
     pub table_type: String,
@@ -109,7 +109,22 @@ impl Segment {
             size,
             offset,
             state: false,
-            is_free_space: true,
+            kind: DiskSegmentKind::FreeSpace,
+            width: 0,
+            partition: None,
+            table_type,
+        }
+    }
+
+    pub fn reserved(offset: u64, size: u64, table_type: String) -> Self {
+        Self {
+            label: fl!("reserved-space-segment"),
+            name: "".into(),
+            partition_type: "".into(),
+            size,
+            offset,
+            state: false,
+            kind: DiskSegmentKind::Reserved,
             width: 0,
             partition: None,
             table_type,
@@ -142,7 +157,7 @@ impl Segment {
             size: partition.size,
             offset: partition.offset,
             state: false,
-            is_free_space: false,
+            kind: DiskSegmentKind::Partition,
             width: 0,
             partition: Some(partition.clone()),
             table_type: partition.table_type.clone(),
@@ -151,6 +166,11 @@ impl Segment {
 
     pub fn get_segments(drive: &DriveModel) -> Vec<Segment> {
         let table_type = drive.partition_table_type.clone().unwrap_or_default();
+        let usable_range = if table_type == "gpt" {
+            drive.gpt_usable_range.map(|r| (r.start, r.end))
+        } else {
+            None
+        };
 
         let extents: Vec<PartitionExtent> = drive
             .partitions
@@ -163,7 +183,7 @@ impl Segment {
             })
             .collect();
 
-        let computation = compute_disk_segments(drive.size, extents);
+        let computation = compute_disk_segments(drive.size, extents, usable_range);
         for anomaly in computation.anomalies {
             match anomaly {
                 SegmentAnomaly::PartitionOverlapsPrevious {
@@ -206,6 +226,9 @@ impl Segment {
                         table_type.clone(),
                     ));
                 }
+                DiskSegmentKind::Reserved => {
+                    segments.push(Segment::reserved(seg.offset, seg.size, table_type.clone()));
+                }
                 DiskSegmentKind::Partition => {
                     let Some(partition_id) = seg.partition_id else {
                         continue;
@@ -237,10 +260,24 @@ impl Segment {
     }
 
     pub fn get_segment_control<'a>(&self) -> Element<'a, Message> {
-        if self.is_free_space {
+        if self.kind == DiskSegmentKind::FreeSpace {
             container(
                 iced_widget::column![
                     caption_heading(fl!("free-space-caption")).center(),
+                    caption(bytes_to_pretty(&self.size, false)).center()
+                ]
+                .spacing(5)
+                .width(Length::Fill)
+                .align_x(Alignment::Center),
+            )
+            .padding(5)
+            .align_x(Alignment::Center)
+            .align_y(Alignment::Center)
+            .into()
+        } else if self.kind == DiskSegmentKind::Reserved {
+            container(
+                iced_widget::column![
+                    caption_heading(fl!("reserved-space-caption")).center(),
                     caption(bytes_to_pretty(&self.size, false)).center()
                 ]
                 .spacing(5)
@@ -501,19 +538,34 @@ impl VolumesControl {
         };
         let mut action_bar: Vec<Element<Message>> = vec![];
 
-        action_bar.push(match selected.partition {
-            Some(p) => {
-                match p.usage //TODO: More solid check than using the output of df to see if mounted.
-              {
-                  Some(_) => widget::button::custom(icon::from_name( "media-playback-stop-symbolic")).on_press(VolumesControlMessage::Unmount.into()),
-                  None =>widget::button::custom(icon::from_name( "media-playback-start-symbolic")).on_press(VolumesControlMessage::Mount.into()),
-              }
+        match selected.kind {
+            DiskSegmentKind::Partition => {
+                if let Some(p) = selected.partition.as_ref() {
+                    let button = if p.usage.is_some() {
+                        widget::button::custom(icon::from_name("media-playback-stop-symbolic"))
+                            .on_press(VolumesControlMessage::Unmount.into())
+                    } else {
+                        widget::button::custom(icon::from_name("media-playback-start-symbolic"))
+                            .on_press(VolumesControlMessage::Mount.into())
+                    };
+
+                    action_bar.push(button.into());
+                }
             }
-            None =>widget::button::custom(icon::from_name( "list-add-symbolic")).on_press(Message::Dialog(ShowDialog::AddPartition(selected.get_create_info()))),
-        }.into());
+            DiskSegmentKind::FreeSpace => {
+                action_bar.push(
+                    widget::button::custom(icon::from_name("list-add-symbolic"))
+                        .on_press(Message::Dialog(ShowDialog::AddPartition(
+                            selected.get_create_info(),
+                        )))
+                        .into(),
+                );
+            }
+            DiskSegmentKind::Reserved => {}
+        }
 
         //TODO Get better icons
-        if !selected.is_free_space {
+        if selected.kind == DiskSegmentKind::Partition {
             action_bar.push(widget::button::custom(icon::from_name("edit-find-symbolic")).into());
             action_bar.push(widget::horizontal_space().into());
             action_bar.push(
