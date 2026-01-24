@@ -26,6 +26,8 @@ pub struct PartitionModel {
     pub size: u64,
     pub path: OwnedObjectPath,
     pub device_path: Option<String>,
+    pub has_filesystem: bool,
+    pub mount_points: Vec<String>,
     pub usage: Option<Usage>,
     connection: Option<Connection>,
     pub drive_path: String,
@@ -33,24 +35,82 @@ pub struct PartitionModel {
 }
 
 impl PartitionModel {
+    fn decode_c_string_bytes(bytes: &[u8]) -> String {
+        let raw = match bytes.split(|b| *b == 0).next() {
+            Some(v) => v,
+            None => bytes,
+        };
+
+        String::from_utf8_lossy(raw).to_string()
+    }
+
+    fn decode_mount_points(mount_points: Vec<Vec<u8>>) -> Vec<String> {
+        mount_points
+            .into_iter()
+            .filter_map(|mp| {
+                let decoded = Self::decode_c_string_bytes(&mp);
+                if decoded.is_empty() {
+                    None
+                } else {
+                    Some(decoded)
+                }
+            })
+            .collect()
+    }
+
+    pub fn is_mounted(&self) -> bool {
+        self.has_filesystem && !self.mount_points.is_empty()
+    }
+
+    pub fn can_mount(&self) -> bool {
+        self.has_filesystem
+    }
+
     pub async fn from_proxy(
         client: &Client,
         drive_path: String,
         partition_path: OwnedObjectPath,
-        usage: Option<Usage>,
         partition_proxy: &PartitionProxy<'_>,
         block_proxy: &BlockProxy<'_>,
     ) -> Result<Self> {
-        let device_path = match &usage {
-            Some(usage) => Some(usage.filesystem.clone()),
-            None => {
-                let proposed = format!("/dev/{}", partition_path.split("/").last().unwrap());
+        let connection = Connection::system().await?;
 
-                match Path::new(&proposed).exists() {
-                    true => Some(proposed),
-                    false => None,
-                }
+        let preferred_device = Self::decode_c_string_bytes(&block_proxy.preferred_device().await?);
+        let device = if preferred_device.is_empty() {
+            Self::decode_c_string_bytes(&block_proxy.device().await?)
+        } else {
+            preferred_device
+        };
+
+        let mut device_path = if device.is_empty() {
+            None
+        } else {
+            Some(device)
+        };
+        if device_path.is_none() {
+            let proposed = format!("/dev/{}", partition_path.split("/").last().unwrap());
+            if Path::new(&proposed).exists() {
+                device_path = Some(proposed);
             }
+        }
+
+        let (has_filesystem, mount_points) = match FilesystemProxy::builder(&connection)
+            .path(&partition_path)?
+            .build()
+            .await
+        {
+            Ok(proxy) => match proxy.mount_points().await {
+                Ok(mps) => (true, Self::decode_mount_points(mps)),
+                Err(_) => (false, Vec::new()),
+            },
+            Err(_) => (false, Vec::new()),
+        };
+
+        let usage = match mount_points.first() {
+            Some(mount_point) => {
+                crate::usage_for_mount_point(mount_point, device_path.as_deref()).ok()
+            }
+            None => None,
         };
 
         let table_proxy = client.partition_table(partition_proxy).await?;
@@ -79,8 +139,10 @@ impl PartitionModel {
             size: partition_proxy.size().await?,
             path: partition_path.clone(),
             device_path,
+            has_filesystem,
+            mount_points,
             usage,
-            connection: Some(Connection::system().await?),
+            connection: Some(connection),
             drive_path,
             table_type: table_proxy.type_().await?,
         })
@@ -285,5 +347,66 @@ impl PartitionModel {
             return Err(DiskError::NotConnected(self.name.clone()).into());
         }
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::PartitionModel;
+
+    #[test]
+    fn decode_c_string_bytes_truncates_nul() {
+        let bytes = b"/run/media/user/DISK\0garbage";
+        assert_eq!(
+            PartitionModel::decode_c_string_bytes(bytes),
+            "/run/media/user/DISK"
+        );
+    }
+
+    #[test]
+    fn decode_mount_points_filters_empty_entries() {
+        let decoded = PartitionModel::decode_mount_points(vec![
+            b"/mnt/a\0".to_vec(),
+            b"\0".to_vec(),
+            Vec::new(),
+            b"/mnt/b".to_vec(),
+        ]);
+
+        assert_eq!(decoded, vec!["/mnt/a".to_string(), "/mnt/b".to_string()]);
+    }
+
+    #[test]
+    fn can_mount_tracks_filesystem_interface() {
+        let mut p = PartitionModel {
+            is_contained: false,
+            is_container: false,
+            table_path: "/".try_into().unwrap(),
+            name: String::new(),
+            partition_type: String::new(),
+            id_type: String::new(),
+            uuid: String::new(),
+            number: 1,
+            flags: Default::default(),
+            offset: 0,
+            size: 0,
+            path: "/".try_into().unwrap(),
+            device_path: None,
+            has_filesystem: false,
+            mount_points: Vec::new(),
+            usage: None,
+            connection: None,
+            drive_path: String::new(),
+            table_type: String::new(),
+        };
+
+        assert!(!p.can_mount());
+        assert!(!p.is_mounted());
+
+        p.has_filesystem = true;
+        assert!(p.can_mount());
+        assert!(!p.is_mounted());
+
+        p.mount_points = vec!["/mnt/a".to_string()];
+        assert!(p.is_mounted());
     }
 }

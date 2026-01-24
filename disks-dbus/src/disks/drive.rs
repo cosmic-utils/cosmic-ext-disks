@@ -11,7 +11,7 @@ use zbus::{
     zvariant::{OwnedObjectPath, Value},
 };
 
-use crate::{COMMON_DOS_TYPES, COMMON_GPT_TYPES, CreatePartitionInfo, get_usage_data};
+use crate::{COMMON_DOS_TYPES, COMMON_GPT_TYPES, CreatePartitionInfo};
 
 use super::{
     ByteRange, PartitionModel, fallback_gpt_usable_range_bytes, manager::UDisks2ManagerProxy,
@@ -138,7 +138,6 @@ impl DriveModel {
         let drive_paths = Self::get_drive_paths(&connection).await?;
 
         let mut drives: HashMap<String, DriveModel> = HashMap::new();
-        let mut usage_data = get_usage_data()?;
 
         for pair in drive_paths {
             let drive_proxy = DriveProxy::builder(&connection)
@@ -222,16 +221,6 @@ impl DriveModel {
                     }
                 };
 
-                let short_name = partition_path.as_str().split("/").last();
-
-                let usage = match short_name {
-                    Some(sn) => usage_data
-                        .iter_mut()
-                        .find(|u| u.filesystem.ends_with(sn))
-                        .map(|u| u.clone()),
-                    None => None,
-                };
-
                 let block_proxy = BlockProxy::builder(&connection)
                     .path(&partition_path)?
                     .build()
@@ -242,7 +231,6 @@ impl DriveModel {
                         &client,
                         pair.drive_path.to_string(),
                         partition_path.clone(),
-                        usage,
                         &partition_proxy,
                         &block_proxy,
                     )
