@@ -23,6 +23,7 @@ pub struct DiskSegment {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
+#[allow(clippy::enum_variant_names)]
 pub enum SegmentAnomaly {
     PartitionOverlapsPrevious {
         id: usize,

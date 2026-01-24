@@ -15,6 +15,8 @@ use super::{
     probe_gpt_usable_range_bytes,
 };
 
+use super::{BlockIndex, VolumeKind, VolumeNode};
+
 use super::ops::{RealDiskBackend, drive_create_partition};
 
 #[derive(Debug, Clone)]
@@ -36,6 +38,7 @@ pub struct DriveModel {
     pub name: String,
     pub block_path: String,
     pub partitions: Vec<PartitionModel>,
+    pub volumes: Vec<VolumeNode>,
     pub path: String,
     pub partition_table_type: Option<String>,
     pub gpt_usable_range: Option<ByteRange>,
@@ -49,6 +52,13 @@ struct DriveBlockPair {
 }
 
 impl DriveModel {
+    fn is_missing_encrypted_interface(err: &anyhow::Error) -> bool {
+        let msg = err.to_string();
+        msg.contains("No such interface")
+            && msg.contains("org.freedesktop.UDisks2.Encrypted")
+            && msg.contains("InvalidArgs")
+    }
+
     pub async fn from_proxy(
         path: &str,
         block_path: &str,
@@ -74,6 +84,7 @@ impl DriveModel {
             vendor: drive_proxy.vendor().await?,
             block_path: block_path.to_string(),
             partitions: vec![],
+            volumes: vec![],
             can_power_off: drive_proxy.can_power_off().await?,
             ejectable: drive_proxy.ejectable().await?,
             media_available: drive_proxy.media_available().await?,
@@ -133,8 +144,13 @@ impl DriveModel {
 
     pub async fn get_drives() -> Result<Vec<DriveModel>> {
         let connection = Connection::system().await?;
-        let client = Client::new_for_connection(Connection::system().await?).await?;
+        let client = Client::new_for_connection(connection.clone()).await?;
         let drive_paths = Self::get_drive_paths(&connection).await?;
+
+        // Build a device-node → object-path lookup for nested volumes (LUKS cleartext, LVM LVs).
+        let manager_proxy = UDisks2ManagerProxy::new(&connection).await?;
+        let all_block_objects = manager_proxy.get_block_devices(HashMap::new()).await?;
+        let block_index = BlockIndex::build(&connection, &all_block_objects).await?;
 
         let mut drives: HashMap<String, DriveModel> = HashMap::new();
 
@@ -235,6 +251,131 @@ impl DriveModel {
                     )
                     .await?,
                 );
+            }
+
+            // Build nested volumes for UI presentation/actions.
+            drive.volumes = Vec::with_capacity(drive.partitions.len());
+            for p in &drive.partitions {
+                let label = if p.name.is_empty() {
+                    p.name()
+                } else {
+                    p.name.clone()
+                };
+
+                // LUKS: treat as a container; children are cleartext filesystem or LVM PV.
+                let encrypted_probe =
+                    udisks2::encrypted::EncryptedProxy::builder(&connection).path(&p.path);
+
+                let volume = if let Ok(builder) = encrypted_probe {
+                    match builder.build().await {
+                        Ok(_) => {
+                            match VolumeNode::crypto_container_for_partition(
+                                &connection,
+                                p.path.clone(),
+                                label.clone(),
+                                &block_index,
+                            )
+                            .await
+                            {
+                                Ok(v) => v,
+                                Err(e) if Self::is_missing_encrypted_interface(&e) => {
+                                    // Some UDisks objects don't actually implement the Encrypted
+                                    // interface, but proxy property access may return InvalidArgs.
+                                    // Treat those as non-encrypted and fall back.
+                                    if p.id_type == "LVM2_member" {
+                                        VolumeNode::from_block_object(
+                                            &connection,
+                                            p.path.clone(),
+                                            label,
+                                            VolumeKind::LvmPhysicalVolume,
+                                            Some(&block_index),
+                                        )
+                                        .await?
+                                    } else if p.has_filesystem {
+                                        VolumeNode::from_block_object(
+                                            &connection,
+                                            p.path.clone(),
+                                            label,
+                                            VolumeKind::Filesystem,
+                                            Some(&block_index),
+                                        )
+                                        .await?
+                                    } else {
+                                        VolumeNode::from_block_object(
+                                            &connection,
+                                            p.path.clone(),
+                                            label,
+                                            VolumeKind::Partition,
+                                            Some(&block_index),
+                                        )
+                                        .await?
+                                    }
+                                }
+                                Err(e) => return Err(e),
+                            }
+                        }
+                        Err(_) => {
+                            // Not actually encrypted; fall back below.
+                            if p.id_type == "LVM2_member" {
+                                VolumeNode::from_block_object(
+                                    &connection,
+                                    p.path.clone(),
+                                    label,
+                                    VolumeKind::LvmPhysicalVolume,
+                                    Some(&block_index),
+                                )
+                                .await?
+                            } else if p.has_filesystem {
+                                VolumeNode::from_block_object(
+                                    &connection,
+                                    p.path.clone(),
+                                    label,
+                                    VolumeKind::Filesystem,
+                                    Some(&block_index),
+                                )
+                                .await?
+                            } else {
+                                VolumeNode::from_block_object(
+                                    &connection,
+                                    p.path.clone(),
+                                    label,
+                                    VolumeKind::Partition,
+                                    Some(&block_index),
+                                )
+                                .await?
+                            }
+                        }
+                    }
+                } else if p.id_type == "LVM2_member" {
+                    VolumeNode::from_block_object(
+                        &connection,
+                        p.path.clone(),
+                        label,
+                        VolumeKind::LvmPhysicalVolume,
+                        Some(&block_index),
+                    )
+                    .await?
+                } else if p.has_filesystem {
+                    VolumeNode::from_block_object(
+                        &connection,
+                        p.path.clone(),
+                        label,
+                        VolumeKind::Filesystem,
+                        Some(&block_index),
+                    )
+                    .await?
+                } else {
+                    VolumeNode::from_block_object(
+                        &connection,
+                        p.path.clone(),
+                        label,
+                        VolumeKind::Partition,
+                        Some(&block_index),
+                    )
+                    .await?
+                };
+
+                drive.volumes.push(volume);
             }
 
             drives.insert(drive.name.clone(), drive);

@@ -44,11 +44,21 @@ pub struct AppModel {
 pub enum ShowDialog {
     DeletePartition(String),
     AddPartition(CreatePartitionInfo),
+    UnlockEncrypted(UnlockEncryptedDialog),
     Info { title: String, body: String },
+}
+
+#[derive(Debug, Clone)]
+pub struct UnlockEncryptedDialog {
+    pub partition_path: String,
+    pub partition_name: String,
+    pub passphrase: String,
+    pub error: Option<String>,
 }
 
 /// Messages emitted by the application and its widgets.
 #[derive(Debug, Clone)]
+#[allow(clippy::enum_variant_names)]
 pub enum Message {
     OpenRepositoryUrl,
     OpenPath(String),
@@ -162,6 +172,10 @@ impl Application for AppModel {
 
                 ShowDialog::AddPartition(create) => Some(dialogs::create_partition(create.clone())),
 
+                ShowDialog::UnlockEncrypted(state) => {
+                    Some(dialogs::unlock_encrypted(state.clone()))
+                }
+
                 ShowDialog::Info { title, body } => Some(dialogs::info(
                     title.clone(),
                     body.clone(),
@@ -238,59 +252,108 @@ impl Application for AppModel {
                     .segments
                     .get(volumes_control.selected_segment)
                     .unwrap(); //TODO: Handle unwrap.
-                let info = match segment.partition.clone() {
-                    Some(p) => {
-                        let mut name = p.name.clone();
-                        if name.is_empty() {
-                            name = fl!("partition-number", number = p.number);
-                        } else {
-                            name =
-                                fl!("partition-number-with-name", number = p.number, name = name);
-                        }
-
-                        let mut type_str = p.id_type.clone().to_uppercase();
-                        type_str = format!("{} - {}", type_str, p.partition_type.clone());
-
-                        let mut col = iced_widget::column![
-                            heading(name),
-                            Space::new(0, 10),
-                            labelled_info(fl!("size"), bytes_to_pretty(&p.size, true)),
-                        ]
-                        .spacing(5);
-
-                        if let Some(usage) = &p.usage {
-                            col = col.push(labelled_info(
-                                fl!("usage"),
-                                bytes_to_pretty(&usage.used, false),
-                            ));
-                        }
-
-                        if let Some(mount_point) = p.mount_points.first() {
-                            col = col.push(link_info(
-                                fl!("mounted-at"),
-                                mount_point,
-                                Message::OpenPath(mount_point.clone()),
-                            ));
-                        }
-
-                        col = col
-                            .push(labelled_info(fl!("contents"), &type_str))
-                            .push(labelled_info(
-                                fl!("device"),
-                                match p.device_path {
-                                    Some(s) => s,
-                                    None => fl!("unresolved"),
-                                },
-                            ))
-                            .push(labelled_info(fl!("uuid"), &p.uuid));
-
-                        col
-                    }
-                    None => iced_widget::column![
-                        heading(&segment.label),
-                        labelled_info("Size", bytes_to_pretty(&segment.size, true)),
+                let info = if let Some(v) = volumes_control.selected_volume_node() {
+                    let mut col = iced_widget::column![
+                        heading(v.label.clone()),
+                        Space::new(0, 10),
+                        labelled_info(fl!("size"), bytes_to_pretty(&v.size, true)),
                     ]
-                    .spacing(5),
+                    .spacing(5);
+
+                    if let Some(usage) = &v.usage {
+                        col = col.push(labelled_info(
+                            fl!("usage"),
+                            bytes_to_pretty(&usage.used, false),
+                        ));
+                    }
+
+                    if let Some(mount_point) = v.mount_points.first() {
+                        col = col.push(link_info(
+                            fl!("mounted-at"),
+                            mount_point,
+                            Message::OpenPath(mount_point.clone()),
+                        ));
+                    }
+
+                    let contents = if v.id_type.is_empty() {
+                        match v.kind {
+                            disks_dbus::VolumeKind::Filesystem => fl!("filesystem"),
+                            disks_dbus::VolumeKind::LvmLogicalVolume => "LVM LV".to_string(),
+                            disks_dbus::VolumeKind::LvmPhysicalVolume => "LVM PV".to_string(),
+                            disks_dbus::VolumeKind::CryptoContainer => "LUKS".to_string(),
+                            disks_dbus::VolumeKind::Partition => "Partition".to_string(),
+                            disks_dbus::VolumeKind::Block => "Device".to_string(),
+                        }
+                    } else {
+                        v.id_type.to_uppercase()
+                    };
+
+                    col.push(labelled_info(fl!("contents"), contents))
+                        .push(labelled_info(
+                            fl!("device"),
+                            match v.device_path.as_ref() {
+                                Some(s) => s.clone(),
+                                None => fl!("unresolved"),
+                            },
+                        ))
+                } else {
+                    match segment.partition.clone() {
+                        Some(p) => {
+                            let mut name = p.name.clone();
+                            if name.is_empty() {
+                                name = fl!("partition-number", number = p.number);
+                            } else {
+                                name = fl!(
+                                    "partition-number-with-name",
+                                    number = p.number,
+                                    name = name
+                                );
+                            }
+
+                            let mut type_str = p.id_type.clone().to_uppercase();
+                            type_str = format!("{} - {}", type_str, p.partition_type.clone());
+
+                            let mut col = iced_widget::column![
+                                heading(name),
+                                Space::new(0, 10),
+                                labelled_info(fl!("size"), bytes_to_pretty(&p.size, true)),
+                            ]
+                            .spacing(5);
+
+                            if let Some(usage) = &p.usage {
+                                col = col.push(labelled_info(
+                                    fl!("usage"),
+                                    bytes_to_pretty(&usage.used, false),
+                                ));
+                            }
+
+                            if let Some(mount_point) = p.mount_points.first() {
+                                col = col.push(link_info(
+                                    fl!("mounted-at"),
+                                    mount_point,
+                                    Message::OpenPath(mount_point.clone()),
+                                ));
+                            }
+
+                            col = col
+                                .push(labelled_info(fl!("contents"), &type_str))
+                                .push(labelled_info(
+                                    fl!("device"),
+                                    match p.device_path {
+                                        Some(s) => s,
+                                        None => fl!("unresolved"),
+                                    },
+                                ))
+                                .push(labelled_info(fl!("uuid"), &p.uuid));
+
+                            col
+                        }
+                        None => iced_widget::column![
+                            heading(&segment.label),
+                            labelled_info("Size", bytes_to_pretty(&segment.size, true)),
+                        ]
+                        .spacing(5),
+                    }
                 };
 
                 let partition_type = match &drive.partition_table_type {
@@ -453,6 +516,12 @@ impl Application for AppModel {
             }
             Message::None => {}
             Message::UpdateNav(drive_models, selected) => {
+                // Unlocking an encrypted container triggers a refresh; close the unlock dialog so it
+                // doesn't linger after a successful unlock.
+                if matches!(self.dialog, Some(ShowDialog::UnlockEncrypted(_))) {
+                    self.dialog = None;
+                }
+
                 let selected = match selected {
                     Some(s) => Some(s),
                     None => self

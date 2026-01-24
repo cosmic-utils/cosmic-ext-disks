@@ -1,16 +1,20 @@
 mod create_partition_info;
 mod drive;
 mod gpt;
+mod lvm;
 mod manager;
 mod ops;
 mod partition;
+mod volume;
 
 pub use create_partition_info::*;
 pub use drive::*;
 pub use gpt::*;
+pub use lvm::*;
 pub use manager::*;
 pub use partition::PartitionModel;
 use thiserror::Error;
+pub use volume::*;
 
 // async fn get_size(path: impl Into<String> + std::fmt::Display) -> Result<String> {
 //     let client = udisks2::Client::new().await?;

@@ -41,6 +41,12 @@ pub(crate) trait DiskBackend: Send + Sync {
 
     fn fs_mount(&self, path: OwnedObjectPath) -> BoxFuture<'_, Result<()>>;
     fn fs_unmount(&self, path: OwnedObjectPath) -> BoxFuture<'_, Result<()>>;
+    fn crypto_unlock(
+        &self,
+        path: OwnedObjectPath,
+        passphrase: String,
+    ) -> BoxFuture<'_, Result<OwnedObjectPath>>;
+    fn crypto_lock(&self, path: OwnedObjectPath) -> BoxFuture<'_, Result<()>>;
     fn partition_delete(&self, path: OwnedObjectPath) -> BoxFuture<'_, Result<()>>;
     fn block_format(&self, args: PartitionFormatArgs) -> BoxFuture<'_, Result<()>>;
 }
@@ -120,6 +126,32 @@ impl DiskBackend for RealDiskBackend {
         })
     }
 
+    fn crypto_unlock(
+        &self,
+        path: OwnedObjectPath,
+        passphrase: String,
+    ) -> BoxFuture<'_, Result<OwnedObjectPath>> {
+        Box::pin(async move {
+            let proxy = udisks2::encrypted::EncryptedProxy::builder(&self.connection)
+                .path(&path)?
+                .build()
+                .await?;
+            let cleartext = proxy.unlock(&passphrase, HashMap::new()).await?;
+            Ok(cleartext)
+        })
+    }
+
+    fn crypto_lock(&self, path: OwnedObjectPath) -> BoxFuture<'_, Result<()>> {
+        Box::pin(async move {
+            let proxy = udisks2::encrypted::EncryptedProxy::builder(&self.connection)
+                .path(&path)?
+                .build()
+                .await?;
+            proxy.lock(HashMap::new()).await?;
+            Ok(())
+        })
+    }
+
     fn partition_delete(&self, path: OwnedObjectPath) -> BoxFuture<'_, Result<()>> {
         Box::pin(async move {
             let proxy = PartitionProxy::builder(&self.connection)
@@ -154,6 +186,19 @@ impl DiskBackend for RealDiskBackend {
             Ok(())
         })
     }
+}
+
+pub(crate) async fn crypto_unlock(
+    backend: &impl DiskBackend,
+    path: OwnedObjectPath,
+    passphrase: &str,
+) -> Result<OwnedObjectPath> {
+    // Never log passphrases.
+    backend.crypto_unlock(path, passphrase.to_string()).await
+}
+
+pub(crate) async fn crypto_lock(backend: &impl DiskBackend, path: OwnedObjectPath) -> Result<()> {
+    backend.crypto_lock(path).await
 }
 
 fn common_partition_info_for(
@@ -348,6 +393,8 @@ mod tests {
         Create(CreatePartitionAndFormatArgs),
         Mount(OwnedObjectPath),
         Unmount(OwnedObjectPath),
+        CryptoUnlock(OwnedObjectPath),
+        CryptoLock(OwnedObjectPath),
         Delete(OwnedObjectPath),
         Format(PartitionFormatArgs),
     }
@@ -358,6 +405,8 @@ mod tests {
         create_result: Arc<Mutex<Result<(), String>>>,
         mount_result: Arc<Mutex<Result<(), String>>>,
         unmount_result: Arc<Mutex<Result<(), String>>>,
+        crypto_unlock_result: Arc<Mutex<Result<OwnedObjectPath, String>>>,
+        crypto_lock_result: Arc<Mutex<Result<(), String>>>,
         delete_result: Arc<Mutex<Result<(), String>>>,
         format_result: Arc<Mutex<Result<(), String>>>,
     }
@@ -369,6 +418,12 @@ mod tests {
                 create_result: Arc::new(Mutex::new(Ok(()))),
                 mount_result: Arc::new(Mutex::new(Ok(()))),
                 unmount_result: Arc::new(Mutex::new(Ok(()))),
+                crypto_unlock_result: Arc::new(Mutex::new(Ok(
+                    "/org/freedesktop/UDisks2/block_devices/dm_0"
+                        .try_into()
+                        .unwrap(),
+                ))),
+                crypto_lock_result: Arc::new(Mutex::new(Ok(()))),
                 delete_result: Arc::new(Mutex::new(Ok(()))),
                 format_result: Arc::new(Mutex::new(Ok(()))),
             }
@@ -386,6 +441,16 @@ mod tests {
 
         fn set_unmount_result(&self, res: Result<()>) {
             *self.unmount_result.lock().unwrap() = res.map_err(|e| e.to_string());
+        }
+
+        #[allow(dead_code)]
+        fn set_crypto_unlock_result(&self, res: Result<OwnedObjectPath>) {
+            *self.crypto_unlock_result.lock().unwrap() = res.map_err(|e| e.to_string());
+        }
+
+        #[allow(dead_code)]
+        fn set_crypto_lock_result(&self, res: Result<()>) {
+            *self.crypto_lock_result.lock().unwrap() = res.map_err(|e| e.to_string());
         }
 
         fn set_delete_result(&self, res: Result<()>) {
@@ -420,6 +485,22 @@ mod tests {
         fn fs_unmount(&self, path: OwnedObjectPath) -> BoxFuture<'_, Result<()>> {
             self.calls.lock().unwrap().push(Call::Unmount(path));
             let res = self.unmount_result.lock().unwrap().clone();
+            Box::pin(async move { res.map_err(|e| anyhow::anyhow!(e)) })
+        }
+
+        fn crypto_unlock(
+            &self,
+            path: OwnedObjectPath,
+            _passphrase: String,
+        ) -> BoxFuture<'_, Result<OwnedObjectPath>> {
+            self.calls.lock().unwrap().push(Call::CryptoUnlock(path));
+            let res = self.crypto_unlock_result.lock().unwrap().clone();
+            Box::pin(async move { res.map_err(|e| anyhow::anyhow!(e)) })
+        }
+
+        fn crypto_lock(&self, path: OwnedObjectPath) -> BoxFuture<'_, Result<()>> {
+            self.calls.lock().unwrap().push(Call::CryptoLock(path));
+            let res = self.crypto_lock_result.lock().unwrap().clone();
             Box::pin(async move { res.map_err(|e| anyhow::anyhow!(e)) })
         }
 
