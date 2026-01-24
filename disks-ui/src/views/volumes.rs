@@ -360,7 +360,10 @@ impl VolumesControl {
             VolumesControlMessage::CreateMessage(create_message) => {
                 let d = match dialog.as_mut() {
                     Some(d) => d,
-                    None => panic!("invalid state"), //TODO: Better handling,
+                    None => {
+                        eprintln!("CreateMessage received with no active dialog; ignoring.");
+                        return Task::none();
+                    }
                 };
 
                 match d {
@@ -382,8 +385,10 @@ impl VolumesControl {
                         CreateMessage::PartitionTypeUpdate(p_type) => {
                             create.selected_partitition_type = p_type
                         }
-                        CreateMessage::Continue => todo!(),
-                        CreateMessage::Cancel => todo!(),
+                        CreateMessage::Continue => {
+                            eprintln!("CreateMessage::Continue is not implemented; ignoring.");
+                        }
+                        CreateMessage::Cancel => return Task::done(Message::CloseDialog.into()),
                         CreateMessage::Partition(mut create_partition_info) => {
                             //println!("{:?}", create_partition_info);
 
@@ -413,6 +418,10 @@ impl VolumesControl {
                             return Task::done(Message::CloseDialog.into()).chain(task);
                         }
                     },
+
+                    ShowDialog::Info { .. } => {
+                        eprintln!("CreateMessage received while an info dialog is open; ignoring.");
+                    }
                 }
             }
         }
@@ -533,7 +542,13 @@ fn get_button_style(
                 theme.cosmic().accent_color().with_alpha(0.2).into(),
             ));
         }
-        ToggleState::Disabled => todo!(),
+        ToggleState::Disabled => {
+            base.border_color = theme.cosmic().primary.base.with_alpha(0.35).into();
+            base.outline_color = theme.cosmic().primary.base.with_alpha(0.35).into();
+            base.background = Some(Background::Color(
+                theme.cosmic().primary.base.with_alpha(0.08).into(),
+            ));
+        }
         ToggleState::Hovered => {
             base.text_color = Some(theme.cosmic().accent_button.base.into());
             base.background = Some(Background::Color(theme.cosmic().button.hover.into()));

@@ -44,6 +44,7 @@ pub struct AppModel {
 pub enum ShowDialog {
     DeletePartition(String),
     AddPartition(CreatePartitionInfo),
+    Info { title: String, body: String },
 }
 
 /// Messages emitted by the application and its widgets.
@@ -160,6 +161,12 @@ impl Application for AppModel {
                 )),
 
                 ShowDialog::AddPartition(create) => Some(dialogs::create_partition(create.clone())),
+
+                ShowDialog::Info { title, body } => Some(dialogs::info(
+                    title.clone(),
+                    body.clone(),
+                    Message::CloseDialog,
+                )),
             },
             None => None,
         }
@@ -536,17 +543,72 @@ impl Application for AppModel {
                     );
                 }
             }
-            Message::PowerOff => todo!(),
-            Message::Format => todo!(),
-            Message::Benchmark => todo!(),
-            Message::SmartData => todo!(),
-            Message::DriveSettings => todo!(),
-            Message::StandbyNow => todo!(),
-            Message::Wakeup => todo!(),
-            Message::NewDiskImage => todo!(),
-            Message::AttachDisk => todo!(),
-            Message::CreateDiskFrom => todo!(),
-            Message::RestoreImageTo => todo!(),
+            Message::PowerOff => {
+                self.dialog = Some(ShowDialog::Info {
+                    title: fl!("app-title"),
+                    body: "Power off is not implemented yet.".to_string(),
+                });
+            }
+            Message::Format => {
+                self.dialog = Some(ShowDialog::Info {
+                    title: fl!("app-title"),
+                    body: "Format disk is not implemented yet.".to_string(),
+                });
+            }
+            Message::Benchmark => {
+                self.dialog = Some(ShowDialog::Info {
+                    title: fl!("app-title"),
+                    body: "Benchmark is not implemented yet.".to_string(),
+                });
+            }
+            Message::SmartData => {
+                self.dialog = Some(ShowDialog::Info {
+                    title: fl!("app-title"),
+                    body: "SMART data/self-tests are not implemented yet.".to_string(),
+                });
+            }
+            Message::DriveSettings => {
+                self.dialog = Some(ShowDialog::Info {
+                    title: fl!("app-title"),
+                    body: "Drive settings are not implemented yet.".to_string(),
+                });
+            }
+            Message::StandbyNow => {
+                self.dialog = Some(ShowDialog::Info {
+                    title: fl!("app-title"),
+                    body: "Standby is not implemented yet.".to_string(),
+                });
+            }
+            Message::Wakeup => {
+                self.dialog = Some(ShowDialog::Info {
+                    title: fl!("app-title"),
+                    body: "Wake up from standby is not implemented yet.".to_string(),
+                });
+            }
+            Message::NewDiskImage => {
+                self.dialog = Some(ShowDialog::Info {
+                    title: fl!("app-title"),
+                    body: "Creating a new disk image is not implemented yet.".to_string(),
+                });
+            }
+            Message::AttachDisk => {
+                self.dialog = Some(ShowDialog::Info {
+                    title: fl!("app-title"),
+                    body: "Attaching a disk image is not implemented yet.".to_string(),
+                });
+            }
+            Message::CreateDiskFrom => {
+                self.dialog = Some(ShowDialog::Info {
+                    title: fl!("app-title"),
+                    body: "Creating an image from a drive is not implemented yet.".to_string(),
+                });
+            }
+            Message::RestoreImageTo => {
+                self.dialog = Some(ShowDialog::Info {
+                    title: fl!("app-title"),
+                    body: "Restoring an image to a drive is not implemented yet.".to_string(),
+                });
+            }
             Message::Surface(action) => {
                 return cosmic::task::message(cosmic::Action::Cosmic(
                     cosmic::app::Action::Surface(action),
