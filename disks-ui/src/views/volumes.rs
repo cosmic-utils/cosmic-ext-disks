@@ -12,10 +12,7 @@ use cosmic::{
 use crate::{
     app::{Message, ShowDialog},
     fl,
-    utils::{
-        DiskSegmentKind, PartitionExtent, SegmentAnomaly,
-        compute_disk_segments,
-    },
+    utils::{DiskSegmentKind, PartitionExtent, SegmentAnomaly, compute_disk_segments},
 };
 use disks_dbus::CreatePartitionInfo;
 use disks_dbus::bytes_to_pretty;
