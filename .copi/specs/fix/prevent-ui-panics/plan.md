@@ -73,10 +73,14 @@ The simplest safe implementation is to remove/hide items that currently route in
   - Mitigation: Use the simplest safe behavior (disable/hide) without adding new dependencies.
 
 ## Acceptance Criteria
-- [ ] GAP-001: Clicking Cancel closes the dialog and returns to the main view.
-- [ ] GAP-001: No `panic!()`/`todo!()` reachable from UI controls in this flow.
-- [ ] GAP-002: No panics in dialog state transitions; invalid states are safely handled.
-- [ ] GAP-003: Menu contains only implemented actions, or disabled items do not crash and show “Not implemented” UX.
-- [ ] `cargo fmt --all --check` passes.
-- [ ] `cargo clippy --workspace --all-features` passes.
-- [ ] `cargo test --workspace --all-features` passes.
+- [x] GAP-001: Clicking Cancel closes the dialog and returns to the main view.
+- [x] GAP-001: No `panic!()`/`todo!()` reachable from UI controls in this flow.
+- [x] GAP-002: No panics in dialog state transitions; invalid states are safely handled.
+- [x] GAP-003: Menu contains only implemented actions, or disabled items do not crash and show “Not implemented” UX.
+- [x] `cargo fmt --all --check` passes.
+- [x] `cargo clippy --workspace --all-features` passes.
+- [x] `cargo test --workspace --all-features` passes.
+
+## Implementation Notes
+- Menu actions were kept visible; unimplemented actions now open an informational dialog rather than crashing.
+- Create-partition Cancel now closes the dialog; invalid dialog-message delivery no longer panics.

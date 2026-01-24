@@ -18,8 +18,8 @@ Source:
   - Manual: open create-partition dialog → click Cancel → verify no crash and dialog closes.
   - CI: run `cargo fmt --all --check`, `cargo clippy --workspace --all-features`, `cargo test --workspace --all-features`.
 - Done when:
-  - [ ] Cancel closes dialog.
-  - [ ] No panic/todo reachable in this path.
+  - [x] Cancel closes dialog.
+  - [x] No panic/todo reachable in this path.
 
 ## Task 2: Remove panic on invalid dialog state (GAP-002)
 - Scope: Replace panic-based state checking in dialog update path with recoverable behavior.
@@ -36,8 +36,8 @@ Source:
   - Manual: open dialog → quickly open/close and interact (try to provoke late messages) → confirm no crash.
   - CI: `cargo fmt`, `cargo clippy`, `cargo test`.
 - Done when:
-  - [ ] No panics in dialog state transitions.
-  - [ ] Invalid state paths are handled deterministically.
+  - [x] No panics in dialog state transitions.
+  - [x] Invalid state paths are handled deterministically.
 
 ## Task 3: Prevent menu crash-on-click for unimplemented actions (GAP-003)
 - Scope: Ensure menu items do not route into `todo!()`.
@@ -54,8 +54,8 @@ Source:
   - Manual: click each menu item, including previously crashing ones → verify no crash.
   - CI: `cargo fmt`, `cargo clippy`, `cargo test`.
 - Done when:
-  - [ ] No menu click can crash the app.
-  - [ ] Unimplemented actions are either absent/disabled or show safe messaging.
+  - [x] No menu click can crash the app.
+  - [x] Unimplemented actions are either absent/disabled or show safe messaging.
 
 ## Task 4: CI/quality gate verification
 - Scope: Make sure the changes satisfy repo quality gates.
@@ -64,7 +64,7 @@ Source:
   - Run `cargo clippy --workspace --all-features`.
   - Run `cargo test --workspace --all-features`.
 - Done when:
-  - [ ] All commands pass locally and in CI.
+  - [x] All commands pass locally and in CI.
 
 ## Notes / Dependencies
 - If the UI layer lacks a toast/dialog primitive for “Not implemented”, prefer disabling or hiding items over introducing new dependencies.

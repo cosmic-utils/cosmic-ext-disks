@@ -28,6 +28,18 @@ pub fn confirmation<'a>(
     dialog.into()
 }
 
+pub fn info<'a>(
+    title: impl Into<Cow<'a, str>>,
+    body: impl Into<Cow<'a, str>>,
+    ok_message: Message,
+) -> Element<'a, Message> {
+    dialog::dialog()
+        .title(title)
+        .body(body)
+        .primary_action(button::standard(fl!("ok")).on_press(ok_message))
+        .into()
+}
+
 pub fn create_partition<'a>(create: CreatePartitionInfo) -> Element<'a, Message> {
     let len = create.max_size as f64;
 
