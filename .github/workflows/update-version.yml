@@ -6,6 +6,7 @@ on:
 
 permissions:
   contents: write
+  pull-requests: write
 
 env:
   CARGO_TERM_COLOR: always
@@ -36,7 +37,7 @@ jobs:
           version_format: "${major}.${minor}.${patch}"
           version_from_branch: false
 
-      - name: Set versions in Cargo.toml
+      - name: Export VERSION
         run: |
           set -euo pipefail
           VERSION="${{ steps.semver.outputs.version }}"
@@ -44,48 +45,74 @@ jobs:
             VERSION="0.0.1"
           fi
           echo "Calculated version: $VERSION"
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
 
+      - name: Check for existing version PR
+        id: pr_check
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const branchPrefix = 'chore/release-v';
+
+            const { data: pulls } = await github.rest.pulls.list({
+              owner,
+              repo,
+              state: 'open',
+              per_page: 100,
+            });
+
+            const exists = pulls.some(pr => pr.head && typeof pr.head.ref === 'string' && pr.head.ref.startsWith(branchPrefix));
+            core.setOutput('exists', exists ? 'true' : 'false');
+            core.info(exists
+              ? `Found existing open release PR (branch starts with ${branchPrefix}); skipping.`
+              : `No open release PR found (branch starts with ${branchPrefix}); continuing.`);
+
+      - name: Skip (existing version PR)
+        if: steps.pr_check.outputs.exists == 'true'
+        run: echo "Version PR already exists for v$VERSION; skipping remaining steps."
+
+      - name: Set versions in Cargo.toml
+        if: steps.pr_check.outputs.exists != 'true'
+        run: |
+          set -euo pipefail
+          VERSION="$VERSION"
           sed -i 's/^version = ".*"/version = "'$VERSION'"/' disks-dbus/Cargo.toml
           sed -i 's/^version = ".*"/version = "'$VERSION'"/' disks-ui/Cargo.toml
 
           # Keep the workspace dependency version in sync so cargo can publish without mutating files.
           sed -i 's|disks-dbus = { package = "cosmic-ext-disks-dbus", path = "disks-dbus", version = ".*" }|disks-dbus = { package = "cosmic-ext-disks-dbus", path = "disks-dbus", version = "'$VERSION'" }|' Cargo.toml
 
-          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
-
       - name: Run fmt
+        if: steps.pr_check.outputs.exists != 'true'
         run: cargo fmt --all
 
       - name: Run tests
+        if: steps.pr_check.outputs.exists != 'true'
         run: cargo test --workspace --all-features
 
       - name: Run clippy
+        if: steps.pr_check.outputs.exists != 'true'
         run: cargo clippy --workspace --all-features
 
       - name: Commit version bump
-        run: |
-          set -euo pipefail
-          if git diff --quiet; then
-            echo "No version changes to commit; exiting."
-            exit 0
-          fi
+        if: steps.pr_check.outputs.exists != 'true'
+        uses: peter-evans/create-pull-request@v6
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: "chore(release): v${{ env.VERSION }}"
+          committer: "github-actions[bot] <41898282+github-actions[bot]@users.noreply.github.com>"
+          author: "github-actions[bot] <41898282+github-actions[bot]@users.noreply.github.com>"
+          add-paths: |
+            Cargo.toml
+            disks-dbus/Cargo.toml
+            disks-ui/Cargo.toml
+          branch: "chore/release-v${{ env.VERSION }}"
+          delete-branch: true
+          base: main
+          title: "chore(release): v${{ env.VERSION }}"
+          body: |
+            Automated version bump to v${{ env.VERSION }}.
 
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-
-          git add Cargo.toml disks-dbus/Cargo.toml disks-ui/Cargo.toml
-          git commit -m "chore(release): v$VERSION"
-
-      - name: Tag and push
-        run: |
-          set -euo pipefail
-          if git rev-parse "v$VERSION" >/dev/null 2>&1; then
-            echo "Tag v$VERSION already exists; exiting."
-            exit 0
-          fi
-
-          git tag -a "v$VERSION" -m "v$VERSION"
-
-          # Push the commit to main and then the tag. The tag triggers the publish workflow.
-          git push origin HEAD:main
-          git push origin "v$VERSION"
+            This PR was created because `main` is protected/locked.
