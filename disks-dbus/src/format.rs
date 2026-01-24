@@ -1,13 +1,13 @@
 use anyhow::Result;
 use num_format::{Locale, ToFormattedString};
-use std::{cmp::min, f64};
+use std::f64;
 
 pub fn bytes_to_pretty(bytes: &u64, add_bytes: bool) -> String {
     let mut steps = 0;
-    let mut val: f64 = bytes.clone() as f64;
+    let mut val: f64 = *bytes as f64;
 
     while val > 1024. && steps <= 8 {
-        val = val / 1024.;
+        val /= 1024.;
         steps += 1;
     }
 
@@ -26,9 +26,9 @@ pub fn bytes_to_pretty(bytes: &u64, add_bytes: bool) -> String {
 
     if add_bytes {
         let bytes_str = bytes.to_formatted_string(&Locale::en); //TODO: Accept locale as a parameter.
-        return format!("{:.2} {} ({} bytes)", val, unit, bytes_str);
+        format!("{:.2} {} ({} bytes)", val, unit, bytes_str)
     } else {
-        return format!("{:.2} {}", val, unit);
+        format!("{:.2} {}", val, unit)
     }
 }
 
@@ -61,7 +61,7 @@ pub fn pretty_to_bytes(pretty: &str) -> Result<u64> {
     }
 
     while steps > 0 {
-        val = val * 1024.;
+        val *= 1024.;
         steps -= 1;
     }
 
@@ -71,10 +71,10 @@ pub fn pretty_to_bytes(pretty: &str) -> Result<u64> {
 //method to return numeric value that would be displayed in bytes_to_pretty
 pub fn get_numeric(bytes: &u64) -> f64 {
     let mut steps = 0;
-    let mut val: f64 = bytes.clone() as f64;
+    let mut val: f64 = *bytes as f64;
 
     while val > 1024. && steps <= 8 {
-        val = val / 1024.;
+        val /= 1024.;
         steps += 1;
     }
 
@@ -84,12 +84,12 @@ pub fn get_numeric(bytes: &u64) -> f64 {
 //method to return decent step value for numeric boxes based on displayed value, determined by bytes_to_pretty
 pub fn get_step(bytes: &u64) -> f64 {
     let mut denomination = 0;
-    let mut val: f64 = bytes.clone() as f64;
+    let mut val: f64 = *bytes as f64;
 
     while val > 1024. && denomination <= 8 {
-        val = val / 1024.;
+        val /= 1024.;
         denomination += 1;
     }
 
-    return 1024_f64.powi(denomination);
+    1024_f64.powi(denomination)
 }

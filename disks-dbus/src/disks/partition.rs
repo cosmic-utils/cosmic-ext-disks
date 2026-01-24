@@ -1,7 +1,7 @@
 use super::DiskError;
 use crate::Usage;
 use anyhow::Result;
-use enumflags2::{BitFlags, bitflags};
+use enumflags2::BitFlags;
 use std::{collections::HashMap, path::Path};
 use udisks2::{
     Client,
@@ -53,7 +53,7 @@ impl PartitionModel {
             }
         };
 
-        let table_proxy = client.partition_table(&partition_proxy).await?;
+        let table_proxy = client.partition_table(partition_proxy).await?;
         let type_str = match client.partition_type_for_display(
             &table_proxy.type_().await?,
             &partition_proxy.type_().await?,
@@ -78,10 +78,10 @@ impl PartitionModel {
             offset: partition_proxy.offset().await?,
             size: partition_proxy.size().await?,
             path: partition_path.clone(),
-            device_path: device_path,
+            device_path,
             usage,
             connection: Some(Connection::system().await?),
-            drive_path: drive_path,
+            drive_path,
             table_type: table_proxy.type_().await?,
         })
     }
@@ -97,7 +97,7 @@ impl PartitionModel {
     pub async fn partition_info(client: &Client, partition: &PartitionProxy<'_>) -> Result<String> {
         let flags = partition.flags().await?;
         let table = client.partition_table(partition).await?;
-        let mut flags_str = String::new();
+        let flags_str = String::new();
 
         let type_str = match client
             .partition_type_for_display(&table.type_().await?, &partition.type_().await?)
@@ -128,7 +128,7 @@ impl PartitionModel {
             return Err(DiskError::NotConnected(self.name.clone()).into());
         }
 
-        let proxy = FilesystemProxy::builder(&self.connection.as_ref().unwrap())
+        let proxy = FilesystemProxy::builder(self.connection.as_ref().unwrap())
             .path(&self.path)?
             .build()
             .await?;
@@ -143,7 +143,7 @@ impl PartitionModel {
             return Err(DiskError::NotConnected(self.name.clone()).into());
         }
 
-        let proxy = FilesystemProxy::builder(&self.connection.as_ref().unwrap())
+        let proxy = FilesystemProxy::builder(self.connection.as_ref().unwrap())
             .path(&self.path)?
             .build()
             .await?;
@@ -162,7 +162,7 @@ impl PartitionModel {
         //any other error with the partition should be caught by the delete operation.
         let _ = self.unmount().await;
 
-        let proxy = PartitionProxy::builder(&self.connection.as_ref().unwrap())
+        let proxy = PartitionProxy::builder(self.connection.as_ref().unwrap())
             .path(&self.path)?
             .build()
             .await?;

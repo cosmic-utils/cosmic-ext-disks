@@ -2,6 +2,10 @@
 
 Disk utility for the COSMIC™ desktop
 
+## Runtime dependencies
+
+- `udisks2` (system service; provides disk enumeration and device add/remove signals)
+
 ## Installation
 
 A [justfile](./justfile) is included by default for the [casey/just][just] command runner.

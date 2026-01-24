@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use anyhow::{Result, anyhow};
+use anyhow::Result;
 use tracing::{error, info, warn};
 use udisks2::{
     Client, block::BlockProxy, drive::DriveProxy, partition::PartitionProxy,
@@ -86,13 +86,13 @@ impl DriveModel {
     }
 
     async fn get_drive_paths(connection: &Connection) -> Result<Vec<DriveBlockPair>> {
-        let manager_proxy = UDisks2ManagerProxy::new(&connection).await?;
+        let manager_proxy = UDisks2ManagerProxy::new(connection).await?;
         let block_paths = manager_proxy.get_block_devices(HashMap::new()).await?;
 
         let mut drive_paths: Vec<DriveBlockPair> = vec![];
 
         for path in block_paths {
-            let block_device = match BlockProxy::builder(&connection).path(&path)?.build().await {
+            let block_device = match BlockProxy::builder(connection).path(&path)?.build().await {
                 Ok(d) => d,
                 Err(e) => {
                     info!("Could not get block device: {}", e);
@@ -101,7 +101,7 @@ impl DriveModel {
             };
 
             //Drive nodes don't have a .Partition interface assigned.
-            let _ = match PartitionProxy::builder(&connection)
+            match PartitionProxy::builder(connection)
                 .path(&path)?
                 .build()
                 .await
@@ -193,10 +193,10 @@ impl DriveModel {
                 let short_name = partition_path.as_str().split("/").last();
 
                 let usage = match short_name {
-                    Some(sn) => match usage_data.iter_mut().find(|u| u.filesystem.ends_with(sn)) {
-                        Some(u) => Some(u.clone()),
-                        None => None,
-                    },
+                    Some(sn) => usage_data
+                        .iter_mut()
+                        .find(|u| u.filesystem.ends_with(sn))
+                        .map(|u| u.clone()),
                     None => None,
                 };
 

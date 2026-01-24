@@ -19,7 +19,6 @@ use disks_dbus::bytes_to_pretty;
 use disks_dbus::{DiskManager, DriveModel};
 use futures_util::{SinkExt, StreamExt};
 use std::collections::HashMap;
-use std::time::Duration;
 
 pub const REPOSITORY: &str = env!("CARGO_PKG_REPOSITORY");
 pub const APP_ICON: &[u8] = include_bytes!("../resources/icons/hicolor/scalable/apps/icon.svg");
@@ -352,9 +351,9 @@ impl Application for AppModel {
                         Ok(stream) => stream,
                         Err(e) => {
                             eprintln!(
-                                "Falling back to polling-based device updates (signals unavailable): {e}"
+                                "Device updates unavailable (failed to subscribe to UDisks2 signals): {e}"
                             );
-                            manager.device_event_stream(Duration::from_secs(10))
+                            return;
                         }
                     };
 
