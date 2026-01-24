@@ -28,10 +28,6 @@ I am currently actively developing this again after a 5 month hiatus, so this li
 ### What doesn't work
 Everything else!
 
-### Device insert/remove updates
-Device discovery updates are driven by UDisks2 DBus signals (ObjectManager `InterfacesAdded`/`InterfacesRemoved`).
-
-If signal subscription fails at runtime, device insert/remove updates will be unavailable until the underlying DBus/UDisks2 issue is resolved.
 
 
 ### Future Plans
