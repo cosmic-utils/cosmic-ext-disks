@@ -128,6 +128,9 @@ impl DiskManager {
                             }
                         }
                     }
+                    _ = sender.closed() => {
+                        break;
+                    }
                 }
             }
         });
