@@ -502,7 +502,10 @@ impl Application for AppModel {
                                 self.nav
                                     .insert()
                                     .text(drive.name())
-                                    .data::<VolumesControl>(VolumesControl::new(drive.clone(), show_reserved))
+                                    .data::<VolumesControl>(VolumesControl::new(
+                                        drive.clone(),
+                                        show_reserved,
+                                    ))
                                     .data::<DriveModel>(drive)
                                     .icon(icon::from_name(icon))
                                     .activate();
@@ -510,7 +513,10 @@ impl Application for AppModel {
                                 self.nav
                                     .insert()
                                     .text(drive.name())
-                                    .data::<VolumesControl>(VolumesControl::new(drive.clone(), show_reserved))
+                                    .data::<VolumesControl>(VolumesControl::new(
+                                        drive.clone(),
+                                        show_reserved,
+                                    ))
                                     .data::<DriveModel>(drive)
                                     .icon(icon::from_name(icon));
                             }
@@ -519,7 +525,10 @@ impl Application for AppModel {
                             self.nav
                                 .insert()
                                 .text(drive.name())
-                                .data::<VolumesControl>(VolumesControl::new(drive.clone(), show_reserved))
+                                .data::<VolumesControl>(VolumesControl::new(
+                                    drive.clone(),
+                                    show_reserved,
+                                ))
                                 .data::<DriveModel>(drive)
                                 .icon(icon::from_name(icon));
                         }
@@ -636,10 +645,10 @@ impl Application for AppModel {
 
             self.nav.activate(id);
 
-            if let Some(show_reserved) = previous_show_reserved {
-                if let Some(volumes_control) = self.nav.active_data_mut::<VolumesControl>() {
-                    volumes_control.set_show_reserved(show_reserved);
-                }
+            if let Some(show_reserved) = previous_show_reserved
+                && let Some(volumes_control) = self.nav.active_data_mut::<VolumesControl>()
+            {
+                volumes_control.set_show_reserved(show_reserved);
             }
 
             self.update_title()
