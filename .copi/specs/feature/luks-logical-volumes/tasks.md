@@ -87,6 +87,7 @@ Source: brief (user request)
 - Done when:
   - [x] Inner filesystem(s) are visible and actionable.
   - [x] Child sizing matches the existing segment sizing behavior.
+  - [x] Nested UI uses a split layout (container top half, children bottom half) and child nodes are selectable.
 
 ## Task 6: LVM discovery + LV rendering (required)
 - Scope: Treat LVM PV as a container and enumerate LVs; mount filesystem LVs.

@@ -24,6 +24,7 @@ pub enum VolumesControlMessage {
     ToggleShowReserved(bool),
     Mount,
     Unmount,
+    ChildSelected(String),
     ChildMount(String),
     ChildUnmount(String),
     LockContainer,
@@ -86,6 +87,7 @@ impl From<VolumesControlMessage> for Message {
 
 pub struct VolumesControl {
     pub selected_segment: usize,
+    pub selected_volume: Option<String>,
     pub segments: Vec<Segment>,
     pub show_reserved: bool,
     #[allow(dead_code)]
@@ -376,9 +378,15 @@ impl VolumesControl {
         Self {
             model,
             selected_segment: 0,
+            selected_volume: None,
             segments,
             show_reserved,
         }
+    }
+
+    pub fn selected_volume_node(&self) -> Option<&VolumeNode> {
+        let object_path = self.selected_volume.as_deref()?;
+        find_volume_node(&self.model.volumes, object_path)
     }
 
     pub fn set_show_reserved(&mut self, show_reserved: bool) {
@@ -389,6 +397,7 @@ impl VolumesControl {
         self.show_reserved = show_reserved;
         self.segments = Segment::get_segments(&self.model, self.show_reserved);
         self.selected_segment = 0;
+        self.selected_volume = None;
         if let Some(first) = self.segments.first_mut() {
             first.state = true;
         }
@@ -403,6 +412,7 @@ impl VolumesControl {
             VolumesControlMessage::SegmentSelected(index) => {
                 if dialog.is_none() {
                     self.selected_segment = index;
+                    self.selected_volume = None;
                     self.segments.iter_mut().for_each(|s| s.state = false);
                     if let Some(segment) = self.segments.get_mut(index) {
                         segment.state = true;
@@ -469,6 +479,11 @@ impl VolumesControl {
                     }
                 }
                 return Task::none();
+            }
+            VolumesControlMessage::ChildSelected(object_path) => {
+                if dialog.is_none() {
+                    self.selected_volume = Some(object_path);
+                }
             }
             VolumesControlMessage::ChildMount(object_path) => {
                 let node = find_volume_node(&self.model.volumes, &object_path).cloned();
@@ -705,6 +720,8 @@ impl VolumesControl {
     }
 
     pub fn view(&self) -> Element<'_, Message> {
+        const SEGMENT_BUTTON_HEIGHT: f32 = 130.0;
+
         let show_reserved = checkbox(fl!("show-reserved"), self.show_reserved)
             .on_toggle(|v| VolumesControlMessage::ToggleShowReserved(v).into());
 
@@ -726,7 +743,7 @@ impl VolumesControl {
                         hovered: Box::new(move |_, theme| get_button_style(hovered_state, theme)),
                         pressed: Box::new(|_, theme| get_button_style(ToggleState::Pressed, theme)),
                     })
-                    .height(Length::Fixed(100.))
+                        .height(Length::Fixed(SEGMENT_BUTTON_HEIGHT))
                     .width(Length::FillPortion(segment.width))
                     .into()
             })
@@ -842,7 +859,7 @@ impl VolumesControl {
 
         let nested = selected_volume
             .filter(|v| v.kind == VolumeKind::CryptoContainer)
-            .map(|v| nested_volume_view(v));
+            .map(|v| nested_volume_view(v, self.selected_volume.as_deref()));
 
         let mut root = column![
             cosmic::widget::Row::from_vec(vec![show_reserved.into()])
@@ -887,45 +904,75 @@ fn find_volume_node_for_partition<'a>(
     find_volume_node(volumes, &target)
 }
 
-fn nested_volume_view<'a>(container_volume: &'a VolumeNode) -> Element<'a, Message> {
-    // Render one level of nesting (cleartext) and, if present, LVM LVs below the PV.
-    let mut content = iced_widget::column![cosmic::widget::text::caption_heading(
-        if container_volume.locked {
-            fl!("locked")
-        } else {
-            fl!("unlocked")
-        }
-    )]
-    .spacing(8);
+fn nested_volume_view<'a>(
+    container_volume: &'a VolumeNode,
+    selected_volume: Option<&str>,
+) -> Element<'a, Message> {
+    // Split the nested section: top half is the container summary, bottom half is its children.
+    const NESTED_SECTION_HEIGHT: f32 = 260.0;
 
-    if container_volume.children.is_empty() {
-        return container(content)
-            .padding(8)
-            .class(cosmic::style::Container::Card)
-            .into();
+    let state_text = if container_volume.locked {
+        fl!("locked")
+    } else {
+        fl!("unlocked")
+    };
+
+    let container_summary = container(
+        iced_widget::column![
+            cosmic::widget::text::caption_heading(container_volume.label.clone()).center(),
+            cosmic::widget::text::caption(state_text).center(),
+            cosmic::widget::text::caption(bytes_to_pretty(&container_volume.size, false)).center(),
+        ]
+        .spacing(4)
+        .width(Length::Fill)
+        .align_x(Alignment::Center),
+    )
+    .padding(8)
+    .height(Length::FillPortion(1));
+
+    let mut children_col = iced_widget::column![].spacing(8);
+    if !container_volume.children.is_empty() {
+        // First nesting level.
+        children_col = children_col.push(volume_row(
+            container_volume,
+            &container_volume.children,
+            selected_volume,
+        ));
+
+        // One more level for child containers (partition tables, LVM PV → LVs).
+        for child in &container_volume.children {
+            if !child.children.is_empty() {
+                children_col = children_col.push(volume_row(child, &child.children, selected_volume));
+            }
+        }
     }
 
-    // First nesting level.
-    content = content.push(volume_row(container_volume, &container_volume.children));
-
-    // Render one more nesting level for any child containers (partition tables, LVM PV → LVs).
-    for child in &container_volume.children {
-        if !child.children.is_empty() {
-            content = content.push(volume_row(child, &child.children));
-        }
-    }
-
-    container(content)
+    let children_panel = container(children_col)
         .padding(8)
-        .class(cosmic::style::Container::Card)
-        .into()
+        .height(Length::FillPortion(1));
+
+    container(
+        iced_widget::column![container_summary, children_panel]
+            .spacing(8)
+            .height(Length::Fixed(NESTED_SECTION_HEIGHT)),
+    )
+    .padding(8)
+    .class(cosmic::style::Container::Card)
+    .into()
 }
 
-fn volume_row<'a>(parent: &VolumeNode, children: &'a [VolumeNode]) -> Element<'a, Message> {
+fn volume_row<'a>(
+    parent: &VolumeNode,
+    children: &'a [VolumeNode],
+    selected_volume: Option<&str>,
+) -> Element<'a, Message> {
+    const CHILD_BUTTON_HEIGHT: f32 = 117.0;
+
     let total = parent.size.max(1);
     let mut buttons: Vec<Element<Message>> = Vec::new();
 
     for child in children {
+        let child_object_path = child.object_path.to_string();
         let denom = total;
         let width = (((child.size as f64 / denom as f64) * 1000.).log10().ceil() as u16).max(1);
 
@@ -957,8 +1004,27 @@ fn volume_row<'a>(parent: &VolumeNode, children: &'a [VolumeNode]) -> Element<'a
             col = col.push(widget::button::custom(icon::from_name(icon_name)).on_press(a.into()));
         }
 
+        let is_selected = selected_volume.is_some_and(|p| p == child_object_path);
+        let active_state = if is_selected {
+            ToggleState::Active
+        } else {
+            ToggleState::Normal
+        };
+        let hovered_state = if is_selected {
+            ToggleState::Active
+        } else {
+            ToggleState::Hovered
+        };
+
         let b = cosmic::widget::button::custom(container(col).padding(6))
-            .height(Length::Fixed(90.0))
+            .on_press(VolumesControlMessage::ChildSelected(child_object_path).into())
+            .class(cosmic::theme::Button::Custom {
+                active: Box::new(move |_b, theme| get_button_style(active_state, theme)),
+                disabled: Box::new(|theme| get_button_style(ToggleState::Disabled, theme)),
+                hovered: Box::new(move |_, theme| get_button_style(hovered_state, theme)),
+                pressed: Box::new(|_, theme| get_button_style(ToggleState::Pressed, theme)),
+            })
+            .height(Length::Fixed(CHILD_BUTTON_HEIGHT))
             .width(Length::FillPortion(width));
 
         buttons.push(b.into());

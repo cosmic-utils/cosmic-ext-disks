@@ -238,7 +238,7 @@ impl VolumeNode {
         node.locked = !unlocked;
 
         if unlocked {
-            let child_label = "Cleartext".to_string();
+            let child_label = String::new();
             let mut cleartext_node = Self::from_block_object(
                 connection,
                 cleartext,
@@ -251,7 +251,13 @@ impl VolumeNode {
             // If cleartext has a filesystem, treat it as mountable.
             if cleartext_node.has_filesystem {
                 cleartext_node.kind = VolumeKind::Filesystem;
+                if cleartext_node.label.trim().is_empty() {
+                    cleartext_node.label = "Filesystem".to_string();
+                }
             } else {
+                if cleartext_node.label.trim().is_empty() {
+                    cleartext_node.label = "Cleartext".to_string();
+                }
                 // If cleartext contains a partition table, enumerate its partitions as children.
                 if let Ok(pt) = PartitionTableProxy::builder(connection)
                     .path(&cleartext_node.object_path)?

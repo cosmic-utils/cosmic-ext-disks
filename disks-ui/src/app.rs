@@ -252,7 +252,51 @@ impl Application for AppModel {
                     .segments
                     .get(volumes_control.selected_segment)
                     .unwrap(); //TODO: Handle unwrap.
-                let info = match segment.partition.clone() {
+                let info = if let Some(v) = volumes_control.selected_volume_node() {
+                    let mut col = iced_widget::column![
+                        heading(v.label.clone()),
+                        Space::new(0, 10),
+                        labelled_info(fl!("size"), bytes_to_pretty(&v.size, true)),
+                    ]
+                    .spacing(5);
+
+                    if let Some(usage) = &v.usage {
+                        col = col.push(labelled_info(
+                            fl!("usage"),
+                            bytes_to_pretty(&usage.used, false),
+                        ));
+                    }
+
+                    if let Some(mount_point) = v.mount_points.first() {
+                        col = col.push(link_info(
+                            fl!("mounted-at"),
+                            mount_point,
+                            Message::OpenPath(mount_point.clone()),
+                        ));
+                    }
+
+                    let contents = if v.id_type.is_empty() {
+                        match v.kind {
+                            disks_dbus::VolumeKind::Filesystem => fl!("filesystem"),
+                            disks_dbus::VolumeKind::LvmLogicalVolume => "LVM LV".to_string(),
+                            disks_dbus::VolumeKind::LvmPhysicalVolume => "LVM PV".to_string(),
+                            disks_dbus::VolumeKind::CryptoContainer => "LUKS".to_string(),
+                            disks_dbus::VolumeKind::Partition => "Partition".to_string(),
+                            disks_dbus::VolumeKind::Block => "Device".to_string(),
+                        }
+                    } else {
+                        v.id_type.to_uppercase()
+                    };
+
+                    col.push(labelled_info(fl!("contents"), contents)).push(labelled_info(
+                        fl!("device"),
+                        match v.device_path.as_ref() {
+                            Some(s) => s.clone(),
+                            None => fl!("unresolved"),
+                        },
+                    ))
+                } else {
+                    match segment.partition.clone() {
                     Some(p) => {
                         let mut name = p.name.clone();
                         if name.is_empty() {
@@ -305,7 +349,7 @@ impl Application for AppModel {
                         labelled_info("Size", bytes_to_pretty(&segment.size, true)),
                     ]
                     .spacing(5),
-                };
+                }};
 
                 let partition_type = match &drive.partition_table_type {
                     Some(t) => t.clone().to_uppercase(),

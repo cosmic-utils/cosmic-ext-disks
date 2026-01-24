@@ -152,3 +152,8 @@ UX requirement:
 ## Implementation Notes
 - Verified with `cargo clippy --workspace --all-features -- -D warnings` and `cargo test --workspace --all-features`.
 - Manual runtime validation on real LUKS/LVM setups is still recommended (device-path mapping can vary across distros).
+- Final UI polish:
+  - Volumes bar and nested child rows are ~30% taller for readability.
+  - The nested section is split 50/50: container summary on top, contained filesystems/volumes in the bottom half.
+  - Child filesystem volumes are selectable; the details panel reflects the selected filesystem.
+  - Cleartext filesystem nodes are labeled as “Filesystem” when no label is available.
