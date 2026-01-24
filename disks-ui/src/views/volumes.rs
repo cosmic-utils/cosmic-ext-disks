@@ -591,15 +591,17 @@ impl VolumesControl {
         match selected.kind {
             DiskSegmentKind::Partition => {
                 if let Some(p) = selected.partition.as_ref() {
-                    let button = if p.is_mounted() {
-                        widget::button::custom(icon::from_name("media-playback-stop-symbolic"))
-                            .on_press(VolumesControlMessage::Unmount.into())
-                    } else {
-                        widget::button::custom(icon::from_name("media-playback-start-symbolic"))
-                            .on_press(VolumesControlMessage::Mount.into())
-                    };
+                    if p.can_mount() {
+                        let button = if p.is_mounted() {
+                            widget::button::custom(icon::from_name("media-playback-stop-symbolic"))
+                                .on_press(VolumesControlMessage::Unmount.into())
+                        } else {
+                            widget::button::custom(icon::from_name("media-playback-start-symbolic"))
+                                .on_press(VolumesControlMessage::Mount.into())
+                        };
 
-                    action_bar.push(button.into());
+                        action_bar.push(button.into());
+                    }
                 }
             }
             DiskSegmentKind::FreeSpace => {

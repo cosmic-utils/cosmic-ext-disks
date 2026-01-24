@@ -26,6 +26,7 @@ pub struct PartitionModel {
     pub size: u64,
     pub path: OwnedObjectPath,
     pub device_path: Option<String>,
+    pub has_filesystem: bool,
     pub mount_points: Vec<String>,
     pub usage: Option<Usage>,
     connection: Option<Connection>,
@@ -58,7 +59,11 @@ impl PartitionModel {
     }
 
     pub fn is_mounted(&self) -> bool {
-        !self.mount_points.is_empty()
+        self.has_filesystem && !self.mount_points.is_empty()
+    }
+
+    pub fn can_mount(&self) -> bool {
+        self.has_filesystem
     }
 
     pub async fn from_proxy(
@@ -89,13 +94,16 @@ impl PartitionModel {
             }
         }
 
-        let mount_points = match FilesystemProxy::builder(&connection)
+        let (has_filesystem, mount_points) = match FilesystemProxy::builder(&connection)
             .path(&partition_path)?
             .build()
             .await
         {
-            Ok(proxy) => Self::decode_mount_points(proxy.mount_points().await?),
-            Err(_) => Vec::new(),
+            Ok(proxy) => match proxy.mount_points().await {
+                Ok(mps) => (true, Self::decode_mount_points(mps)),
+                Err(_) => (false, Vec::new()),
+            },
+            Err(_) => (false, Vec::new()),
         };
 
         let usage = match mount_points.first() {
@@ -131,6 +139,7 @@ impl PartitionModel {
             size: partition_proxy.size().await?,
             path: partition_path.clone(),
             device_path,
+            has_filesystem,
             mount_points,
             usage,
             connection: Some(connection),
@@ -364,5 +373,40 @@ mod tests {
         ]);
 
         assert_eq!(decoded, vec!["/mnt/a".to_string(), "/mnt/b".to_string()]);
+    }
+
+    #[test]
+    fn can_mount_tracks_filesystem_interface() {
+        let mut p = PartitionModel {
+            is_contained: false,
+            is_container: false,
+            table_path: "/".try_into().unwrap(),
+            name: String::new(),
+            partition_type: String::new(),
+            id_type: String::new(),
+            uuid: String::new(),
+            number: 1,
+            flags: Default::default(),
+            offset: 0,
+            size: 0,
+            path: "/".try_into().unwrap(),
+            device_path: None,
+            has_filesystem: false,
+            mount_points: Vec::new(),
+            usage: None,
+            connection: None,
+            drive_path: String::new(),
+            table_type: String::new(),
+        };
+
+        assert!(!p.can_mount());
+        assert!(!p.is_mounted());
+
+        p.has_filesystem = true;
+        assert!(p.can_mount());
+        assert!(!p.is_mounted());
+
+        p.mount_points = vec!["/mnt/a".to_string()];
+        assert!(p.is_mounted());
     }
 }
