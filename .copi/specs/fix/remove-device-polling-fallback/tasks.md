@@ -15,8 +15,8 @@
   - `cargo test -p disks-dbus --all-features`
   - `cargo clippy -p disks-dbus --all-features -- -D warnings`
 - Done when:
-  - [ ] No code compiles that provides a polling-based event stream.
-  - [ ] `disks-dbus` builds cleanly and clippy passes.
+  - [x] No code compiles that provides a polling-based event stream.
+  - [x] `disks-dbus` builds cleanly and clippy passes.
 
 ## Task 2: Update UI subscription to be signals-only
 
@@ -31,8 +31,8 @@
   - `cargo test -p disks-ui --all-features`
   - Manual smoke: run the app and insert/remove a USB drive; confirm the list updates.
 - Done when:
-  - [ ] UI does not call `device_event_stream(Duration::from_secs(...))`.
-  - [ ] Signal stream is the only mechanism for device add/remove updates.
+  - [x] UI does not call `device_event_stream(Duration::from_secs(...))`.
+  - [x] Signal stream is the only mechanism for device add/remove updates.
 
 ## Task 3: Update `.copi` documentation and tracking
 
@@ -46,7 +46,7 @@
 - Test plan:
   - N/A (docs)
 - Done when:
-  - [ ] Docs no longer describe polling-based event detection.
+  - [x] Docs no longer describe polling-based event detection.
 
 ## Task 4: Repository quality gates
 
@@ -56,4 +56,4 @@
   - `cargo clippy --workspace --all-features`
   - `cargo test --workspace --all-features`
 - Done when:
-  - [ ] All commands pass locally.
+  - [x] All commands pass locally.

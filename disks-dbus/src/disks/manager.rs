@@ -3,10 +3,8 @@ use futures::StreamExt;
 use futures::stream::Stream;
 use futures::task::{Context, Poll};
 use std::collections::HashMap;
-use std::time::Duration;
 use tokio::sync::mpsc;
-use tokio::time::sleep;
-use tracing::{error, warn};
+use tracing::warn;
 use zbus::{
     Connection,
     zvariant::{self, Value},
@@ -50,7 +48,6 @@ pub trait UDisks2ObjectManager {
 
 pub struct DiskManager {
     connection: Connection,
-    proxy: UDisks2ManagerProxy<'static>,
 }
 
 #[derive(Debug, PartialEq)]
@@ -66,8 +63,7 @@ pub struct DeviceEventStream {
 impl DiskManager {
     pub async fn new() -> Result<Self> {
         let connection = Connection::system().await?;
-        let proxy = UDisks2ManagerProxy::new(&connection).await?;
-        Ok(Self { connection, proxy })
+        Ok(Self { connection })
     }
 
     /// A signal-based event stream for block device add/remove.
@@ -75,8 +71,7 @@ impl DiskManager {
     /// Uses `org.freedesktop.DBus.ObjectManager` on the UDisks2 root object and
     /// filters to events affecting the `org.freedesktop.UDisks2.Block` interface.
     ///
-    /// Intended to be used as the primary mechanism for UI updates; callers can
-    /// fall back to `device_event_stream` polling if this fails.
+    /// Intended to be used as the primary mechanism for UI updates.
     pub async fn device_event_stream_signals(&self) -> Result<DeviceEventStream> {
         const BLOCK_IFACE: &str = "org.freedesktop.UDisks2.Block";
 
@@ -133,51 +128,6 @@ impl DiskManager {
         });
 
         Ok(DeviceEventStream { receiver })
-    }
-
-    pub fn device_event_stream(&self, interval: Duration) -> DeviceEventStream {
-        let (sender, receiver) = mpsc::channel(32); // Channel capacity of 32
-        let proxy = self.proxy.clone();
-
-        tokio::spawn(async move {
-            let mut previous_devices: Option<Vec<String>> = None;
-            loop {
-                let current_devices = match proxy.get_block_devices(HashMap::new()).await {
-                    Ok(paths) => paths.into_iter().map(|p| p.to_string()).collect(),
-                    Err(e) => {
-                        error!("Failed to get block devices: {}", e);
-                        Vec::new()
-                    }
-                };
-
-                let mut events = Vec::new();
-                if let Some(prev_devices) = &previous_devices {
-                    for device in &current_devices {
-                        if !prev_devices.contains(device) {
-                            events.push(DeviceEvent::Added(device.clone()));
-                        }
-                    }
-
-                    for device in prev_devices {
-                        if !current_devices.contains(device) {
-                            events.push(DeviceEvent::Removed(device.clone()));
-                        }
-                    }
-                }
-
-                for event in events {
-                    if let Err(e) = sender.send(event).await {
-                        error!("Failed to send event: {}", e);
-                        break; // Exit loop if sender is closed
-                    }
-                }
-
-                previous_devices = Some(current_devices);
-                sleep(interval).await;
-            }
-        });
-
-        DeviceEventStream { receiver }
     }
 
     pub async fn apply_change(

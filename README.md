@@ -7,7 +7,10 @@ A Disk utility application for the Cosmic Desktop.
 
 
 ### Prerequisites
-You will need the following packages for partition type support:
+You will need the following packages/services:
+ - `udisks2` (system service; required for device enumeration and events)
+
+For partition type support:
  - `ntfs-3g`
  - `dosfstools`
 
@@ -28,7 +31,7 @@ Everything else!
 ### Device insert/remove updates
 Device discovery updates are driven by UDisks2 DBus signals (ObjectManager `InterfacesAdded`/`InterfacesRemoved`).
 
-If signal subscription fails at runtime, the app falls back to periodic polling (slower interval) and prints a message to stderr indicating the fallback.
+If signal subscription fails at runtime, device insert/remove updates will be unavailable until the underlying DBus/UDisks2 issue is resolved.
 
 
 ### Future Plans
