@@ -12,6 +12,7 @@ You will need the following packages/services:
 
 For partition type support:
  - `ntfs-3g`
+ - `exfatprogs`
  - `dosfstools`
 
 

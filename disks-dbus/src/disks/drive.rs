@@ -1,6 +1,5 @@
 use std::collections::HashMap;
 
-use anyhow::Context;
 use anyhow::Result;
 use tracing::{error, info, warn};
 use udisks2::{
@@ -386,7 +385,7 @@ impl DriveModel {
 
         // Use the combined call so we format the returned object and avoid races relying on
         // PartitionTable.Partitions ordering.
-        let _created_partition = partition_table_proxy
+        let create_result = partition_table_proxy
             .create_partition_and_format(
                 info.offset,
                 requested_size,
@@ -396,16 +395,28 @@ impl DriveModel {
                 partition_info.filesystem_type,
                 format_options,
             )
-            .await
-            .with_context(|| {
-                format!(
-                    "UDisks2 CreatePartitionAndFormat failed (table_type={table_type}, offset={}, size={}, part_type={}, fs={})",
-                    info.offset,
-                    requested_size,
-                    partition_type,
-                    partition_info.filesystem_type
-                )
-            })?;
+            .await;
+
+        if let Err(e) = create_result {
+            let fs = partition_info.filesystem_type;
+            let hint = match fs {
+                "ntfs" => {
+                    " Hint: NTFS formatting requires mkfs.ntfs (usually provided by the 'ntfs-3g' package)."
+                }
+                "exfat" => {
+                    " Hint: exFAT formatting requires mkfs.exfat (usually provided by the 'exfatprogs' package)."
+                }
+                _ => "",
+            };
+
+            return Err(anyhow::anyhow!(
+                "UDisks2 CreatePartitionAndFormat failed (table_type={table_type}, offset={}, size={}, part_type={}, fs={}): {e}.{hint}",
+                info.offset,
+                requested_size,
+                partition_type,
+                fs
+            ));
+        }
 
         Ok(())
     }

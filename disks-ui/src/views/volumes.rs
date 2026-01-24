@@ -407,7 +407,7 @@ impl VolumesControl {
                                 |result| match result {
                                     Ok(drives) => Message::UpdateNav(drives, None).into(),
                                     Err(e) => {
-                                        println!("{e}");
+                                        println!("{e:#}");
                                         Message::None.into()
                                     }
                                 },
