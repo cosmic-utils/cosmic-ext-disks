@@ -5,7 +5,7 @@ use tracing::{debug, warn};
 use udisks2::block::BlockProxy;
 use zbus::zvariant::Value;
 
-const ALIGNMENT_BYTES: u64 = 1024 * 1024;
+pub const GPT_ALIGNMENT_BYTES: u64 = 1024 * 1024;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct ByteRange {
@@ -57,7 +57,12 @@ fn ioctl_logical_block_size(file: &std::fs::File) -> io::Result<u64> {
     if ret < 0 {
         return Err(io::Error::last_os_error());
     }
-    Ok(u64::try_from(size).unwrap_or(0))
+    u64::try_from(size).map_err(|_| {
+        io::Error::new(
+            io::ErrorKind::InvalidData,
+            format!("negative logical block size returned by ioctl: {}", size),
+        )
+    })
 }
 
 fn gpt_parse_first_last_usable_lba(sector: &[u8]) -> Option<(u64, u64)> {
@@ -79,7 +84,7 @@ fn gpt_parse_first_last_usable_lba(sector: &[u8]) -> Option<(u64, u64)> {
     let first_usable = u64::from_le_bytes(sector[40..48].try_into().ok()?);
     let last_usable = u64::from_le_bytes(sector[48..56].try_into().ok()?);
 
-    if first_usable == 0 || last_usable == 0 || first_usable > last_usable {
+    if first_usable == 0 || last_usable == 0 || first_usable >= last_usable {
         return None;
     }
 
@@ -143,6 +148,12 @@ pub async fn probe_gpt_usable_range_bytes(
         },
     };
 
+    // Explicitly check that sector_size is valid before proceeding.
+    if sector_size == 0 {
+        warn!("logical block size is zero; devnode={devnode}");
+        return Ok(None);
+    }
+
     // Read LBA 1.
     let sector_size_usize = usize::try_from(sector_size).context("sector size too large")?;
     if sector_size_usize > 64 * 1024 {
@@ -178,13 +189,13 @@ pub async fn probe_gpt_usable_range_bytes(
 ///
 /// Reserves 1 MiB at the start and end of disk (clamped), matching typical tooling behavior.
 pub fn fallback_gpt_usable_range_bytes(disk_size: u64) -> Option<ByteRange> {
-    if disk_size <= 2 * ALIGNMENT_BYTES {
+    if disk_size <= 2 * GPT_ALIGNMENT_BYTES {
         return None;
     }
 
     Some(ByteRange {
-        start: ALIGNMENT_BYTES,
-        end: disk_size.saturating_sub(ALIGNMENT_BYTES),
+        start: GPT_ALIGNMENT_BYTES,
+        end: disk_size.saturating_sub(GPT_ALIGNMENT_BYTES),
     })
 }
 
@@ -207,6 +218,64 @@ mod tests {
     #[test]
     fn rejects_non_gpt_signature() {
         let sector = vec![0u8; 512];
+        assert!(gpt_parse_first_last_usable_lba(&sector).is_none());
+    }
+
+    #[test]
+    fn fallback_returns_none_for_small_disks() {
+        // Disk exactly at threshold (2 MiB)
+        assert!(fallback_gpt_usable_range_bytes(2 * GPT_ALIGNMENT_BYTES).is_none());
+        // Disk smaller than threshold
+        assert!(fallback_gpt_usable_range_bytes(1024 * 1024).is_none());
+        assert!(fallback_gpt_usable_range_bytes(0).is_none());
+    }
+
+    #[test]
+    fn fallback_returns_range_for_larger_disks() {
+        // 10 MiB disk should return range with 1 MiB reserved at each end
+        let disk_size = 10 * 1024 * 1024;
+        let range = fallback_gpt_usable_range_bytes(disk_size).unwrap();
+        assert_eq!(range.start, GPT_ALIGNMENT_BYTES);
+        assert_eq!(range.end, disk_size - GPT_ALIGNMENT_BYTES);
+
+        // 100 GiB disk
+        let disk_size = 100 * 1024 * 1024 * 1024;
+        let range = fallback_gpt_usable_range_bytes(disk_size).unwrap();
+        assert_eq!(range.start, GPT_ALIGNMENT_BYTES);
+        assert_eq!(range.end, disk_size - GPT_ALIGNMENT_BYTES);
+    }
+
+    #[test]
+    fn rejects_gpt_header_size_larger_than_sector() {
+        let mut sector = vec![0u8; 512];
+        sector[0..8].copy_from_slice(b"EFI PART");
+        // Set header_size to 1024 (larger than our 512-byte sector)
+        sector[12..16].copy_from_slice(&(1024u32.to_le_bytes()));
+        sector[40..48].copy_from_slice(&(34u64.to_le_bytes()));
+        sector[48..56].copy_from_slice(&(1000u64.to_le_bytes()));
+
+        assert!(gpt_parse_first_last_usable_lba(&sector).is_none());
+    }
+
+    #[test]
+    fn rejects_first_usable_equal_to_last_usable() {
+        let mut sector = vec![0u8; 512];
+        sector[0..8].copy_from_slice(b"EFI PART");
+        sector[12..16].copy_from_slice(&(92u32.to_le_bytes()));
+        sector[40..48].copy_from_slice(&(100u64.to_le_bytes()));
+        sector[48..56].copy_from_slice(&(100u64.to_le_bytes()));
+
+        assert!(gpt_parse_first_last_usable_lba(&sector).is_none());
+    }
+
+    #[test]
+    fn rejects_first_usable_greater_than_last_usable() {
+        let mut sector = vec![0u8; 512];
+        sector[0..8].copy_from_slice(b"EFI PART");
+        sector[12..16].copy_from_slice(&(92u32.to_le_bytes()));
+        sector[40..48].copy_from_slice(&(1000u64.to_le_bytes()));
+        sector[48..56].copy_from_slice(&(34u64.to_le_bytes()));
+
         assert!(gpt_parse_first_last_usable_lba(&sector).is_none());
     }
 }

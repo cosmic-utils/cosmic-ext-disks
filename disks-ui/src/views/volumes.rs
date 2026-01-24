@@ -264,7 +264,19 @@ impl Segment {
 
             // Ensure the UI always has at least one segment to render/select.
             if segments.is_empty() && drive.size > 0 {
-                segments.push(Segment::free_space(0, drive.size, table_type.clone()));
+                if let Some((start, end)) = usable_range {
+                    if end > start {
+                        segments.push(Segment::free_space(
+                            start,
+                            end.saturating_sub(start),
+                            table_type.clone(),
+                        ));
+                    } else {
+                        segments.push(Segment::free_space(0, drive.size, table_type.clone()));
+                    }
+                } else {
+                    segments.push(Segment::free_space(0, drive.size, table_type.clone()));
+                }
             }
         }
 
@@ -364,7 +376,9 @@ impl VolumesControl {
                 if dialog.is_none() {
                     self.selected_segment = index;
                     self.segments.iter_mut().for_each(|s| s.state = false);
-                    self.segments.get_mut(index).unwrap().state = true;
+                    if let Some(segment) = self.segments.get_mut(index) {
+                        segment.state = true;
+                    }
                 }
             }
             VolumesControlMessage::ToggleShowReserved(show_reserved) => {

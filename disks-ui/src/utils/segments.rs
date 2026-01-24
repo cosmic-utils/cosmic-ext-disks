@@ -1,3 +1,5 @@
+use disks_dbus::GPT_ALIGNMENT_BYTES;
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum DiskSegmentKind {
     Partition,
@@ -73,8 +75,6 @@ impl DiskSegment {
         }
     }
 }
-
-pub const GPT_ALIGNMENT_BYTES: u64 = 1024 * 1024;
 
 fn align_up(value: u64, alignment: u64) -> u64 {
     if alignment == 0 {
@@ -384,5 +384,55 @@ mod tests {
                 |s| s.kind != DiskSegmentKind::FreeSpace || s.offset % GPT_ALIGNMENT_BYTES == 0
             )
         );
+    }
+
+    #[test]
+    fn gpt_reserves_trailing_space_when_usable_end_less_than_disk_size() {
+        // Test with usable_end < disk_size to verify trailing reserved space is correctly handled
+        let disk_size = 10 * 1024 * 1024; // 10 MiB
+        let usable_start = GPT_ALIGNMENT_BYTES; // 1 MiB
+        let usable_end = 9 * 1024 * 1024; // 9 MiB (leaving 1 MiB reserved at the end)
+
+        let res = compute_disk_segments(disk_size, vec![], Some((usable_start, usable_end)));
+
+        // Should have reserved space at both start and end
+        let reserved_segments: Vec<_> = res
+            .segments
+            .iter()
+            .filter(|s| s.kind == DiskSegmentKind::Reserved)
+            .collect();
+
+        assert!(
+            reserved_segments.len() >= 1,
+            "Should have at least one reserved segment"
+        );
+
+        // Verify there's a reserved segment at the end
+        let has_end_reserved = res
+            .segments
+            .iter()
+            .any(|s| s.kind == DiskSegmentKind::Reserved && s.offset + s.size == disk_size);
+        assert!(
+            has_end_reserved,
+            "Should have reserved segment at the end of disk"
+        );
+
+        // All free space should be aligned and within usable range
+        for seg in &res.segments {
+            if seg.kind == DiskSegmentKind::FreeSpace {
+                assert!(
+                    seg.offset % GPT_ALIGNMENT_BYTES == 0,
+                    "Free space should be aligned"
+                );
+                assert!(
+                    seg.offset >= usable_start,
+                    "Free space should start at or after usable_start"
+                );
+                assert!(
+                    seg.offset + seg.size <= usable_end,
+                    "Free space should end at or before usable_end"
+                );
+            }
+        }
     }
 }
