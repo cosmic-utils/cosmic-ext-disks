@@ -11,6 +11,9 @@
   - DBus layer validates create-partition requests stay within the usable range.
 - i18n: added reserved-space labels (en + sv).
 - UI: added a "Show reserved" checkbox; when disabled, reserved segments and tiny free-space (< 1 MiB) are hidden and excluded from segment width calculations.
+- UI follow-up: made `show_reserved` strictly a VolumesControl setting.
+  - App no longer stores/handles the toggle; Volumes owns it.
+  - On drive tab switch (nav select), the newly activated VolumesControl inherits the previous tab’s `show_reserved` value.
 
 ### Commands run
 - `cargo fmt --all --check`

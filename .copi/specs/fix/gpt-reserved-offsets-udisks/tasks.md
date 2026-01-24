@@ -60,12 +60,15 @@ Source: `.copi/audits/2026-01-24T00-37-04Z.md` (GAP-004 follow-up)
   - Add a segment kind for “Reserved/Unwritable” (or equivalent).
   - When usable range exists, split the disk into reserved/usable/reserved.
   - Ensure only free-space segments inside usable are actionable.
+  - Add a Volumes UI toggle (“Show reserved”) to hide reserved and sub-alignment free gaps by default.
+  - Treat the toggle as a Volumes-level preference; when switching drives via the nav bar, inherit the previous tab’s value.
   - Add anomaly reporting if any partition lies outside usable range.
 - Test plan:
   - Unit: segmentation helper with sample partitions + usable range.
   - Manual: verify the UI no longer offers reserved gaps for creation.
 - Done when:
   - [x] GPT reserved regions are not actionable free space.
+  - [x] Reserved/tiny segments are hidden by default and can be shown via a Volumes toggle.
 
 ## Task 5: Create-partition offset handling within usable range (delegate-first)
 - Scope: Ensure create-partition never targets reserved GPT areas.

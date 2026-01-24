@@ -93,6 +93,10 @@ Failure handling policy:
 - User selects a free-space segment → create-partition uses an offset within GPT usable range and succeeds (subject to standard constraints).
 - If drive metadata is inconsistent (partitions outside GPT usable LBAs), the UI still renders best-effort segments and logs an anomaly.
 
+### UI Preference: “Show reserved”
+- “Show reserved” is treated as a Volumes view preference (stored in `VolumesControl`, not in the app model).
+- When switching drives via the nav bar, the newly selected Volumes tab inherits the previous tab’s `show_reserved` value to keep the UI consistent across tabs.
+
 ## Risks & Mitigations
 - Risk: Parsing GPT requires careful byte-level work.
   - Mitigation: keep parsing small/surgical (just header), add unit tests with fixture bytes.
