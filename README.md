@@ -20,9 +20,8 @@ For partition type support:
  * Read disk info (Slight issues with offset)
  * Delete partition 
  * Create Partition 
-    * GPT partition scheme only currently
+    * Both GPT/MBR supported
     * EXT4, vFAT, extFAT & NTFS tested so far
-    * Issue with sizing... 2.1MB is left unused currently.
 
 I am currently actively developing this again after a 5 month hiatus, so this list should be getting longer quite regularly from now on.
 
