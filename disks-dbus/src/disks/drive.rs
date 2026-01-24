@@ -193,7 +193,10 @@ impl DriveModel {
                 let short_name = partition_path.as_str().split("/").last();
 
                 let usage = match short_name {
-                    Some(sn) => usage_data.iter_mut().find(|u| u.filesystem.ends_with(sn)).map(|u| u.clone()),
+                    Some(sn) => usage_data
+                        .iter_mut()
+                        .find(|u| u.filesystem.ends_with(sn))
+                        .map(|u| u.clone()),
                     None => None,
                 };
 

@@ -1,4 +1,3 @@
-
 /// Flags describing a partition type.
 #[derive(Debug, Clone, Copy, Default)]
 pub enum PartitionTypeInfoFlags {
