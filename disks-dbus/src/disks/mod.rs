@@ -2,6 +2,7 @@ mod create_partition_info;
 mod drive;
 mod gpt;
 mod manager;
+mod ops;
 mod partition;
 
 pub use create_partition_info::*;

@@ -6,17 +6,16 @@ use udisks2::{
     Client, block::BlockProxy, drive::DriveProxy, partition::PartitionProxy,
     partitiontable::PartitionTableProxy,
 };
-use zbus::{
-    Connection,
-    zvariant::{OwnedObjectPath, Value},
-};
+use zbus::{Connection, zvariant::OwnedObjectPath};
 
-use crate::{COMMON_DOS_TYPES, COMMON_GPT_TYPES, CreatePartitionInfo};
+use crate::CreatePartitionInfo;
 
 use super::{
     ByteRange, PartitionModel, fallback_gpt_usable_range_bytes, manager::UDisks2ManagerProxy,
     probe_gpt_usable_range_bytes,
 };
+
+use super::ops::{RealDiskBackend, drive_create_partition};
 
 #[derive(Debug, Clone)]
 pub struct DriveModel {
@@ -105,20 +104,20 @@ impl DriveModel {
                 }
             };
 
-            //Drive nodes don't have a .Partition interface assigned.
-            match PartitionProxy::builder(connection)
+            // Drive nodes don't have a .Partition interface assigned.
+            // If we can build a Partition proxy AND it has a table, it's a partition.
+            if let Ok(partition_proxy) = PartitionProxy::builder(connection)
                 .path(&path)?
                 .build()
                 .await
             {
-                Ok(e) => match e.table().await {
-                    Ok(_) => {
-                        continue;
-                    }
-                    Err(_) => {} //We've found a drive
-                },
-                Err(_) => {} //We've found a drive
-            };
+                if partition_proxy.table().await.is_ok() {
+                    continue;
+                }
+                // Otherwise, we've found a drive.
+            } else {
+                // If we can't build the proxy, treat it as a drive.
+            }
 
             match block_device.drive().await {
                 Ok(dp) => drive_paths.push(DriveBlockPair {
@@ -275,173 +274,32 @@ impl DriveModel {
     }
 
     pub async fn create_partition(&self, info: CreatePartitionInfo) -> Result<()> {
-        let partition_table_proxy = PartitionTableProxy::builder(&self.connection)
-            .path(self.block_path.clone())?
-            .build()
-            .await?;
-
-        // Get the current partition table type
         let table_type = self
             .partition_table_type
-            .as_ref()
+            .as_deref()
             .ok_or_else(|| anyhow::anyhow!("No partition table type available"))?;
 
-        // UDisks2 expects bytes. When the user requests the maximum size for a free-space segment,
-        // pass 0 to let the backend pick the maximal size after alignment/geometry constraints.
-        let requested_size = if info.size >= info.max_size {
-            0
-        } else {
-            info.size
-        };
-
-        // DOS/MBR typically reserves the beginning of the disk (MBR + alignment). Avoid targeting
-        // offset 0.
-        const DOS_RESERVED_START_BYTES: u64 = 1024 * 1024;
-        if table_type == "dos" && info.offset < DOS_RESERVED_START_BYTES {
-            return Err(anyhow::anyhow!(
-                "Requested offset {} is inside reserved DOS/MBR start region (< {} bytes)",
-                info.offset,
-                DOS_RESERVED_START_BYTES
-            ));
-        }
-
-        if table_type == "gpt" {
-            if let Some(range) = self.gpt_usable_range {
-                if info.offset < range.start || info.offset >= range.end {
-                    return Err(anyhow::anyhow!(
-                        "Requested partition offset {} is outside GPT usable range [{}, {})",
-                        info.offset,
-                        range.start,
-                        range.end
-                    ));
-                }
-
-                if requested_size != 0 {
-                    let requested_end = info.offset.saturating_add(requested_size);
-                    if requested_end > range.end {
-                        return Err(anyhow::anyhow!(
-                            "Requested partition range [{}, {}) is outside GPT usable range [{}, {})",
-                            info.offset,
-                            requested_end,
-                            range.start,
-                            range.end
-                        ));
-                    }
-                }
-            }
-        }
-
-        // Find a partition type that matches the table type.
-        // Note: UDisks2 reports DOS/MBR partition tables as "dos".
-        let partition_info = common_partition_info_for(table_type, info.selected_partitition_type)?;
-
-        // Verify the selected partition type is compatible with the table type
-        if partition_info.table_type != table_type {
-            return Err(anyhow::anyhow!(
-                "Partition type '{}' is not compatible with partition table type '{}'",
-                partition_info.name,
-                table_type
-            ));
-        }
-
-        let partition_type = partition_info.ty;
-
-        // DOS/MBR partition tables do not support per-partition names. Use filesystem label
-        // (format option) instead.
-        let create_name = if table_type == "dos" {
-            ""
-        } else {
-            info.name.as_str()
-        };
-
-        // Partition creation options.
-        let mut create_options: HashMap<&str, Value<'_>> = HashMap::new();
-        if table_type == "dos" {
-            // UDisks2 expects this option (for DOS/MBR tables) to control primary/extended/logical.
-            // Default to primary until the UI supports selecting otherwise.
-            create_options.insert("partition-type", Value::from("primary"));
-        }
-
-        // Format options.
-        let mut format_options: HashMap<&str, Value<'_>> = HashMap::new();
-        if info.erase {
-            format_options.insert("erase", Value::from("zero"));
-        }
-        if !info.name.is_empty() {
-            format_options.insert("label", Value::from(info.name.clone()));
-        }
-
-        // Use the combined call so we format the returned object and avoid races relying on
-        // PartitionTable.Partitions ordering.
-        let create_result = partition_table_proxy
-            .create_partition_and_format(
-                info.offset,
-                requested_size,
-                partition_type,
-                create_name,
-                create_options,
-                partition_info.filesystem_type,
-                format_options,
-            )
-            .await;
-
-        if let Err(e) = create_result {
-            let fs = partition_info.filesystem_type;
-            let hint = match fs {
-                "ntfs" => {
-                    " Hint: NTFS formatting requires mkfs.ntfs (usually provided by the 'ntfs-3g' package)."
-                }
-                "exfat" => {
-                    " Hint: exFAT formatting requires mkfs.exfat (usually provided by the 'exfatprogs' package)."
-                }
-                _ => "",
-            };
-
-            return Err(anyhow::anyhow!(
-                "UDisks2 CreatePartitionAndFormat failed (table_type={table_type}, offset={}, size={}, part_type={}, fs={}): {e}.{hint}",
-                info.offset,
-                requested_size,
-                partition_type,
-                fs
-            ));
-        }
-
-        Ok(())
-    }
-}
-
-fn common_partition_info_for(
-    table_type: &str,
-    selected_partition_type: usize,
-) -> Result<&'static crate::PartitionTypeInfo> {
-    match table_type {
-        "gpt" => COMMON_GPT_TYPES
-            .get(selected_partition_type)
-            .ok_or_else(|| anyhow::anyhow!("Invalid partition type index for GPT")),
-        "dos" => COMMON_DOS_TYPES
-            .get(selected_partition_type)
-            .ok_or_else(|| anyhow::anyhow!("Invalid partition type index for DOS/MBR")),
-        _ => Err(anyhow::anyhow!(
-            "Unsupported partition table type: {table_type}"
-        )),
+        let backend = RealDiskBackend::new(self.connection.clone());
+        drive_create_partition(
+            &backend,
+            self.block_path.clone(),
+            table_type,
+            self.gpt_usable_range,
+            info,
+        )
+        .await
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-
     #[test]
     fn dos_table_type_is_supported_and_not_msdos() {
-        let info = common_partition_info_for("dos", 0).expect("dos should be supported");
-        assert_eq!(info.table_type, "dos");
-
-        assert!(common_partition_info_for("msdos", 0).is_err());
+        assert!(crate::COMMON_DOS_TYPES[0].table_type == "dos");
     }
 
     #[test]
     fn gpt_table_type_is_supported() {
-        let info = common_partition_info_for("gpt", 0).expect("gpt should be supported");
-        assert_eq!(info.table_type, "gpt");
+        assert!(crate::COMMON_GPT_TYPES[0].table_type == "gpt");
     }
 }

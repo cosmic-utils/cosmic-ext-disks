@@ -12,4 +12,7 @@ A lightweight mapping of audited gaps/work items to implementation specs.
 | GAP-005 | MBR/DOS partition creation likely broken (table type mismatch) | `.copi/specs/fix/gap-005-dos-msdos-table-type/` | `fix/gap-005-dos-msdos-table-type` | `.copi/audits/2026-01-24T18-03-04Z.md` | Implemented |
 | GAP-007 | Mount state detection relies on parsing `df` | `.copi/specs/fix/gap-007-mount-state-detection/` | `fix/gap-007-mount-state-detection` | `.copi/audits/2026-01-24T18-03-04Z.md` | Implemented |
 | GAP-008 | Device change detection is polling-based (1s) instead of signal-based | `.copi/specs/fix/device-change-detection-signals/` | `fix/device-change-detection-signals` | `.copi/audits/2026-01-24T00-37-04Z.md` | Implemented |
+| GAP-010 | Test coverage is incomplete for destructive/system-integrated flows | `.copi/specs/chore/gap-010-012-tests-release-spdx/` | `chore/gap-010-012-tests-release-spdx` | `.copi/audits/2026-01-24T18-03-04Z.md` | Implemented |
+| GAP-011 | Release pipeline publishes with `--allow-dirty --no-verify` | `.copi/specs/chore/gap-010-012-tests-release-spdx/` | `chore/gap-010-012-tests-release-spdx` | `.copi/audits/2026-01-24T18-03-04Z.md` | Implemented |
+| GAP-012 | SPDX header placeholder in i18n module | `.copi/specs/chore/gap-010-012-tests-release-spdx/` | `chore/gap-010-012-tests-release-spdx` | `.copi/audits/2026-01-24T18-03-04Z.md` | Implemented |
 | N/A | Remove old/backup polling for device events logic | `.copi/specs/fix/remove-device-polling-fallback/` | `fix/remove-device-polling-fallback` | N/A (brief) | Implemented |
