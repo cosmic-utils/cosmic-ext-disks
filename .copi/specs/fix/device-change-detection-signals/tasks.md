@@ -1,6 +1,6 @@
 # fix/device-change-detection-signals — Tasks
 
-Source: `.pigentic/audits/2026-01-24T00-37-04Z.md` (GAP-008)
+Source: `.copi/audits/2026-01-24T00-37-04Z.md` (GAP-008)
 
 ## Task 1: Add DBus signal event stream (dbus layer)
 - Scope: Provide a signal-driven “device changed” stream based on UDisks2 ObjectManager signals.
