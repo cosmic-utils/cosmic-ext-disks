@@ -74,7 +74,7 @@ impl DiskSegment {
     }
 }
 
-const GPT_ALIGNMENT_BYTES: u64 = 1024 * 1024;
+pub const GPT_ALIGNMENT_BYTES: u64 = 1024 * 1024;
 
 fn align_up(value: u64, alignment: u64) -> u64 {
     if alignment == 0 {

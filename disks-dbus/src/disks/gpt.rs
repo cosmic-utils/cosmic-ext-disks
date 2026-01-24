@@ -111,7 +111,9 @@ pub async fn probe_gpt_usable_range_bytes(
     let owned_fd = match block.open_device("r", options).await {
         Ok(fd) => fd,
         Err(e) => {
-            debug!("failed to open device for GPT probe (no-user-interaction): {e}; devnode={devnode}");
+            debug!(
+                "failed to open device for GPT probe (no-user-interaction): {e}; devnode={devnode}"
+            );
             return Ok(None);
         }
     };

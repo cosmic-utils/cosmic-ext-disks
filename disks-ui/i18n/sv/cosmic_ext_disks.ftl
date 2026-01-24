@@ -66,3 +66,6 @@ reserved-space-segment = Reserverat
 filesystem = Filsystem
 free-space-caption = Ledigt utrymme
 reserved-space-caption = Reserverat utrymme
+
+# Volymer vy
+show-reserved = Visa reserverat

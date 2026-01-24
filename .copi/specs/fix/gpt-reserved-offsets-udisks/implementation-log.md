@@ -10,6 +10,7 @@
   - UI segmentation marks reserved areas as non-free (and non-actionable).
   - DBus layer validates create-partition requests stay within the usable range.
 - i18n: added reserved-space labels (en + sv).
+- UI: added a "Show reserved" checkbox; when disabled, reserved segments and tiny free-space (< 1 MiB) are hidden and excluded from segment width calculations.
 
 ### Commands run
 - `cargo fmt --all --check`

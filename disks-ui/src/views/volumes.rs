@@ -4,7 +4,7 @@ use cosmic::{
     iced::{Alignment, Background, Length, Shadow},
     iced_widget::{self, column},
     widget::{
-        self, container, icon,
+        self, checkbox, container, icon,
         text::{caption, caption_heading},
     },
 };
@@ -12,7 +12,10 @@ use cosmic::{
 use crate::{
     app::{Message, ShowDialog},
     fl,
-    utils::{DiskSegmentKind, PartitionExtent, SegmentAnomaly, compute_disk_segments},
+    utils::{
+        DiskSegmentKind, GPT_ALIGNMENT_BYTES, PartitionExtent, SegmentAnomaly,
+        compute_disk_segments,
+    },
 };
 use disks_dbus::CreatePartitionInfo;
 use disks_dbus::bytes_to_pretty;
@@ -21,6 +24,7 @@ use disks_dbus::{DriveModel, PartitionModel};
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum VolumesControlMessage {
     SegmentSelected(usize),
+    ToggleShowReserved(bool),
     Mount,
     Unmount,
     Delete,
@@ -63,6 +67,7 @@ impl From<VolumesControlMessage> for Message {
 pub struct VolumesControl {
     pub selected_segment: usize,
     pub segments: Vec<Segment>,
+    pub show_reserved: bool,
     #[allow(dead_code)]
     pub model: DriveModel,
 }
@@ -164,7 +169,7 @@ impl Segment {
         }
     }
 
-    pub fn get_segments(drive: &DriveModel) -> Vec<Segment> {
+    pub fn get_segments(drive: &DriveModel, show_reserved: bool) -> Vec<Segment> {
         let table_type = drive.partition_table_type.clone().unwrap_or_default();
         let usable_range = if table_type == "gpt" {
             drive.gpt_usable_range.map(|r| (r.start, r.end))
@@ -246,14 +251,28 @@ impl Segment {
             }
         }
 
-        //Figure out Portion value
-        segments.iter_mut().for_each(|s| {
-            if drive.size > 0 {
-                s.width =
-                    (((s.size as f64 / drive.size as f64) * 1000.).log10().ceil() as u16).max(1);
-            } else {
-                s.width = 1;
+        if !show_reserved {
+            segments.retain(|s| {
+                if s.kind == DiskSegmentKind::Reserved {
+                    return false;
+                }
+                if s.kind == DiskSegmentKind::FreeSpace && s.size < GPT_ALIGNMENT_BYTES {
+                    return false;
+                }
+                true
+            });
+
+            // Ensure the UI always has at least one segment to render/select.
+            if segments.is_empty() && drive.size > 0 {
+                segments.push(Segment::free_space(0, drive.size, table_type.clone()));
             }
+        }
+
+        // Figure out Portion value (based on what we're showing).
+        let visible_total = segments.iter().map(|s| s.size).sum::<u64>();
+        let denom = visible_total.max(1);
+        segments.iter_mut().for_each(|s| {
+            s.width = (((s.size as f64 / denom as f64) * 1000.).log10().ceil() as u16).max(1);
         });
 
         segments
@@ -308,8 +327,8 @@ impl Segment {
 }
 
 impl VolumesControl {
-    pub fn new(model: DriveModel) -> Self {
-        let mut segments: Vec<Segment> = Segment::get_segments(&model);
+    pub fn new(model: DriveModel, show_reserved: bool) -> Self {
+        let mut segments: Vec<Segment> = Segment::get_segments(&model, show_reserved);
         if let Some(first) = segments.first_mut() {
             first.state = true;
         }
@@ -318,6 +337,20 @@ impl VolumesControl {
             model,
             selected_segment: 0,
             segments,
+            show_reserved,
+        }
+    }
+
+    pub fn set_show_reserved(&mut self, show_reserved: bool) {
+        if self.show_reserved == show_reserved {
+            return;
+        }
+
+        self.show_reserved = show_reserved;
+        self.segments = Segment::get_segments(&self.model, self.show_reserved);
+        self.selected_segment = 0;
+        if let Some(first) = self.segments.first_mut() {
+            first.state = true;
         }
     }
 
@@ -333,6 +366,9 @@ impl VolumesControl {
                     self.segments.iter_mut().for_each(|s| s.state = false);
                     self.segments.get_mut(index).unwrap().state = true;
                 }
+            }
+            VolumesControlMessage::ToggleShowReserved(show_reserved) => {
+                self.set_show_reserved(show_reserved);
             }
             VolumesControlMessage::Mount => {
                 let segment = self.segments.get(self.selected_segment).cloned();
@@ -493,6 +529,9 @@ impl VolumesControl {
     }
 
     pub fn view(&self) -> Element<'_, Message> {
+        let show_reserved = checkbox(fl!("show-reserved"), self.show_reserved)
+            .on_toggle(|v| VolumesControlMessage::ToggleShowReserved(v).into());
+
         let segment_buttons: Vec<Element<Message>> = self
             .segments
             .iter()
@@ -579,6 +618,9 @@ impl VolumesControl {
 
         container(
             column![
+                cosmic::widget::Row::from_vec(vec![show_reserved.into()])
+                    .spacing(10)
+                    .width(Length::Fill),
                 cosmic::widget::Row::from_vec(segment_buttons)
                     .spacing(10)
                     .width(Length::Fill),

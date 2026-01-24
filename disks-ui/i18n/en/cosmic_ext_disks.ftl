@@ -67,3 +67,6 @@ reserved-space-segment = Reserved
 filesystem = Filesystem
 free-space-caption = Free space
 reserved-space-caption = Reserved space
+
+# Volumes view
+show-reserved = Show reserved
