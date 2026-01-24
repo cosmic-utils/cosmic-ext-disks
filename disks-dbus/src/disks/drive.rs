@@ -313,21 +313,12 @@ impl DriveModel {
             }
         }
 
-        // Find a partition type that matches the table type
-        let partition_info = match table_type.as_str() {
-            "gpt" => COMMON_GPT_TYPES
-                .get(info.selected_partitition_type)
-                .ok_or_else(|| anyhow::anyhow!("Invalid partition type index for GPT")),
-            "msdos" => COMMON_DOS_TYPES
-                .get(info.selected_partitition_type)
-                .ok_or_else(|| anyhow::anyhow!("Invalid partition type index for MSDOS")),
-            _ => {
-                return Err(anyhow::anyhow!(
-                    "Unsupported partition table type: {}",
-                    table_type
-                ));
-            }
-        }?;
+        // Find a partition type that matches the table type.
+        // Note: UDisks2 reports DOS/MBR partition tables as "dos".
+        let partition_info = common_partition_info_for(
+            table_type,
+            info.selected_partitition_type,
+        )?;
 
         // Verify the selected partition type is compatible with the table type
         if partition_info.table_type != table_type {
@@ -340,43 +331,68 @@ impl DriveModel {
 
         let partition_type = partition_info.ty;
 
-        partition_table_proxy
-            .create_partition(
+        // Partition creation options.
+        let mut create_options: HashMap<&str, Value<'_>> = HashMap::new();
+        if table_type == "dos" {
+            // UDisks2 expects this option (for DOS/MBR tables) to control primary/extended/logical.
+            // Default to primary until the UI supports selecting otherwise.
+            create_options.insert("partition-type", Value::from("primary"));
+        }
+
+        // Format options.
+        let mut format_options: HashMap<&str, Value<'_>> = HashMap::new();
+        if info.erase {
+            format_options.insert("erase", Value::from("zero"));
+        }
+        if !info.name.is_empty() {
+            format_options.insert("label", Value::from(info.name.clone()));
+        }
+
+        // Use the combined call so we format the returned object and avoid races relying on
+        // PartitionTable.Partitions ordering.
+        let _created_partition = partition_table_proxy
+            .create_partition_and_format(
                 info.offset,
                 info.size,
                 partition_type,
                 &info.name,
-                HashMap::new(),
+                create_options,
+                partition_info.filesystem_type,
+                format_options,
             )
             .await?;
 
-        // get the newly created block device for the partition
-        let partition_paths = partition_table_proxy.partitions().await?;
-        let partition_path = partition_paths.last().cloned();
-        if let Some(path) = partition_path {
-            let block_proxy = BlockProxy::builder(&self.connection)
-                .path(&path)?
-                .build()
-                .await?;
-
-            let mut options = HashMap::new();
-            if info.erase {
-                options.insert("erase", Value::from("zero"));
-            }
-            if !info.name.is_empty() {
-                options.insert("label", Value::from(info.name.clone()));
-            }
-
-            block_proxy
-                .format(partition_info.filesystem_type, options)
-                .await?;
-
-            // Optionally, you can mount the partition here if needed
-            // partition_proxy.mount(HashMap::new()).await?;
-        } else {
-            return Err(anyhow::anyhow!("No partitions found after creation"));
-        }
-
         Ok(())
+    }
+}
+
+fn common_partition_info_for(table_type: &str, selected_partition_type: usize) -> Result<&'static crate::PartitionTypeInfo> {
+    match table_type {
+        "gpt" => COMMON_GPT_TYPES
+            .get(selected_partition_type)
+            .ok_or_else(|| anyhow::anyhow!("Invalid partition type index for GPT")),
+        "dos" => COMMON_DOS_TYPES
+            .get(selected_partition_type)
+            .ok_or_else(|| anyhow::anyhow!("Invalid partition type index for DOS/MBR")),
+        _ => Err(anyhow::anyhow!("Unsupported partition table type: {table_type}")),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn dos_table_type_is_supported_and_not_msdos() {
+        let info = common_partition_info_for("dos", 0).expect("dos should be supported");
+        assert_eq!(info.table_type, "dos");
+
+        assert!(common_partition_info_for("msdos", 0).is_err());
+    }
+
+    #[test]
+    fn gpt_table_type_is_supported() {
+        let info = common_partition_info_for("gpt", 0).expect("gpt should be supported");
+        assert_eq!(info.table_type, "gpt");
     }
 }

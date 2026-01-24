@@ -105,7 +105,7 @@ Evidence:
 - UI shows a create dialog for “free space” segments.
 - On confirmation, calls `DriveModel::create_partition(CreatePartitionInfo)`.
 - `DriveModel::create_partition`:
-  - Gets the partition table type (`gpt` / `msdos`).
+  - Gets the partition table type (`gpt` / `dos`).
   - Picks a partition-type entry from a catalog (common GPT/DOS types).
   - Calls UDisks2 PartitionTable `create_partition(offset, size, type, name, options)`.
   - Then formats the newly created partition via UDisks2 Block `format(filesystem_type, options)`.
