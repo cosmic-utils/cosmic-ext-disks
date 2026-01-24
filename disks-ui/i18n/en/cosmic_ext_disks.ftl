@@ -70,3 +70,14 @@ reserved-space-caption = Reserved space
 
 # Volumes view
 show-reserved = Show reserved
+
+# Encrypted / LUKS
+unlock-button = Unlock
+lock = Lock
+unlock = Unlock { $name }
+passphrase = Passphrase
+locked = Locked
+unlocked = Unlocked
+unlock-failed = Unlock failed
+lock-failed = Lock failed
+unlock-missing-partition = Could not find { $name } in the current device list.

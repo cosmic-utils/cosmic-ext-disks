@@ -34,8 +34,6 @@ pub fn bytes_to_pretty(bytes: &u64, add_bytes: bool) -> String {
 
 //method to parse pretty bytes into numeric bytes
 pub fn pretty_to_bytes(pretty: &str) -> Result<u64> {
-    let mut steps = 0;
-
     let split = pretty.split_whitespace().collect::<Vec<&str>>();
     let string_value = split.first();
 
@@ -47,18 +45,18 @@ pub fn pretty_to_bytes(pretty: &str) -> Result<u64> {
     let mut val: f64 = string_value.parse()?;
     let unit = pretty.split_whitespace().last().unwrap();
 
-    match unit {
-        "B" => steps = 0,
-        "KB" => steps = 1,
-        "MB" => steps = 2,
-        "GB" => steps = 3,
-        "TB" => steps = 4,
-        "PB" => steps = 5,
-        "EB" => steps = 6,
-        "ZB" => steps = 7,
-        "YB" => steps = 8,
-        _ => steps = 0,
-    }
+    let mut steps = match unit {
+        "B" => 0,
+        "KB" => 1,
+        "MB" => 2,
+        "GB" => 3,
+        "TB" => 4,
+        "PB" => 5,
+        "EB" => 6,
+        "ZB" => 7,
+        "YB" => 8,
+        _ => 0,
+    };
 
     while steps > 0 {
         val *= 1024.;

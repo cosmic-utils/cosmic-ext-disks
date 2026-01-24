@@ -69,3 +69,14 @@ reserved-space-caption = Reserverat utrymme
 
 # Volymer vy
 show-reserved = Visa reserverat
+
+# Encrypted / LUKS
+unlock-button = Lås upp
+lock = Lås
+unlock = Lås upp { $name }
+passphrase = Lösenfras
+locked = Låst
+unlocked = Upplåst
+unlock-failed = Upplåsning misslyckades
+lock-failed = Låsning misslyckades
+unlock-missing-partition = Kunde inte hitta { $name } i den aktuella enhetslistan.

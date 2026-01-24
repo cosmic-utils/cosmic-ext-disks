@@ -24,14 +24,14 @@ pub fn usage_for_mount_point(mount_point: &str, filesystem: Option<&str>) -> Res
 
     let stat = unsafe { stat.assume_init() };
     let frsize = if stat.f_frsize > 0 {
-        u64::from(stat.f_frsize)
+        stat.f_frsize
     } else {
-        u64::from(stat.f_bsize)
+        stat.f_bsize
     };
 
-    let total = u64::from(stat.f_blocks).saturating_mul(frsize);
-    let free = u64::from(stat.f_bfree).saturating_mul(frsize);
-    let available = u64::from(stat.f_bavail).saturating_mul(frsize);
+    let total = stat.f_blocks.saturating_mul(frsize);
+    let free = stat.f_bfree.saturating_mul(frsize);
+    let available = stat.f_bavail.saturating_mul(frsize);
     let used = total.saturating_sub(free);
     let percent = if total == 0 {
         0

@@ -44,11 +44,21 @@ pub struct AppModel {
 pub enum ShowDialog {
     DeletePartition(String),
     AddPartition(CreatePartitionInfo),
+    UnlockEncrypted(UnlockEncryptedDialog),
     Info { title: String, body: String },
+}
+
+#[derive(Debug, Clone)]
+pub struct UnlockEncryptedDialog {
+    pub partition_path: String,
+    pub partition_name: String,
+    pub passphrase: String,
+    pub error: Option<String>,
 }
 
 /// Messages emitted by the application and its widgets.
 #[derive(Debug, Clone)]
+#[allow(clippy::enum_variant_names)]
 pub enum Message {
     OpenRepositoryUrl,
     OpenPath(String),
@@ -161,6 +171,10 @@ impl Application for AppModel {
                 )),
 
                 ShowDialog::AddPartition(create) => Some(dialogs::create_partition(create.clone())),
+
+                ShowDialog::UnlockEncrypted(state) => {
+                    Some(dialogs::unlock_encrypted(state.clone()))
+                }
 
                 ShowDialog::Info { title, body } => Some(dialogs::info(
                     title.clone(),

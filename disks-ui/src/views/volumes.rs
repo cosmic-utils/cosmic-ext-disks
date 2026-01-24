@@ -10,13 +10,13 @@ use cosmic::{
 };
 
 use crate::{
-    app::{Message, ShowDialog},
+    app::{Message, ShowDialog, UnlockEncryptedDialog},
     fl,
     utils::{DiskSegmentKind, PartitionExtent, SegmentAnomaly, compute_disk_segments},
 };
 use disks_dbus::CreatePartitionInfo;
 use disks_dbus::bytes_to_pretty;
-use disks_dbus::{DriveModel, PartitionModel};
+use disks_dbus::{DriveModel, PartitionModel, VolumeKind, VolumeNode};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum VolumesControlMessage {
@@ -24,8 +24,12 @@ pub enum VolumesControlMessage {
     ToggleShowReserved(bool),
     Mount,
     Unmount,
+    ChildMount(String),
+    ChildUnmount(String),
+    LockContainer,
     Delete,
     CreateMessage(CreateMessage),
+    UnlockMessage(UnlockMessage),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -43,15 +47,34 @@ pub enum CreateMessage {
     Partition(CreatePartitionInfo),
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum UnlockMessage {
+    PassphraseUpdate(String),
+    Confirm,
+    Cancel,
+}
+
 impl From<CreateMessage> for VolumesControlMessage {
     fn from(val: CreateMessage) -> Self {
         VolumesControlMessage::CreateMessage(val)
     }
 }
 
+impl From<UnlockMessage> for VolumesControlMessage {
+    fn from(val: UnlockMessage) -> Self {
+        VolumesControlMessage::UnlockMessage(val)
+    }
+}
+
 impl From<CreateMessage> for Message {
     fn from(val: CreateMessage) -> Self {
         Message::VolumesMessage(VolumesControlMessage::CreateMessage(val))
+    }
+}
+
+impl From<UnlockMessage> for Message {
+    fn from(val: UnlockMessage) -> Self {
+        Message::VolumesMessage(VolumesControlMessage::UnlockMessage(val))
     }
 }
 
@@ -447,6 +470,67 @@ impl VolumesControl {
                 }
                 return Task::none();
             }
+            VolumesControlMessage::ChildMount(object_path) => {
+                let node = find_volume_node(&self.model.volumes, &object_path).cloned();
+                if let Some(v) = node {
+                    return Task::perform(
+                        async move {
+                            v.mount().await?;
+                            DriveModel::get_drives().await
+                        },
+                        |result| match result {
+                            Ok(drives) => Message::UpdateNav(drives, None).into(),
+                            Err(e) => {
+                                eprintln!("{e:#}");
+                                Message::None.into()
+                            }
+                        },
+                    );
+                }
+                return Task::none();
+            }
+            VolumesControlMessage::ChildUnmount(object_path) => {
+                let node = find_volume_node(&self.model.volumes, &object_path).cloned();
+                if let Some(v) = node {
+                    return Task::perform(
+                        async move {
+                            v.unmount().await?;
+                            DriveModel::get_drives().await
+                        },
+                        |result| match result {
+                            Ok(drives) => Message::UpdateNav(drives, None).into(),
+                            Err(e) => {
+                                eprintln!("{e:#}");
+                                Message::None.into()
+                            }
+                        },
+                    );
+                }
+                return Task::none();
+            }
+
+            VolumesControlMessage::LockContainer => {
+                let segment = self.segments.get(self.selected_segment).cloned();
+                if let Some(s) = segment
+                    && let Some(p) = s.partition
+                {
+                    return Task::perform(
+                        async move {
+                            p.lock().await?;
+                            DriveModel::get_drives().await
+                        },
+                        |result| match result {
+                            Ok(drives) => Message::UpdateNav(drives, None).into(),
+                            Err(e) => Message::Dialog(ShowDialog::Info {
+                                title: fl!("lock-failed"),
+                                body: e.to_string(),
+                            })
+                            .into(),
+                        },
+                    );
+                }
+                return Task::none();
+            }
             VolumesControlMessage::Delete => {
                 let segment = self.segments.get(self.selected_segment).cloned();
                 let task = match segment.clone() {
@@ -538,12 +622,85 @@ impl VolumesControl {
                         }
                     },
 
+                    ShowDialog::UnlockEncrypted(_) => {
+                        eprintln!(
+                            "CreateMessage received while an unlock dialog is open; ignoring."
+                        );
+                    }
+
                     ShowDialog::Info { .. } => {
                         eprintln!("CreateMessage received while an info dialog is open; ignoring.");
                     }
                 }
             }
+
+            VolumesControlMessage::UnlockMessage(unlock_message) => {
+                let d = match dialog.as_mut() {
+                    Some(d) => d,
+                    None => {
+                        eprintln!("UnlockMessage received with no active dialog; ignoring.");
+                        return Task::none();
+                    }
+                };
+
+                let ShowDialog::UnlockEncrypted(state) = d else {
+                    eprintln!("UnlockMessage received while a different dialog is open; ignoring.");
+                    return Task::none();
+                };
+
+                match unlock_message {
+                    UnlockMessage::PassphraseUpdate(p) => {
+                        state.passphrase = p;
+                        state.error = None;
+                        return Task::none();
+                    }
+                    UnlockMessage::Cancel => return Task::done(Message::CloseDialog.into()),
+                    UnlockMessage::Confirm => {
+                        let partition_path = state.partition_path.clone();
+                        let partition_name = state.partition_name.clone();
+                        let passphrase = state.passphrase.clone();
+
+                        // Look up the partition in the current model.
+                        let part = self
+                            .model
+                            .partitions
+                            .iter()
+                            .find(|p| p.path.to_string() == partition_path)
+                            .cloned();
+
+                        let Some(p) = part else {
+                            return Task::done(
+                                Message::Dialog(ShowDialog::Info {
+                                    title: fl!("unlock-failed"),
+                                    body: fl!("unlock-missing-partition", name = partition_name),
+                                })
+                                .into(),
+                            );
+                        };
+
+                        return Task::perform(
+                            async move {
+                                p.unlock(&passphrase).await?;
+                                DriveModel::get_drives().await
+                            },
+                            move |result| match result {
+                                Ok(drives) => Message::UpdateNav(drives, None).into(),
+                                Err(e) => Message::Dialog(ShowDialog::UnlockEncrypted(
+                                    UnlockEncryptedDialog {
+                                        partition_path: partition_path.clone(),
+                                        partition_name: partition_name.clone(),
+                                        passphrase: String::new(),
+                                        error: Some(e.to_string()),
+                                    },
+                                ))
+                                .into(),
+                            },
+                        );
+                    }
+                }
+            }
         }
+
         Task::none()
     }
 
@@ -596,10 +753,56 @@ impl VolumesControl {
         };
         let mut action_bar: Vec<Element<Message>> = vec![];
 
+        let selected_volume = selected
+            .partition
+            .as_ref()
+            .and_then(|p| find_volume_node_for_partition(&self.model.volumes, p));
+
         match selected.kind {
             DiskSegmentKind::Partition => {
                 if let Some(p) = selected.partition.as_ref() {
-                    if p.can_mount() {
+                    if let Some(v) = selected_volume {
+                        if v.kind == VolumeKind::CryptoContainer {
+                            if v.locked {
+                                action_bar.push(
+                                    widget::button::custom(icon::from_name(
+                                        "dialog-password-symbolic",
+                                    ))
+                                    .on_press(Message::Dialog(ShowDialog::UnlockEncrypted(
+                                        UnlockEncryptedDialog {
+                                            partition_path: p.path.to_string(),
+                                            partition_name: p.name(),
+                                            passphrase: String::new(),
+                                            error: None,
+                                        },
+                                    )))
+                                    .into(),
+                                );
+                            } else {
+                                action_bar.push(
+                                    widget::button::custom(icon::from_name(
+                                        "changes-prevent-symbolic",
+                                    ))
+                                    .on_press(VolumesControlMessage::LockContainer.into())
+                                    .into(),
+                                );
+                            }
+                        } else if p.can_mount() {
+                            let button = if p.is_mounted() {
+                                widget::button::custom(icon::from_name(
+                                    "media-playback-stop-symbolic",
+                                ))
+                                .on_press(VolumesControlMessage::Unmount.into())
+                            } else {
+                                widget::button::custom(icon::from_name(
+                                    "media-playback-start-symbolic",
+                                ))
+                                .on_press(VolumesControlMessage::Mount.into())
+                            };
+
+                            action_bar.push(button.into());
+                        }
+                    } else if p.can_mount() {
                         let button = if p.is_mounted() {
                             widget::button::custom(icon::from_name("media-playback-stop-symbolic"))
                                 .on_press(VolumesControlMessage::Unmount.into())
@@ -637,23 +840,134 @@ impl VolumesControl {
             );
         }
 
-        container(
-            column![
-                cosmic::widget::Row::from_vec(vec![show_reserved.into()])
-                    .spacing(10)
-                    .width(Length::Fill),
-                cosmic::widget::Row::from_vec(segment_buttons)
-                    .spacing(10)
-                    .width(Length::Fill),
-                widget::Row::from_vec(action_bar).width(Length::Fill)
-            ]
-            .spacing(10),
-        )
-        .width(Length::Fill)
-        .padding(10)
+        let nested = selected_volume
+            .filter(|v| v.kind == VolumeKind::CryptoContainer)
+            .map(|v| nested_volume_view(v));
+
+        let mut root = column![
+            cosmic::widget::Row::from_vec(vec![show_reserved.into()])
+                .spacing(10)
+                .width(Length::Fill),
+            cosmic::widget::Row::from_vec(segment_buttons)
+                .spacing(10)
+                .width(Length::Fill),
+            widget::Row::from_vec(action_bar).width(Length::Fill)
+        ]
+        .spacing(10);
+
+        if let Some(n) = nested {
+            root = root.push(n);
+        }
+
+        container(root)
+            .width(Length::Fill)
+            .padding(10)
+            .class(cosmic::style::Container::Card)
+            .into()
+    }
+}
+
+fn find_volume_node<'a>(volumes: &'a [VolumeNode], object_path: &str) -> Option<&'a VolumeNode> {
+    for v in volumes {
+        if v.object_path.to_string() == object_path {
+            return Some(v);
+        }
+        if let Some(child) = find_volume_node(&v.children, object_path) {
+            return Some(child);
+        }
+    }
+    None
+}
+
+fn find_volume_node_for_partition<'a>(
+    volumes: &'a [VolumeNode],
+    partition: &PartitionModel,
+) -> Option<&'a VolumeNode> {
+    let target = partition.path.to_string();
+    find_volume_node(volumes, &target)
+}
+
+fn nested_volume_view<'a>(container_volume: &'a VolumeNode) -> Element<'a, Message> {
+    // Render one level of nesting (cleartext) and, if present, LVM LVs below the PV.
+    let mut content = iced_widget::column![cosmic::widget::text::caption_heading(
+        if container_volume.locked {
+            fl!("locked")
+        } else {
+            fl!("unlocked")
+        }
+    )]
+    .spacing(8);
+
+    if container_volume.children.is_empty() {
+        return container(content)
+            .padding(8)
+            .class(cosmic::style::Container::Card)
+            .into();
+    }
+
+    // First nesting level.
+    content = content.push(volume_row(container_volume, &container_volume.children));
+
+    // Render one more nesting level for any child containers (partition tables, LVM PV → LVs).
+    for child in &container_volume.children {
+        if !child.children.is_empty() {
+            content = content.push(volume_row(child, &child.children));
+        }
+    }
+
+    container(content)
+        .padding(8)
         .class(cosmic::style::Container::Card)
         .into()
+}
+
+fn volume_row<'a>(parent: &VolumeNode, children: &'a [VolumeNode]) -> Element<'a, Message> {
+    let total = parent.size.max(1);
+    let mut buttons: Vec<Element<Message>> = Vec::new();
+
+    for child in children {
+        let denom = total;
+        let width = (((child.size as f64 / denom as f64) * 1000.).log10().ceil() as u16).max(1);
+
+        let action = if child.can_mount() {
+            let msg = if child.is_mounted() {
+                VolumesControlMessage::ChildUnmount(child.object_path.to_string())
+            } else {
+                VolumesControlMessage::ChildMount(child.object_path.to_string())
+            };
+            Some(msg)
+        } else {
+            None
+        };
+
+        let mut col = iced_widget::column![
+            cosmic::widget::text::caption_heading(child.label.clone()).center(),
+            cosmic::widget::text::caption(bytes_to_pretty(&child.size, false)).center(),
+        ]
+        .spacing(4)
+        .width(Length::Fill)
+        .align_x(Alignment::Center);
+
+        if let Some(a) = action {
+            let icon_name = if child.is_mounted() {
+                "media-playback-stop-symbolic"
+            } else {
+                "media-playback-start-symbolic"
+            };
+            col = col.push(widget::button::custom(icon::from_name(icon_name)).on_press(a.into()));
+        }
+
+        let b = cosmic::widget::button::custom(container(col).padding(6))
+            .height(Length::Fixed(90.0))
+            .width(Length::FillPortion(width));
+
+        buttons.push(b.into());
     }
+
+    cosmic::widget::Row::from_vec(buttons)
+        .spacing(10)
+        .width(Length::Fill)
+        .into()
 }
 
 fn get_button_style(

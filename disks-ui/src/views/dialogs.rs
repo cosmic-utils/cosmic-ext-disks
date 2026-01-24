@@ -1,5 +1,6 @@
-use super::volumes::CreateMessage;
+use super::volumes::{CreateMessage, UnlockMessage};
 use crate::app::Message;
+use crate::app::UnlockEncryptedDialog;
 use crate::fl;
 use crate::utils::labelled_spinner;
 use cosmic::{
@@ -117,5 +118,27 @@ pub fn create_partition<'a>(create: CreatePartitionInfo) -> Element<'a, Message>
         .control(content.spacing(20.))
         .primary_action(continue_button)
         .secondary_action(button::standard(fl!("cancel")).on_press(CreateMessage::Cancel.into()))
+        .into()
+}
+
+pub fn unlock_encrypted<'a>(state: UnlockEncryptedDialog) -> Element<'a, Message> {
+    let mut content = iced_widget::column![
+        text_input::secure_input("", state.passphrase.clone(), None, true)
+            .label(fl!("passphrase"))
+            .on_input(|v| UnlockMessage::PassphraseUpdate(v).into()),
+    ]
+    .spacing(12);
+
+    if let Some(err) = state.error.as_ref() {
+        content = content.push(cosmic::widget::text::caption(err.clone()));
+    }
+
+    dialog::dialog()
+        .title(fl!("unlock", name = state.partition_name))
+        .control(content)
+        .primary_action(
+            button::destructive(fl!("unlock-button")).on_press(UnlockMessage::Confirm.into()),
+        )
+        .secondary_action(button::standard(fl!("cancel")).on_press(UnlockMessage::Cancel.into()))
         .into()
 }

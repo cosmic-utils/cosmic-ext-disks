@@ -1,7 +1,7 @@
 use super::DiskError;
 use super::ops::{
-    PartitionFormatArgs, RealDiskBackend, partition_delete, partition_format, partition_mount,
-    partition_unmount,
+    PartitionFormatArgs, RealDiskBackend, crypto_lock, crypto_unlock, partition_delete,
+    partition_format, partition_mount, partition_unmount,
 };
 use crate::Usage;
 use anyhow::Result;
@@ -207,6 +207,24 @@ impl PartitionModel {
         partition_unmount(&backend, self.path.clone()).await
     }
 
+    pub async fn unlock(&self, passphrase: &str) -> Result<OwnedObjectPath> {
+        if self.connection.is_none() {
+            return Err(DiskError::NotConnected(self.name.clone()).into());
+        }
+
+        let backend = RealDiskBackend::new(self.connection.as_ref().unwrap().clone());
+        crypto_unlock(&backend, self.path.clone(), passphrase).await
+    }
+
+    pub async fn lock(&self) -> Result<()> {
+        if self.connection.is_none() {
+            return Err(DiskError::NotConnected(self.name.clone()).into());
+        }
+
+        let backend = RealDiskBackend::new(self.connection.as_ref().unwrap().clone());
+        crypto_lock(&backend, self.path.clone()).await
+    }
+
     pub async fn delete(&self) -> Result<()> {
         if self.connection.is_none() {
             return Err(DiskError::NotConnected(self.name.clone()).into());
@@ -310,6 +328,7 @@ impl PartitionModel {
     }
 
     //TODO: implement. Look at gnome-disks -> partition -> edit mount options. Likely make all params optional.
+    #[allow(clippy::too_many_arguments)]
     pub async fn edit_mount_options(
         &self,
         _mount_at_startup: bool,
