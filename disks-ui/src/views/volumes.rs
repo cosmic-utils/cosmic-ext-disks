@@ -12,6 +12,7 @@ use cosmic::{
 use crate::{
     app::{Message, ShowDialog},
     fl,
+    utils::{DiskSegmentKind, PartitionExtent, SegmentAnomaly, compute_disk_segments},
 };
 use disks_dbus::CreatePartitionInfo;
 use disks_dbus::bytes_to_pretty;
@@ -149,52 +150,76 @@ impl Segment {
     }
 
     pub fn get_segments(drive: &DriveModel) -> Vec<Segment> {
-        if drive.partitions.is_empty() {
-            return vec![Segment::free_space(
-                0,
-                drive.size,
-                drive.partition_table_type.clone().unwrap_or("".to_string()),
-            )];
-        }
+        let table_type = drive.partition_table_type.clone().unwrap_or_default();
 
-        let mut ordered_partitions = drive.partitions.clone();
+        let extents: Vec<PartitionExtent> = drive
+            .partitions
+            .iter()
+            .enumerate()
+            .map(|(id, p)| PartitionExtent {
+                id,
+                offset: p.offset,
+                size: p.size,
+            })
+            .collect();
 
-        ordered_partitions.sort_by(|a, b| a.offset.cmp(&b.offset));
-
-        let mut segments = vec![];
-        let mut current_offset = ordered_partitions.first().unwrap().offset; //TODO: HANDLE UNWRAP
-
-        if current_offset > 1048576 {
-            //TODO: There seems to be 1024KB at the start of all drives.
-            //      We need to make sure this is ALWAYS present, or the same size.
-            current_offset = 0;
-        }
-
-        for p in ordered_partitions {
-            if p.offset > current_offset {
-                //add in a free space segment.
-                segments.push(Segment::free_space(
-                    current_offset,
-                    p.offset - current_offset,
-                    drive.partition_table_type.clone().unwrap_or("".to_string()),
-                ));
-                current_offset = p.offset;
+        let computation = compute_disk_segments(drive.size, extents);
+        for anomaly in computation.anomalies {
+            match anomaly {
+                SegmentAnomaly::PartitionOverlapsPrevious {
+                    id,
+                    partition_offset,
+                    previous_end,
+                } => {
+                    eprintln!(
+                        "partition segmentation anomaly: partition #{id} overlaps previous segment (offset={partition_offset}, previous_end={previous_end})"
+                    );
+                }
+                SegmentAnomaly::PartitionStartsPastDisk {
+                    id,
+                    partition_offset,
+                    disk_size,
+                } => {
+                    eprintln!(
+                        "partition segmentation anomaly: partition #{id} starts past disk end (offset={partition_offset}, disk_size={disk_size})"
+                    );
+                }
+                SegmentAnomaly::PartitionEndPastDisk {
+                    id,
+                    partition_end,
+                    disk_size,
+                } => {
+                    eprintln!(
+                        "partition segmentation anomaly: partition #{id} ends past disk end (end={partition_end}, disk_size={disk_size})"
+                    );
+                }
             }
-
-            segments.push(Segment::new(&p));
-            current_offset += p.size;
         }
 
-        //TODO: Hack to hide weird end portion... find out what this is.
-        let hidden_trailing_bytes = drive.size.saturating_sub(5_242_880);
-        if current_offset < hidden_trailing_bytes {
-            let trailing_size = drive.size.saturating_sub(current_offset);
-            if trailing_size > 0 {
-                segments.push(Segment::free_space(
-                    current_offset,
-                    trailing_size,
-                    drive.partition_table_type.clone().unwrap_or("".to_string()),
-                ));
+        let mut segments: Vec<Segment> = Vec::new();
+        for seg in computation.segments {
+            match seg.kind {
+                DiskSegmentKind::FreeSpace => {
+                    segments.push(Segment::free_space(
+                        seg.offset,
+                        seg.size,
+                        table_type.clone(),
+                    ));
+                }
+                DiskSegmentKind::Partition => {
+                    let Some(partition_id) = seg.partition_id else {
+                        continue;
+                    };
+                    let Some(p) = drive.partitions.get(partition_id) else {
+                        continue;
+                    };
+
+                    let mut s = Segment::new(p);
+                    // Use computed extents so clamping (e.g., end-past-disk) is reflected.
+                    s.offset = seg.offset;
+                    s.size = seg.size;
+                    segments.push(s);
+                }
             }
         }
 
@@ -248,7 +273,9 @@ impl Segment {
 impl VolumesControl {
     pub fn new(model: DriveModel) -> Self {
         let mut segments: Vec<Segment> = Segment::get_segments(&model);
-        segments.first_mut().unwrap().state = true; //TODO: HANDLE UNWRAP.
+        if let Some(first) = segments.first_mut() {
+            first.state = true;
+        }
 
         Self {
             model,
