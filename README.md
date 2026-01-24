@@ -1,7 +1,7 @@
 # 🚧 Disks 🚧
 
-> [!CAUTION]
-> This project is currently in an early prototyping phase. *DO NOT* use this for performing operations on disks you actually care about yet!
+> [!WARNING]
+> This is now stable enough to use for disk operations, however it is still in early development so use with caution!
 ---
 A Disk utility application for the Cosmic Desktop.
 
@@ -12,6 +12,7 @@ You will need the following packages/services:
 
 For partition type support:
  - `ntfs-3g`
+ - `exfatprogs`
  - `dosfstools`
 
 
@@ -19,19 +20,14 @@ For partition type support:
  * Read disk info (Slight issues with offset)
  * Delete partition 
  * Create Partition 
-    * GPT partition scheme only currently
+    * Both GPT/MBR supported
     * EXT4, vFAT, extFAT & NTFS tested so far
-    * Issue with sizing... 2.1MB is left unused currently.
 
 I am currently actively developing this again after a 5 month hiatus, so this list should be getting longer quite regularly from now on.
 
 ### What doesn't work
 Everything else!
 
-### Device insert/remove updates
-Device discovery updates are driven by UDisks2 DBus signals (ObjectManager `InterfacesAdded`/`InterfacesRemoved`).
-
-If signal subscription fails at runtime, device insert/remove updates will be unavailable until the underlying DBus/UDisks2 issue is resolved.
 
 
 ### Future Plans

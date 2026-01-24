@@ -287,6 +287,20 @@ mod tests {
     }
 
     #[test]
+    fn usable_range_reserves_start_region() {
+        let disk_size = 10 * GPT_ALIGNMENT_BYTES;
+        let res = compute_disk_segments(disk_size, vec![], Some((GPT_ALIGNMENT_BYTES, disk_size)));
+
+        assert_eq!(
+            res.segments,
+            vec![
+                DiskSegment::reserved(0, GPT_ALIGNMENT_BYTES),
+                DiskSegment::free_space(GPT_ALIGNMENT_BYTES, disk_size - GPT_ALIGNMENT_BYTES)
+            ]
+        );
+    }
+
+    #[test]
     fn empty_partitions_is_single_free_space() {
         let res = compute_disk_segments(1000, vec![], None);
         assert_eq!(res.segments, vec![DiskSegment::free_space(0, 1000)]);

@@ -168,10 +168,18 @@ impl Segment {
 
     pub fn get_segments(drive: &DriveModel, show_reserved: bool) -> Vec<Segment> {
         let table_type = drive.partition_table_type.clone().unwrap_or_default();
-        let usable_range = if table_type == "gpt" {
-            drive.gpt_usable_range.map(|r| (r.start, r.end))
-        } else {
-            None
+        const DOS_RESERVED_START_BYTES: u64 = 1024 * 1024;
+
+        let usable_range = match table_type.as_str() {
+            "gpt" => drive.gpt_usable_range.map(|r| (r.start, r.end)),
+            "dos" => {
+                if drive.size > DOS_RESERVED_START_BYTES {
+                    Some((DOS_RESERVED_START_BYTES, drive.size))
+                } else {
+                    None
+                }
+            }
+            _ => None,
         };
 
         let extents: Vec<PartitionExtent> = drive
@@ -399,7 +407,7 @@ impl VolumesControl {
                                 |result| match result {
                                     Ok(drives) => Message::UpdateNav(drives, None).into(),
                                     Err(e) => {
-                                        println!("{e}");
+                                        println!("{e:#}");
                                         Message::None.into()
                                     }
                                 },
