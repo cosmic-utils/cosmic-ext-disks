@@ -31,6 +31,7 @@ Source:
     - Prefer `CreatePartitionAndFormat` to reduce race conditions.
     - If keeping separate steps, capture the `created_partition` object path from `CreatePartition` and format that path.
   - For DOS/MBR, set the `partition-type` option (string) to `primary` (unless/until UI supports extended/logical selection).
+  - When user requests “max size / fill remaining space”, pass `size=0` to UDisks2 (instead of the UI’s computed max byte count) so the backend can apply alignment/geometry.
 - Test plan:
   - `cargo test -p disks-dbus`
   - Add/adjust unit tests around the logic (if feasible via isolated functions).
@@ -40,7 +41,23 @@ Source:
 
 Status: Implemented in code; manual validation pending.
 
-## Task 3: Align partition type catalog and helpers with canonical values
+## Task 3: Add DOS/MBR reserved/usable range (1MiB start)
+- Scope: Prevent create-partition requests from targeting reserved start-of-disk space on DOS/MBR, and ensure the UI doesn’t present it as actionable “free space”.
+- Files/areas:
+  - `disks-ui/src/utils/segments.rs`
+  - `disks-ui/src/views/volumes.rs`
+  - `disks-dbus/src/disks/drive.rs` (validation/clamping)
+- Steps:
+  - Treat DOS/MBR usable range as `[1MiB, disk_size)`.
+  - Ensure computed free-space segments for DOS do not start at offset 0.
+  - Ensure `CreatePartitionInfo` generated for DOS free-space segments uses a non-zero offset (>= 1MiB).
+  - Add a targeted unit test for segmentation: DOS drive with no partitions yields reserved `[0, 1MiB)` and free-space `[1MiB, disk_size-1MiB]` (or equivalent).
+- Test plan:
+  - `cargo test -p cosmic-ext-disks`
+- Done when:
+  - [x] Creating a partition on an empty DOS/MBR disk does not send `offset=0`.
+
+## Task 4: Align partition type catalog and helpers with canonical values
 - Scope: Ensure the partition type catalog and helper functions use the canonical table type, so UI/DBus comparisons remain consistent.
 - Files/areas:
   - `disks-dbus/src/partition_type.rs`
@@ -52,9 +69,11 @@ Status: Implemented in code; manual validation pending.
 - Done when:
   - [x] No critical-path comparisons rely on a non-canonical alias.
 
-## Task 4: Manual validation checklist (non-destructive where possible)
+## Task 5: Manual validation checklist (non-destructive where possible)
 - Scope: Confirm the fix works in a real environment.
 - Steps:
+  - On a DOS/MBR disk with *no partitions*, attempt to create a single partition that fills the disk (leave size unchanged in UI).
+  - Confirm the backend request results in a partition that starts at an aligned offset (typically 1MiB) and fills remaining space (UDisks2 uses `size=0`).
   - On a test VM or removable drive with an MBR/DOS partition table, attempt to create an NTFS partition.
   - Confirm UI updates and there is no “Unsupported partition table type: dos”.
   - Confirm there are no transient DBus errors like “Object does not exist at path …/block_devices/sdX1”.

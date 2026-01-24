@@ -18,10 +18,15 @@ UDisks2’s D-Bus API reports the partition table scheme via `org.freedesktop.UD
 
 For DOS/MBR tables, the `partition-type` option controls primary/extended/logical.
 
+UDisks2 also supports requesting the maximum size by passing `size_bytes = 0` (the backend will choose the maximal size after alignment/geometry adjustments). Passing `offset=0` and `size=disk_size` is not a valid way to “fill the whole disk” and can fail on real devices.
+
+Like GPT, DOS/MBR disks have reserved / non-usable space at the start of the disk (MBR + typical 1MiB alignment). The UI must not present this region as actionable free space, and create-partition requests must not target it.
+
 ## Goals
 - Make MBR/DOS partition creation work end-to-end when the underlying disk uses a DOS/MBR partition table.
 - Remove `msdos` usage and make table-type handling consistent across UI + DBus layer using the UDisks2-correct value (`dos`).
 - Keep behavior for GPT disks unchanged.
+- Allow “single partition spanning remaining disk” on DOS/MBR without backend errors by using UDisks2’s `size=0` semantics and by avoiding reserved start regions.
 
 ## Non-Goals
 - Implement the unrelated stubbed partition operations (tracked as GAP-009).
@@ -36,6 +41,21 @@ For DOS/MBR tables, the `partition-type` option controls primary/extended/logica
   - If separate steps are retained, capture `created_partition` from `CreatePartition` and format that returned object path (optionally with a short, bounded wait for object readiness).
 - For DOS/MBR tables, explicitly set the `partition-type` option (string) to control primary/extended/logical; default to `primary` unless/until UI supports selecting otherwise.
 - Add unit tests around the selection/compatibility logic; add a targeted test (or mocked contract test) that asserts we use `dos` and consume the returned `created_partition` path.
+
+### DOS/MBR usable range (reserved start + alignment)
+Mirror the GPT “usable range” approach with a conservative DOS/MBR rule:
+
+- Treat `[0, 1MiB)` as reserved/unwritable for DOS/MBR partition creation.
+- Treat `[1MiB, disk_size)` as the usable range (half-open).
+- Render reserved segments in the UI (or at minimum, ensure they are not actionable free space).
+
+This does not attempt to model every DOS geometry nuance; it is deliberately conservative and aligns with common partitioning expectations.
+
+### DOS/MBR max-size policy
+When the user wants to fill the remaining space in a free-space segment, do not pass the UI’s “segment size” directly. Instead:
+
+- Use `size_bytes = 0` when the requested size equals the segment’s max ("fill") to let UDisks2 choose the maximal size after alignment.
+- Ensure `offset_bytes` is inside the DOS usable range (>= 1MiB) and is aligned if needed.
 
 Likely touched areas:
 - `disks-dbus/src/disks/drive.rs` (create partition branching + validation)
@@ -59,9 +79,12 @@ Likely touched areas:
   - Mitigation: use `CreatePartitionAndFormat` where possible; otherwise format the returned `created_partition` object path with a short, bounded wait/retry for readiness.
 - Risk: UI offset/size units mismatch (bytes vs sectors) could lead to confusing segmentation anomaly warnings and/or incorrect create requests.
   - Mitigation: verify offset/size are treated as bytes end-to-end (UDisks2 expects bytes) and add assertions/logging in debug builds.
+- Risk: The chosen DOS usable range (start at 1MiB) may be too conservative for some disks.
+  - Mitigation: start conservative to avoid backend errors; consider future enhancement to derive alignment/usable-start from backend hints if/when available.
 
 ## Acceptance Criteria
 - [ ] On DOS/MBR disks, partition creation is either disabled with a clear explanation, or it succeeds end-to-end.
-- [ ] No `msdos` string comparisons remain on the create-partition critical path (use `dos`).
-- [ ] Partition creation uses the `created_partition` returned by UDisks2 (or `CreatePartitionAndFormat`) and does not depend on `Partitions().last()` ordering.
-- [ ] Unit tests cover the create-partition table-type selection logic.
+- [x] No `msdos` string comparisons remain on the create-partition critical path (use `dos`).
+- [x] Partition creation uses the `created_partition` returned by UDisks2 (or `CreatePartitionAndFormat`) and does not depend on `Partitions().last()` ordering.
+- [x] Unit tests cover the create-partition table-type selection logic.
+- [ ] On a DOS/MBR disk with no partitions, creating a single partition that “fills the disk” succeeds (request uses `size=0` and does not target offset 0).

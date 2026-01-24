@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 
+use anyhow::Context;
 use anyhow::Result;
 use tracing::{error, info, warn};
 use udisks2::{
@@ -298,27 +299,54 @@ impl DriveModel {
             .as_ref()
             .ok_or_else(|| anyhow::anyhow!("No partition table type available"))?;
 
+        // UDisks2 expects bytes. When the user requests the maximum size for a free-space segment,
+        // pass 0 to let the backend pick the maximal size after alignment/geometry constraints.
+        let requested_size = if info.size >= info.max_size {
+            0
+        } else {
+            info.size
+        };
+
+        // DOS/MBR typically reserves the beginning of the disk (MBR + alignment). Avoid targeting
+        // offset 0.
+        const DOS_RESERVED_START_BYTES: u64 = 1024 * 1024;
+        if table_type == "dos" && info.offset < DOS_RESERVED_START_BYTES {
+            return Err(anyhow::anyhow!(
+                "Requested offset {} is inside reserved DOS/MBR start region (< {} bytes)",
+                info.offset,
+                DOS_RESERVED_START_BYTES
+            ));
+        }
+
         if table_type == "gpt" {
             if let Some(range) = self.gpt_usable_range {
-                let requested_end = info.offset.saturating_add(info.size);
-                if info.offset < range.start || requested_end > range.end {
+                if info.offset < range.start || info.offset >= range.end {
                     return Err(anyhow::anyhow!(
-                        "Requested partition range [{}, {}) is outside GPT usable range [{}, {})",
+                        "Requested partition offset {} is outside GPT usable range [{}, {})",
                         info.offset,
-                        requested_end,
                         range.start,
                         range.end
                     ));
+                }
+
+                if requested_size != 0 {
+                    let requested_end = info.offset.saturating_add(requested_size);
+                    if requested_end > range.end {
+                        return Err(anyhow::anyhow!(
+                            "Requested partition range [{}, {}) is outside GPT usable range [{}, {})",
+                            info.offset,
+                            requested_end,
+                            range.start,
+                            range.end
+                        ));
+                    }
                 }
             }
         }
 
         // Find a partition type that matches the table type.
         // Note: UDisks2 reports DOS/MBR partition tables as "dos".
-        let partition_info = common_partition_info_for(
-            table_type,
-            info.selected_partitition_type,
-        )?;
+        let partition_info = common_partition_info_for(table_type, info.selected_partitition_type)?;
 
         // Verify the selected partition type is compatible with the table type
         if partition_info.table_type != table_type {
@@ -330,6 +358,14 @@ impl DriveModel {
         }
 
         let partition_type = partition_info.ty;
+
+        // DOS/MBR partition tables do not support per-partition names. Use filesystem label
+        // (format option) instead.
+        let create_name = if table_type == "dos" {
+            ""
+        } else {
+            info.name.as_str()
+        };
 
         // Partition creation options.
         let mut create_options: HashMap<&str, Value<'_>> = HashMap::new();
@@ -353,20 +389,32 @@ impl DriveModel {
         let _created_partition = partition_table_proxy
             .create_partition_and_format(
                 info.offset,
-                info.size,
+                requested_size,
                 partition_type,
-                &info.name,
+                create_name,
                 create_options,
                 partition_info.filesystem_type,
                 format_options,
             )
-            .await?;
+            .await
+            .with_context(|| {
+                format!(
+                    "UDisks2 CreatePartitionAndFormat failed (table_type={table_type}, offset={}, size={}, part_type={}, fs={})",
+                    info.offset,
+                    requested_size,
+                    partition_type,
+                    partition_info.filesystem_type
+                )
+            })?;
 
         Ok(())
     }
 }
 
-fn common_partition_info_for(table_type: &str, selected_partition_type: usize) -> Result<&'static crate::PartitionTypeInfo> {
+fn common_partition_info_for(
+    table_type: &str,
+    selected_partition_type: usize,
+) -> Result<&'static crate::PartitionTypeInfo> {
     match table_type {
         "gpt" => COMMON_GPT_TYPES
             .get(selected_partition_type)
@@ -374,7 +422,9 @@ fn common_partition_info_for(table_type: &str, selected_partition_type: usize) -
         "dos" => COMMON_DOS_TYPES
             .get(selected_partition_type)
             .ok_or_else(|| anyhow::anyhow!("Invalid partition type index for DOS/MBR")),
-        _ => Err(anyhow::anyhow!("Unsupported partition table type: {table_type}")),
+        _ => Err(anyhow::anyhow!(
+            "Unsupported partition table type: {table_type}"
+        )),
     }
 }
 
