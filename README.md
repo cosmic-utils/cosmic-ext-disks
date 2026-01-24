@@ -1,7 +1,7 @@
 # 🚧 Disks 🚧
 
-> [!CAUTION]
-> This project is currently in an early prototyping phase. *DO NOT* use this for performing operations on disks you actually care about yet!
+> [!WARNING]
+> This is now stable enough to use for disk operations, however it is still in early development so use with caution!
 ---
 A Disk utility application for the Cosmic Desktop.
 
