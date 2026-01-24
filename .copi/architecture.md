@@ -72,12 +72,12 @@ Evidence:
 
 ### Device change detection
 
-- `DiskManager` creates a UDisks2 Manager proxy and **polls** `get_block_devices()` every 1s.
-- Diffs current vs previous device list and emits `Added/Removed` events.
+- `DiskManager` subscribes to UDisks2 add/remove events via `org.freedesktop.DBus.ObjectManager` signals.
+- Events are filtered to objects affecting the `org.freedesktop.UDisks2.Block` interface and emitted as `Added/Removed`.
 - UI subscribes to these events and refreshes the drive list by re-running `DriveModel::get_drives()`.
 
 Evidence:
-- Polling stream: [disks-dbus/src/disks/manager.rs](../disks-dbus/src/disks/manager.rs)
+- Signal stream: [disks-dbus/src/disks/manager.rs](../disks-dbus/src/disks/manager.rs)
 - UI subscription: [disks-ui/src/app.rs](../disks-ui/src/app.rs)
 
 ### User actions
