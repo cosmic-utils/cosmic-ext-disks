@@ -13,7 +13,7 @@ use crate::{
     app::{Message, ShowDialog},
     fl,
     utils::{
-        DiskSegmentKind, GPT_ALIGNMENT_BYTES, PartitionExtent, SegmentAnomaly,
+        DiskSegmentKind, PartitionExtent, SegmentAnomaly,
         compute_disk_segments,
     },
 };
@@ -256,7 +256,7 @@ impl Segment {
                 if s.kind == DiskSegmentKind::Reserved {
                     return false;
                 }
-                if s.kind == DiskSegmentKind::FreeSpace && s.size < GPT_ALIGNMENT_BYTES {
+                if s.kind == DiskSegmentKind::FreeSpace && s.size < 1048576 {
                     return false;
                 }
                 true
