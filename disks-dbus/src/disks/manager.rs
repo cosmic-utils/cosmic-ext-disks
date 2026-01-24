@@ -92,12 +92,11 @@ impl DiskManager {
 
                         match signal.args() {
                             Ok(args) => {
-                                if args.interfaces_and_properties.contains_key(BLOCK_IFACE) {
-                                    if let Err(e) = sender.send(DeviceEvent::Added(args.object_path.to_string())).await {
+                                if args.interfaces_and_properties.contains_key(BLOCK_IFACE)
+                                    && let Err(e) = sender.send(DeviceEvent::Added(args.object_path.to_string())).await {
                                         warn!("Device event receiver dropped: {e}");
                                         break;
                                     }
-                                }
                             }
                             Err(e) => {
                                 warn!("Failed to parse InterfacesAdded signal args: {e}");
@@ -111,12 +110,11 @@ impl DiskManager {
 
                         match signal.args() {
                             Ok(args) => {
-                                if args.interfaces.iter().any(|i| i == BLOCK_IFACE) {
-                                    if let Err(e) = sender.send(DeviceEvent::Removed(args.object_path.to_string())).await {
+                                if args.interfaces.iter().any(|i| i == BLOCK_IFACE)
+                                    && let Err(e) = sender.send(DeviceEvent::Removed(args.object_path.to_string())).await {
                                         warn!("Device event receiver dropped: {e}");
                                         break;
                                     }
-                                }
                             }
                             Err(e) => {
                                 warn!("Failed to parse InterfacesRemoved signal args: {e}");
@@ -135,42 +133,36 @@ impl DiskManager {
         added: Option<String>,
         removed: Option<String>,
     ) -> Result<()> {
-        match removed {
-            Some(removed_str) => {
-                // Check for direct match on drive path or block path FIRST
-                if let Some(index) = drives
-                    .iter()
-                    .position(|d| d.path == removed_str || d.block_path == removed_str)
-                {
-                    drives.remove(index);
-                    return Ok(()); // Early return after removing a drive
-                }
+        if let Some(removed_str) = removed {
+            // Check for direct match on drive path or block path FIRST
+            if let Some(index) = drives
+                .iter()
+                .position(|d| d.path == removed_str || d.block_path == removed_str)
+            {
+                drives.remove(index);
+                return Ok(()); // Early return after removing a drive
+            }
 
-                // If no direct match, THEN check partitions (using a reference!)
-                for drive in drives.iter_mut() {
-                    if let Some(index) = drive
-                        .partitions
-                        .iter()
-                        .position(|p| p.path.as_str() == removed_str)
-                    {
-                        drive.partitions.remove(index);
-                    }
+            // If no direct match, THEN check partitions (using a reference!)
+            for drive in drives.iter_mut() {
+                if let Some(index) = drive
+                    .partitions
+                    .iter()
+                    .position(|p| p.path.as_str() == removed_str)
+                {
+                    drive.partitions.remove(index);
                 }
             }
-            None => {}
         }
 
-        match added {
-            Some(_) => {
-                let mut new_drives = DriveModel::get_drives().await?;
-                drives.retain(|drive| {
-                    !new_drives
-                        .iter()
-                        .any(|new_drive| new_drive.path == drive.path)
-                });
-                drives.append(&mut new_drives);
-            }
-            None => {}
+        if added.is_some() {
+            let mut new_drives = DriveModel::get_drives().await?;
+            drives.retain(|drive| {
+                !new_drives
+                    .iter()
+                    .any(|new_drive| new_drive.path == drive.path)
+            });
+            drives.append(&mut new_drives);
         }
 
         Ok(())
@@ -187,5 +179,3 @@ impl Stream for DeviceEventStream {
         self.receiver.poll_recv(cx)
     }
 }
-
-// ... (main function remains the same)

@@ -1,4 +1,3 @@
-use std::sync::LazyLock;
 
 /// Flags describing a partition type.
 #[derive(Debug, Clone, Copy, Default)]
@@ -66,10 +65,7 @@ impl PartitionTypeInfo {
     }
 
     pub fn find_by_id(type_id: String) -> Option<PartitionTypeInfo> {
-        match PARTITION_TYPES.iter().find(|p| p.ty == type_id) {
-            Some(t) => Some(t.clone()),
-            None => None,
-        }
+        PARTITION_TYPES.iter().find(|p| p.ty == type_id).cloned()
     }
 }
 
