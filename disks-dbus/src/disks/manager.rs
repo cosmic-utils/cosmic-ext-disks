@@ -1,11 +1,12 @@
 use anyhow::Result;
+use futures::StreamExt;
 use futures::stream::Stream;
 use futures::task::{Context, Poll};
 use std::collections::HashMap;
 use std::time::Duration;
 use tokio::sync::mpsc;
 use tokio::time::sleep;
-use tracing::error;
+use tracing::{error, warn};
 use zbus::{
     Connection,
     zvariant::{self, Value},
@@ -26,7 +27,29 @@ pub trait UDisks2Manager {
     ) -> zbus::Result<Vec<zvariant::OwnedObjectPath>>;
 }
 
+#[proxy(
+    default_service = "org.freedesktop.UDisks2",
+    default_path = "/org/freedesktop/UDisks2",
+    interface = "org.freedesktop.DBus.ObjectManager"
+)]
+pub trait UDisks2ObjectManager {
+    #[zbus(signal)]
+    fn interfaces_added(
+        &self,
+        object_path: zvariant::OwnedObjectPath,
+        interfaces_and_properties: HashMap<String, HashMap<String, zvariant::OwnedValue>>,
+    ) -> zbus::Result<()>;
+
+    #[zbus(signal)]
+    fn interfaces_removed(
+        &self,
+        object_path: zvariant::OwnedObjectPath,
+        interfaces: Vec<String>,
+    ) -> zbus::Result<()>;
+}
+
 pub struct DiskManager {
+    connection: Connection,
     proxy: UDisks2ManagerProxy<'static>,
 }
 
@@ -44,7 +67,72 @@ impl DiskManager {
     pub async fn new() -> Result<Self> {
         let connection = Connection::system().await?;
         let proxy = UDisks2ManagerProxy::new(&connection).await?;
-        Ok(Self { proxy })
+        Ok(Self { connection, proxy })
+    }
+
+    /// A signal-based event stream for block device add/remove.
+    ///
+    /// Uses `org.freedesktop.DBus.ObjectManager` on the UDisks2 root object and
+    /// filters to events affecting the `org.freedesktop.UDisks2.Block` interface.
+    ///
+    /// Intended to be used as the primary mechanism for UI updates; callers can
+    /// fall back to `device_event_stream` polling if this fails.
+    pub async fn device_event_stream_signals(&self) -> Result<DeviceEventStream> {
+        const BLOCK_IFACE: &str = "org.freedesktop.UDisks2.Block";
+
+        let (sender, receiver) = mpsc::channel(32);
+        let connection = self.connection.clone();
+
+        let object_manager = UDisks2ObjectManagerProxy::new(&connection).await?;
+        let mut added_stream = object_manager.receive_interfaces_added().await?;
+        let mut removed_stream = object_manager.receive_interfaces_removed().await?;
+
+        tokio::spawn(async move {
+            loop {
+                tokio::select! {
+                    maybe_added = added_stream.next() => {
+                        let Some(signal) = maybe_added else {
+                            break;
+                        };
+
+                        match signal.args() {
+                            Ok(args) => {
+                                if args.interfaces_and_properties.contains_key(BLOCK_IFACE) {
+                                    if let Err(e) = sender.send(DeviceEvent::Added(args.object_path.to_string())).await {
+                                        warn!("Device event receiver dropped: {e}");
+                                        break;
+                                    }
+                                }
+                            }
+                            Err(e) => {
+                                warn!("Failed to parse InterfacesAdded signal args: {e}");
+                            }
+                        }
+                    }
+                    maybe_removed = removed_stream.next() => {
+                        let Some(signal) = maybe_removed else {
+                            break;
+                        };
+
+                        match signal.args() {
+                            Ok(args) => {
+                                if args.interfaces.iter().any(|i| i == BLOCK_IFACE) {
+                                    if let Err(e) = sender.send(DeviceEvent::Removed(args.object_path.to_string())).await {
+                                        warn!("Device event receiver dropped: {e}");
+                                        break;
+                                    }
+                                }
+                            }
+                            Err(e) => {
+                                warn!("Failed to parse InterfacesRemoved signal args: {e}");
+                            }
+                        }
+                    }
+                }
+            }
+        });
+
+        Ok(DeviceEventStream { receiver })
     }
 
     pub fn device_event_stream(&self, interval: Duration) -> DeviceEventStream {
