@@ -1,8 +1,12 @@
 use super::DiskError;
+use super::ops::{
+    PartitionFormatArgs, RealDiskBackend, partition_delete, partition_format, partition_mount,
+    partition_unmount,
+};
 use crate::Usage;
 use anyhow::Result;
 use enumflags2::BitFlags;
-use std::{collections::HashMap, path::Path};
+use std::path::Path;
 use udisks2::{
     Client,
     block::BlockProxy,
@@ -157,9 +161,9 @@ impl PartitionModel {
     /// # Errors
     /// Returns an errors if it fails to read any of the aforementioned information.
     pub async fn partition_info(client: &Client, partition: &PartitionProxy<'_>) -> Result<String> {
-        let flags = partition.flags().await?;
+        let _flags = partition.flags().await?;
         let table = client.partition_table(partition).await?;
-        let flags_str = String::new();
+        let _flags_str = String::new();
 
         let type_str = match client
             .partition_type_for_display(&table.type_().await?, &partition.type_().await?)
@@ -190,14 +194,8 @@ impl PartitionModel {
             return Err(DiskError::NotConnected(self.name.clone()).into());
         }
 
-        let proxy = FilesystemProxy::builder(self.connection.as_ref().unwrap())
-            .path(&self.path)?
-            .build()
-            .await?;
-
-        proxy.mount(HashMap::new()).await?;
-
-        Ok(())
+        let backend = RealDiskBackend::new(self.connection.as_ref().unwrap().clone());
+        partition_mount(&backend, self.path.clone()).await
     }
 
     pub async fn unmount(&self) -> Result<()> {
@@ -205,14 +203,8 @@ impl PartitionModel {
             return Err(DiskError::NotConnected(self.name.clone()).into());
         }
 
-        let proxy = FilesystemProxy::builder(self.connection.as_ref().unwrap())
-            .path(&self.path)?
-            .build()
-            .await?;
-
-        proxy.unmount(HashMap::new()).await?;
-
-        Ok(())
+        let backend = RealDiskBackend::new(self.connection.as_ref().unwrap().clone());
+        partition_unmount(&backend, self.path.clone()).await
     }
 
     pub async fn delete(&self) -> Result<()> {
@@ -224,14 +216,8 @@ impl PartitionModel {
         //any other error with the partition should be caught by the delete operation.
         let _ = self.unmount().await;
 
-        let proxy = PartitionProxy::builder(self.connection.as_ref().unwrap())
-            .path(&self.path)?
-            .build()
-            .await?;
-
-        proxy.delete(HashMap::new()).await?;
-
-        Ok(())
+        let backend = RealDiskBackend::new(self.connection.as_ref().unwrap().clone());
+        partition_delete(&backend, self.path.clone()).await
     }
 
     pub async fn format(&self, name: String, erase: bool, partion_type: String) -> Result<()> {
@@ -239,15 +225,25 @@ impl PartitionModel {
             return Err(DiskError::NotConnected(self.name.clone()).into());
         }
 
-        Ok(())
+        let backend = RealDiskBackend::new(self.connection.as_ref().unwrap().clone());
+
+        let label = if name.is_empty() { None } else { Some(name) };
+        let args = PartitionFormatArgs {
+            block_path: self.path.clone(),
+            filesystem_type: partion_type,
+            erase,
+            label,
+        };
+
+        partition_format(&backend, args).await
     }
 
     //TODO: implement
     pub async fn edit_partition(
         &self,
-        partition_type: String,
-        name: String,
-        flags: u64,
+        _partition_type: String,
+        _name: String,
+        _flags: u64,
     ) -> Result<()> {
         if self.connection.is_none() {
             return Err(DiskError::NotConnected(self.name.clone()).into());
@@ -257,7 +253,7 @@ impl PartitionModel {
     }
 
     //TODO: implement
-    pub async fn edit_filesystem_label(&self, label: String) -> Result<()> {
+    pub async fn edit_filesystem_label(&self, _label: String) -> Result<()> {
         if self.connection.is_none() {
             return Err(DiskError::NotConnected(self.name.clone()).into());
         }
@@ -274,7 +270,7 @@ impl PartitionModel {
     }
 
     //TODO: implement
-    pub async fn resize(&self, new_size_bytes: u64) -> Result<()> {
+    pub async fn resize(&self, _new_size_bytes: u64) -> Result<()> {
         if self.connection.is_none() {
             return Err(DiskError::NotConnected(self.name.clone()).into());
         }
@@ -298,7 +294,7 @@ impl PartitionModel {
     }
 
     //TODO: implement
-    pub async fn take_ownership(&self, recursive: bool) -> Result<()> {
+    pub async fn take_ownership(&self, _recursive: bool) -> Result<()> {
         if self.connection.is_none() {
             return Err(DiskError::NotConnected(self.name.clone()).into());
         }
@@ -316,16 +312,16 @@ impl PartitionModel {
     //TODO: implement. Look at gnome-disks -> partition -> edit mount options. Likely make all params optional.
     pub async fn edit_mount_options(
         &self,
-        mount_at_startup: bool,
-        show_in_ui: bool,
-        requre_auth: bool,
-        display_name: Option<String>,
-        icon_name: Option<String>,
-        symbolic_icon_name: Option<String>,
-        options: String,
-        mount_point: String,
-        identify_as: String,
-        file_system_type: String,
+        _mount_at_startup: bool,
+        _show_in_ui: bool,
+        _requre_auth: bool,
+        _display_name: Option<String>,
+        _icon_name: Option<String>,
+        _symbolic_icon_name: Option<String>,
+        _options: String,
+        _mount_point: String,
+        _identify_as: String,
+        _file_system_type: String,
     ) -> Result<()> {
         if self.connection.is_none() {
             return Err(DiskError::NotConnected(self.name.clone()).into());
@@ -342,7 +338,7 @@ impl PartitionModel {
     }
 
     //TODO: implement. creates a *.img of self.
-    pub async fn create_image(&self, output_path: String) -> Result<()> {
+    pub async fn create_image(&self, _output_path: String) -> Result<()> {
         if self.connection.is_none() {
             return Err(DiskError::NotConnected(self.name.clone()).into());
         }

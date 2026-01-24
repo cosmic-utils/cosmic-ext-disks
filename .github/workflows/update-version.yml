@@ -1,0 +1,91 @@
+name: Update Version
+
+on:
+  push:
+    branches: [ main ]
+
+permissions:
+  contents: write
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  bump:
+    name: Bump version, commit, tag
+    runs-on: ubuntu-latest
+    if: github.actor != 'github-actions[bot]'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - run: rustup update
+      - uses: Swatinem/rust-cache@v2
+
+      - name: install system deps
+        run: sudo apt install libxkbcommon-dev
+
+      - name: Get Next Version
+        id: semver
+        uses: paulhatch/semantic-version@v5.4.0
+        with:
+          tag_prefix: "v"
+          major_pattern: "(MAJOR)"
+          minor_pattern: "(MINOR)"
+          version_format: "${major}.${minor}.${patch}"
+          version_from_branch: false
+
+      - name: Set versions in Cargo.toml
+        run: |
+          set -euo pipefail
+          VERSION="${{ steps.semver.outputs.version }}"
+          if [ -z "$VERSION" ]; then
+            VERSION="0.0.1"
+          fi
+          echo "Calculated version: $VERSION"
+
+          sed -i 's/^version = ".*"/version = "'$VERSION'"/' disks-dbus/Cargo.toml
+          sed -i 's/^version = ".*"/version = "'$VERSION'"/' disks-ui/Cargo.toml
+
+          # Keep the workspace dependency version in sync so cargo can publish without mutating files.
+          sed -i 's|disks-dbus = { package = "cosmic-ext-disks-dbus", path = "disks-dbus", version = ".*" }|disks-dbus = { package = "cosmic-ext-disks-dbus", path = "disks-dbus", version = "'$VERSION'" }|' Cargo.toml
+
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+
+      - name: Run fmt
+        run: cargo fmt --all
+
+      - name: Run tests
+        run: cargo test --workspace --all-features
+
+      - name: Run clippy
+        run: cargo clippy --workspace --all-features
+
+      - name: Commit version bump
+        run: |
+          set -euo pipefail
+          if git diff --quiet; then
+            echo "No version changes to commit; exiting."
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add Cargo.toml disks-dbus/Cargo.toml disks-ui/Cargo.toml
+          git commit -m "chore(release): v$VERSION"
+
+      - name: Tag and push
+        run: |
+          set -euo pipefail
+          if git rev-parse "v$VERSION" >/dev/null 2>&1; then
+            echo "Tag v$VERSION already exists; exiting."
+            exit 0
+          fi
+
+          git tag -a "v$VERSION" -m "v$VERSION"
+
+          # Push the commit to main and then the tag. The tag triggers the publish workflow.
+          git push origin HEAD:main
+          git push origin "v$VERSION"
