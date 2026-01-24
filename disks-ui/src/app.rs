@@ -288,68 +288,73 @@ impl Application for AppModel {
                         v.id_type.to_uppercase()
                     };
 
-                    col.push(labelled_info(fl!("contents"), contents)).push(labelled_info(
-                        fl!("device"),
-                        match v.device_path.as_ref() {
-                            Some(s) => s.clone(),
-                            None => fl!("unresolved"),
-                        },
-                    ))
+                    col.push(labelled_info(fl!("contents"), contents))
+                        .push(labelled_info(
+                            fl!("device"),
+                            match v.device_path.as_ref() {
+                                Some(s) => s.clone(),
+                                None => fl!("unresolved"),
+                            },
+                        ))
                 } else {
                     match segment.partition.clone() {
-                    Some(p) => {
-                        let mut name = p.name.clone();
-                        if name.is_empty() {
-                            name = fl!("partition-number", number = p.number);
-                        } else {
-                            name =
-                                fl!("partition-number-with-name", number = p.number, name = name);
+                        Some(p) => {
+                            let mut name = p.name.clone();
+                            if name.is_empty() {
+                                name = fl!("partition-number", number = p.number);
+                            } else {
+                                name = fl!(
+                                    "partition-number-with-name",
+                                    number = p.number,
+                                    name = name
+                                );
+                            }
+
+                            let mut type_str = p.id_type.clone().to_uppercase();
+                            type_str = format!("{} - {}", type_str, p.partition_type.clone());
+
+                            let mut col = iced_widget::column![
+                                heading(name),
+                                Space::new(0, 10),
+                                labelled_info(fl!("size"), bytes_to_pretty(&p.size, true)),
+                            ]
+                            .spacing(5);
+
+                            if let Some(usage) = &p.usage {
+                                col = col.push(labelled_info(
+                                    fl!("usage"),
+                                    bytes_to_pretty(&usage.used, false),
+                                ));
+                            }
+
+                            if let Some(mount_point) = p.mount_points.first() {
+                                col = col.push(link_info(
+                                    fl!("mounted-at"),
+                                    mount_point,
+                                    Message::OpenPath(mount_point.clone()),
+                                ));
+                            }
+
+                            col = col
+                                .push(labelled_info(fl!("contents"), &type_str))
+                                .push(labelled_info(
+                                    fl!("device"),
+                                    match p.device_path {
+                                        Some(s) => s,
+                                        None => fl!("unresolved"),
+                                    },
+                                ))
+                                .push(labelled_info(fl!("uuid"), &p.uuid));
+
+                            col
                         }
-
-                        let mut type_str = p.id_type.clone().to_uppercase();
-                        type_str = format!("{} - {}", type_str, p.partition_type.clone());
-
-                        let mut col = iced_widget::column![
-                            heading(name),
-                            Space::new(0, 10),
-                            labelled_info(fl!("size"), bytes_to_pretty(&p.size, true)),
+                        None => iced_widget::column![
+                            heading(&segment.label),
+                            labelled_info("Size", bytes_to_pretty(&segment.size, true)),
                         ]
-                        .spacing(5);
-
-                        if let Some(usage) = &p.usage {
-                            col = col.push(labelled_info(
-                                fl!("usage"),
-                                bytes_to_pretty(&usage.used, false),
-                            ));
-                        }
-
-                        if let Some(mount_point) = p.mount_points.first() {
-                            col = col.push(link_info(
-                                fl!("mounted-at"),
-                                mount_point,
-                                Message::OpenPath(mount_point.clone()),
-                            ));
-                        }
-
-                        col = col
-                            .push(labelled_info(fl!("contents"), &type_str))
-                            .push(labelled_info(
-                                fl!("device"),
-                                match p.device_path {
-                                    Some(s) => s,
-                                    None => fl!("unresolved"),
-                                },
-                            ))
-                            .push(labelled_info(fl!("uuid"), &p.uuid));
-
-                        col
+                        .spacing(5),
                     }
-                    None => iced_widget::column![
-                        heading(&segment.label),
-                        labelled_info("Size", bytes_to_pretty(&segment.size, true)),
-                    ]
-                    .spacing(5),
-                }};
+                };
 
                 let partition_type = match &drive.partition_table_type {
                     Some(t) => t.clone().to_uppercase(),

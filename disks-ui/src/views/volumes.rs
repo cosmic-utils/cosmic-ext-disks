@@ -21,10 +21,13 @@ use disks_dbus::{DriveModel, PartitionModel, VolumeKind, VolumeNode};
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum VolumesControlMessage {
     SegmentSelected(usize),
+    SelectVolume {
+        segment_index: usize,
+        object_path: String,
+    },
     ToggleShowReserved(bool),
     Mount,
     Unmount,
-    ChildSelected(String),
     ChildMount(String),
     ChildUnmount(String),
     LockContainer,
@@ -419,6 +422,19 @@ impl VolumesControl {
                     }
                 }
             }
+            VolumesControlMessage::SelectVolume {
+                segment_index,
+                object_path,
+            } => {
+                if dialog.is_none() {
+                    self.selected_segment = segment_index;
+                    self.selected_volume = Some(object_path);
+                    self.segments.iter_mut().for_each(|s| s.state = false);
+                    if let Some(segment) = self.segments.get_mut(segment_index) {
+                        segment.state = true;
+                    }
+                }
+            }
             VolumesControlMessage::ToggleShowReserved(show_reserved) => {
                 self.set_show_reserved(show_reserved);
             }
@@ -479,11 +495,6 @@ impl VolumesControl {
                     }
                 }
                 return Task::none();
-            }
-            VolumesControlMessage::ChildSelected(object_path) => {
-                if dialog.is_none() {
-                    self.selected_volume = Some(object_path);
-                }
             }
             VolumesControlMessage::ChildMount(object_path) => {
                 let node = find_volume_node(&self.model.volumes, &object_path).cloned();
@@ -730,8 +741,104 @@ impl VolumesControl {
             .iter()
             .enumerate()
             .map(|(index, segment)| {
-                let active_state = ToggleState::active_or(&segment.state, ToggleState::Normal);
-                let hovered_state = ToggleState::active_or(&segment.state, ToggleState::Hovered);
+                // When a child filesystem is selected, visually de-emphasize the container.
+                let container_selected = segment.state && self.selected_volume.is_none();
+                let active_state = ToggleState::active_or(&container_selected, ToggleState::Normal);
+                let hovered_state =
+                    ToggleState::active_or(&container_selected, ToggleState::Hovered);
+
+                // For encrypted container partitions, render a split tile:
+                // - top half: the container itself (selects the segment)
+                // - bottom half: contained volumes (select filesystem/LV)
+                let container_volume = segment
+                    .partition
+                    .as_ref()
+                    .and_then(|p| find_volume_node_for_partition(&self.model.volumes, p))
+                    .filter(|v| v.kind == VolumeKind::CryptoContainer);
+
+                if let Some(v) = container_volume {
+                    let state_text = if v.locked {
+                        fl!("locked")
+                    } else {
+                        fl!("unlocked")
+                    };
+
+                    let top = cosmic::widget::button::custom(
+                        container(
+                            iced_widget::column![
+                                caption_heading(segment.name.clone()).center(),
+                                caption(bytes_to_pretty(&segment.size, false)).center(),
+                                caption(state_text).center(),
+                            ]
+                            .spacing(4)
+                            .width(Length::Fill)
+                            .align_x(Alignment::Center),
+                        )
+                        .padding(6)
+                        .align_x(Alignment::Center)
+                        .align_y(Alignment::Center),
+                    )
+                    .on_press(Message::VolumesMessage(
+                        VolumesControlMessage::SegmentSelected(index),
+                    ))
+                    .class(cosmic::theme::Button::Custom {
+                        active: Box::new(move |_b, theme| get_button_style(active_state, theme)),
+                        disabled: Box::new(|theme| get_button_style(ToggleState::Disabled, theme)),
+                        hovered: Box::new(move |_, theme| get_button_style(hovered_state, theme)),
+                        pressed: Box::new(|_, theme| get_button_style(ToggleState::Pressed, theme)),
+                    })
+                    .height(Length::FillPortion(1));
+
+                    let bottom_content: Element<Message> = if v.locked {
+                        // No children while locked.
+                        container(
+                            iced_widget::column![caption(fl!("locked")).center()]
+                                .width(Length::Fill)
+                                .height(Length::Fill)
+                                .align_x(Alignment::Center),
+                        )
+                        .padding(6)
+                        .into()
+                    } else {
+                        // Prefer showing the immediate children if any; if the only child is a
+                        // container (e.g. cleartext PV), show its children instead.
+                        let direct = &v.children;
+                        let mut col = iced_widget::column![].spacing(8);
+                        col = col.width(Length::Fill).height(Length::Fill);
+
+                        if direct.len() == 1 && !direct[0].children.is_empty() {
+                            col = col.push(volume_row_compact(
+                                index,
+                                &direct[0],
+                                &direct[0].children,
+                                self.selected_volume.as_deref(),
+                            ));
+                        } else {
+                            col = col.push(volume_row_compact(
+                                index,
+                                v,
+                                direct,
+                                self.selected_volume.as_deref(),
+                            ));
+                        }
+
+                        col.into()
+                    };
+
+                    // No extra outer padding here; child tiles should align with container extents.
+                    let bottom = container(bottom_content)
+                        .padding(0)
+                        .height(Length::FillPortion(1))
+                        .width(Length::Fill);
+
+                    return container(
+                        iced_widget::column![top, bottom]
+                            .spacing(6)
+                            .height(Length::Fixed(SEGMENT_BUTTON_HEIGHT)),
+                    )
+                    .width(Length::FillPortion(segment.width))
+                    .into();
+                }
 
                 cosmic::widget::button::custom(segment.get_segment_control())
                     .on_press(Message::VolumesMessage(
@@ -743,7 +850,7 @@ impl VolumesControl {
                         hovered: Box::new(move |_, theme| get_button_style(hovered_state, theme)),
                         pressed: Box::new(|_, theme| get_button_style(ToggleState::Pressed, theme)),
                     })
-                        .height(Length::Fixed(SEGMENT_BUTTON_HEIGHT))
+                    .height(Length::Fixed(SEGMENT_BUTTON_HEIGHT))
                     .width(Length::FillPortion(segment.width))
                     .into()
             })
@@ -775,10 +882,31 @@ impl VolumesControl {
             .as_ref()
             .and_then(|p| find_volume_node_for_partition(&self.model.volumes, p));
 
+        let selected_child_volume = self.selected_volume_node();
+
         match selected.kind {
             DiskSegmentKind::Partition => {
                 if let Some(p) = selected.partition.as_ref() {
-                    if let Some(v) = selected_volume {
+                    // If a child filesystem/LV is selected, mount/unmount applies to it.
+                    if let Some(v) = selected_child_volume {
+                        if v.can_mount() {
+                            let msg = if v.is_mounted() {
+                                VolumesControlMessage::ChildUnmount(v.object_path.to_string())
+                            } else {
+                                VolumesControlMessage::ChildMount(v.object_path.to_string())
+                            };
+                            let icon_name = if v.is_mounted() {
+                                "media-playback-stop-symbolic"
+                            } else {
+                                "media-playback-start-symbolic"
+                            };
+                            action_bar.push(
+                                widget::button::custom(icon::from_name(icon_name))
+                                    .on_press(msg.into())
+                                    .into(),
+                            );
+                        }
+                    } else if let Some(v) = selected_volume {
                         if v.kind == VolumeKind::CryptoContainer {
                             if v.locked {
                                 action_bar.push(
@@ -819,16 +947,6 @@ impl VolumesControl {
 
                             action_bar.push(button.into());
                         }
-                    } else if p.can_mount() {
-                        let button = if p.is_mounted() {
-                            widget::button::custom(icon::from_name("media-playback-stop-symbolic"))
-                                .on_press(VolumesControlMessage::Unmount.into())
-                        } else {
-                            widget::button::custom(icon::from_name("media-playback-start-symbolic"))
-                                .on_press(VolumesControlMessage::Mount.into())
-                        };
-
-                        action_bar.push(button.into());
                     }
                 }
             }
@@ -857,11 +975,7 @@ impl VolumesControl {
             );
         }
 
-        let nested = selected_volume
-            .filter(|v| v.kind == VolumeKind::CryptoContainer)
-            .map(|v| nested_volume_view(v, self.selected_volume.as_deref()));
-
-        let mut root = column![
+        let root = column![
             cosmic::widget::Row::from_vec(vec![show_reserved.into()])
                 .spacing(10)
                 .width(Length::Fill),
@@ -871,10 +985,6 @@ impl VolumesControl {
             widget::Row::from_vec(action_bar).width(Length::Fill)
         ]
         .spacing(10);
-
-        if let Some(n) = nested {
-            root = root.push(n);
-        }
 
         container(root)
             .width(Length::Fill)
@@ -903,71 +1013,12 @@ fn find_volume_node_for_partition<'a>(
     let target = partition.path.to_string();
     find_volume_node(volumes, &target)
 }
-
-fn nested_volume_view<'a>(
-    container_volume: &'a VolumeNode,
-    selected_volume: Option<&str>,
-) -> Element<'a, Message> {
-    // Split the nested section: top half is the container summary, bottom half is its children.
-    const NESTED_SECTION_HEIGHT: f32 = 260.0;
-
-    let state_text = if container_volume.locked {
-        fl!("locked")
-    } else {
-        fl!("unlocked")
-    };
-
-    let container_summary = container(
-        iced_widget::column![
-            cosmic::widget::text::caption_heading(container_volume.label.clone()).center(),
-            cosmic::widget::text::caption(state_text).center(),
-            cosmic::widget::text::caption(bytes_to_pretty(&container_volume.size, false)).center(),
-        ]
-        .spacing(4)
-        .width(Length::Fill)
-        .align_x(Alignment::Center),
-    )
-    .padding(8)
-    .height(Length::FillPortion(1));
-
-    let mut children_col = iced_widget::column![].spacing(8);
-    if !container_volume.children.is_empty() {
-        // First nesting level.
-        children_col = children_col.push(volume_row(
-            container_volume,
-            &container_volume.children,
-            selected_volume,
-        ));
-
-        // One more level for child containers (partition tables, LVM PV → LVs).
-        for child in &container_volume.children {
-            if !child.children.is_empty() {
-                children_col = children_col.push(volume_row(child, &child.children, selected_volume));
-            }
-        }
-    }
-
-    let children_panel = container(children_col)
-        .padding(8)
-        .height(Length::FillPortion(1));
-
-    container(
-        iced_widget::column![container_summary, children_panel]
-            .spacing(8)
-            .height(Length::Fixed(NESTED_SECTION_HEIGHT)),
-    )
-    .padding(8)
-    .class(cosmic::style::Container::Card)
-    .into()
-}
-
-fn volume_row<'a>(
+fn volume_row_compact<'a>(
+    segment_index: usize,
     parent: &VolumeNode,
     children: &'a [VolumeNode],
     selected_volume: Option<&str>,
 ) -> Element<'a, Message> {
-    const CHILD_BUTTON_HEIGHT: f32 = 117.0;
-
     let total = parent.size.max(1);
     let mut buttons: Vec<Element<Message>> = Vec::new();
 
@@ -976,33 +1027,12 @@ fn volume_row<'a>(
         let denom = total;
         let width = (((child.size as f64 / denom as f64) * 1000.).log10().ceil() as u16).max(1);
 
-        let action = if child.can_mount() {
-            let msg = if child.is_mounted() {
-                VolumesControlMessage::ChildUnmount(child.object_path.to_string())
-            } else {
-                VolumesControlMessage::ChildMount(child.object_path.to_string())
-            };
-            Some(msg)
-        } else {
-            None
-        };
-
-        let mut col = iced_widget::column![
+        let col = iced_widget::column![
             cosmic::widget::text::caption_heading(child.label.clone()).center(),
-            cosmic::widget::text::caption(bytes_to_pretty(&child.size, false)).center(),
         ]
         .spacing(4)
         .width(Length::Fill)
         .align_x(Alignment::Center);
-
-        if let Some(a) = action {
-            let icon_name = if child.is_mounted() {
-                "media-playback-stop-symbolic"
-            } else {
-                "media-playback-start-symbolic"
-            };
-            col = col.push(widget::button::custom(icon::from_name(icon_name)).on_press(a.into()));
-        }
 
         let is_selected = selected_volume.is_some_and(|p| p == child_object_path);
         let active_state = if is_selected {
@@ -1017,14 +1047,20 @@ fn volume_row<'a>(
         };
 
         let b = cosmic::widget::button::custom(container(col).padding(6))
-            .on_press(VolumesControlMessage::ChildSelected(child_object_path).into())
+            .on_press(
+                VolumesControlMessage::SelectVolume {
+                    segment_index,
+                    object_path: child_object_path,
+                }
+                .into(),
+            )
             .class(cosmic::theme::Button::Custom {
                 active: Box::new(move |_b, theme| get_button_style(active_state, theme)),
                 disabled: Box::new(|theme| get_button_style(ToggleState::Disabled, theme)),
                 hovered: Box::new(move |_, theme| get_button_style(hovered_state, theme)),
                 pressed: Box::new(|_, theme| get_button_style(ToggleState::Pressed, theme)),
             })
-            .height(Length::Fixed(CHILD_BUTTON_HEIGHT))
+            .height(Length::Fill)
             .width(Length::FillPortion(width));
 
         buttons.push(b.into());
@@ -1033,6 +1069,7 @@ fn volume_row<'a>(
     cosmic::widget::Row::from_vec(buttons)
         .spacing(10)
         .width(Length::Fill)
+        .height(Length::Fill)
         .into()
 }
 

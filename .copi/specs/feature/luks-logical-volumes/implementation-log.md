@@ -12,3 +12,8 @@
 	- Split container/children UI into top/bottom halves.
 	- Made child filesystem nodes selectable and wired the details panel to show their info.
 	- Renamed cleartext filesystem child title to “Filesystem” when unlabeled.
+
+- Follow-up: fixed a `clippy` `unused_mut` warning in the child-tile renderer and re-verified:
+	- Ran `cargo fmt --all --check` (clean).
+	- Ran `cargo clippy --workspace --all-features -- -D warnings` (clean).
+	- Ran `cargo test --workspace --all-features` (passing).
