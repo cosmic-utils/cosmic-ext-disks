@@ -540,8 +540,18 @@ impl VolumesControl {
                 if let Some(s) = segment
                     && let Some(p) = s.partition
                 {
+                    let mounted_children: Vec<VolumeNode> =
+                        find_volume_node_for_partition(&self.model.volumes, &p)
+                            .map(collect_mounted_descendants_leaf_first)
+                            .unwrap_or_default();
+
                     return Task::perform(
                         async move {
+                            // UDisks2 typically refuses to lock while the cleartext/child FS is mounted.
+                            // Unmount any mounted descendants first, then lock the container.
+                            for v in mounted_children {
+                                v.unmount().await?;
+                            }
                             p.lock().await?;
                             DriveModel::get_drives().await
                         },
@@ -992,6 +1002,22 @@ impl VolumesControl {
             .class(cosmic::style::Container::Card)
             .into()
     }
+}
+
+fn collect_mounted_descendants_leaf_first(node: &VolumeNode) -> Vec<VolumeNode> {
+    fn visit(node: &VolumeNode, out: &mut Vec<VolumeNode>) {
+        for child in &node.children {
+            visit(child, out);
+        }
+
+        if node.can_mount() && node.is_mounted() {
+            out.push(node.clone());
+        }
+    }
+
+    let mut out = Vec::new();
+    visit(node, &mut out);
+    out
 }
 
 fn find_volume_node<'a>(volumes: &'a [VolumeNode], object_path: &str) -> Option<&'a VolumeNode> {

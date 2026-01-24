@@ -516,6 +516,12 @@ impl Application for AppModel {
             }
             Message::None => {}
             Message::UpdateNav(drive_models, selected) => {
+                // Unlocking an encrypted container triggers a refresh; close the unlock dialog so it
+                // doesn't linger after a successful unlock.
+                if matches!(self.dialog, Some(ShowDialog::UnlockEncrypted(_))) {
+                    self.dialog = None;
+                }
+
                 let selected = match selected {
                     Some(s) => Some(s),
                     None => self
