@@ -4,7 +4,7 @@ use cosmic::{
     iced::{Alignment, Background, Length, Shadow},
     iced_widget::{self, column},
     widget::{
-        self, container, icon,
+        self, checkbox, container, icon,
         text::{caption, caption_heading},
     },
 };
@@ -21,6 +21,7 @@ use disks_dbus::{DriveModel, PartitionModel};
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum VolumesControlMessage {
     SegmentSelected(usize),
+    ToggleShowReserved(bool),
     Mount,
     Unmount,
     Delete,
@@ -63,6 +64,7 @@ impl From<VolumesControlMessage> for Message {
 pub struct VolumesControl {
     pub selected_segment: usize,
     pub segments: Vec<Segment>,
+    pub show_reserved: bool,
     #[allow(dead_code)]
     pub model: DriveModel,
 }
@@ -75,7 +77,7 @@ pub struct Segment {
     pub size: u64,
     pub offset: u64,
     pub state: bool,
-    pub is_free_space: bool,
+    pub kind: DiskSegmentKind,
     pub width: u16,
     pub partition: Option<PartitionModel>,
     pub table_type: String,
@@ -109,7 +111,22 @@ impl Segment {
             size,
             offset,
             state: false,
-            is_free_space: true,
+            kind: DiskSegmentKind::FreeSpace,
+            width: 0,
+            partition: None,
+            table_type,
+        }
+    }
+
+    pub fn reserved(offset: u64, size: u64, table_type: String) -> Self {
+        Self {
+            label: fl!("reserved-space-segment"),
+            name: "".into(),
+            partition_type: "".into(),
+            size,
+            offset,
+            state: false,
+            kind: DiskSegmentKind::Reserved,
             width: 0,
             partition: None,
             table_type,
@@ -142,15 +159,20 @@ impl Segment {
             size: partition.size,
             offset: partition.offset,
             state: false,
-            is_free_space: false,
+            kind: DiskSegmentKind::Partition,
             width: 0,
             partition: Some(partition.clone()),
             table_type: partition.table_type.clone(),
         }
     }
 
-    pub fn get_segments(drive: &DriveModel) -> Vec<Segment> {
+    pub fn get_segments(drive: &DriveModel, show_reserved: bool) -> Vec<Segment> {
         let table_type = drive.partition_table_type.clone().unwrap_or_default();
+        let usable_range = if table_type == "gpt" {
+            drive.gpt_usable_range.map(|r| (r.start, r.end))
+        } else {
+            None
+        };
 
         let extents: Vec<PartitionExtent> = drive
             .partitions
@@ -163,7 +185,7 @@ impl Segment {
             })
             .collect();
 
-        let computation = compute_disk_segments(drive.size, extents);
+        let computation = compute_disk_segments(drive.size, extents, usable_range);
         for anomaly in computation.anomalies {
             match anomaly {
                 SegmentAnomaly::PartitionOverlapsPrevious {
@@ -206,6 +228,9 @@ impl Segment {
                         table_type.clone(),
                     ));
                 }
+                DiskSegmentKind::Reserved => {
+                    segments.push(Segment::reserved(seg.offset, seg.size, table_type.clone()));
+                }
                 DiskSegmentKind::Partition => {
                     let Some(partition_id) = seg.partition_id else {
                         continue;
@@ -223,24 +248,64 @@ impl Segment {
             }
         }
 
-        //Figure out Portion value
-        segments.iter_mut().for_each(|s| {
-            if drive.size > 0 {
-                s.width =
-                    (((s.size as f64 / drive.size as f64) * 1000.).log10().ceil() as u16).max(1);
-            } else {
-                s.width = 1;
+        if !show_reserved {
+            segments.retain(|s| {
+                if s.kind == DiskSegmentKind::Reserved {
+                    return false;
+                }
+                if s.kind == DiskSegmentKind::FreeSpace && s.size < 1048576 {
+                    return false;
+                }
+                true
+            });
+
+            // Ensure the UI always has at least one segment to render/select.
+            if segments.is_empty() && drive.size > 0 {
+                if let Some((start, end)) = usable_range {
+                    if end > start {
+                        segments.push(Segment::free_space(
+                            start,
+                            end.saturating_sub(start),
+                            table_type.clone(),
+                        ));
+                    } else {
+                        segments.push(Segment::free_space(0, drive.size, table_type.clone()));
+                    }
+                } else {
+                    segments.push(Segment::free_space(0, drive.size, table_type.clone()));
+                }
             }
+        }
+
+        // Figure out Portion value (based on what we're showing).
+        let visible_total = segments.iter().map(|s| s.size).sum::<u64>();
+        let denom = visible_total.max(1);
+        segments.iter_mut().for_each(|s| {
+            s.width = (((s.size as f64 / denom as f64) * 1000.).log10().ceil() as u16).max(1);
         });
 
         segments
     }
 
     pub fn get_segment_control<'a>(&self) -> Element<'a, Message> {
-        if self.is_free_space {
+        if self.kind == DiskSegmentKind::FreeSpace {
             container(
                 iced_widget::column![
                     caption_heading(fl!("free-space-caption")).center(),
+                    caption(bytes_to_pretty(&self.size, false)).center()
+                ]
+                .spacing(5)
+                .width(Length::Fill)
+                .align_x(Alignment::Center),
+            )
+            .padding(5)
+            .align_x(Alignment::Center)
+            .align_y(Alignment::Center)
+            .into()
+        } else if self.kind == DiskSegmentKind::Reserved {
+            container(
+                iced_widget::column![
+                    caption_heading(fl!("reserved-space-caption")).center(),
                     caption(bytes_to_pretty(&self.size, false)).center()
                 ]
                 .spacing(5)
@@ -271,8 +336,8 @@ impl Segment {
 }
 
 impl VolumesControl {
-    pub fn new(model: DriveModel) -> Self {
-        let mut segments: Vec<Segment> = Segment::get_segments(&model);
+    pub fn new(model: DriveModel, show_reserved: bool) -> Self {
+        let mut segments: Vec<Segment> = Segment::get_segments(&model, show_reserved);
         if let Some(first) = segments.first_mut() {
             first.state = true;
         }
@@ -281,6 +346,20 @@ impl VolumesControl {
             model,
             selected_segment: 0,
             segments,
+            show_reserved,
+        }
+    }
+
+    pub fn set_show_reserved(&mut self, show_reserved: bool) {
+        if self.show_reserved == show_reserved {
+            return;
+        }
+
+        self.show_reserved = show_reserved;
+        self.segments = Segment::get_segments(&self.model, self.show_reserved);
+        self.selected_segment = 0;
+        if let Some(first) = self.segments.first_mut() {
+            first.state = true;
         }
     }
 
@@ -294,8 +373,13 @@ impl VolumesControl {
                 if dialog.is_none() {
                     self.selected_segment = index;
                     self.segments.iter_mut().for_each(|s| s.state = false);
-                    self.segments.get_mut(index).unwrap().state = true;
+                    if let Some(segment) = self.segments.get_mut(index) {
+                        segment.state = true;
+                    }
                 }
+            }
+            VolumesControlMessage::ToggleShowReserved(show_reserved) => {
+                self.set_show_reserved(show_reserved);
             }
             VolumesControlMessage::Mount => {
                 let segment = self.segments.get(self.selected_segment).cloned();
@@ -456,6 +540,9 @@ impl VolumesControl {
     }
 
     pub fn view(&self) -> Element<'_, Message> {
+        let show_reserved = checkbox(fl!("show-reserved"), self.show_reserved)
+            .on_toggle(|v| VolumesControlMessage::ToggleShowReserved(v).into());
+
         let segment_buttons: Vec<Element<Message>> = self
             .segments
             .iter()
@@ -501,19 +588,34 @@ impl VolumesControl {
         };
         let mut action_bar: Vec<Element<Message>> = vec![];
 
-        action_bar.push(match selected.partition {
-            Some(p) => {
-                match p.usage //TODO: More solid check than using the output of df to see if mounted.
-              {
-                  Some(_) => widget::button::custom(icon::from_name( "media-playback-stop-symbolic")).on_press(VolumesControlMessage::Unmount.into()),
-                  None =>widget::button::custom(icon::from_name( "media-playback-start-symbolic")).on_press(VolumesControlMessage::Mount.into()),
-              }
+        match selected.kind {
+            DiskSegmentKind::Partition => {
+                if let Some(p) = selected.partition.as_ref() {
+                    let button = if p.usage.is_some() {
+                        widget::button::custom(icon::from_name("media-playback-stop-symbolic"))
+                            .on_press(VolumesControlMessage::Unmount.into())
+                    } else {
+                        widget::button::custom(icon::from_name("media-playback-start-symbolic"))
+                            .on_press(VolumesControlMessage::Mount.into())
+                    };
+
+                    action_bar.push(button.into());
+                }
             }
-            None =>widget::button::custom(icon::from_name( "list-add-symbolic")).on_press(Message::Dialog(ShowDialog::AddPartition(selected.get_create_info()))),
-        }.into());
+            DiskSegmentKind::FreeSpace => {
+                action_bar.push(
+                    widget::button::custom(icon::from_name("list-add-symbolic"))
+                        .on_press(Message::Dialog(ShowDialog::AddPartition(
+                            selected.get_create_info(),
+                        )))
+                        .into(),
+                );
+            }
+            DiskSegmentKind::Reserved => {}
+        }
 
         //TODO Get better icons
-        if !selected.is_free_space {
+        if selected.kind == DiskSegmentKind::Partition {
             action_bar.push(widget::button::custom(icon::from_name("edit-find-symbolic")).into());
             action_bar.push(widget::horizontal_space().into());
             action_bar.push(
@@ -527,6 +629,9 @@ impl VolumesControl {
 
         container(
             column![
+                cosmic::widget::Row::from_vec(vec![show_reserved.into()])
+                    .spacing(10)
+                    .width(Length::Fill),
                 cosmic::widget::Row::from_vec(segment_buttons)
                     .spacing(10)
                     .width(Length::Fill),

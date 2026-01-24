@@ -13,7 +13,10 @@ use zbus::{
 
 use crate::{COMMON_DOS_TYPES, COMMON_GPT_TYPES, CreatePartitionInfo, get_usage_data};
 
-use super::{PartitionModel, manager::UDisks2ManagerProxy};
+use super::{
+    ByteRange, PartitionModel, fallback_gpt_usable_range_bytes, manager::UDisks2ManagerProxy,
+    probe_gpt_usable_range_bytes,
+};
 
 #[derive(Debug, Clone)]
 pub struct DriveModel {
@@ -36,6 +39,7 @@ pub struct DriveModel {
     pub partitions: Vec<PartitionModel>,
     pub path: String,
     pub partition_table_type: Option<String>,
+    pub gpt_usable_range: Option<ByteRange>,
     connection: Connection,
 }
 
@@ -81,6 +85,7 @@ impl DriveModel {
             removable: drive_proxy.removable().await?,
             revision: drive_proxy.revision().await?,
             partition_table_type: None,
+            gpt_usable_range: None,
             connection: Connection::system().await?,
         })
     }
@@ -168,6 +173,33 @@ impl DriveModel {
             };
 
             drive.partition_table_type = Some(partition_table_proxy.type_().await?);
+
+            if drive.partition_table_type.as_deref() == Some("gpt") {
+                let drive_block_proxy = BlockProxy::builder(&connection)
+                    .path(&pair.block_path)?
+                    .build()
+                    .await?;
+
+                match probe_gpt_usable_range_bytes(&drive_block_proxy, drive.size).await {
+                    Ok(Some(range)) => {
+                        drive.gpt_usable_range = Some(range);
+                    }
+                    Ok(None) => {
+                        warn!(
+                            "Could not parse GPT usable range for {}; falling back to conservative 1MiB bands",
+                            pair.block_path
+                        );
+                        drive.gpt_usable_range = fallback_gpt_usable_range_bytes(drive.size);
+                    }
+                    Err(e) => {
+                        warn!(
+                            "Error probing GPT usable range for {}: {}; falling back to conservative 1MiB bands",
+                            pair.block_path, e
+                        );
+                        drive.gpt_usable_range = fallback_gpt_usable_range_bytes(drive.size);
+                    }
+                }
+            }
 
             let partition_paths = match partition_table_proxy.partitions().await {
                 Ok(p) => p,
@@ -265,6 +297,21 @@ impl DriveModel {
             .partition_table_type
             .as_ref()
             .ok_or_else(|| anyhow::anyhow!("No partition table type available"))?;
+
+        if table_type == "gpt" {
+            if let Some(range) = self.gpt_usable_range {
+                let requested_end = info.offset.saturating_add(info.size);
+                if info.offset < range.start || requested_end > range.end {
+                    return Err(anyhow::anyhow!(
+                        "Requested partition range [{}, {}) is outside GPT usable range [{}, {})",
+                        info.offset,
+                        requested_end,
+                        range.start,
+                        range.end
+                    ));
+                }
+            }
+        }
 
         // Find a partition type that matches the table type
         let partition_info = match table_type.as_str() {

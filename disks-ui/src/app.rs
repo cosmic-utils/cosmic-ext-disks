@@ -470,6 +470,13 @@ impl Application for AppModel {
                         .map(|d| d.block_path.clone()),
                 };
 
+                // Volumes-level preference; keep it stable across nav rebuilds.
+                let show_reserved = self
+                    .nav
+                    .active_data::<VolumesControl>()
+                    .map(|v| v.show_reserved)
+                    .unwrap_or(false);
+
                 self.nav.clear();
 
                 let selected = match selected {
@@ -495,7 +502,10 @@ impl Application for AppModel {
                                 self.nav
                                     .insert()
                                     .text(drive.name())
-                                    .data::<VolumesControl>(VolumesControl::new(drive.clone()))
+                                    .data::<VolumesControl>(VolumesControl::new(
+                                        drive.clone(),
+                                        show_reserved,
+                                    ))
                                     .data::<DriveModel>(drive)
                                     .icon(icon::from_name(icon))
                                     .activate();
@@ -503,7 +513,10 @@ impl Application for AppModel {
                                 self.nav
                                     .insert()
                                     .text(drive.name())
-                                    .data::<VolumesControl>(VolumesControl::new(drive.clone()))
+                                    .data::<VolumesControl>(VolumesControl::new(
+                                        drive.clone(),
+                                        show_reserved,
+                                    ))
                                     .data::<DriveModel>(drive)
                                     .icon(icon::from_name(icon));
                             }
@@ -512,7 +525,10 @@ impl Application for AppModel {
                             self.nav
                                 .insert()
                                 .text(drive.name())
-                                .data::<VolumesControl>(VolumesControl::new(drive.clone()))
+                                .data::<VolumesControl>(VolumesControl::new(
+                                    drive.clone(),
+                                    show_reserved,
+                                ))
                                 .data::<DriveModel>(drive)
                                 .icon(icon::from_name(icon));
                         }
@@ -622,7 +638,19 @@ impl Application for AppModel {
     fn on_nav_select(&mut self, id: nav_bar::Id) -> Task<Self::Message> {
         // Activate the page in the model.
         if self.dialog.is_none() {
+            let previous_show_reserved = self
+                .nav
+                .active_data::<VolumesControl>()
+                .map(|v| v.show_reserved);
+
             self.nav.activate(id);
+
+            if let Some(show_reserved) = previous_show_reserved
+                && let Some(volumes_control) = self.nav.active_data_mut::<VolumesControl>()
+            {
+                volumes_control.set_show_reserved(show_reserved);
+            }
+
             self.update_title()
         } else {
             Task::none()
