@@ -52,13 +52,17 @@ partitioning-none = None
 
 # Create partition dialog
 create-partition = Create Partition
+format-partition = Format Partition
+format-partition-description = This will format the selected volume. Size: { $size }
 volume-name = Volume Name
+partition-name = Partition Name
 partition-size = Partition Size
 free-space = Free Space
 erase = Erase
 password-protected = Password Protected
 password = Password
 confirm = Confirm
+apply = Apply
 untitled = Untitled
 
 # Main view
@@ -102,11 +106,35 @@ unlock-button = Unlock
 lock = Lock
 unlock = Unlock { $name }
 passphrase = Passphrase
+current-passphrase = Current passphrase
+new-passphrase = New passphrase
+change-passphrase = Change Passphrase
+passphrase-mismatch = Passphrases do not match.
 locked = Locked
 unlocked = Unlocked
 unlock-failed = Unlock failed
 lock-failed = Lock failed
 unlock-missing-partition = Could not find { $name } in the current device list.
+
+# Volume commands
+mount-toggle = Mount / Unmount
+edit-partition = Edit Partition
+edit-partition-no-types = No partition types available for this partition table.
+flag-legacy-bios-bootable = Legacy BIOS Bootable
+flag-system-partition = System Partition
+flag-hide-from-firmware = Hide from firmware
+resize-partition = Resize Partition
+resize-partition-range = Allowed range: { $min } to { $max }
+new-size = New Size
+edit-filesystem = Edit Filesystem
+filesystem-label = Filesystem Label
+check-filesystem = Check Filesystem
+check-filesystem-warning = Checking a filesystem can take a long time. Continue?
+repair-filesystem = Repair Filesystem
+repair-filesystem-warning = Repairing a filesystem can take a long time and may risk data loss. Continue?
+take-ownership = Take Ownership
+take-ownership-warning = This will change ownership of files to your user. This can take a long time and cannot be easily undone.
+take-ownership-recursive = Apply recursively
 
 # SMART
 smart-no-data = No SMART data available.

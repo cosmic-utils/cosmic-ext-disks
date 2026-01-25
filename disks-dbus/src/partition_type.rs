@@ -82,6 +82,14 @@ pub fn get_valid_partition_names(table_type: String) -> Vec<String> {
     }
 }
 
+pub fn get_all_partition_type_infos(table_type: &str) -> Vec<PartitionTypeInfo> {
+    PARTITION_TYPES
+        .iter()
+        .filter(|p| p.table_type == table_type)
+        .cloned()
+        .collect()
+}
+
 pub static COMMON_GPT_TYPES: [PartitionTypeInfo; 8] = [
     // EFI System Partition - typically FAT32
     PartitionTypeInfo::new(

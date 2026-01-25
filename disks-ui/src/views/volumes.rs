@@ -11,14 +11,16 @@ use cosmic::{
 
 use crate::{
     app::{
-        CreatePartitionDialog, DeletePartitionDialog, Message, ShowDialog, UnlockEncryptedDialog,
+        ChangePassphraseDialog, ConfirmActionDialog, CreatePartitionDialog, DeletePartitionDialog,
+        EditFilesystemLabelDialog, EditPartitionDialog, FilesystemTarget, FormatPartitionDialog,
+        Message, ResizePartitionDialog, ShowDialog, TakeOwnershipDialog, UnlockEncryptedDialog,
     },
     fl,
     utils::{DiskSegmentKind, PartitionExtent, SegmentAnomaly, compute_disk_segments},
 };
 use disks_dbus::CreatePartitionInfo;
 use disks_dbus::bytes_to_pretty;
-use disks_dbus::{DriveModel, VolumeKind, VolumeModel, VolumeNode};
+use disks_dbus::{DriveModel, PartitionTypeInfo, VolumeKind, VolumeModel, VolumeNode};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum VolumesControlMessage {
@@ -34,8 +36,64 @@ pub enum VolumesControlMessage {
     ChildUnmount(String),
     LockContainer,
     Delete,
+    OpenFormatPartition,
+    OpenEditPartition,
+    OpenResizePartition,
+    OpenEditFilesystemLabel,
+    OpenCheckFilesystem,
+    CheckFilesystemConfirm,
+    OpenRepairFilesystem,
+    RepairFilesystemConfirm,
+    OpenTakeOwnership,
+    OpenChangePassphrase,
     CreateMessage(CreateMessage),
     UnlockMessage(UnlockMessage),
+    EditPartitionMessage(EditPartitionMessage),
+    ResizePartitionMessage(ResizePartitionMessage),
+    EditFilesystemLabelMessage(EditFilesystemLabelMessage),
+    TakeOwnershipMessage(TakeOwnershipMessage),
+    ChangePassphraseMessage(ChangePassphraseMessage),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum EditPartitionMessage {
+    TypeUpdate(usize),
+    NameUpdate(String),
+    LegacyBiosBootableUpdate(bool),
+    SystemPartitionUpdate(bool),
+    HiddenUpdate(bool),
+    Confirm,
+    Cancel,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ResizePartitionMessage {
+    SizeUpdate(u64),
+    Confirm,
+    Cancel,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum EditFilesystemLabelMessage {
+    LabelUpdate(String),
+    Confirm,
+    Cancel,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum TakeOwnershipMessage {
+    RecursiveUpdate(bool),
+    Confirm,
+    Cancel,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ChangePassphraseMessage {
+    CurrentUpdate(String),
+    NewUpdate(String),
+    ConfirmUpdate(String),
+    Confirm,
+    Cancel,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -72,6 +130,36 @@ impl From<UnlockMessage> for VolumesControlMessage {
     }
 }
 
+impl From<EditPartitionMessage> for VolumesControlMessage {
+    fn from(val: EditPartitionMessage) -> Self {
+        VolumesControlMessage::EditPartitionMessage(val)
+    }
+}
+
+impl From<ResizePartitionMessage> for VolumesControlMessage {
+    fn from(val: ResizePartitionMessage) -> Self {
+        VolumesControlMessage::ResizePartitionMessage(val)
+    }
+}
+
+impl From<EditFilesystemLabelMessage> for VolumesControlMessage {
+    fn from(val: EditFilesystemLabelMessage) -> Self {
+        VolumesControlMessage::EditFilesystemLabelMessage(val)
+    }
+}
+
+impl From<TakeOwnershipMessage> for VolumesControlMessage {
+    fn from(val: TakeOwnershipMessage) -> Self {
+        VolumesControlMessage::TakeOwnershipMessage(val)
+    }
+}
+
+impl From<ChangePassphraseMessage> for VolumesControlMessage {
+    fn from(val: ChangePassphraseMessage) -> Self {
+        VolumesControlMessage::ChangePassphraseMessage(val)
+    }
+}
+
 impl From<CreateMessage> for Message {
     fn from(val: CreateMessage) -> Self {
         Message::VolumesMessage(VolumesControlMessage::CreateMessage(val))
@@ -81,6 +169,36 @@ impl From<CreateMessage> for Message {
 impl From<UnlockMessage> for Message {
     fn from(val: UnlockMessage) -> Self {
         Message::VolumesMessage(VolumesControlMessage::UnlockMessage(val))
+    }
+}
+
+impl From<EditPartitionMessage> for Message {
+    fn from(val: EditPartitionMessage) -> Self {
+        Message::VolumesMessage(VolumesControlMessage::EditPartitionMessage(val))
+    }
+}
+
+impl From<ResizePartitionMessage> for Message {
+    fn from(val: ResizePartitionMessage) -> Self {
+        Message::VolumesMessage(VolumesControlMessage::ResizePartitionMessage(val))
+    }
+}
+
+impl From<EditFilesystemLabelMessage> for Message {
+    fn from(val: EditFilesystemLabelMessage) -> Self {
+        Message::VolumesMessage(VolumesControlMessage::EditFilesystemLabelMessage(val))
+    }
+}
+
+impl From<TakeOwnershipMessage> for Message {
+    fn from(val: TakeOwnershipMessage) -> Self {
+        Message::VolumesMessage(VolumesControlMessage::TakeOwnershipMessage(val))
+    }
+}
+
+impl From<ChangePassphraseMessage> for Message {
+    fn from(val: ChangePassphraseMessage) -> Self {
+        Message::VolumesMessage(VolumesControlMessage::ChangePassphraseMessage(val))
     }
 }
 
@@ -645,6 +763,354 @@ impl VolumesControl {
 
                 return task;
             }
+
+            VolumesControlMessage::OpenFormatPartition => {
+                if dialog.is_some() {
+                    return Task::none();
+                }
+
+                let Some(segment) = self.segments.get(self.selected_segment) else {
+                    return Task::none();
+                };
+                let Some(volume) = segment.volume.clone() else {
+                    return Task::none();
+                };
+
+                let table_type = if volume.table_type.trim().is_empty() {
+                    "gpt".to_string()
+                } else {
+                    volume.table_type.clone()
+                };
+
+                let selected_partitition_type = common_partition_type_index_for(
+                    &table_type,
+                    if volume.id_type.trim().is_empty() {
+                        None
+                    } else {
+                        Some(volume.id_type.as_str())
+                    },
+                );
+
+                let info = CreatePartitionInfo {
+                    name: volume.name.clone(),
+                    size: volume.size,
+                    max_size: volume.size,
+                    offset: volume.offset,
+                    erase: false,
+                    selected_partitition_type,
+                    table_type,
+                    ..Default::default()
+                };
+
+                *dialog = Some(ShowDialog::FormatPartition(FormatPartitionDialog {
+                    volume,
+                    info,
+                    running: false,
+                }));
+                return Task::none();
+            }
+
+            VolumesControlMessage::OpenEditPartition => {
+                if dialog.is_some() {
+                    return Task::none();
+                }
+
+                let Some(segment) = self.segments.get(self.selected_segment) else {
+                    return Task::none();
+                };
+                let Some(volume) = segment.volume.clone() else {
+                    return Task::none();
+                };
+
+                if volume.volume_type != disks_dbus::VolumeType::Partition {
+                    return Task::none();
+                }
+
+                let partition_types =
+                    disks_dbus::get_all_partition_type_infos(volume.table_type.as_str());
+                if partition_types.is_empty() {
+                    return Task::done(
+                        Message::Dialog(Box::new(ShowDialog::Info {
+                            title: fl!("app-title"),
+                            body: fl!("edit-partition-no-types"),
+                        }))
+                        .into(),
+                    );
+                }
+
+                let selected_type_index = partition_types
+                    .iter()
+                    .position(|t| t.ty == volume.partition_type_id)
+                    .unwrap_or(0);
+
+                let legacy_bios_bootable = volume.is_legacy_bios_bootable();
+                let system_partition = volume.is_system_partition();
+                let hidden = volume.is_hidden();
+                let name = volume.name.clone();
+
+                *dialog = Some(ShowDialog::EditPartition(EditPartitionDialog {
+                    volume,
+                    partition_types,
+                    selected_type_index,
+                    name,
+                    legacy_bios_bootable,
+                    system_partition,
+                    hidden,
+                    running: false,
+                }));
+                return Task::none();
+            }
+
+            VolumesControlMessage::OpenResizePartition => {
+                if dialog.is_some() {
+                    return Task::none();
+                }
+
+                let Some(segment) = self.segments.get(self.selected_segment) else {
+                    return Task::none();
+                };
+                let Some(volume) = segment.volume.clone() else {
+                    return Task::none();
+                };
+
+                if volume.volume_type != disks_dbus::VolumeType::Partition {
+                    return Task::none();
+                }
+
+                let right_free_bytes = self
+                    .segments
+                    .get(self.selected_segment.saturating_add(1))
+                    .filter(|s| s.kind == DiskSegmentKind::FreeSpace)
+                    .map(|s| s.size)
+                    .unwrap_or(0);
+
+                let max_size_bytes = volume.size.saturating_add(right_free_bytes);
+                let min_size_bytes = volume
+                    .usage
+                    .as_ref()
+                    .map(|u| u.used)
+                    .unwrap_or(0)
+                    .min(max_size_bytes);
+
+                if max_size_bytes.saturating_sub(min_size_bytes) < 1024 {
+                    return Task::none();
+                }
+
+                let new_size_bytes = volume.size.clamp(min_size_bytes, max_size_bytes);
+
+                *dialog = Some(ShowDialog::ResizePartition(ResizePartitionDialog {
+                    volume,
+                    min_size_bytes,
+                    max_size_bytes,
+                    new_size_bytes,
+                    running: false,
+                }));
+                return Task::none();
+            }
+
+            VolumesControlMessage::OpenEditFilesystemLabel => {
+                if dialog.is_some() {
+                    return Task::none();
+                }
+
+                let target = if let Some(node) = self.selected_volume_node() {
+                    if !node.can_mount() {
+                        return Task::none();
+                    }
+
+                    FilesystemTarget::Node(node.clone())
+                } else {
+                    let Some(segment) = self.segments.get(self.selected_segment) else {
+                        return Task::none();
+                    };
+                    let Some(volume) = segment.volume.clone() else {
+                        return Task::none();
+                    };
+
+                    if !volume.can_mount() {
+                        return Task::none();
+                    }
+
+                    FilesystemTarget::Volume(volume)
+                };
+
+                *dialog = Some(ShowDialog::EditFilesystemLabel(EditFilesystemLabelDialog {
+                    target,
+                    label: String::new(),
+                    running: false,
+                }));
+                return Task::none();
+            }
+
+            VolumesControlMessage::OpenCheckFilesystem => {
+                if dialog.is_some() {
+                    return Task::none();
+                }
+
+                let target = if let Some(node) = self.selected_volume_node() {
+                    if !node.can_mount() {
+                        return Task::none();
+                    }
+                    FilesystemTarget::Node(node.clone())
+                } else {
+                    let Some(segment) = self.segments.get(self.selected_segment) else {
+                        return Task::none();
+                    };
+                    let Some(volume) = segment.volume.clone() else {
+                        return Task::none();
+                    };
+                    if !volume.can_mount() {
+                        return Task::none();
+                    }
+                    FilesystemTarget::Volume(volume)
+                };
+
+                *dialog = Some(ShowDialog::ConfirmAction(ConfirmActionDialog {
+                    title: fl!("check-filesystem").to_string(),
+                    body: fl!("check-filesystem-warning").to_string(),
+                    target,
+                    ok_message: VolumesControlMessage::CheckFilesystemConfirm.into(),
+                    running: false,
+                }));
+                return Task::none();
+            }
+
+            VolumesControlMessage::CheckFilesystemConfirm => {
+                let Some(ShowDialog::ConfirmAction(state)) = dialog.as_mut() else {
+                    return Task::none();
+                };
+
+                if state.running {
+                    return Task::none();
+                }
+                state.running = true;
+
+                let target = state.target.clone();
+                return Task::perform(
+                    async move {
+                        match target {
+                            FilesystemTarget::Volume(v) => v.check_filesystem().await?,
+                            FilesystemTarget::Node(n) => n.check_filesystem().await?,
+                        }
+                        DriveModel::get_drives().await
+                    },
+                    |result| match result {
+                        Ok(drives) => Message::UpdateNav(drives, None).into(),
+                        Err(e) => Message::Dialog(Box::new(ShowDialog::Info {
+                            title: fl!("check-filesystem").to_string(),
+                            body: format!("{e:#}"),
+                        }))
+                        .into(),
+                    },
+                );
+            }
+
+            VolumesControlMessage::OpenRepairFilesystem => {
+                if dialog.is_some() {
+                    return Task::none();
+                }
+
+                let Some(segment) = self.segments.get(self.selected_segment) else {
+                    return Task::none();
+                };
+                let Some(volume) = segment.volume.clone() else {
+                    return Task::none();
+                };
+
+                if volume.volume_type != disks_dbus::VolumeType::Filesystem {
+                    return Task::none();
+                }
+
+                *dialog = Some(ShowDialog::ConfirmAction(ConfirmActionDialog {
+                    title: fl!("repair-filesystem").to_string(),
+                    body: fl!("repair-filesystem-warning").to_string(),
+                    target: FilesystemTarget::Volume(volume),
+                    ok_message: VolumesControlMessage::RepairFilesystemConfirm.into(),
+                    running: false,
+                }));
+                return Task::none();
+            }
+
+            VolumesControlMessage::RepairFilesystemConfirm => {
+                let Some(ShowDialog::ConfirmAction(state)) = dialog.as_mut() else {
+                    return Task::none();
+                };
+
+                if state.running {
+                    return Task::none();
+                }
+                state.running = true;
+
+                let target = state.target.clone();
+                return Task::perform(
+                    async move {
+                        match target {
+                            FilesystemTarget::Volume(v) => v.repair_filesystem().await?,
+                            FilesystemTarget::Node(n) => n.repair_filesystem().await?,
+                        }
+                        DriveModel::get_drives().await
+                    },
+                    |result| match result {
+                        Ok(drives) => Message::UpdateNav(drives, None).into(),
+                        Err(e) => Message::Dialog(Box::new(ShowDialog::Info {
+                            title: fl!("repair-filesystem").to_string(),
+                            body: format!("{e:#}"),
+                        }))
+                        .into(),
+                    },
+                );
+            }
+
+            VolumesControlMessage::OpenTakeOwnership => {
+                if dialog.is_some() {
+                    return Task::none();
+                }
+
+                let Some(segment) = self.segments.get(self.selected_segment) else {
+                    return Task::none();
+                };
+                let Some(volume) = segment.volume.clone() else {
+                    return Task::none();
+                };
+
+                if volume.volume_type != disks_dbus::VolumeType::Filesystem {
+                    return Task::none();
+                }
+
+                *dialog = Some(ShowDialog::TakeOwnership(TakeOwnershipDialog {
+                    volume,
+                    recursive: true,
+                    running: false,
+                }));
+                return Task::none();
+            }
+
+            VolumesControlMessage::OpenChangePassphrase => {
+                if dialog.is_some() {
+                    return Task::none();
+                }
+
+                let Some(segment) = self.segments.get(self.selected_segment) else {
+                    return Task::none();
+                };
+                let Some(volume) = segment.volume.clone() else {
+                    return Task::none();
+                };
+
+                if volume.volume_type != disks_dbus::VolumeType::Container {
+                    return Task::none();
+                }
+
+                *dialog = Some(ShowDialog::ChangePassphrase(ChangePassphraseDialog {
+                    volume,
+                    current_passphrase: String::new(),
+                    new_passphrase: String::new(),
+                    confirm_passphrase: String::new(),
+                    error: None,
+                    running: false,
+                }));
+                return Task::none();
+            }
             VolumesControlMessage::CreateMessage(create_message) => {
                 let d = match dialog.as_mut() {
                     Some(d) => d,
@@ -707,6 +1173,50 @@ impl VolumesControl {
                         }
                     },
 
+                    ShowDialog::FormatPartition(state) => match create_message {
+                        CreateMessage::NameUpdate(name) => {
+                            state.info.name = name;
+                        }
+                        CreateMessage::EraseUpdate(erase) => state.info.erase = erase,
+                        CreateMessage::PartitionTypeUpdate(p_type) => {
+                            state.info.selected_partitition_type = p_type
+                        }
+                        CreateMessage::Cancel => return Task::done(Message::CloseDialog.into()),
+                        CreateMessage::Partition => {
+                            if state.running {
+                                return Task::none();
+                            }
+                            state.running = true;
+
+                            let volume = state.volume.clone();
+                            let info = state.info.clone();
+                            return Task::perform(
+                                async move {
+                                    let fs_type = common_partition_filesystem_type(
+                                        info.table_type.as_str(),
+                                        info.selected_partitition_type,
+                                    )
+                                    .ok_or_else(|| anyhow::anyhow!("Invalid filesystem selection"))?
+                                    .to_string();
+
+                                    volume
+                                        .format(info.name.clone(), info.erase, fs_type)
+                                        .await?;
+                                    DriveModel::get_drives().await
+                                },
+                                |result| match result {
+                                    Ok(drives) => Message::UpdateNav(drives, None).into(),
+                                    Err(e) => Message::Dialog(Box::new(ShowDialog::Info {
+                                        title: fl!("format-partition").to_string(),
+                                        body: format!("{e:#}"),
+                                    }))
+                                    .into(),
+                                },
+                            );
+                        }
+                        _ => {}
+                    },
+
                     ShowDialog::UnlockEncrypted(_) => {
                         eprintln!(
                             "CreateMessage received while an unlock dialog is open; ignoring."
@@ -728,6 +1238,17 @@ impl VolumesControl {
                     | ShowDialog::ImageOperation(_) => {
                         eprintln!(
                             "CreateMessage received while an image dialog is open; ignoring."
+                        );
+                    }
+
+                    ShowDialog::EditPartition(_)
+                    | ShowDialog::ResizePartition(_)
+                    | ShowDialog::EditFilesystemLabel(_)
+                    | ShowDialog::ConfirmAction(_)
+                    | ShowDialog::TakeOwnership(_)
+                    | ShowDialog::ChangePassphrase(_) => {
+                        eprintln!(
+                            "CreateMessage received while a different dialog is open; ignoring."
                         );
                     }
 
@@ -812,6 +1333,253 @@ impl VolumesControl {
                         );
                     }
                 }
+            }
+
+            VolumesControlMessage::EditPartitionMessage(msg) => {
+                let Some(ShowDialog::EditPartition(state)) = dialog.as_mut() else {
+                    return Task::none();
+                };
+
+                match msg {
+                    EditPartitionMessage::TypeUpdate(idx) => state.selected_type_index = idx,
+                    EditPartitionMessage::NameUpdate(name) => state.name = name,
+                    EditPartitionMessage::LegacyBiosBootableUpdate(v) => {
+                        state.legacy_bios_bootable = v
+                    }
+                    EditPartitionMessage::SystemPartitionUpdate(v) => state.system_partition = v,
+                    EditPartitionMessage::HiddenUpdate(v) => state.hidden = v,
+                    EditPartitionMessage::Cancel => return Task::done(Message::CloseDialog.into()),
+                    EditPartitionMessage::Confirm => {
+                        if state.running {
+                            return Task::none();
+                        }
+
+                        let partition_type = state
+                            .partition_types
+                            .get(state.selected_type_index)
+                            .map(|t| t.ty.to_string());
+
+                        let Some(partition_type) = partition_type else {
+                            return Task::none();
+                        };
+
+                        state.running = true;
+
+                        let volume = state.volume.clone();
+                        let name = state.name.clone();
+                        let legacy = state.legacy_bios_bootable;
+                        let system = state.system_partition;
+                        let hidden = state.hidden;
+
+                        return Task::perform(
+                            async move {
+                                let flags =
+                                    VolumeModel::make_partition_flags_bits(legacy, system, hidden);
+
+                                volume.edit_partition(partition_type, name, flags).await?;
+                                DriveModel::get_drives().await
+                            },
+                            |result| match result {
+                                Ok(drives) => Message::UpdateNav(drives, None).into(),
+                                Err(e) => Message::Dialog(Box::new(ShowDialog::Info {
+                                    title: fl!("edit-partition").to_string(),
+                                    body: format!("{e:#}"),
+                                }))
+                                .into(),
+                            },
+                        );
+                    }
+                }
+
+                return Task::none();
+            }
+
+            VolumesControlMessage::ResizePartitionMessage(msg) => {
+                let Some(ShowDialog::ResizePartition(state)) = dialog.as_mut() else {
+                    return Task::none();
+                };
+
+                match msg {
+                    ResizePartitionMessage::SizeUpdate(size) => {
+                        state.new_size_bytes =
+                            size.clamp(state.min_size_bytes, state.max_size_bytes)
+                    }
+                    ResizePartitionMessage::Cancel => {
+                        return Task::done(Message::CloseDialog.into());
+                    }
+                    ResizePartitionMessage::Confirm => {
+                        if state.running {
+                            return Task::none();
+                        }
+
+                        // Disable when range is too small.
+                        if state.max_size_bytes.saturating_sub(state.min_size_bytes) < 1024 {
+                            return Task::none();
+                        }
+
+                        state.running = true;
+                        let volume = state.volume.clone();
+                        let new_size = state.new_size_bytes;
+
+                        return Task::perform(
+                            async move {
+                                volume.resize(new_size).await?;
+                                DriveModel::get_drives().await
+                            },
+                            |result| match result {
+                                Ok(drives) => Message::UpdateNav(drives, None).into(),
+                                Err(e) => Message::Dialog(Box::new(ShowDialog::Info {
+                                    title: fl!("resize-partition").to_string(),
+                                    body: format!("{e:#}"),
+                                }))
+                                .into(),
+                            },
+                        );
+                    }
+                }
+
+                return Task::none();
+            }
+
+            VolumesControlMessage::EditFilesystemLabelMessage(msg) => {
+                let Some(ShowDialog::EditFilesystemLabel(state)) = dialog.as_mut() else {
+                    return Task::none();
+                };
+
+                match msg {
+                    EditFilesystemLabelMessage::LabelUpdate(label) => state.label = label,
+                    EditFilesystemLabelMessage::Cancel => {
+                        return Task::done(Message::CloseDialog.into());
+                    }
+                    EditFilesystemLabelMessage::Confirm => {
+                        if state.running {
+                            return Task::none();
+                        }
+
+                        state.running = true;
+                        let target = state.target.clone();
+                        let label = state.label.clone();
+
+                        return Task::perform(
+                            async move {
+                                match target {
+                                    FilesystemTarget::Volume(v) => {
+                                        v.edit_filesystem_label(label).await?
+                                    }
+                                    FilesystemTarget::Node(n) => {
+                                        n.edit_filesystem_label(&label).await?
+                                    }
+                                }
+                                DriveModel::get_drives().await
+                            },
+                            |result| match result {
+                                Ok(drives) => Message::UpdateNav(drives, None).into(),
+                                Err(e) => Message::Dialog(Box::new(ShowDialog::Info {
+                                    title: fl!("edit-filesystem").to_string(),
+                                    body: format!("{e:#}"),
+                                }))
+                                .into(),
+                            },
+                        );
+                    }
+                }
+
+                return Task::none();
+            }
+
+            VolumesControlMessage::TakeOwnershipMessage(msg) => {
+                let Some(ShowDialog::TakeOwnership(state)) = dialog.as_mut() else {
+                    return Task::none();
+                };
+
+                match msg {
+                    TakeOwnershipMessage::RecursiveUpdate(v) => state.recursive = v,
+                    TakeOwnershipMessage::Cancel => return Task::done(Message::CloseDialog.into()),
+                    TakeOwnershipMessage::Confirm => {
+                        if state.running {
+                            return Task::none();
+                        }
+
+                        state.running = true;
+                        let volume = state.volume.clone();
+                        let recursive = state.recursive;
+
+                        return Task::perform(
+                            async move {
+                                volume.take_ownership(recursive).await?;
+                                DriveModel::get_drives().await
+                            },
+                            |result| match result {
+                                Ok(drives) => Message::UpdateNav(drives, None).into(),
+                                Err(e) => Message::Dialog(Box::new(ShowDialog::Info {
+                                    title: fl!("take-ownership").to_string(),
+                                    body: format!("{e:#}"),
+                                }))
+                                .into(),
+                            },
+                        );
+                    }
+                }
+
+                return Task::none();
+            }
+
+            VolumesControlMessage::ChangePassphraseMessage(msg) => {
+                let Some(ShowDialog::ChangePassphrase(state)) = dialog.as_mut() else {
+                    return Task::none();
+                };
+
+                match msg {
+                    ChangePassphraseMessage::CurrentUpdate(v) => {
+                        state.current_passphrase = v;
+                        state.error = None;
+                    }
+                    ChangePassphraseMessage::NewUpdate(v) => {
+                        state.new_passphrase = v;
+                        state.error = None;
+                    }
+                    ChangePassphraseMessage::ConfirmUpdate(v) => {
+                        state.confirm_passphrase = v;
+                        state.error = None;
+                    }
+                    ChangePassphraseMessage::Cancel => {
+                        return Task::done(Message::CloseDialog.into());
+                    }
+                    ChangePassphraseMessage::Confirm => {
+                        if state.running {
+                            return Task::none();
+                        }
+
+                        if state.new_passphrase.is_empty()
+                            || state.new_passphrase != state.confirm_passphrase
+                        {
+                            state.error = Some(fl!("passphrase-mismatch").to_string());
+                            return Task::none();
+                        }
+
+                        state.running = true;
+                        let volume = state.volume.clone();
+                        let current = state.current_passphrase.clone();
+                        let new = state.new_passphrase.clone();
+
+                        return Task::perform(
+                            async move {
+                                volume.change_passphrase(&current, &new).await?;
+                                DriveModel::get_drives().await
+                            },
+                            |result| match result {
+                                Ok(drives) => Message::UpdateNav(drives, None).into(),
+                                Err(e) => Message::Dialog(Box::new(ShowDialog::Info {
+                                    title: fl!("change-passphrase").to_string(),
+                                    body: format!("{e:#}"),
+                                }))
+                                .into(),
+                            },
+                        );
+                    }
+                }
+
+                return Task::none();
             }
         }
 
@@ -988,86 +1756,169 @@ impl VolumesControl {
                             } else {
                                 "media-playback-start-symbolic"
                             };
-                            action_bar.push(
-                                widget::button::custom(icon::from_name(icon_name))
-                                    .on_press(msg.into())
-                                    .into(),
-                            );
+                            action_bar.push(tooltip_icon_button(
+                                icon_name,
+                                fl!("mount-toggle").to_string(),
+                                Some(msg.into()),
+                            ));
                         }
                     } else if let Some(v) = selected_volume {
                         if v.kind == VolumeKind::CryptoContainer {
                             if v.locked {
-                                action_bar.push(
-                                    widget::button::custom(icon::from_name(
-                                        "dialog-password-symbolic",
-                                    ))
-                                    .on_press(Message::Dialog(Box::new(
-                                        ShowDialog::UnlockEncrypted(UnlockEncryptedDialog {
+                                action_bar.push(tooltip_icon_button(
+                                    "dialog-password-symbolic",
+                                    fl!("unlock-button").to_string(),
+                                    Some(Message::Dialog(Box::new(ShowDialog::UnlockEncrypted(
+                                        UnlockEncryptedDialog {
                                             partition_path: p.path.to_string(),
                                             partition_name: p.name(),
                                             passphrase: String::new(),
                                             error: None,
                                             running: false,
-                                        }),
-                                    )))
-                                    .into(),
-                                );
+                                        },
+                                    )))),
+                                ));
                             } else {
-                                action_bar.push(
-                                    widget::button::custom(icon::from_name(
-                                        "changes-prevent-symbolic",
-                                    ))
-                                    .on_press(VolumesControlMessage::LockContainer.into())
-                                    .into(),
-                                );
+                                action_bar.push(tooltip_icon_button(
+                                    "changes-prevent-symbolic",
+                                    fl!("lock").to_string(),
+                                    Some(VolumesControlMessage::LockContainer.into()),
+                                ));
                             }
                         } else if p.can_mount() {
-                            let button = if p.is_mounted() {
-                                widget::button::custom(icon::from_name(
+                            let (icon_name, msg) = if p.is_mounted() {
+                                (
                                     "media-playback-stop-symbolic",
-                                ))
-                                .on_press(VolumesControlMessage::Unmount.into())
+                                    VolumesControlMessage::Unmount,
+                                )
                             } else {
-                                widget::button::custom(icon::from_name(
+                                (
                                     "media-playback-start-symbolic",
-                                ))
-                                .on_press(VolumesControlMessage::Mount.into())
+                                    VolumesControlMessage::Mount,
+                                )
                             };
-
-                            action_bar.push(button.into());
+                            action_bar.push(tooltip_icon_button(
+                                icon_name,
+                                fl!("mount-toggle").to_string(),
+                                Some(msg.into()),
+                            ));
                         }
                     }
                 }
             }
             DiskSegmentKind::FreeSpace => {
-                action_bar.push(
-                    widget::button::custom(icon::from_name("list-add-symbolic"))
-                        .on_press(Message::Dialog(Box::new(ShowDialog::AddPartition(
-                            CreatePartitionDialog {
-                                info: selected.get_create_info(),
-                                running: false,
-                            },
-                        ))))
-                        .into(),
-                );
+                action_bar.push(tooltip_icon_button(
+                    "list-add-symbolic",
+                    fl!("create-partition").to_string(),
+                    Some(Message::Dialog(Box::new(ShowDialog::AddPartition(
+                        CreatePartitionDialog {
+                            info: selected.get_create_info(),
+                            running: false,
+                        },
+                    )))),
+                ));
             }
             DiskSegmentKind::Reserved => {}
         }
 
-        //TODO Get better icons
-        if selected.kind == DiskSegmentKind::Partition && selected_child_volume.is_none() {
-            action_bar.push(widget::button::custom(icon::from_name("edit-find-symbolic")).into());
-            action_bar.push(widget::horizontal_space().into());
-            action_bar.push(
-                widget::button::custom(icon::from_name("edit-delete-symbolic"))
-                    .on_press(Message::Dialog(Box::new(ShowDialog::DeletePartition(
+        if selected.kind == DiskSegmentKind::Partition
+            && let Some(p) = selected.volume.as_ref()
+        {
+            // Command visibility is based on the selected partition (segment), not a selected child.
+            // Child selection only affects filesystem-targeted actions (label/check).
+
+            // Always: Format Partition
+            action_bar.push(tooltip_icon_button(
+                "edit-clear-symbolic",
+                fl!("format-partition").to_string(),
+                Some(VolumesControlMessage::OpenFormatPartition.into()),
+            ));
+
+            // Partition-only: Edit Partition + Resize
+            if selected_child_volume.is_none() && p.volume_type == disks_dbus::VolumeType::Partition
+            {
+                action_bar.push(tooltip_icon_button(
+                    "document-edit-symbolic",
+                    fl!("edit-partition").to_string(),
+                    Some(VolumesControlMessage::OpenEditPartition.into()),
+                ));
+
+                let right_free_bytes = self
+                    .segments
+                    .get(self.selected_segment.saturating_add(1))
+                    .filter(|s| s.kind == DiskSegmentKind::FreeSpace)
+                    .map(|s| s.size)
+                    .unwrap_or(0);
+                let max_size = p.size.saturating_add(right_free_bytes);
+                let min_size = p.usage.as_ref().map(|u| u.used).unwrap_or(0).min(max_size);
+
+                let resize_enabled = max_size.saturating_sub(min_size) >= 1024;
+                action_bar.push(tooltip_icon_button(
+                    "transform-scale-symbolic",
+                    fl!("resize-partition").to_string(),
+                    resize_enabled.then_some(VolumesControlMessage::OpenResizePartition.into()),
+                ));
+            }
+
+            // Partition + Filesystem: Edit filesystem label + Check filesystem
+            let fs_target_available = selected_child_volume
+                .map(|n| n.can_mount())
+                .unwrap_or_else(|| p.can_mount());
+            if fs_target_available {
+                action_bar.push(tooltip_icon_button(
+                    "tag-symbolic",
+                    fl!("edit-filesystem").to_string(),
+                    Some(VolumesControlMessage::OpenEditFilesystemLabel.into()),
+                ));
+                action_bar.push(tooltip_icon_button(
+                    "emblem-ok-symbolic",
+                    fl!("check-filesystem").to_string(),
+                    Some(VolumesControlMessage::OpenCheckFilesystem.into()),
+                ));
+            }
+
+            // Filesystem-only (VolumeType::Filesystem): Repair + Take Ownership
+            if selected_child_volume.is_none()
+                && p.volume_type == disks_dbus::VolumeType::Filesystem
+            {
+                action_bar.push(tooltip_icon_button(
+                    "tools-symbolic",
+                    fl!("repair-filesystem").to_string(),
+                    Some(VolumesControlMessage::OpenRepairFilesystem.into()),
+                ));
+                action_bar.push(tooltip_icon_button(
+                    "user-home-symbolic",
+                    fl!("take-ownership").to_string(),
+                    Some(VolumesControlMessage::OpenTakeOwnership.into()),
+                ));
+            }
+
+            // Container-only (VolumeType::Container): Change Passphrase
+            if selected_child_volume.is_none() && p.volume_type == disks_dbus::VolumeType::Container
+            {
+                action_bar.push(tooltip_icon_button(
+                    "dialog-password-symbolic",
+                    fl!("change-passphrase").to_string(),
+                    Some(VolumesControlMessage::OpenChangePassphrase.into()),
+                ));
+            }
+
+            // Delete partition
+            if selected_child_volume.is_none()
+                && p.volume_type != disks_dbus::VolumeType::Filesystem
+            {
+                action_bar.push(widget::horizontal_space().into());
+                action_bar.push(tooltip_icon_button(
+                    "edit-delete-symbolic",
+                    fl!("delete", name = selected.name.clone()).to_string(),
+                    Some(Message::Dialog(Box::new(ShowDialog::DeletePartition(
                         DeletePartitionDialog {
                             name: selected.name.clone(),
                             running: false,
                         },
-                    ))))
-                    .into(),
-            );
+                    )))),
+                ));
+            }
         }
 
         let root = column![
@@ -1087,6 +1938,52 @@ impl VolumesControl {
             .class(cosmic::style::Container::Card)
             .into()
     }
+}
+
+fn common_partition_filesystem_type(table_type: &str, index: usize) -> Option<&'static str> {
+    match table_type {
+        "gpt" => disks_dbus::COMMON_GPT_TYPES
+            .get(index)
+            .map(|p: &PartitionTypeInfo| p.filesystem_type),
+        "dos" => disks_dbus::COMMON_DOS_TYPES
+            .get(index)
+            .map(|p: &PartitionTypeInfo| p.filesystem_type),
+        _ => None,
+    }
+}
+
+fn common_partition_type_index_for(table_type: &str, id_type: Option<&str>) -> usize {
+    let Some(id_type) = id_type else {
+        return 0;
+    };
+
+    let list: &[PartitionTypeInfo] = match table_type {
+        "gpt" => &disks_dbus::COMMON_GPT_TYPES,
+        "dos" => &disks_dbus::COMMON_DOS_TYPES,
+        _ => return 0,
+    };
+
+    list.iter()
+        .position(|p| p.filesystem_type.eq_ignore_ascii_case(id_type))
+        .unwrap_or(0)
+}
+
+fn tooltip_icon_button(
+    icon_name: &str,
+    tooltip: String,
+    msg: Option<Message>,
+) -> Element<'_, Message> {
+    let mut button = widget::button::custom(icon::from_name(icon_name));
+    if let Some(m) = msg {
+        button = button.on_press(m);
+    }
+
+    widget::tooltip(
+        button,
+        widget::text::body(tooltip),
+        widget::tooltip::Position::Top,
+    )
+    .into()
 }
 
 fn collect_mounted_descendants_leaf_first(node: &VolumeNode) -> Vec<VolumeNode> {

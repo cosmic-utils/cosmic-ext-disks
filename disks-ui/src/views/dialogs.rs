@@ -1,5 +1,7 @@
-use super::volumes::{CreateMessage, UnlockMessage};
-use crate::app::CreatePartitionDialog;
+use super::volumes::{
+    ChangePassphraseMessage, CreateMessage, EditFilesystemLabelMessage, EditPartitionMessage,
+    ResizePartitionMessage, TakeOwnershipMessage, UnlockMessage,
+};
 use crate::app::Message;
 use crate::app::SmartDataDialog;
 use crate::app::SmartDialogMessage;
@@ -7,6 +9,10 @@ use crate::app::UnlockEncryptedDialog;
 use crate::app::{
     AttachDiskImageDialog, AttachDiskImageDialogMessage, ImageOperationDialog,
     ImageOperationDialogMessage, ImageOperationKind, NewDiskImageDialog, NewDiskImageDialogMessage,
+};
+use crate::app::{
+    ChangePassphraseDialog, CreatePartitionDialog, EditFilesystemLabelDialog, EditPartitionDialog,
+    FormatPartitionDialog, ResizePartitionDialog, TakeOwnershipDialog,
 };
 use crate::app::{FormatDiskDialog, FormatDiskMessage};
 use crate::fl;
@@ -16,7 +22,7 @@ use cosmic::{
     widget::text::{caption, caption_heading},
     widget::{button, checkbox, dialog, dropdown, slider, text_input, toggler},
 };
-use disks_dbus::{bytes_to_pretty, get_valid_partition_names};
+use disks_dbus::{PartitionTypeInfo, bytes_to_pretty, get_valid_partition_names};
 use std::borrow::Cow;
 
 pub fn new_disk_image<'a>(state: NewDiskImageDialog) -> Element<'a, Message> {
@@ -314,6 +320,275 @@ pub fn create_partition<'a>(state: CreatePartitionDialog) -> Element<'a, Message
         .control(content.spacing(20.))
         .primary_action(continue_button)
         .secondary_action(button::standard(fl!("cancel")).on_press(CreateMessage::Cancel.into()))
+        .into()
+}
+
+pub fn format_partition<'a>(state: FormatPartitionDialog) -> Element<'a, Message> {
+    let FormatPartitionDialog {
+        volume: _,
+        info: create,
+        running,
+    } = state;
+
+    let size_pretty = bytes_to_pretty(&create.size, false);
+    let valid_partition_types = get_valid_partition_names(create.table_type.clone());
+
+    let mut content = iced_widget::column![
+        caption(fl!("format-partition-description", size = size_pretty)),
+        text_input(fl!("volume-name"), create.name.clone())
+            .label(fl!("volume-name"))
+            .on_input(|t| CreateMessage::NameUpdate(t).into()),
+        toggler(create.erase)
+            .label(fl!("erase"))
+            .on_toggle(|v| CreateMessage::EraseUpdate(v).into()),
+        dropdown(
+            valid_partition_types,
+            Some(create.selected_partitition_type),
+            |v| CreateMessage::PartitionTypeUpdate(v).into()
+        ),
+    ]
+    .spacing(12);
+
+    if running {
+        content = content.push(caption(fl!("working")));
+    }
+
+    let mut confirm = button::destructive(fl!("format-partition"));
+    if !running {
+        confirm = confirm.on_press(CreateMessage::Partition.into());
+    }
+
+    dialog::dialog()
+        .title(fl!("format-partition"))
+        .control(content)
+        .primary_action(confirm)
+        .secondary_action(button::standard(fl!("cancel")).on_press(CreateMessage::Cancel.into()))
+        .into()
+}
+
+pub fn edit_partition<'a>(state: EditPartitionDialog) -> Element<'a, Message> {
+    let EditPartitionDialog {
+        volume: _,
+        partition_types,
+        selected_type_index,
+        name,
+        legacy_bios_bootable,
+        system_partition,
+        hidden,
+        running,
+    } = state;
+
+    let opts: Vec<String> = partition_types
+        .iter()
+        .map(|t: &PartitionTypeInfo| format!("{} - {}", t.name, t.ty))
+        .collect();
+
+    let mut content = iced_widget::column![
+        dropdown(opts, Some(selected_type_index), |v| {
+            EditPartitionMessage::TypeUpdate(v).into()
+        }),
+        text_input(fl!("partition-name"), name)
+            .label(fl!("partition-name"))
+            .on_input(|t| EditPartitionMessage::NameUpdate(t).into()),
+        checkbox(fl!("flag-legacy-bios-bootable"), legacy_bios_bootable)
+            .on_toggle(|v| EditPartitionMessage::LegacyBiosBootableUpdate(v).into()),
+        checkbox(fl!("flag-system-partition"), system_partition)
+            .on_toggle(|v| EditPartitionMessage::SystemPartitionUpdate(v).into()),
+        checkbox(fl!("flag-hide-from-firmware"), hidden)
+            .on_toggle(|v| EditPartitionMessage::HiddenUpdate(v).into()),
+    ]
+    .spacing(12);
+
+    if running {
+        content = content.push(caption(fl!("working")));
+    }
+
+    let mut apply = button::standard(fl!("apply"));
+    if !running {
+        apply = apply.on_press(EditPartitionMessage::Confirm.into());
+    }
+
+    dialog::dialog()
+        .title(fl!("edit-partition"))
+        .control(content)
+        .primary_action(apply)
+        .secondary_action(
+            button::standard(fl!("cancel")).on_press(EditPartitionMessage::Cancel.into()),
+        )
+        .into()
+}
+
+pub fn resize_partition<'a>(state: ResizePartitionDialog) -> Element<'a, Message> {
+    let ResizePartitionDialog {
+        volume: _,
+        min_size_bytes,
+        max_size_bytes,
+        new_size_bytes,
+        running,
+    } = state;
+
+    let min = min_size_bytes as f64;
+    let max = max_size_bytes as f64;
+    let value = new_size_bytes as f64;
+    let step = disks_dbus::get_step(&new_size_bytes);
+
+    let min_pretty = bytes_to_pretty(&min_size_bytes, false);
+    let max_pretty = bytes_to_pretty(&max_size_bytes, false);
+    let value_pretty = bytes_to_pretty(&new_size_bytes, false);
+
+    let can_resize = max_size_bytes.saturating_sub(min_size_bytes) >= 1024;
+
+    let mut content = iced_widget::column![
+        caption(fl!(
+            "resize-partition-range",
+            min = min_pretty,
+            max = max_pretty
+        )),
+        slider(min..=max, value, |v| {
+            ResizePartitionMessage::SizeUpdate(v as u64).into()
+        }),
+        labelled_spinner(fl!("new-size"), value_pretty, value, step, min, max, |v| {
+            ResizePartitionMessage::SizeUpdate(v as u64).into()
+        },),
+    ]
+    .spacing(12);
+
+    if running {
+        content = content.push(caption(fl!("working")));
+    }
+
+    let mut apply = button::standard(fl!("apply"));
+    if !running && can_resize {
+        apply = apply.on_press(ResizePartitionMessage::Confirm.into());
+    }
+
+    dialog::dialog()
+        .title(fl!("resize-partition"))
+        .control(content)
+        .primary_action(apply)
+        .secondary_action(
+            button::standard(fl!("cancel")).on_press(ResizePartitionMessage::Cancel.into()),
+        )
+        .into()
+}
+
+pub fn edit_filesystem_label<'a>(state: EditFilesystemLabelDialog) -> Element<'a, Message> {
+    let EditFilesystemLabelDialog {
+        target: _,
+        label,
+        running,
+    } = state;
+
+    let mut content = iced_widget::column![
+        text_input(fl!("filesystem-label"), label)
+            .label(fl!("filesystem-label"))
+            .on_input(|t| EditFilesystemLabelMessage::LabelUpdate(t).into()),
+    ]
+    .spacing(12);
+
+    if running {
+        content = content.push(caption(fl!("working")));
+    }
+
+    let mut apply = button::standard(fl!("apply"));
+    if !running {
+        apply = apply.on_press(EditFilesystemLabelMessage::Confirm.into());
+    }
+
+    dialog::dialog()
+        .title(fl!("edit-filesystem"))
+        .control(content)
+        .primary_action(apply)
+        .secondary_action(
+            button::standard(fl!("cancel")).on_press(EditFilesystemLabelMessage::Cancel.into()),
+        )
+        .into()
+}
+
+pub fn take_ownership<'a>(state: TakeOwnershipDialog) -> Element<'a, Message> {
+    let TakeOwnershipDialog {
+        volume: _,
+        recursive,
+        running,
+    } = state;
+
+    let mut content = iced_widget::column![
+        caption(fl!("take-ownership-warning")),
+        checkbox(fl!("take-ownership-recursive"), recursive)
+            .on_toggle(|v| TakeOwnershipMessage::RecursiveUpdate(v).into()),
+    ]
+    .spacing(12);
+
+    if running {
+        content = content.push(caption(fl!("working")));
+    }
+
+    let mut apply = button::destructive(fl!("take-ownership"));
+    if !running {
+        apply = apply.on_press(TakeOwnershipMessage::Confirm.into());
+    }
+
+    dialog::dialog()
+        .title(fl!("take-ownership"))
+        .control(content)
+        .primary_action(apply)
+        .secondary_action(
+            button::standard(fl!("cancel")).on_press(TakeOwnershipMessage::Cancel.into()),
+        )
+        .into()
+}
+
+pub fn change_passphrase<'a>(state: ChangePassphraseDialog) -> Element<'a, Message> {
+    let ChangePassphraseDialog {
+        volume: _,
+        current_passphrase,
+        new_passphrase,
+        confirm_passphrase,
+        error,
+        running,
+    } = state;
+
+    let valid = !new_passphrase.is_empty() && new_passphrase == confirm_passphrase;
+
+    let current_for_input = current_passphrase.clone();
+    let new_for_input = new_passphrase.clone();
+    let confirm_for_input = confirm_passphrase.clone();
+
+    let mut content = iced_widget::column![
+        text_input::secure_input("", current_for_input, None, true)
+            .label(fl!("current-passphrase"))
+            .on_input(|v| ChangePassphraseMessage::CurrentUpdate(v).into()),
+        text_input::secure_input("", new_for_input, None, true)
+            .label(fl!("new-passphrase"))
+            .on_input(|v| ChangePassphraseMessage::NewUpdate(v).into()),
+        text_input::secure_input("", confirm_for_input, None, true)
+            .label(fl!("confirm"))
+            .on_input(|v| ChangePassphraseMessage::ConfirmUpdate(v).into()),
+    ]
+    .spacing(12);
+
+    if let Some(err) = error.as_ref() {
+        content = content.push(caption(err.clone()));
+    } else if !valid && (!new_passphrase.is_empty() || !confirm_passphrase.is_empty()) {
+        content = content.push(caption(fl!("passphrase-mismatch")));
+    }
+
+    if running {
+        content = content.push(caption(fl!("working")));
+    }
+
+    let mut apply = button::standard(fl!("apply"));
+    if !running && valid {
+        apply = apply.on_press(ChangePassphraseMessage::Confirm.into());
+    }
+
+    dialog::dialog()
+        .title(fl!("change-passphrase"))
+        .control(content)
+        .primary_action(apply)
+        .secondary_action(
+            button::standard(fl!("cancel")).on_press(ChangePassphraseMessage::Cancel.into()),
+        )
         .into()
 }
 

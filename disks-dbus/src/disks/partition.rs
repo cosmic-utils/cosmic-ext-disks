@@ -28,6 +28,7 @@ pub struct VolumeModel {
     pub volume_type: VolumeType,
     pub table_path: OwnedObjectPath,
     pub name: String,
+    pub partition_type_id: String,
     pub partition_type: String,
     pub id_type: String,
     pub uuid: String,
@@ -137,15 +138,17 @@ impl VolumeModel {
             Err(_) => String::new(),
         };
 
+        let partition_type_id = partition_proxy.type_().await?;
+
         let type_str = if table_type.is_empty() {
-            partition_proxy.type_().await?
+            partition_type_id.clone()
         } else {
-            match client.partition_type_for_display(&table_type, &partition_proxy.type_().await?) {
+            match client.partition_type_for_display(&table_type, &partition_type_id) {
                 Some(val) => val
                     .to_owned()
                     .replace("part-type", "")
                     .replace("\u{004}", ""),
-                _ => partition_proxy.type_().await?,
+                _ => partition_type_id.clone(),
             }
         };
 
@@ -159,6 +162,7 @@ impl VolumeModel {
             volume_type,
             table_path,
             name: partition_proxy.name().await?,
+            partition_type_id,
             partition_type: type_str,
             id_type: block_proxy.id_type().await?,
             uuid: partition_proxy.uuid().await?,
@@ -229,6 +233,7 @@ impl VolumeModel {
             volume_type: VolumeType::Filesystem,
             table_path: "/".try_into().unwrap(),
             name: String::new(),
+            partition_type_id: String::new(),
             partition_type: "Filesystem".to_string(),
             id_type: block_proxy.id_type().await?,
             uuid,
@@ -363,66 +368,170 @@ impl VolumeModel {
         partition_format(&backend, args).await
     }
 
-    //TODO: implement
     pub async fn edit_partition(
         &self,
-        _partition_type: String,
-        _name: String,
-        _flags: u64,
+        partition_type: String,
+        name: String,
+        flags: u64,
     ) -> Result<()> {
         if self.connection.is_none() {
             return Err(DiskError::NotConnected(self.name.clone()).into());
         }
 
+        let proxy = PartitionProxy::builder(self.connection.as_ref().unwrap())
+            .path(&self.path)?
+            .build()
+            .await?;
+
+        let options: std::collections::HashMap<&str, zbus::zvariant::Value<'_>> =
+            std::collections::HashMap::new();
+
+        let flags = BitFlags::<PartitionFlags>::from_bits_truncate(flags);
+
+        proxy.set_type(&partition_type, options.clone()).await?;
+        proxy.set_name(&name, options.clone()).await?;
+        proxy.set_flags(flags, options).await?;
+
         Ok(())
     }
 
-    //TODO: implement
-    pub async fn edit_filesystem_label(&self, _label: String) -> Result<()> {
+    pub fn is_legacy_bios_bootable(&self) -> bool {
+        self.flags.contains(PartitionFlags::LegacyBIOSBootable)
+    }
+
+    pub fn is_system_partition(&self) -> bool {
+        self.flags.contains(PartitionFlags::SystemPartition)
+    }
+
+    pub fn is_hidden(&self) -> bool {
+        self.flags.contains(PartitionFlags::Hidden)
+    }
+
+    pub fn make_partition_flags_bits(
+        legacy_bios_bootable: bool,
+        system_partition: bool,
+        hidden: bool,
+    ) -> u64 {
+        let mut bits: u64 = 0;
+        if system_partition {
+            bits |= PartitionFlags::SystemPartition as u64;
+        }
+        if legacy_bios_bootable {
+            bits |= PartitionFlags::LegacyBIOSBootable as u64;
+        }
+        if hidden {
+            bits |= PartitionFlags::Hidden as u64;
+        }
+        bits
+    }
+
+    pub async fn edit_filesystem_label(&self, label: String) -> Result<()> {
         if self.connection.is_none() {
             return Err(DiskError::NotConnected(self.name.clone()).into());
         }
 
+        let proxy = FilesystemProxy::builder(self.connection.as_ref().unwrap())
+            .path(&self.path)?
+            .build()
+            .await?;
+
+        let options: std::collections::HashMap<&str, zbus::zvariant::Value<'_>> =
+            std::collections::HashMap::new();
+        proxy.set_label(&label, options).await?;
         Ok(())
     }
 
-    //TODO: implement
-    pub async fn change_passphrase(&self) -> Result<()> {
+    pub async fn change_passphrase(&self, current: &str, new: &str) -> Result<()> {
         if self.connection.is_none() {
             return Err(DiskError::NotConnected(self.name.clone()).into());
         }
+
+        let proxy = udisks2::encrypted::EncryptedProxy::builder(self.connection.as_ref().unwrap())
+            .path(&self.path)?
+            .build()
+            .await?;
+
+        let options: std::collections::HashMap<&str, zbus::zvariant::Value<'_>> =
+            std::collections::HashMap::new();
+        proxy.change_passphrase(current, new, options).await?;
         Ok(())
     }
 
-    //TODO: implement
-    pub async fn resize(&self, _new_size_bytes: u64) -> Result<()> {
+    pub async fn resize(&self, new_size_bytes: u64) -> Result<()> {
         if self.connection.is_none() {
             return Err(DiskError::NotConnected(self.name.clone()).into());
         }
+
+        let proxy = PartitionProxy::builder(self.connection.as_ref().unwrap())
+            .path(&self.path)?
+            .build()
+            .await?;
+
+        let options: std::collections::HashMap<&str, zbus::zvariant::Value<'_>> =
+            std::collections::HashMap::new();
+        proxy.resize(new_size_bytes, options).await?;
         Ok(())
     }
 
-    //TODO: implement
     pub async fn check_filesystem(&self) -> Result<()> {
         if self.connection.is_none() {
             return Err(DiskError::NotConnected(self.name.clone()).into());
         }
-        Ok(())
+
+        let proxy = FilesystemProxy::builder(self.connection.as_ref().unwrap())
+            .path(&self.path)?
+            .build()
+            .await?;
+
+        let options: std::collections::HashMap<&str, zbus::zvariant::Value<'_>> =
+            std::collections::HashMap::new();
+        let ok = proxy.check(options).await?;
+        if ok {
+            Ok(())
+        } else {
+            Err(anyhow::anyhow!(
+                "Filesystem check completed but reported problems"
+            ))
+        }
     }
 
-    //TODO: implement
     pub async fn repair_filesystem(&self) -> Result<()> {
         if self.connection.is_none() {
             return Err(DiskError::NotConnected(self.name.clone()).into());
         }
-        Ok(())
+
+        let proxy = FilesystemProxy::builder(self.connection.as_ref().unwrap())
+            .path(&self.path)?
+            .build()
+            .await?;
+
+        let options: std::collections::HashMap<&str, zbus::zvariant::Value<'_>> =
+            std::collections::HashMap::new();
+        let ok = proxy.repair(options).await?;
+        if ok {
+            Ok(())
+        } else {
+            Err(anyhow::anyhow!(
+                "Filesystem repair completed but reported failure"
+            ))
+        }
     }
 
-    //TODO: implement
-    pub async fn take_ownership(&self, _recursive: bool) -> Result<()> {
+    pub async fn take_ownership(&self, recursive: bool) -> Result<()> {
         if self.connection.is_none() {
             return Err(DiskError::NotConnected(self.name.clone()).into());
         }
+
+        let proxy = FilesystemProxy::builder(self.connection.as_ref().unwrap())
+            .path(&self.path)?
+            .build()
+            .await?;
+
+        let mut options: std::collections::HashMap<&str, zbus::zvariant::Value<'_>> =
+            std::collections::HashMap::new();
+        options.insert("recursive", zbus::zvariant::Value::from(recursive));
+
+        proxy.take_ownership(options).await?;
         Ok(())
     }
 
@@ -503,6 +612,7 @@ mod tests {
             volume_type: super::VolumeType::Partition,
             table_path: "/".try_into().unwrap(),
             name: String::new(),
+            partition_type_id: String::new(),
             partition_type: String::new(),
             id_type: String::new(),
             uuid: String::new(),

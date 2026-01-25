@@ -191,13 +191,16 @@ Implement the currently-stubbed methods in `disks-dbus/src/disks/partition.rs` u
   - Mitigation: Ensure errors are displayed; do not swallow failures.
 
 ## Acceptance Criteria
-- [ ] Actionbar shows buttons below volumes; each has a tooltip with the command name.
-- [ ] “Format Partition” appears for all `VolumeType`s, prefills current details, disables size controls, and formats via `Block.Format`.
-- [ ] `VolumeType::Partition` shows “Edit Partition” and “Resize” dialogs as specified.
-- [ ] “Resize” enforces min/max clamps and disables if `(max-min) < 1024` bytes.
-- [ ] `VolumeType::Partition` + `VolumeType::Filesystem` show “Edit filesystem” and “Check Filesystem” actions.
-- [ ] `VolumeType::Container` (LUKS) shows “Change Passphrase” dialog with current+new+confirm.
-- [ ] `VolumeType::Filesystem` shows “Repair Filesystem” and “Take Ownership” dialogs/warnings as specified.
-- [ ] All DBus methods listed in Goals are implemented (no stub `Ok(())` placeholders).
-- [ ] Errors are surfaced via UI dialogs (no silent failures).
+- [x] Actionbar shows buttons below volumes; each has a tooltip with the command name.
+- [x] “Format Partition” appears for all `VolumeType`s, prefills current details, disables size controls, and formats via `Block.Format`.
+- [x] `VolumeType::Partition` shows “Edit Partition” and “Resize” dialogs as specified.
+- [x] “Resize” enforces min/max clamps and disables if `(max-min) < 1024` bytes.
+- [x] `VolumeType::Partition` + `VolumeType::Filesystem` show “Edit filesystem” and “Check Filesystem” actions.
+- [x] `VolumeType::Container` (LUKS) shows “Change Passphrase” dialog with current+new+confirm.
+- [x] `VolumeType::Filesystem` shows “Repair Filesystem” and “Take Ownership” dialogs/warnings as specified.
+- [x] All DBus methods listed in Goals are implemented (no stub `Ok(())` placeholders).
+- [x] Errors are surfaced via UI dialogs (no silent failures).
 - [ ] Manual validation on a real disk/loop device confirms each command triggers the expected UDisks2 operation and refreshes the view.
+
+## Implementation Notes
+- Workspace builds cleanly and passes repo quality gates: `cargo fmt --all --check`, `cargo clippy --workspace --all-features`, `cargo test --workspace --all-features`.

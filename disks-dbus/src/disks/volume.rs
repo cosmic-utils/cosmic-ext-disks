@@ -6,6 +6,7 @@ use udisks2::{
     block::BlockProxy, encrypted::EncryptedProxy, filesystem::FilesystemProxy,
     partitiontable::PartitionTableProxy,
 };
+use zbus::zvariant::Value;
 use zbus::{Connection, zvariant::OwnedObjectPath};
 
 use super::{
@@ -326,6 +327,79 @@ impl VolumeNode {
         }
         let backend = RealDiskBackend::new(self.connection.as_ref().unwrap().clone());
         crypto_lock(&backend, self.object_path.clone()).await
+    }
+
+    pub async fn edit_filesystem_label(&self, label: &str) -> Result<()> {
+        if self.connection.is_none() {
+            return Err(DiskError::NotConnected(self.label.clone()).into());
+        }
+
+        let proxy = FilesystemProxy::builder(self.connection.as_ref().unwrap())
+            .path(&self.object_path)?
+            .build()
+            .await?;
+
+        let options: HashMap<&str, Value<'_>> = HashMap::new();
+        proxy.set_label(label, options).await?;
+        Ok(())
+    }
+
+    pub async fn check_filesystem(&self) -> Result<()> {
+        if self.connection.is_none() {
+            return Err(DiskError::NotConnected(self.label.clone()).into());
+        }
+
+        let proxy = FilesystemProxy::builder(self.connection.as_ref().unwrap())
+            .path(&self.object_path)?
+            .build()
+            .await?;
+
+        let options: HashMap<&str, Value<'_>> = HashMap::new();
+        let ok = proxy.check(options).await?;
+        if ok {
+            Ok(())
+        } else {
+            Err(anyhow::anyhow!(
+                "Filesystem check completed but reported problems"
+            ))
+        }
+    }
+
+    pub async fn repair_filesystem(&self) -> Result<()> {
+        if self.connection.is_none() {
+            return Err(DiskError::NotConnected(self.label.clone()).into());
+        }
+
+        let proxy = FilesystemProxy::builder(self.connection.as_ref().unwrap())
+            .path(&self.object_path)?
+            .build()
+            .await?;
+
+        let options: HashMap<&str, Value<'_>> = HashMap::new();
+        let ok = proxy.repair(options).await?;
+        if ok {
+            Ok(())
+        } else {
+            Err(anyhow::anyhow!(
+                "Filesystem repair completed but reported failure"
+            ))
+        }
+    }
+
+    pub async fn take_ownership(&self, recursive: bool) -> Result<()> {
+        if self.connection.is_none() {
+            return Err(DiskError::NotConnected(self.label.clone()).into());
+        }
+
+        let proxy = FilesystemProxy::builder(self.connection.as_ref().unwrap())
+            .path(&self.object_path)?
+            .build()
+            .await?;
+
+        let mut options: HashMap<&str, Value<'_>> = HashMap::new();
+        options.insert("recursive", Value::from(recursive));
+        proxy.take_ownership(options).await?;
+        Ok(())
     }
 }
 

@@ -1,6 +1,7 @@
 # feature/volume-commands-actionbar — Tasks
 
 ## Task 1: Define UI command set + message enums
+- Status: Done
 - Scope: Add message types and selection rules for which commands apply to which selected object.
 - Files/areas:
   - `disks-ui/src/views/volumes.rs`
@@ -25,6 +26,7 @@
   - [ ] Buttons and message wiring compile; dialogs open from actionbar clicks.
 
 ## Task 2: Add dialogs and validation
+- Status: Done
 - Scope: Implement dialog UIs for each command with required validation and warnings.
 - Files/areas:
   - `disks-ui/src/views/dialogs.rs`
@@ -47,6 +49,7 @@
   - [ ] All dialogs render correctly and validation matches requirements.
 
 ## Task 3: DBus: implement missing `VolumeModel` operations
+- Status: Done
 - Scope: Replace stub implementations in `disks-dbus/src/disks/partition.rs`.
 - Files/areas:
   - `disks-dbus/src/disks/partition.rs`
@@ -69,6 +72,7 @@
   - [ ] No stub `Ok(())` remains for these methods.
 
 ## Task 4: Partition type exhaustive list API
+- Status: Done
 - Scope: Provide “full exhaustive list of partition types” for Edit Partition dropdown.
 - Files/areas:
   - `disks-dbus/src/partition_type.rs`
@@ -85,6 +89,7 @@
   - [ ] UI uses full list, not the “common” list.
 
 ## Task 5: UI execution + refresh + error surfacing
+- Status: Done
 - Scope: Hook dialog confirms to DBus calls, refresh nav, and show errors.
 - Files/areas:
   - `disks-ui/src/views/volumes.rs`
@@ -100,6 +105,7 @@
   - [ ] All commands execute end-to-end from actionbar.
 
 ## Task 6: Resize clamp logic
+- Status: Done
 - Scope: Compute min/max for resize exactly as required and gate the resize action.
 - Files/areas:
   - `disks-ui/src/views/volumes.rs` (segment/right-free computation)
