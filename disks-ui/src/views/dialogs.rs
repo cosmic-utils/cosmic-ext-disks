@@ -4,6 +4,10 @@ use crate::app::Message;
 use crate::app::SmartDataDialog;
 use crate::app::SmartDialogMessage;
 use crate::app::UnlockEncryptedDialog;
+use crate::app::{
+    AttachDiskImageDialog, AttachDiskImageDialogMessage, ImageOperationDialog,
+    ImageOperationDialogMessage, ImageOperationKind, NewDiskImageDialog, NewDiskImageDialogMessage,
+};
 use crate::app::{FormatDiskDialog, FormatDiskMessage};
 use crate::fl;
 use crate::utils::labelled_spinner;
@@ -14,6 +18,177 @@ use cosmic::{
 };
 use disks_dbus::{bytes_to_pretty, get_valid_partition_names};
 use std::borrow::Cow;
+
+pub fn new_disk_image<'a>(state: NewDiskImageDialog) -> Element<'a, Message> {
+    let size_pretty = bytes_to_pretty(&state.size_bytes, false);
+    let step = disks_dbus::get_step(&state.size_bytes);
+
+    let mut content = iced_widget::column![
+        text_input(fl!("image-destination-path"), state.path.clone())
+            .label(fl!("image-destination-path"))
+            .on_input(|v| NewDiskImageDialogMessage::PathUpdate(v).into()),
+        labelled_spinner(
+            fl!("image-size"),
+            size_pretty,
+            state.size_bytes as f64,
+            step,
+            (1024 * 1024) as f64,
+            (1024_u64.pow(5)) as f64,
+            |v| NewDiskImageDialogMessage::SizeUpdate(v as u64).into(),
+        ),
+    ]
+    .spacing(12);
+
+    if let Some(err) = state.error.as_ref() {
+        content = content.push(caption(err.clone()));
+    }
+
+    if state.running {
+        content = content.push(caption(fl!("working")));
+    }
+
+    let mut create_button = button::destructive(fl!("create-image"));
+    if !state.running {
+        create_button = create_button.on_press(NewDiskImageDialogMessage::Create.into());
+    }
+
+    // while running, still allow closing (it will not cancel the file create, which is fast)
+    let cancel_msg = NewDiskImageDialogMessage::Cancel;
+
+    dialog::dialog()
+        .title(fl!("new-disk-image"))
+        .control(content)
+        .primary_action(create_button)
+        .secondary_action(button::standard(fl!("cancel")).on_press(cancel_msg.into()))
+        .into()
+}
+
+pub fn attach_disk_image<'a>(state: AttachDiskImageDialog) -> Element<'a, Message> {
+    let mut content = iced_widget::column![
+        text_input(fl!("image-file-path"), state.path.clone())
+            .label(fl!("image-file-path"))
+            .on_input(|v| AttachDiskImageDialogMessage::PathUpdate(v).into()),
+    ]
+    .spacing(12);
+
+    if let Some(err) = state.error.as_ref() {
+        content = content.push(caption(err.clone()));
+    }
+
+    if state.running {
+        content = content.push(caption(fl!("working")));
+    }
+
+    let mut attach_button = button::destructive(fl!("attach"));
+    if !state.running {
+        attach_button = attach_button.on_press(AttachDiskImageDialogMessage::Attach.into());
+    }
+
+    dialog::dialog()
+        .title(fl!("attach-disk-image"))
+        .control(content)
+        .primary_action(attach_button)
+        .secondary_action(
+            button::standard(fl!("cancel")).on_press(AttachDiskImageDialogMessage::Cancel.into()),
+        )
+        .into()
+}
+
+pub fn image_operation<'a>(state: ImageOperationDialog) -> Element<'a, Message> {
+    let title = match state.kind {
+        ImageOperationKind::CreateFromDrive => fl!("create-disk-from-drive"),
+        ImageOperationKind::RestoreToDrive => fl!("restore-image-to-drive"),
+        ImageOperationKind::CreateFromPartition => fl!("create-disk-from-partition"),
+        ImageOperationKind::RestoreToPartition => fl!("restore-image-to-partition"),
+    };
+
+    let path_label = match state.kind {
+        ImageOperationKind::CreateFromDrive | ImageOperationKind::CreateFromPartition => {
+            fl!("image-destination-path")
+        }
+        ImageOperationKind::RestoreToDrive | ImageOperationKind::RestoreToPartition => {
+            fl!("image-source-path")
+        }
+    };
+
+    let mut content = iced_widget::column![caption(format!(
+        "{}: {}",
+        fl!("device"),
+        state.drive.name()
+    ))]
+    .spacing(12);
+
+    if matches!(
+        state.kind,
+        ImageOperationKind::CreateFromPartition | ImageOperationKind::RestoreToPartition
+    ) {
+        match state.partition.as_ref() {
+            Some(partition) => {
+                let partition_name = if partition.name.trim().is_empty() {
+                    fl!("untitled")
+                } else {
+                    partition.name.clone()
+                };
+                let partition_path = partition
+                    .device_path
+                    .clone()
+                    .unwrap_or_else(|| partition.path.to_string());
+
+                content = content
+                    .push(caption(format!("{}: {}", fl!("partition"), partition_name)))
+                    .push(caption(format!("{}: {}", fl!("path"), partition_path)));
+            }
+            None => {
+                content =
+                    content.push(caption(format!("{}: {}", fl!("partition"), fl!("unknown"))));
+            }
+        }
+    }
+
+    if matches!(
+        state.kind,
+        ImageOperationKind::RestoreToDrive | ImageOperationKind::RestoreToPartition
+    ) {
+        content = content.push(caption(fl!("restore-warning")));
+    }
+
+    content = content.push(
+        text_input(path_label.clone(), state.image_path.clone())
+            .label(path_label)
+            .on_input(|v| ImageOperationDialogMessage::PathUpdate(v).into()),
+    );
+
+    if let Some(err) = state.error.as_ref() {
+        content = content.push(caption(err.clone()));
+    }
+
+    if state.running {
+        content = content.push(caption(fl!("working")));
+    }
+
+    let primary_label = match state.kind {
+        ImageOperationKind::CreateFromDrive | ImageOperationKind::CreateFromPartition => {
+            fl!("create-image")
+        }
+        ImageOperationKind::RestoreToDrive | ImageOperationKind::RestoreToPartition => {
+            fl!("restore-image")
+        }
+    };
+
+    let mut start_button = button::destructive(primary_label);
+    if !state.running {
+        start_button = start_button.on_press(ImageOperationDialogMessage::Start.into());
+    }
+
+    let cancel_msg = ImageOperationDialogMessage::CancelOperation;
+
+    dialog::dialog()
+        .title(title)
+        .control(content)
+        .primary_action(start_button)
+        .secondary_action(button::standard(fl!("cancel")).on_press(cancel_msg.into()))
+        .into()
+}
 
 pub fn confirmation<'a>(
     title: impl Into<Cow<'a, str>>,

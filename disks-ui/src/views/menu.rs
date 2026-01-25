@@ -34,6 +34,16 @@ pub fn menu_view(
                         None,
                         MenuAction::RestoreImageTo,
                     ),
+                    menu::Item::Button(
+                        fl!("create-disk-from-partition"),
+                        None,
+                        MenuAction::CreateDiskFromPartition,
+                    ),
+                    menu::Item::Button(
+                        fl!("restore-image-to-partition"),
+                        None,
+                        MenuAction::RestoreImageToPartition,
+                    ),
                 ],
             ),
             (
@@ -68,6 +78,8 @@ pub enum MenuAction {
     AttachDisk,
     CreateDiskFrom,
     RestoreImageTo,
+    CreateDiskFromPartition,
+    RestoreImageToPartition,
 }
 
 impl menu::action::MenuAction for MenuAction {
@@ -86,6 +98,8 @@ impl menu::action::MenuAction for MenuAction {
             MenuAction::AttachDisk => Message::AttachDisk,
             MenuAction::CreateDiskFrom => Message::CreateDiskFrom,
             MenuAction::RestoreImageTo => Message::RestoreImageTo,
+            MenuAction::CreateDiskFromPartition => Message::CreateDiskFromPartition,
+            MenuAction::RestoreImageToPartition => Message::RestoreImageToPartition,
         }
     }
 }

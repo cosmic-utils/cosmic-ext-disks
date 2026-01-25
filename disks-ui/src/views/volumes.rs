@@ -18,7 +18,7 @@ use crate::{
 };
 use disks_dbus::CreatePartitionInfo;
 use disks_dbus::bytes_to_pretty;
-use disks_dbus::{DriveModel, PartitionModel, VolumeKind, VolumeNode};
+use disks_dbus::{DriveModel, VolumeKind, VolumeModel, VolumeNode};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum VolumesControlMessage {
@@ -109,7 +109,7 @@ pub struct Segment {
     pub state: bool,
     pub kind: DiskSegmentKind,
     pub width: u16,
-    pub partition: Option<PartitionModel>,
+    pub volume: Option<VolumeModel>,
     pub table_type: String,
 }
 
@@ -143,7 +143,7 @@ impl Segment {
             state: false,
             kind: DiskSegmentKind::FreeSpace,
             width: 0,
-            partition: None,
+            volume: None,
             table_type,
         }
     }
@@ -158,7 +158,7 @@ impl Segment {
             state: false,
             kind: DiskSegmentKind::Reserved,
             width: 0,
-            partition: None,
+            volume: None,
             table_type,
         }
     }
@@ -173,26 +173,26 @@ impl Segment {
         }
     }
 
-    pub fn new(partition: &PartitionModel) -> Self {
-        let mut name = partition.name.clone();
+    pub fn new(volume: &VolumeModel) -> Self {
+        let mut name = volume.name.clone();
         if name.is_empty() {
             name = fl!("filesystem");
         }
 
-        let mut type_str = partition.id_type.clone().to_uppercase();
-        type_str = format!("{} - {}", type_str, partition.partition_type.clone());
+        let mut type_str = volume.id_type.clone().to_uppercase();
+        type_str = format!("{} - {}", type_str, volume.partition_type.clone());
 
         Self {
             label: name,
-            name: partition.name(),
+            name: volume.name(),
             partition_type: type_str,
-            size: partition.size,
-            offset: partition.offset,
+            size: volume.size,
+            offset: volume.offset,
             state: false,
             kind: DiskSegmentKind::Partition,
             width: 0,
-            partition: Some(partition.clone()),
-            table_type: partition.table_type.clone(),
+            volume: Some(volume.clone()),
+            table_type: volume.table_type.clone(),
         }
     }
 
@@ -213,7 +213,7 @@ impl Segment {
         };
 
         let extents: Vec<PartitionExtent> = drive
-            .partitions
+            .volumes_flat
             .iter()
             .enumerate()
             .map(|(id, p)| PartitionExtent {
@@ -273,7 +273,7 @@ impl Segment {
                     let Some(partition_id) = seg.partition_id else {
                         continue;
                     };
-                    let Some(p) = drive.partitions.get(partition_id) else {
+                    let Some(p) = drive.volumes_flat.get(partition_id) else {
                         continue;
                     };
 
@@ -443,7 +443,7 @@ impl VolumesControl {
             VolumesControlMessage::Mount => {
                 let segment = self.segments.get(self.selected_segment).cloned();
                 if let Some(s) = segment.clone() {
-                    match s.partition {
+                    match s.volume {
                         Some(p) => {
                             return Task::perform(
                                 async move {
@@ -472,7 +472,7 @@ impl VolumesControl {
             VolumesControlMessage::Unmount => {
                 let segment = self.segments.get(self.selected_segment).cloned();
                 if let Some(s) = segment.clone() {
-                    match s.partition {
+                    match s.volume {
                         Some(p) => {
                             return Task::perform(
                                 async move {
@@ -540,7 +540,7 @@ impl VolumesControl {
             VolumesControlMessage::LockContainer => {
                 let segment = self.segments.get(self.selected_segment).cloned();
                 if let Some(s) = segment
-                    && let Some(p) = s.partition
+                    && let Some(p) = s.volume
                 {
                     let mounted_children: Vec<VolumeNode> =
                         find_volume_node_for_partition(&self.model.volumes, &p)
@@ -594,7 +594,7 @@ impl VolumesControl {
 
                 let segment = self.segments.get(self.selected_segment).cloned();
                 let task = match segment.clone() {
-                    Some(s) => match s.partition {
+                    Some(s) => match s.volume {
                         Some(p) => {
                             let volume_node =
                                 find_volume_node_for_partition(&self.model.volumes, &p).cloned();
@@ -723,6 +723,14 @@ impl VolumesControl {
                         eprintln!("CreateMessage received while a SMART dialog is open; ignoring.");
                     }
 
+                    ShowDialog::NewDiskImage(_)
+                    | ShowDialog::AttachDiskImage(_)
+                    | ShowDialog::ImageOperation(_) => {
+                        eprintln!(
+                            "CreateMessage received while an image dialog is open; ignoring."
+                        );
+                    }
+
                     ShowDialog::Info { .. } => {
                         eprintln!("CreateMessage received while an info dialog is open; ignoring.");
                     }
@@ -765,7 +773,7 @@ impl VolumesControl {
                         // Look up the partition in the current model.
                         let part = self
                             .model
-                            .partitions
+                            .volumes_flat
                             .iter()
                             .find(|p| p.path.to_string() == partition_path)
                             .cloned();
@@ -787,16 +795,19 @@ impl VolumesControl {
                             },
                             move |result| match result {
                                 Ok(drives) => Message::UpdateNav(drives, None).into(),
-                                Err(e) => Message::Dialog(Box::new(ShowDialog::UnlockEncrypted(
-                                    UnlockEncryptedDialog {
-                                        partition_path: partition_path.clone(),
-                                        partition_name: partition_name.clone(),
-                                        passphrase: passphrase.clone(),
-                                        error: Some(e.to_string()),
-                                        running: false,
-                                    },
-                                )))
-                                .into(),
+                                Err(e) => {
+                                    eprintln!("Unlock encrypted dialog error: {e}");
+                                    Message::Dialog(Box::new(ShowDialog::UnlockEncrypted(
+                                        UnlockEncryptedDialog {
+                                            partition_path: partition_path.clone(),
+                                            partition_name: partition_name.clone(),
+                                            passphrase: passphrase.clone(),
+                                            error: Some(e.to_string()),
+                                            running: false,
+                                        },
+                                    )))
+                                    .into()
+                                }
                             },
                         );
                     }
@@ -828,7 +839,7 @@ impl VolumesControl {
                 // - top half: the container itself (selects the segment)
                 // - bottom half: contained volumes (select filesystem/LV)
                 let container_volume = segment
-                    .partition
+                    .volume
                     .as_ref()
                     .and_then(|p| find_volume_node_for_partition(&self.model.volumes, p))
                     .filter(|v| v.kind == VolumeKind::CryptoContainer);
@@ -955,7 +966,7 @@ impl VolumesControl {
         let mut action_bar: Vec<Element<Message>> = vec![];
 
         let selected_volume = selected
-            .partition
+            .volume
             .as_ref()
             .and_then(|p| find_volume_node_for_partition(&self.model.volumes, p));
 
@@ -963,7 +974,7 @@ impl VolumesControl {
 
         match selected.kind {
             DiskSegmentKind::Partition => {
-                if let Some(p) = selected.partition.as_ref() {
+                if let Some(p) = selected.volume.as_ref() {
                     // If a child filesystem/LV is selected, mount/unmount applies to it.
                     if let Some(v) = selected_child_volume {
                         if v.can_mount() {
@@ -1108,7 +1119,7 @@ fn find_volume_node<'a>(volumes: &'a [VolumeNode], object_path: &str) -> Option<
 
 fn find_volume_node_for_partition<'a>(
     volumes: &'a [VolumeNode],
-    partition: &PartitionModel,
+    partition: &VolumeModel,
 ) -> Option<&'a VolumeNode> {
     let target = partition.path.to_string();
     find_volume_node(volumes, &target)
