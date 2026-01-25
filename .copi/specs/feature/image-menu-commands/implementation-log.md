@@ -19,6 +19,11 @@
   - Added filesystem-on-block fallback so loop images with ext4-on-`loopX` render as a single filesystem volume (not free space).
   - Verified with formatting, clippy, and tests.
 
+- 2026-01-25 (dialog polish)
+  - Show selected partition name/path in partition image dialogs.
+  - Move the image path text input below the device/partition info.
+  - Add `partition` + `path` i18n keys (EN + SV).
+
 ## Commands run
 
 - `cargo build -p cosmic-ext-disks`
@@ -31,6 +36,12 @@
 
 - `cargo fmt --all`
 - `cargo clippy --workspace --all-features -- -D warnings`
+- `cargo test --workspace --all-features`
+
+## Dialog polish commands run
+
+- `cargo fmt --all --check`
+- `cargo clippy --workspace --all-features`
 - `cargo test --workspace --all-features`
 
 ## Notable files changed

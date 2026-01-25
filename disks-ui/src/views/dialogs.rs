@@ -115,13 +115,39 @@ pub fn image_operation<'a>(state: ImageOperationDialog) -> Element<'a, Message> 
         }
     };
 
-    let mut content = iced_widget::column![
-        caption(format!("{}: {}", fl!("device"), state.drive.name())),
-        text_input(path_label.clone(), state.image_path.clone())
-            .label(path_label)
-            .on_input(|v| ImageOperationDialogMessage::PathUpdate(v).into()),
-    ]
+    let mut content = iced_widget::column![caption(format!(
+        "{}: {}",
+        fl!("device"),
+        state.drive.name()
+    ))]
     .spacing(12);
+
+    if matches!(
+        state.kind,
+        ImageOperationKind::CreateFromPartition | ImageOperationKind::RestoreToPartition
+    ) {
+        match state.partition.as_ref() {
+            Some(partition) => {
+                let partition_name = if partition.name.trim().is_empty() {
+                    fl!("untitled")
+                } else {
+                    partition.name.clone()
+                };
+                let partition_path = partition
+                    .device_path
+                    .clone()
+                    .unwrap_or_else(|| partition.path.to_string());
+
+                content = content
+                    .push(caption(format!("{}: {}", fl!("partition"), partition_name)))
+                    .push(caption(format!("{}: {}", fl!("path"), partition_path)));
+            }
+            None => {
+                content =
+                    content.push(caption(format!("{}: {}", fl!("partition"), fl!("unknown"))));
+            }
+        }
+    }
 
     if matches!(
         state.kind,
@@ -129,6 +155,12 @@ pub fn image_operation<'a>(state: ImageOperationDialog) -> Element<'a, Message> 
     ) {
         content = content.push(caption(fl!("restore-warning")));
     }
+
+    content = content.push(
+        text_input(path_label.clone(), state.image_path.clone())
+            .label(path_label)
+            .on_input(|v| ImageOperationDialogMessage::PathUpdate(v).into()),
+    );
 
     if let Some(err) = state.error.as_ref() {
         content = content.push(caption(err.clone()));
