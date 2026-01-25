@@ -204,3 +204,115 @@ Implement the currently-stubbed methods in `disks-dbus/src/disks/partition.rs` u
 
 ## Implementation Notes
 - Workspace builds cleanly and passes repo quality gates: `cargo fmt --all --check`, `cargo clippy --workspace --all-features`, `cargo test --workspace --all-features`.
+
+---
+
+## Addendum (2026-01-25): Edit Mount Options + Edit Encryption Options (GNOME Disks parity)
+
+### Research baseline (required)
+Mirror GNOME Disks (gnome-disk-utility) behavior and persistence model:
+- Mount options: `src/disks/ui/edit-fstab-dialog.ui` + `src/disks/gdufstabdialog.c`
+- Encryption options: `src/disks/ui/edit-crypttab-dialog.ui` + `src/disks/gducrypttabdialog.c`
+
+GNOME Disks stores these settings via UDisks2 `org.freedesktop.UDisks2.Block` “configuration items”:
+- `fstab` item → mount options
+- `crypttab` item → encryption options
+
+### Scope
+Add two new volume commands:
+- **Edit Encryption Options…**: only on LUKS container partitions.
+- **Edit Mount Options…**: on filesystems and partitions (like GNOME Disks).
+
+### UX (GNOME parity)
+#### A) User Session Defaults
+Both dialogs have a **User Session Defaults** toggle.
+- When enabled: disable all subsequent controls.
+- When enabled and a config exists: remove the corresponding config item (`fstab`/`crypttab`).
+
+#### B) Encryption Options (crypttab) dialog fields
+- User Session Defaults (checkbox)
+- Unlock at system startup (checkbox)
+  - Unchecked ⇒ add `noauto`
+- Require additional authorisation to unlock (checkbox)
+  - Checked ⇒ add `x-udisks-auth`
+- Other options (textbox)
+  - Comma-delimited list merged into the `options` string.
+- Name (textbox)
+- Passphrase (textbox)
+- Show passphrase (checkbox)
+  - UI-only; does not affect persistence.
+
+#### C) Mount Options (fstab) dialog fields
+GNOME Disks exposes more than the brief lists; mirror it because the DBus stub already anticipates these fields.
+- User Session Defaults (checkbox)
+- Mount at system startup (checkbox)
+  - Unchecked ⇒ add `noauto`
+- Require additional authorisation to mount (checkbox)
+  - Checked ⇒ add `x-udisks-auth`
+- Show in user interface (checkbox)
+  - Checked ⇒ add `x-gvfs-show`
+- Other options (textbox)
+  - Comma-delimited list merged into `opts`.
+- Display Name (textbox) → `x-gvfs-name=<value>`
+- Icon Name (textbox) → `x-gvfs-icon=<value>`
+- Symbolic Icon Name (textbox) → `x-gvfs-symbolic-icon=<value>`
+- Mount Point (textbox)
+- Identify As (dropdown)
+- Filesystem Type (textbox)
+
+### Persistence model
+
+#### A) `fstab` configuration item
+UDisks2 configuration item `( "fstab", a{sv} )` with keys:
+- `fsname` (bytestring)
+- `dir` (bytestring)
+- `type` (bytestring)
+- `opts` (bytestring)
+- `freq` (int32, keep GNOME default `0`)
+- `passno` (int32, keep GNOME default `0`)
+
+Token mapping in `opts` (GNOME parity):
+- Startup toggle ↔ `noauto` (inverted)
+- Require auth ↔ `x-udisks-auth`
+- Show in UI ↔ `x-gvfs-show`
+- Display name ↔ `x-gvfs-name=...` (set/remove)
+- Icon name ↔ `x-gvfs-icon=...` (set/remove)
+- Symbolic icon ↔ `x-gvfs-symbolic-icon=...` (set/remove)
+
+Defaults when creating a new `fstab` item (GNOME parity):
+- `type = auto`
+- `opts = nosuid,nodev,nofail,x-gvfs-show` (+ add `noauto` for removable drives)
+
+Validation (GNOME parity):
+- When not using defaults, disable Apply/OK unless `fsname`, `dir`, `type`, and `opts` are all non-empty.
+
+#### B) `crypttab` configuration item
+UDisks2 configuration item `( "crypttab", a{sv} )` with keys:
+- `device` (bytestring) — forced to `UUID=<block-uuid>`
+- `name` (bytestring)
+- `options` (bytestring)
+- `passphrase-path` (bytestring)
+- `passphrase-contents` (bytestring)
+
+Token mapping in `options` (GNOME parity):
+- Startup toggle ↔ `noauto` (inverted)
+- Require auth ↔ `x-udisks-auth`
+
+Passphrase behavior (GNOME parity):
+- If passphrase is non-empty:
+  - set `passphrase-contents` to the entered value
+  - set `passphrase-path` to an existing non-empty non-`/dev*` path if available; otherwise default to `/etc/luks-keys/<name>`
+- If passphrase is empty:
+  - set both `passphrase-path` and `passphrase-contents` to empty
+
+### Implementation notes
+- Centralize mount/encryption option parsing/formatting: split on `,`, trim whitespace, stable-dedup tokens, preserve non-managed tokens.
+- GNOME Disks only considers the first `fstab`/`crypttab` config item if multiple exist; do the same.
+- Editing these settings is Polkit-gated; always surface errors via Info dialog.
+
+### Acceptance Criteria
+- [x] “Edit Encryption Options…” appears only for LUKS containers and opens the dialog described above.
+- [x] “Edit Mount Options…” appears for filesystems/partitions and opens the dialog described above.
+- [x] “User Session Defaults” removes the corresponding `fstab`/`crypttab` configuration item.
+- [x] Toggle-to-token mappings match GNOME Disks exactly (`noauto`, `x-udisks-auth`, `x-gvfs-*`).
+- [x] Confirm applies settings via UDisks2 configuration item add/update/remove and refreshes the view.

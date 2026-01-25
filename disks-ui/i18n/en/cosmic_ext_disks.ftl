@@ -118,6 +118,8 @@ unlock-missing-partition = Could not find { $name } in the current device list.
 
 # Volume commands
 mount-toggle = Mount / Unmount
+edit-mount-options = Edit Mount Options…
+edit-encryption-options = Edit Encryption Options…
 edit-partition = Edit Partition
 edit-partition-no-types = No partition types available for this partition table.
 flag-legacy-bios-bootable = Legacy BIOS Bootable
@@ -135,6 +137,23 @@ repair-filesystem-warning = Repairing a filesystem can take a long time and may 
 take-ownership = Take Ownership
 take-ownership-warning = This will change ownership of files to your user. This can take a long time and cannot be easily undone.
 take-ownership-recursive = Apply recursively
+
+# Mount/encryption options
+user-session-defaults = User Session Defaults
+mount-at-startup = Mount at system startup
+unlock-at-startup = Unlock at system startup
+require-auth-to-mount = Require authorization to mount or unmount
+require-auth-to-unlock = Require authorization to unlock
+show-in-ui = Show in user interface
+identify-as = Identify As
+other-options = Other options
+mount-point = Mount point
+filesystem-type = Filesystem type
+display-name = Display name
+icon-name = Icon name
+symbolic-icon-name = Symbolic icon name
+show-passphrase = Show passphrase
+name = Name
 
 # SMART
 smart-no-data = No SMART data available.

@@ -4,6 +4,11 @@ use super::ops::{
     partition_format, partition_mount, partition_unmount,
 };
 use crate::Usage;
+use crate::udisks_block_config::{ConfigurationItem, UDisks2BlockConfigurationProxy};
+use crate::{
+    join_options, remove_prefixed, remove_token, set_prefixed_value, set_token_present,
+    split_options, stable_dedup,
+};
 use anyhow::Result;
 use enumflags2::BitFlags;
 use std::path::Path;
@@ -14,7 +19,10 @@ use udisks2::{
     filesystem::FilesystemProxy,
     partition::{PartitionFlags, PartitionProxy},
 };
+use zbus::zvariant::{OwnedValue, Value};
 use zbus::{Connection, zvariant::OwnedObjectPath};
+
+use super::{EncryptionOptionsSettings, MountOptionsSettings};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum VolumeType {
@@ -47,6 +55,37 @@ pub struct VolumeModel {
 }
 
 impl VolumeModel {
+    fn encode_bytestring(value: &str) -> Vec<u8> {
+        let mut bytes = value.as_bytes().to_vec();
+        bytes.push(0);
+        bytes
+    }
+
+    fn bytestring_owned_value(value: &str) -> OwnedValue {
+        Value::from(Self::encode_bytestring(value))
+            .try_into()
+            .expect("zvariant Value<Vec<u8>> should convert into OwnedValue")
+    }
+
+    fn owned_value_to_bytestring(value: &OwnedValue) -> Option<String> {
+        let bytes: Vec<u8> = value.clone().try_into().ok()?;
+        Some(Self::decode_c_string_bytes(&bytes))
+    }
+
+    fn find_configuration_item(
+        items: &[ConfigurationItem],
+        kind: &str,
+    ) -> Option<ConfigurationItem> {
+        items.iter().find(|(t, _)| t == kind).cloned()
+    }
+
+    fn extract_prefixed_value(tokens: &[String], prefix: &str) -> String {
+        tokens
+            .iter()
+            .find_map(|t| t.strip_prefix(prefix).map(|v| v.to_string()))
+            .unwrap_or_default()
+    }
+
     fn decode_c_string_bytes(bytes: &[u8]) -> String {
         let raw = match bytes.split(|b| *b == 0).next() {
             Some(v) => v,
@@ -535,11 +574,132 @@ impl VolumeModel {
         Ok(())
     }
 
+    pub async fn get_mount_options_settings(&self) -> Result<Option<MountOptionsSettings>> {
+        if self.connection.is_none() {
+            return Err(DiskError::NotConnected(self.name.clone()).into());
+        }
+
+        let proxy = UDisks2BlockConfigurationProxy::builder(self.connection.as_ref().unwrap())
+            .path(&self.path)?
+            .build()
+            .await?;
+
+        let items = proxy.configuration().await?;
+        let Some((_, dict)) = Self::find_configuration_item(&items, "fstab") else {
+            return Ok(None);
+        };
+
+        let identify_as = dict
+            .get("fsname")
+            .and_then(Self::owned_value_to_bytestring)
+            .unwrap_or_default();
+        let mount_point = dict
+            .get("dir")
+            .and_then(Self::owned_value_to_bytestring)
+            .unwrap_or_default();
+        let filesystem_type = dict
+            .get("type")
+            .and_then(Self::owned_value_to_bytestring)
+            .unwrap_or_default();
+        let opts = dict
+            .get("opts")
+            .and_then(Self::owned_value_to_bytestring)
+            .unwrap_or_default();
+
+        let tokens = split_options(&opts);
+        let mount_at_startup = !tokens.iter().any(|t| t == "noauto");
+        let require_auth = tokens.iter().any(|t| t == "x-udisks-auth");
+        let show_in_ui = tokens.iter().any(|t| t == "x-gvfs-show");
+
+        let display_name = Self::extract_prefixed_value(&tokens, "x-gvfs-name=");
+        let icon_name = Self::extract_prefixed_value(&tokens, "x-gvfs-icon=");
+        let symbolic_icon_name = Self::extract_prefixed_value(&tokens, "x-gvfs-symbolic-icon=");
+
+        let mut other_tokens = tokens;
+        other_tokens = remove_token(other_tokens, "noauto");
+        other_tokens = remove_token(other_tokens, "x-udisks-auth");
+        other_tokens = remove_token(other_tokens, "x-gvfs-show");
+        other_tokens = remove_prefixed(other_tokens, "x-gvfs-name=");
+        other_tokens = remove_prefixed(other_tokens, "x-gvfs-icon=");
+        other_tokens = remove_prefixed(other_tokens, "x-gvfs-symbolic-icon=");
+
+        let other_options = join_options(&stable_dedup(other_tokens));
+
+        Ok(Some(MountOptionsSettings {
+            identify_as,
+            mount_point,
+            filesystem_type,
+            mount_at_startup,
+            require_auth,
+            show_in_ui,
+            other_options,
+            display_name,
+            icon_name,
+            symbolic_icon_name,
+        }))
+    }
+
+    pub async fn get_encryption_options_settings(
+        &self,
+    ) -> Result<Option<EncryptionOptionsSettings>> {
+        if self.connection.is_none() {
+            return Err(DiskError::NotConnected(self.name.clone()).into());
+        }
+
+        let proxy = UDisks2BlockConfigurationProxy::builder(self.connection.as_ref().unwrap())
+            .path(&self.path)?
+            .build()
+            .await?;
+
+        let items = proxy.configuration().await?;
+        let Some((_, dict)) = Self::find_configuration_item(&items, "crypttab") else {
+            return Ok(None);
+        };
+
+        let name = dict
+            .get("name")
+            .and_then(Self::owned_value_to_bytestring)
+            .unwrap_or_default();
+        let options = dict
+            .get("options")
+            .and_then(Self::owned_value_to_bytestring)
+            .unwrap_or_default();
+
+        let tokens = split_options(&options);
+        let unlock_at_startup = !tokens.iter().any(|t| t == "noauto");
+        let require_auth = tokens.iter().any(|t| t == "x-udisks-auth");
+
+        let mut other_tokens = tokens;
+        other_tokens = remove_token(other_tokens, "noauto");
+        other_tokens = remove_token(other_tokens, "x-udisks-auth");
+        let other_options = join_options(&stable_dedup(other_tokens));
+
+        Ok(Some(EncryptionOptionsSettings {
+            name,
+            unlock_at_startup,
+            require_auth,
+            other_options,
+        }))
+    }
+
     //TODO: implement. See how edit mount options -> User session defaults works in gnome-disks.
     pub async fn default_mount_options(&self) -> Result<()> {
         if self.connection.is_none() {
             return Err(DiskError::NotConnected(self.name.clone()).into());
         }
+
+        let proxy = UDisks2BlockConfigurationProxy::builder(self.connection.as_ref().unwrap())
+            .path(&self.path)?
+            .build()
+            .await?;
+
+        let items = proxy.configuration().await?;
+        if let Some(old_item) = Self::find_configuration_item(&items, "fstab") {
+            proxy
+                .remove_configuration_item(old_item, std::collections::HashMap::new())
+                .await?;
+        }
+
         Ok(())
     }
 
@@ -547,29 +707,214 @@ impl VolumeModel {
     #[allow(clippy::too_many_arguments)]
     pub async fn edit_mount_options(
         &self,
-        _mount_at_startup: bool,
-        _show_in_ui: bool,
-        _requre_auth: bool,
-        _display_name: Option<String>,
-        _icon_name: Option<String>,
-        _symbolic_icon_name: Option<String>,
-        _options: String,
-        _mount_point: String,
-        _identify_as: String,
-        _file_system_type: String,
+        mount_at_startup: bool,
+        show_in_ui: bool,
+        requre_auth: bool,
+        display_name: Option<String>,
+        icon_name: Option<String>,
+        symbolic_icon_name: Option<String>,
+        options: String,
+        mount_point: String,
+        identify_as: String,
+        file_system_type: String,
     ) -> Result<()> {
         if self.connection.is_none() {
             return Err(DiskError::NotConnected(self.name.clone()).into());
         }
+
+        if mount_point.trim().is_empty() {
+            return Err(anyhow::anyhow!("Mount point must not be empty"));
+        }
+        if identify_as.trim().is_empty() {
+            return Err(anyhow::anyhow!("Identify As must not be empty"));
+        }
+        if file_system_type.trim().is_empty() {
+            return Err(anyhow::anyhow!("Filesystem type must not be empty"));
+        }
+
+        // Build the final `opts` token list matching GNOME Disks behavior.
+        let mut tokens = split_options(&options);
+        tokens = set_token_present(tokens, "noauto", !mount_at_startup);
+        tokens = set_token_present(tokens, "x-udisks-auth", requre_auth);
+        tokens = set_token_present(tokens, "x-gvfs-show", show_in_ui);
+        tokens = set_prefixed_value(tokens, "x-gvfs-name=", display_name.as_deref());
+        tokens = set_prefixed_value(tokens, "x-gvfs-icon=", icon_name.as_deref());
+        tokens = set_prefixed_value(
+            tokens,
+            "x-gvfs-symbolic-icon=",
+            symbolic_icon_name.as_deref(),
+        );
+        let opts = join_options(&stable_dedup(tokens));
+
+        if opts.trim().is_empty() {
+            return Err(anyhow::anyhow!("Mount options must not be empty"));
+        }
+
+        let proxy = UDisks2BlockConfigurationProxy::builder(self.connection.as_ref().unwrap())
+            .path(&self.path)?
+            .build()
+            .await?;
+
+        let items = proxy.configuration().await?;
+        let old_item = Self::find_configuration_item(&items, "fstab");
+
+        let mut dict: std::collections::HashMap<String, OwnedValue> =
+            std::collections::HashMap::new();
+        dict.insert(
+            "fsname".to_string(),
+            Self::bytestring_owned_value(identify_as.trim()),
+        );
+        dict.insert(
+            "dir".to_string(),
+            Self::bytestring_owned_value(mount_point.trim()),
+        );
+        dict.insert(
+            "type".to_string(),
+            Self::bytestring_owned_value(file_system_type.trim()),
+        );
+        dict.insert(
+            "opts".to_string(),
+            Self::bytestring_owned_value(opts.trim()),
+        );
+        dict.insert("freq".to_string(), OwnedValue::from(0i32));
+        dict.insert("passno".to_string(), OwnedValue::from(0i32));
+
+        let new_item: ConfigurationItem = ("fstab".to_string(), dict);
+
+        if let Some(old_item) = old_item {
+            proxy
+                .update_configuration_item(old_item, new_item, std::collections::HashMap::new())
+                .await?;
+        } else {
+            proxy
+                .add_configuration_item(new_item, std::collections::HashMap::new())
+                .await?;
+        }
+
         Ok(())
     }
 
-    //TODO: implement
-    pub async fn edit_encrytion_options(&self) -> Result<()> {
+    pub async fn edit_encryption_options(
+        &self,
+        unlock_at_startup: bool,
+        require_auth: bool,
+        other_options: String,
+        name: String,
+        passphrase: String,
+    ) -> Result<()> {
         if self.connection.is_none() {
             return Err(DiskError::NotConnected(self.name.clone()).into());
         }
+
+        if name.trim().is_empty() {
+            return Err(anyhow::anyhow!("Name must not be empty"));
+        }
+
+        // GNOME Disks forces `device` to `UUID=<block-uuid>`.
+        let block_proxy = BlockProxy::builder(self.connection.as_ref().unwrap())
+            .path(&self.path)?
+            .build()
+            .await?;
+        let id_uuid = block_proxy.id_uuid().await.unwrap_or_default();
+        if id_uuid.trim().is_empty() {
+            return Err(anyhow::anyhow!(
+                "Missing block UUID; cannot write crypttab entry"
+            ));
+        }
+        let device = format!("UUID={id_uuid}");
+
+        let mut tokens = split_options(&other_options);
+        tokens = set_token_present(tokens, "noauto", !unlock_at_startup);
+        tokens = set_token_present(tokens, "x-udisks-auth", require_auth);
+        let options = join_options(&stable_dedup(tokens));
+
+        let proxy = UDisks2BlockConfigurationProxy::builder(self.connection.as_ref().unwrap())
+            .path(&self.path)?
+            .build()
+            .await?;
+
+        let items = proxy.configuration().await?;
+        let old_item = Self::find_configuration_item(&items, "crypttab");
+
+        // If we have an existing non-empty, non-/dev* passphrase path, keep it.
+        let existing_passphrase_path = old_item
+            .as_ref()
+            .and_then(|(_, d)| d.get("passphrase-path"))
+            .and_then(Self::owned_value_to_bytestring)
+            .unwrap_or_default();
+
+        let mut passphrase_path = String::new();
+        let mut passphrase_contents = String::new();
+        if !passphrase.is_empty() {
+            passphrase_contents = passphrase;
+            if !existing_passphrase_path.is_empty() && !existing_passphrase_path.starts_with("/dev")
+            {
+                passphrase_path = existing_passphrase_path;
+            } else {
+                passphrase_path = format!("/etc/luks-keys/{}", name.trim());
+            }
+        }
+
+        let mut dict: std::collections::HashMap<String, OwnedValue> =
+            std::collections::HashMap::new();
+        dict.insert("device".to_string(), Self::bytestring_owned_value(&device));
+        dict.insert(
+            "name".to_string(),
+            Self::bytestring_owned_value(name.trim()),
+        );
+        dict.insert(
+            "options".to_string(),
+            Self::bytestring_owned_value(options.trim()),
+        );
+        dict.insert(
+            "passphrase-path".to_string(),
+            Self::bytestring_owned_value(&passphrase_path),
+        );
+        dict.insert(
+            "passphrase-contents".to_string(),
+            Self::bytestring_owned_value(&passphrase_contents),
+        );
+
+        let new_item: ConfigurationItem = ("crypttab".to_string(), dict);
+
+        if let Some(old_item) = old_item {
+            proxy
+                .update_configuration_item(old_item, new_item, std::collections::HashMap::new())
+                .await?;
+        } else {
+            proxy
+                .add_configuration_item(new_item, std::collections::HashMap::new())
+                .await?;
+        }
+
         Ok(())
+    }
+
+    pub async fn default_encryption_options(&self) -> Result<()> {
+        if self.connection.is_none() {
+            return Err(DiskError::NotConnected(self.name.clone()).into());
+        }
+
+        let proxy = UDisks2BlockConfigurationProxy::builder(self.connection.as_ref().unwrap())
+            .path(&self.path)?
+            .build()
+            .await?;
+
+        let items = proxy.configuration().await?;
+        if let Some(old_item) = Self::find_configuration_item(&items, "crypttab") {
+            proxy
+                .remove_configuration_item(old_item, std::collections::HashMap::new())
+                .await?;
+        }
+
+        Ok(())
+    }
+
+    // Backwards-compat (typo in API): keep the old name but make it explicit.
+    pub async fn edit_encrytion_options(&self) -> Result<()> {
+        Err(anyhow::anyhow!(
+            "edit_encrytion_options() is deprecated; use edit_encryption_options(...)"
+        ))
     }
 
     //TODO: implement. creates a *.img of self.

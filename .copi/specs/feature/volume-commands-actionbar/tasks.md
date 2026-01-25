@@ -128,3 +128,101 @@
 - `cargo clippy --workspace --all-features`
 - `cargo test --workspace --all-features`
 - Manual validation on a non-critical disk/loop device for each command.
+
+---
+
+# Addendum (2026-01-25): Mount + Encryption Options — Tasks
+
+## Task 7: GNOME Disks parity research capture (fstab/crypttab)
+- Status: Done
+- Scope: Lock down the exact field set + token mappings we will implement (GNOME Disks parity).
+- Files/areas:
+  - `.copi/specs/feature/volume-commands-actionbar/plan.md` (addendum section)
+- Steps:
+  - Capture upstream references (GNOME Disks 46.1):
+    - `src/disks/gdufstabdialog.c` + `src/disks/ui/edit-fstab-dialog.ui`
+    - `src/disks/gducrypttabdialog.c` + `src/disks/ui/edit-crypttab-dialog.ui`
+  - Document mapping:
+    - fstab: `opts` tokens (`noauto`, `x-udisks-auth`, `x-gvfs-*`)
+    - crypttab: `options` tokens (`noauto`, `x-udisks-auth`)
+  - Confirm UDisks2 configuration item keys to be used for `fstab`/`crypttab`.
+- Test plan:
+  - N/A (documentation task)
+- Done when:
+  - [x] Spec addendum contains field list + key/token mapping.
+
+## Task 8: DBus: add/update/remove UDisks2 Block configuration items
+- Status: Done
+- Scope: Implement backend plumbing to read and mutate `org.freedesktop.UDisks2.Block` configuration items for `fstab` and `crypttab`.
+- Files/areas:
+  - `disks-dbus/src/disks/partition.rs` (implement `edit_mount_options` and extend/replace `edit_encrytion_options`)
+  - Potentially `disks-dbus/src/disks/ops.rs` or a new module for Block configuration helpers
+- Steps:
+  - Add helpers to:
+    - Read current `Block.Configuration` list
+    - Find the first matching item by type (`fstab`/`crypttab`)
+    - Add/update/remove configuration item
+  - Implement `VolumeModel::edit_mount_options(...)`:
+    - If defaults enabled → remove `fstab` item
+    - Else add/update with keys: `fsname`, `dir`, `type`, `opts`, `freq`, `passno`
+  - Implement encryption options method (rename typo if desired, but keep public API stable if already used):
+    - If defaults enabled → remove `crypttab` item
+    - Else add/update with keys: `device`, `name`, `options`, `passphrase-path`, `passphrase-contents`
+  - Ensure we follow GNOME Disks “first item only” behavior.
+- Test plan:
+  - If the repo has a fake backend/test harness: unit test option token parsing + dict creation.
+  - Manual: validate a config change is reflected via `udisksctl info` and/or system files managed by udisks.
+- Done when:
+  - [x] DBus layer exposes working APIs for mount/encryption option persistence.
+
+## Task 9: UI: add “Edit Mount Options…” + dialog
+- Status: Done
+- Scope: Add action button + dialog UI + confirm wiring for fstab config.
+- Files/areas:
+  - `disks-ui/src/views/volumes.rs` (actionbar button visibility rules)
+  - `disks-ui/src/app.rs` (dialog state + ShowDialog variant)
+  - `disks-ui/src/views/dialogs.rs` (dialog layout)
+  - `disks-ui/i18n/en/cosmic_ext_disks.ftl` (+ `sv` if required)
+- Steps:
+  - Add actionbar button and message routing.
+  - Implement dialog with GNOME fields (including Identify As dropdown).
+  - Implement “User Session Defaults” disabling behavior.
+  - On confirm: call DBus method, refresh drives, show errors via Info dialog.
+- Test plan:
+  - Manual: toggle noauto/auth/show in UI; verify applied and persists across refresh.
+- Done when:
+  - [x] Mount options dialog works end-to-end for a test filesystem.
+
+## Task 10: UI: add “Edit Encryption Options…” + dialog (LUKS only)
+- Status: Done
+- Scope: Add action button + dialog UI + confirm wiring for crypttab config.
+- Files/areas:
+  - `disks-ui/src/views/volumes.rs`
+  - `disks-ui/src/app.rs`
+  - `disks-ui/src/views/dialogs.rs`
+  - `disks-ui/i18n/en/cosmic_ext_disks.ftl` (+ `sv` if required)
+- Steps:
+  - Add actionbar button visible only when selected segment is a LUKS crypto container.
+  - Implement dialog fields per spec (defaults toggle, startup/auth toggles, other options, name, passphrase, show passphrase).
+  - On confirm: call DBus method, refresh drives, show errors via Info dialog.
+- Test plan:
+  - Manual: validate `noauto` and `x-udisks-auth` toggles; validate passphrase behavior.
+- Done when:
+  - [x] Encryption options dialog works end-to-end for a LUKS container.
+
+## Task 11: Option-token parsing/formatting utility
+- Status: Done
+- Scope: Avoid corrupting user-entered option strings while managing known tokens.
+- Files/areas:
+  - `disks-ui/src/utils/` and/or `disks-dbus/src/` (shared helper, or duplicated carefully)
+- Steps:
+  - Implement helpers:
+    - Split by `,`, trim, drop empties
+    - Stable dedup
+    - Set/remove exact tokens
+    - Set/remove key-value tokens by prefix (e.g. `x-gvfs-name=`)
+  - Ensure “Other options” merges without duplicating managed tokens.
+- Test plan:
+  - Unit tests for: duplicate tokens, whitespace, key-value replacement.
+- Done when:
+  - [x] Both dialogs can round-trip options reliably.

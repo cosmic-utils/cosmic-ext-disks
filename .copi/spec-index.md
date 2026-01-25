@@ -22,3 +22,4 @@ A lightweight mapping of audited gaps/work items to implementation specs.
 | N/A | Implement remaining Disk menu commands (SMART/power/standby) | `.copi/specs/feature/disk-menu-commands/` | `feature/disk-menu-commands` | N/A (brief) | Spec created |
 | N/A | Implement all Image menu commands (disk imaging + attach/new image) | `.copi/specs/feature/image-menu-commands/` | `feature/image-menu-commands` | N/A (brief) | Implemented |
 | N/A | Implement all volume commands (actionbar + dialogs + DBus) | `.copi/specs/feature/volume-commands-actionbar/` | `feature/volume-commands-actionbar` | N/A (brief; 2026-01-25) | Implemented (manual validation pending) |
+| N/A | GNOME Disks parity: Edit Mount Options + Edit Encryption Options dialogs | `.copi/specs/feature/volume-commands-actionbar/` | `feature/volume-commands-actionbar` | N/A (brief; 2026-01-25 addendum) | Spec updated |

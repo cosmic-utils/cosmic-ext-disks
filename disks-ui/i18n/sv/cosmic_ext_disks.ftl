@@ -118,6 +118,8 @@ unlock-missing-partition = Kunde inte hitta { $name } i den aktuella enhetslista
 
 # Volume commands
 mount-toggle = Montera / avmontera
+edit-mount-options = Redigera monteringsalternativ…
+edit-encryption-options = Redigera krypteringsalternativ…
 edit-partition = Redigera partition
 edit-partition-no-types = Inga partitionstyper är tillgängliga för denna partitionstabell.
 flag-legacy-bios-bootable = Legacy BIOS-startbar
@@ -135,6 +137,23 @@ repair-filesystem-warning = Att reparera ett filsystem kan ta lång tid och kan 
 take-ownership = Ta ägarskap
 take-ownership-warning = Detta kommer att ändra ägarskap för filer till din användare. Detta kan ta lång tid och kan inte enkelt ångras.
 take-ownership-recursive = Tillämpa rekursivt
+
+# Mount/encryption options
+user-session-defaults = Användarsessionens standardvärden
+mount-at-startup = Montera vid systemstart
+unlock-at-startup = Lås upp vid systemstart
+require-auth-to-mount = Kräv behörighet för att montera eller avmontera
+require-auth-to-unlock = Kräv behörighet för att låsa upp
+show-in-ui = Visa i användargränssnittet
+identify-as = Identifiera som
+other-options = Andra alternativ
+mount-point = Monteringspunkt
+filesystem-type = Filsystemstyp
+display-name = Visningsnamn
+icon-name = Ikonnamn
+symbolic-icon-name = Symboliskt ikonnamn
+show-passphrase = Visa lösenfras
+name = Namn
 
 # SMART
 smart-no-data = Ingen SMART-data tillgänglig.

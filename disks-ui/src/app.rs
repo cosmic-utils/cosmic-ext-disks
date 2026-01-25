@@ -57,9 +57,11 @@ pub enum ShowDialog {
     EditPartition(EditPartitionDialog),
     ResizePartition(ResizePartitionDialog),
     EditFilesystemLabel(EditFilesystemLabelDialog),
+    EditMountOptions(EditMountOptionsDialog),
     ConfirmAction(ConfirmActionDialog),
     TakeOwnership(TakeOwnershipDialog),
     ChangePassphrase(ChangePassphraseDialog),
+    EditEncryptionOptions(EditEncryptionOptionsDialog),
     UnlockEncrypted(UnlockEncryptedDialog),
     FormatDisk(FormatDiskDialog),
     SmartData(SmartDataDialog),
@@ -132,6 +134,39 @@ pub struct ChangePassphraseDialog {
     pub current_passphrase: String,
     pub new_passphrase: String,
     pub confirm_passphrase: String,
+    pub error: Option<String>,
+    pub running: bool,
+}
+
+#[derive(Debug, Clone)]
+pub struct EditMountOptionsDialog {
+    pub target: FilesystemTarget,
+    pub use_defaults: bool,
+    pub mount_at_startup: bool,
+    pub require_auth: bool,
+    pub show_in_ui: bool,
+    pub other_options: String,
+    pub display_name: String,
+    pub icon_name: String,
+    pub symbolic_icon_name: String,
+    pub mount_point: String,
+    pub identify_as_options: Vec<String>,
+    pub identify_as_index: usize,
+    pub filesystem_type: String,
+    pub error: Option<String>,
+    pub running: bool,
+}
+
+#[derive(Debug, Clone)]
+pub struct EditEncryptionOptionsDialog {
+    pub volume: VolumeModel,
+    pub use_defaults: bool,
+    pub unlock_at_startup: bool,
+    pub require_auth: bool,
+    pub other_options: String,
+    pub name: String,
+    pub passphrase: String,
+    pub show_passphrase: bool,
     pub error: Option<String>,
     pub running: bool,
 }
@@ -423,6 +458,10 @@ impl Application for AppModel {
                     Some(dialogs::edit_filesystem_label(state.clone()))
                 }
 
+                ShowDialog::EditMountOptions(state) => {
+                    Some(dialogs::edit_mount_options(state.clone()))
+                }
+
                 ShowDialog::ConfirmAction(state) => Some(dialogs::confirmation(
                     state.title.clone(),
                     state.body.clone(),
@@ -435,6 +474,10 @@ impl Application for AppModel {
 
                 ShowDialog::ChangePassphrase(state) => {
                     Some(dialogs::change_passphrase(state.clone()))
+                }
+
+                ShowDialog::EditEncryptionOptions(state) => {
+                    Some(dialogs::edit_encryption_options(state.clone()))
                 }
 
                 ShowDialog::UnlockEncrypted(state) => {
@@ -882,9 +925,11 @@ impl Application for AppModel {
                     Some(ShowDialog::EditPartition(s)) => s.running,
                     Some(ShowDialog::ResizePartition(s)) => s.running,
                     Some(ShowDialog::EditFilesystemLabel(s)) => s.running,
+                    Some(ShowDialog::EditMountOptions(s)) => s.running,
                     Some(ShowDialog::ConfirmAction(s)) => s.running,
                     Some(ShowDialog::TakeOwnership(s)) => s.running,
                     Some(ShowDialog::ChangePassphrase(s)) => s.running,
+                    Some(ShowDialog::EditEncryptionOptions(s)) => s.running,
                     Some(ShowDialog::DeletePartition(s)) => s.running,
                     _ => false,
                 };

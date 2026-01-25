@@ -21,6 +21,28 @@ pub use smart::*;
 use thiserror::Error;
 pub use volume::*;
 
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct MountOptionsSettings {
+    pub identify_as: String,
+    pub mount_point: String,
+    pub filesystem_type: String,
+    pub mount_at_startup: bool,
+    pub require_auth: bool,
+    pub show_in_ui: bool,
+    pub other_options: String,
+    pub display_name: String,
+    pub icon_name: String,
+    pub symbolic_icon_name: String,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct EncryptionOptionsSettings {
+    pub name: String,
+    pub unlock_at_startup: bool,
+    pub require_auth: bool,
+    pub other_options: String,
+}
+
 // async fn get_size(path: impl Into<String> + std::fmt::Display) -> Result<String> {
 //     let client = udisks2::Client::new().await?;
 //     let object = client

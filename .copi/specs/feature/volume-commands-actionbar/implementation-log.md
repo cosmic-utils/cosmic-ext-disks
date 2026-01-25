@@ -4,6 +4,11 @@
 - Implemented volume command actionbar buttons (with tooltips) and dialogs, wired to DBus operations and drive refresh.
 - Addressed follow-up compile issues (borrow checker + moved values) and removed accidental UI-layer dependency on `udisks2` / `enumflags2` by pushing flag conversion into `disks-dbus`.
 - Fixed actionbar construction borrow conflict by switching from a closure capturing `&mut action_bar` to a helper that returns an element.
+- Implemented GNOME Disks parity dialogs + persistence for:
+	- Edit Mount Options (fstab configuration item)
+	- Edit Encryption Options (crypttab configuration item; LUKS containers only)
+- Backend: added `org.freedesktop.UDisks2.Block` configuration item proxy + option-token parsing helpers.
+- UI: added actionbar buttons, dialog state/rendering, confirm wiring, and new i18n strings.
 
 ### Commands run
 - `cargo check --workspace --all-features`
@@ -19,7 +24,10 @@
 - `disks-ui/i18n/sv/cosmic_ext_disks.ftl`
 - `disks-dbus/src/disks/partition.rs`
 - `disks-dbus/src/disks/volume.rs`
+- `disks-dbus/src/options.rs`
+- `disks-dbus/src/udisks_block_config.rs`
 - `disks-dbus/src/partition_type.rs`
 
 ### Follow-ups
 - Manual validation on a loop device / non-critical disk for each command (polkit prompts, mounted/unmounted error surfacing).
+- Consider pre-filling the new dialogs from existing `fstab`/`crypttab` configuration items.
