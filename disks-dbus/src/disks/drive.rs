@@ -24,9 +24,23 @@ fn is_dbus_not_supported(err: &zbus::Error) -> bool {
     }
 }
 
+fn is_dbus_device_busy(err: &zbus::Error) -> bool {
+    match err {
+        zbus::Error::MethodError(name, _msg, _info) => {
+            name.as_str() == "org.freedesktop.UDisks2.Error.DeviceBusy"
+        }
+        _ => false,
+    }
+}
+
 fn is_anyhow_not_supported(err: &anyhow::Error) -> bool {
     err.downcast_ref::<zbus::Error>()
         .is_some_and(is_dbus_not_supported)
+}
+
+fn is_anyhow_device_busy(err: &anyhow::Error) -> bool {
+    err.downcast_ref::<zbus::Error>()
+        .is_some_and(is_dbus_device_busy)
 }
 
 use crate::CreatePartitionInfo;
@@ -418,12 +432,25 @@ impl DriveModel {
     }
 
     pub async fn eject(&self) -> Result<()> {
+        if !self.ejectable {
+            return Err(anyhow::anyhow!("Not supported by this drive"));
+        }
+
         let proxy = DriveProxy::builder(&self.connection)
             .path(self.path.clone())?
             .build()
             .await?;
-        proxy.eject(HashMap::new()).await?;
-        Ok(())
+
+        match proxy.eject(HashMap::new()).await.map_err(Into::into) {
+            Ok(()) => Ok(()),
+            Err(e) if is_anyhow_not_supported(&e) => {
+                Err(anyhow::anyhow!("Not supported by this drive"))
+            }
+            Err(e) if is_anyhow_device_busy(&e) => Err(anyhow::anyhow!(
+                "Device is busy. Unmount any volumes on it and try again."
+            )),
+            Err(e) => Err(e),
+        }
     }
 
     pub async fn power_off(&self) -> Result<()> {

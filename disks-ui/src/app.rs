@@ -722,24 +722,28 @@ impl Application for AppModel {
                 self.dialog = None;
             }
             Message::Eject => {
-                if let Some(drive) = self.nav.active_data::<DriveModel>().cloned() {
-                    return Task::perform(
-                        async move {
-                            let _ = drive.eject().await; //TODO handle error
-                            match DriveModel::get_drives().await {
-                                Ok(drives) => Some(drives),
-                                Err(e) => {
-                                    println!("Error: {e}");
-                                    None
-                                }
-                            }
-                        },
-                        move |drives| match drives {
-                            None => Message::None.into(),
+                let Some(drive) = self.nav.active_data::<DriveModel>().cloned() else {
+                    return Task::none();
+                };
+
+                return Task::perform(
+                    async move {
+                        let res = drive.eject().await;
+                        let drives = DriveModel::get_drives().await.ok();
+                        (res, drives)
+                    },
+                    |(res, drives)| match res {
+                        Ok(()) => match drives {
                             Some(drives) => Message::UpdateNav(drives, None).into(),
+                            None => Message::None.into(),
                         },
-                    );
-                }
+                        Err(e) => Message::Dialog(Box::new(ShowDialog::Info {
+                            title: fl!("app-title"),
+                            body: e.to_string(),
+                        }))
+                        .into(),
+                    },
+                );
             }
             Message::PowerOff => {
                 let Some(drive) = self.nav.active_data::<DriveModel>().cloned() else {
