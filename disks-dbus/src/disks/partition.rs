@@ -196,9 +196,11 @@ impl VolumeModel {
             Some(device)
         };
         if device_path.is_none() {
-            let proposed = format!("/dev/{}", block_object_path.split("/").last().unwrap());
-            if Path::new(&proposed).exists() {
-                device_path = Some(proposed);
+            if let Some(last) = block_object_path.split('/').last() {
+                let proposed = format!("/dev/{}", last);
+                if Path::new(&proposed).exists() {
+                    device_path = Some(proposed);
+                }
             }
         }
 
