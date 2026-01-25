@@ -1521,39 +1521,6 @@ async fn run_image_operation(
     image_path: String,
     cancel: Arc<AtomicBool>,
 ) -> anyhow::Result<()> {
-    fn find_volume_node<'a>(
-        volumes: &'a [disks_dbus::VolumeNode],
-        object_path: &str,
-    ) -> Option<&'a disks_dbus::VolumeNode> {
-        for v in volumes {
-            if v.object_path.to_string() == object_path {
-                return Some(v);
-            }
-            if let Some(child) = find_volume_node(&v.children, object_path) {
-                return Some(child);
-            }
-        }
-        None
-    }
-
-    fn collect_mounted_descendants_leaf_first(
-        node: &disks_dbus::VolumeNode,
-    ) -> Vec<disks_dbus::VolumeNode> {
-        fn visit(node: &disks_dbus::VolumeNode, out: &mut Vec<disks_dbus::VolumeNode>) {
-            for child in &node.children {
-                visit(child, out);
-            }
-
-            if node.can_mount() && node.is_mounted() {
-                out.push(node.clone());
-            }
-        }
-
-        let mut out = Vec::new();
-        visit(node, &mut out);
-        out
-    }
-
     match kind {
         ImageOperationKind::CreateFromDrive => {
             let fd = drive.open_for_backup().await?;
