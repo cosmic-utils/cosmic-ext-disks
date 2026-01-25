@@ -28,6 +28,11 @@ cancel = Cancel
 continue = Continue
 working = Working…
 
+# Common
+close = Close
+refresh = Refresh
+details = Details
+
 # Format disk dialog
 erase-dont-overwrite-quick = Don't Overwrite (Quick)
 erase-overwrite-slow = Overwrite (Slow)
@@ -90,3 +95,14 @@ unlocked = Unlocked
 unlock-failed = Unlock failed
 lock-failed = Lock failed
 unlock-missing-partition = Could not find { $name } in the current device list.
+
+# SMART
+smart-no-data = No SMART data available.
+smart-type = Type
+smart-updated = Updated
+smart-temperature = Temperature
+smart-power-on-hours = Power-on hours
+smart-selftest = Self-test
+smart-selftest-short = Short self-test
+smart-selftest-extended = Extended self-test
+smart-selftest-abort = Abort self-test

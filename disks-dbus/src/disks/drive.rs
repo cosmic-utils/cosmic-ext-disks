@@ -6,8 +6,42 @@ use udisks2::{
     Client, block::BlockProxy, drive::DriveProxy, partition::PartitionProxy,
     partitiontable::PartitionTableProxy,
 };
+use zbus::zvariant::OwnedValue;
 use zbus::zvariant::Value;
 use zbus::{Connection, zvariant::OwnedObjectPath};
+
+use super::{SmartInfo, SmartSelfTestKind};
+
+fn is_dbus_not_supported(err: &zbus::Error) -> bool {
+    match err {
+        zbus::Error::MethodError(name, _msg, _info) => matches!(
+            name.as_str(),
+            "org.freedesktop.DBus.Error.UnknownInterface"
+                | "org.freedesktop.DBus.Error.UnknownMethod"
+                | "org.freedesktop.DBus.Error.UnknownProperty"
+        ),
+        _ => false,
+    }
+}
+
+fn is_dbus_device_busy(err: &zbus::Error) -> bool {
+    match err {
+        zbus::Error::MethodError(name, _msg, _info) => {
+            name.as_str() == "org.freedesktop.UDisks2.Error.DeviceBusy"
+        }
+        _ => false,
+    }
+}
+
+fn is_anyhow_not_supported(err: &anyhow::Error) -> bool {
+    err.downcast_ref::<zbus::Error>()
+        .is_some_and(is_dbus_not_supported)
+}
+
+fn is_anyhow_device_busy(err: &anyhow::Error) -> bool {
+    err.downcast_ref::<zbus::Error>()
+        .is_some_and(is_dbus_device_busy)
+}
 
 use crate::CreatePartitionInfo;
 
@@ -398,12 +432,25 @@ impl DriveModel {
     }
 
     pub async fn eject(&self) -> Result<()> {
+        if !self.ejectable {
+            return Err(anyhow::anyhow!("Not supported by this drive"));
+        }
+
         let proxy = DriveProxy::builder(&self.connection)
             .path(self.path.clone())?
             .build()
             .await?;
-        proxy.eject(HashMap::new()).await?;
-        Ok(())
+
+        match proxy.eject(HashMap::new()).await.map_err(Into::into) {
+            Ok(()) => Ok(()),
+            Err(e) if is_anyhow_not_supported(&e) => {
+                Err(anyhow::anyhow!("Not supported by this drive"))
+            }
+            Err(e) if is_anyhow_device_busy(&e) => Err(anyhow::anyhow!(
+                "Device is busy. Unmount any volumes on it and try again."
+            )),
+            Err(e) => Err(e),
+        }
     }
 
     pub async fn power_off(&self) -> Result<()> {
@@ -412,6 +459,244 @@ impl DriveModel {
             .build()
             .await?;
         proxy.power_off(HashMap::new()).await?;
+        Ok(())
+    }
+
+    pub async fn standby_now(&self) -> Result<()> {
+        let proxy = zbus::Proxy::new(
+            &self.connection,
+            "org.freedesktop.UDisks2",
+            self.path.as_str(),
+            "org.freedesktop.UDisks2.Drive.Ata",
+        )
+        .await?;
+
+        let options: HashMap<&str, Value<'_>> = HashMap::new();
+        let res: Result<()> = proxy
+            .call("StandbyNow", &(options))
+            .await
+            .map_err(Into::into);
+        match res {
+            Ok(()) => Ok(()),
+            Err(e) if is_anyhow_not_supported(&e) => {
+                Err(anyhow::anyhow!("Not supported by this drive"))
+            }
+            Err(e) => Err(e),
+        }
+    }
+
+    pub async fn wakeup(&self) -> Result<()> {
+        let proxy = zbus::Proxy::new(
+            &self.connection,
+            "org.freedesktop.UDisks2",
+            self.path.as_str(),
+            "org.freedesktop.UDisks2.Drive.Ata",
+        )
+        .await?;
+
+        let options: HashMap<&str, Value<'_>> = HashMap::new();
+        let res: Result<()> = proxy.call("Wakeup", &(options)).await.map_err(Into::into);
+        match res {
+            Ok(()) => Ok(()),
+            Err(e) if is_anyhow_not_supported(&e) => {
+                Err(anyhow::anyhow!("Not supported by this drive"))
+            }
+            Err(e) => Err(e),
+        }
+    }
+
+    pub async fn smart_info(&self) -> Result<SmartInfo> {
+        match self.nvme_smart_info().await {
+            Ok(info) => Ok(info),
+            Err(e) if is_anyhow_not_supported(&e) => match self.ata_smart_info().await {
+                Ok(info) => Ok(info),
+                Err(e2) if is_anyhow_not_supported(&e2) => {
+                    Err(anyhow::anyhow!("Not supported by this drive"))
+                }
+                Err(e2) => Err(e2),
+            },
+            Err(e) => Err(e),
+        }
+    }
+
+    pub async fn smart_selftest_start(&self, kind: SmartSelfTestKind) -> Result<()> {
+        match self.nvme_selftest_start(kind).await {
+            Ok(()) => Ok(()),
+            Err(e) if is_anyhow_not_supported(&e) => match self.ata_selftest_start(kind).await {
+                Ok(()) => Ok(()),
+                Err(e2) if is_anyhow_not_supported(&e2) => {
+                    Err(anyhow::anyhow!("Not supported by this drive"))
+                }
+                Err(e2) => Err(e2),
+            },
+            Err(e) => Err(e),
+        }
+    }
+
+    pub async fn smart_selftest_abort(&self) -> Result<()> {
+        match self.nvme_selftest_abort().await {
+            Ok(()) => Ok(()),
+            Err(e) if is_anyhow_not_supported(&e) => match self.ata_selftest_abort().await {
+                Ok(()) => Ok(()),
+                Err(e2) if is_anyhow_not_supported(&e2) => {
+                    Err(anyhow::anyhow!("Not supported by this drive"))
+                }
+                Err(e2) => Err(e2),
+            },
+            Err(e) => Err(e),
+        }
+    }
+
+    async fn nvme_smart_info(&self) -> Result<SmartInfo> {
+        let proxy = zbus::Proxy::new(
+            &self.connection,
+            "org.freedesktop.UDisks2",
+            self.path.as_str(),
+            "org.freedesktop.UDisks2.NVMe.Controller",
+        )
+        .await?;
+
+        // If the interface isn't present on this drive, properties/methods will error.
+        let _state: String = proxy.get_property("State").await?;
+
+        let options: HashMap<&str, Value<'_>> = HashMap::new();
+        let _: () = proxy.call("SmartUpdate", &(options)).await?;
+
+        let updated_at: Option<u64> = proxy.get_property::<u64>("SmartUpdated").await.ok();
+        let temp_k: Option<u16> = proxy.get_property::<u16>("SmartTemperature").await.ok();
+        let power_on_hours: Option<u64> = proxy.get_property::<u64>("SmartPowerOnHours").await.ok();
+        let selftest_status: Option<String> = proxy
+            .get_property::<String>("SmartSelftestStatus")
+            .await
+            .ok();
+
+        let attrs: HashMap<String, OwnedValue> = proxy
+            .call("SmartGetAttributes", &(HashMap::<&str, Value<'_>>::new()))
+            .await?;
+
+        let mut attributes = std::collections::BTreeMap::new();
+        for (k, v) in attrs {
+            attributes.insert(k, format!("{v:?}"));
+        }
+
+        Ok(SmartInfo {
+            device_type: "NVMe".to_string(),
+            updated_at,
+            temperature_c: temp_k.map(|k| (k as u64).saturating_sub(273)),
+            power_on_hours,
+            selftest_status,
+            attributes,
+        })
+    }
+
+    async fn nvme_selftest_start(&self, kind: SmartSelfTestKind) -> Result<()> {
+        let proxy = zbus::Proxy::new(
+            &self.connection,
+            "org.freedesktop.UDisks2",
+            self.path.as_str(),
+            "org.freedesktop.UDisks2.NVMe.Controller",
+        )
+        .await?;
+
+        let _state: String = proxy.get_property("State").await?;
+
+        let options: HashMap<&str, Value<'_>> = HashMap::new();
+        let _: () = proxy
+            .call("SmartSelftestStart", &(kind.as_udisks_str(), options))
+            .await?;
+        Ok(())
+    }
+
+    async fn nvme_selftest_abort(&self) -> Result<()> {
+        let proxy = zbus::Proxy::new(
+            &self.connection,
+            "org.freedesktop.UDisks2",
+            self.path.as_str(),
+            "org.freedesktop.UDisks2.NVMe.Controller",
+        )
+        .await?;
+
+        let _state: String = proxy.get_property("State").await?;
+
+        let options: HashMap<&str, Value<'_>> = HashMap::new();
+        let _: () = proxy.call("SmartSelftestAbort", &(options)).await?;
+        Ok(())
+    }
+
+    async fn ata_smart_info(&self) -> Result<SmartInfo> {
+        let proxy = zbus::Proxy::new(
+            &self.connection,
+            "org.freedesktop.UDisks2",
+            self.path.as_str(),
+            "org.freedesktop.UDisks2.Drive.Ata",
+        )
+        .await?;
+
+        // If the interface isn't present on this drive, this will error.
+        let _smart_enabled: bool = proxy.get_property("SmartEnabled").await?;
+
+        let options: HashMap<&str, Value<'_>> = HashMap::new();
+        let _: () = proxy.call("SmartUpdate", &(options)).await?;
+
+        let updated_at: Option<u64> = proxy.get_property::<u64>("SmartUpdated").await.ok();
+        let temperature: Option<u64> = proxy.get_property::<u64>("SmartTemperature").await.ok();
+        let power_on_seconds: Option<u64> =
+            proxy.get_property::<u64>("SmartPowerOnSeconds").await.ok();
+        let selftest_status: Option<String> = proxy
+            .get_property::<String>("SmartSelftestStatus")
+            .await
+            .ok();
+
+        let attrs: HashMap<String, OwnedValue> = proxy
+            .call("SmartGetAttributes", &(HashMap::<&str, Value<'_>>::new()))
+            .await?;
+
+        let mut attributes = std::collections::BTreeMap::new();
+        for (k, v) in attrs {
+            attributes.insert(k, format!("{v:?}"));
+        }
+
+        Ok(SmartInfo {
+            device_type: "ATA".to_string(),
+            updated_at,
+            temperature_c: temperature,
+            power_on_hours: power_on_seconds.map(|s| s / 3600),
+            selftest_status,
+            attributes,
+        })
+    }
+
+    async fn ata_selftest_start(&self, kind: SmartSelfTestKind) -> Result<()> {
+        let proxy = zbus::Proxy::new(
+            &self.connection,
+            "org.freedesktop.UDisks2",
+            self.path.as_str(),
+            "org.freedesktop.UDisks2.Drive.Ata",
+        )
+        .await?;
+
+        let _smart_enabled: bool = proxy.get_property("SmartEnabled").await?;
+
+        let options: HashMap<&str, Value<'_>> = HashMap::new();
+        let _: () = proxy
+            .call("SmartSelftestStart", &(kind.as_udisks_str(), options))
+            .await?;
+        Ok(())
+    }
+
+    async fn ata_selftest_abort(&self) -> Result<()> {
+        let proxy = zbus::Proxy::new(
+            &self.connection,
+            "org.freedesktop.UDisks2",
+            self.path.as_str(),
+            "org.freedesktop.UDisks2.Drive.Ata",
+        )
+        .await?;
+
+        let _smart_enabled: bool = proxy.get_property("SmartEnabled").await?;
+
+        let options: HashMap<&str, Value<'_>> = HashMap::new();
+        let _: () = proxy.call("SmartSelftestAbort", &(options)).await?;
         Ok(())
     }
 

@@ -5,6 +5,7 @@ mod lvm;
 mod manager;
 mod ops;
 mod partition;
+mod smart;
 mod volume;
 
 pub use create_partition_info::*;
@@ -13,6 +14,7 @@ pub use gpt::*;
 pub use lvm::*;
 pub use manager::*;
 pub use partition::PartitionModel;
+pub use smart::*;
 use thiserror::Error;
 pub use volume::*;
 
