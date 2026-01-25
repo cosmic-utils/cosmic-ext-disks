@@ -52,12 +52,8 @@ pub fn new_disk_image<'a>(state: NewDiskImageDialog) -> Element<'a, Message> {
         create_button = create_button.on_press(NewDiskImageDialogMessage::Create.into());
     }
 
-    let cancel_msg = if state.running {
-        // while running, still allow closing (it will not cancel the file create, which is fast)
-        NewDiskImageDialogMessage::Cancel
-    } else {
-        NewDiskImageDialogMessage::Cancel
-    };
+    // while running, still allow closing (it will not cancel the file create, which is fast)
+    let cancel_msg = NewDiskImageDialogMessage::Cancel;
 
     dialog::dialog()
         .title(fl!("new-disk-image"))
