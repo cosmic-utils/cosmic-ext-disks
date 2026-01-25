@@ -743,7 +743,6 @@ impl VolumesControl {
                     UnlockMessage::PassphraseUpdate(p) => {
                         state.passphrase = p;
                         state.error = None;
-                        state.running = false;
                         return Task::none();
                     }
                     UnlockMessage::Cancel => return Task::done(Message::CloseDialog.into()),
