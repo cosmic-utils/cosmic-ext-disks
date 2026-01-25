@@ -557,11 +557,14 @@ impl VolumesControl {
                         },
                         |result| match result {
                             Ok(drives) => Message::UpdateNav(drives, None).into(),
-                            Err(e) => Message::Dialog(ShowDialog::Info {
-                                title: fl!("lock-failed"),
-                                body: e.to_string(),
-                            })
-                            .into(),
+                            Err(e) => {
+                                eprintln!("{e:#}");
+                                Message::Dialog(ShowDialog::Info {
+                                    title: fl!("lock-failed"),
+                                    body: e.to_string(),
+                                })
+                                .into()
+                            }
                         },
                     );
                 }
@@ -571,24 +574,49 @@ impl VolumesControl {
                 let segment = self.segments.get(self.selected_segment).cloned();
                 let task = match segment.clone() {
                     Some(s) => match s.partition {
-                        Some(p) => Task::perform(
-                            async move {
-                                match p.delete().await {
-                                    Ok(_) => match DriveModel::get_drives().await {
-                                        Ok(drives) => Ok(drives),
-                                        Err(e) => Err(e),
-                                    },
-                                    Err(e) => Err(e),
-                                }
-                            },
-                            |result| match result {
-                                Ok(drives) => Message::UpdateNav(drives, None).into(),
-                                Err(e) => {
-                                    println!("{e}");
-                                    Message::None.into()
-                                }
-                            },
-                        ),
+                        Some(p) => {
+                            let volume_node =
+                                find_volume_node_for_partition(&self.model.volumes, &p).cloned();
+                            let is_unlocked_crypto = matches!(
+                                volume_node.as_ref(),
+                                Some(v) if v.kind == VolumeKind::CryptoContainer && !v.locked
+                            );
+                            let mounted_children: Vec<VolumeNode> = if is_unlocked_crypto {
+                                volume_node
+                                    .as_ref()
+                                    .map(collect_mounted_descendants_leaf_first)
+                                    .unwrap_or_default()
+                            } else {
+                                Vec::new()
+                            };
+
+                            Task::perform(
+                                async move {
+                                    if is_unlocked_crypto {
+                                        // UDisks2 typically refuses to lock while the cleartext/child FS is mounted.
+                                        // Unmount any mounted descendants first, then lock the container.
+                                        for v in mounted_children {
+                                            v.unmount().await?;
+                                        }
+                                        p.lock().await?;
+                                    }
+
+                                    p.delete().await?;
+                                    DriveModel::get_drives().await
+                                },
+                                |result| match result {
+                                    Ok(drives) => Message::UpdateNav(drives, None).into(),
+                                    Err(e) => {
+                                        eprintln!("{e:#}");
+                                        Message::Dialog(ShowDialog::Info {
+                                            title: fl!("delete-failed"),
+                                            body: format!("{e:#}"),
+                                        })
+                                        .into()
+                                    }
+                                },
+                            )
+                        }
                         None => Task::none(),
                     },
                     None => Task::none(),
@@ -973,7 +1001,7 @@ impl VolumesControl {
         }
 
         //TODO Get better icons
-        if selected.kind == DiskSegmentKind::Partition {
+        if selected.kind == DiskSegmentKind::Partition && selected_child_volume.is_none() {
             action_bar.push(widget::button::custom(icon::from_name("edit-find-symbolic")).into());
             action_bar.push(widget::horizontal_space().into());
             action_bar.push(
