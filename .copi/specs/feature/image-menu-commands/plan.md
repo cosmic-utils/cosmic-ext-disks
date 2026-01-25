@@ -121,3 +121,40 @@ Define how commands determine the target:
 - [ ] Restore Image streams data from a file to the selected drive/partition, with destructive confirmation.
 - [ ] UI remains responsive during copy/restore; cancel stops the operation.
 - [ ] `cargo fmt --all --check`, `cargo clippy --workspace --all-features`, `cargo test --workspace --all-features` pass.
+
+---
+
+## Follow-up Scope: Loop Images + `VolumeModel` refactor
+
+This work was discovered while validating **Attach Disk** with real-world images.
+
+### Context
+- Attached images appear as **loop block devices**.
+- Some images contain a partition table (e.g., `loopXp1`), but others contain a filesystem directly on the loop device (e.g., ext4 on `loopX` with no partitions).
+- The current UI model naming (`PartitionModel`) is increasingly misleading as we represent non-partition volumes (LUKS, LVM, filesystem-on-block).
+
+### Goals
+- Rename/refactor `PartitionModel` → `VolumeModel` to match what we actually render and act upon.
+- Ensure loop-backed filesystems that have **no partitions** are represented as a single filesystem-like volume (so they do not render as “free space”).
+
+### Non-Goals
+- Full image introspection (detect partitions *inside* a file without attaching).
+- Mounting policy changes beyond representing the attached loop content correctly.
+
+### Proposed Approach
+- Introduce `VolumeModel` as the primary unit shown in the volumes list.
+- Replace boolean flags like `.is_container` / `.is_contained` with a single enum:
+  - `VolumeType { Container, Partition, Filesystem }`
+  - `Container` covers LUKS containers, LVM VG/LV parents, and any other “contains children” volumes.
+  - `Partition` covers true partition-table entries.
+  - `Filesystem` covers filesystem-on-block (including the loop-device fallback case).
+- Adjust enumeration logic:
+  - If a block device has a partition table: enumerate partitions as volumes (current behavior).
+  - Else if the block device has a filesystem directly on it: create a single `VolumeModel` representing that filesystem.
+  - Else: fall back to showing free space only.
+- Update segmentation/UI to use `VolumeModel` extents where applicable, and avoid showing all-free-space for filesystem-on-block.
+
+### Acceptance Criteria (follow-up)
+- [x] Naming: `PartitionModel` is removed or becomes a thin alias; the UI uses `VolumeModel`.
+- [x] For attached loop images where `lsblk` shows `FSTYPE` on `loopX` and no `loopXp*`, the UI shows one filesystem volume (not “free space”).
+- [x] Existing flows (mount/unmount, create/restore image) continue to work for partitions and logical volumes.

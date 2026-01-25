@@ -146,11 +146,11 @@ impl DiskManager {
             // If no direct match, THEN check partitions (using a reference!)
             for drive in drives.iter_mut() {
                 if let Some(index) = drive
-                    .partitions
+                    .volumes_flat
                     .iter()
                     .position(|p| p.path.as_str() == removed_str)
                 {
-                    drive.partitions.remove(index);
+                    drive.volumes_flat.remove(index);
                 }
             }
         }

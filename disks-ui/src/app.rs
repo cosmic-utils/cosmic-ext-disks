@@ -88,7 +88,7 @@ pub enum ImageOperationKind {
 pub struct ImageOperationDialog {
     pub kind: ImageOperationKind,
     pub drive: DriveModel,
-    pub partition: Option<disks_dbus::PartitionModel>,
+    pub partition: Option<disks_dbus::VolumeModel>,
     pub image_path: String,
     pub running: bool,
     pub error: Option<String>,
@@ -475,7 +475,7 @@ impl Application for AppModel {
                             },
                         ))
                 } else {
-                    match segment.partition.clone() {
+                    match segment.volume.clone() {
                         Some(p) => {
                             let mut name = p.name.clone();
                             if name.is_empty() {
@@ -538,7 +538,17 @@ impl Application for AppModel {
                     Some(t) => t.clone().to_uppercase(),
                     None => "Unknown".into(),
                 };
-                iced_widget::column![
+
+                let drive_info = if drive.is_loop {
+                    iced_widget::column![
+                        heading(drive.name()),
+                        Space::new(0, 10),
+                        labelled_info("Size", bytes_to_pretty(&drive.size, true)),
+                        labelled_info("Backing File", drive.backing_file.as_deref().unwrap_or(""),),
+                    ]
+                    .spacing(5)
+                    .width(Length::Fill)
+                } else {
                     iced_widget::column![
                         heading(drive.name()),
                         Space::new(0, 10),
@@ -548,7 +558,10 @@ impl Application for AppModel {
                         labelled_info("Partitioning", &partition_type),
                     ]
                     .spacing(5)
-                    .width(Length::Fill),
+                    .width(Length::Fill)
+                };
+                iced_widget::column![
+                    drive_info,
                     iced_widget::column![
                         heading("Volumes"),
                         Space::new(0, 10),
@@ -1140,7 +1153,7 @@ impl Application for AppModel {
                 let partition = volumes_control
                     .segments
                     .get(volumes_control.selected_segment)
-                    .and_then(|s| s.partition.clone());
+                    .and_then(|s| s.volume.clone());
 
                 let Some(partition) = partition else {
                     self.dialog = Some(ShowDialog::Info {
@@ -1178,7 +1191,7 @@ impl Application for AppModel {
                 let partition = volumes_control
                     .segments
                     .get(volumes_control.selected_segment)
-                    .and_then(|s| s.partition.clone());
+                    .and_then(|s| s.volume.clone());
 
                 let Some(partition) = partition else {
                     self.dialog = Some(ShowDialog::Info {
@@ -1504,10 +1517,43 @@ where
 async fn run_image_operation(
     kind: ImageOperationKind,
     drive: DriveModel,
-    partition: Option<disks_dbus::PartitionModel>,
+    partition: Option<disks_dbus::VolumeModel>,
     image_path: String,
     cancel: Arc<AtomicBool>,
 ) -> anyhow::Result<()> {
+    fn find_volume_node<'a>(
+        volumes: &'a [disks_dbus::VolumeNode],
+        object_path: &str,
+    ) -> Option<&'a disks_dbus::VolumeNode> {
+        for v in volumes {
+            if v.object_path.to_string() == object_path {
+                return Some(v);
+            }
+            if let Some(child) = find_volume_node(&v.children, object_path) {
+                return Some(child);
+            }
+        }
+        None
+    }
+
+    fn collect_mounted_descendants_leaf_first(
+        node: &disks_dbus::VolumeNode,
+    ) -> Vec<disks_dbus::VolumeNode> {
+        fn visit(node: &disks_dbus::VolumeNode, out: &mut Vec<disks_dbus::VolumeNode>) {
+            for child in &node.children {
+                visit(child, out);
+            }
+
+            if node.can_mount() && node.is_mounted() {
+                out.push(node.clone());
+            }
+        }
+
+        let mut out = Vec::new();
+        visit(node, &mut out);
+        out
+    }
+
     match kind {
         ImageOperationKind::CreateFromDrive => {
             let fd = drive.open_for_backup().await?;
@@ -1539,7 +1585,7 @@ async fn run_image_operation(
         }
         ImageOperationKind::RestoreToDrive => {
             // Preflight: attempt to unmount all mounted partitions.
-            for p in &drive.partitions {
+            for p in &drive.volumes_flat {
                 if p.is_mounted() {
                     p.unmount().await?;
                 }

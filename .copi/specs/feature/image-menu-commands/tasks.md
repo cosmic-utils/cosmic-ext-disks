@@ -126,3 +126,46 @@ Spec: `.copi/specs/feature/image-menu-commands/`
   - `cargo test --workspace --all-features`
 - Done when:
   - [x] Docs updated and CI quality gates pass.
+
+---
+
+## Follow-up tasks (discovered during validation)
+
+## Task 9: Rename `PartitionModel` → `VolumeModel` (mechanical refactor)
+- Scope: align naming with actual domain objects rendered in the volumes view.
+- Files/areas (likely):
+  - `disks-dbus/src/disks/partition.rs` (becomes `volume.rs` or equivalent)
+  - `disks-dbus/src/disks/mod.rs`
+  - `disks-ui/src/views/volumes.rs`
+  - `disks-ui/src/utils/segments.rs`
+  - Any message payloads/types referencing partitions-as-volumes
+- Steps:
+  - Introduce `VolumeModel` type with a `VolumeType` enum: `Container | Partition | Filesystem`.
+  - Replace any `.is_container` / `.is_contained` booleans with `VolumeType`.
+  - Update UI to consume `VolumeModel` instead of `PartitionModel`.
+  - Keep a short-lived compatibility layer only if it significantly reduces churn.
+- Test plan:
+  - `cargo fmt --all --check`
+  - `cargo clippy --workspace --all-features -- -D warnings`
+  - `cargo test --workspace --all-features`
+- Done when:
+  - [x] The term “partition” is used only for true partition-table entries.
+  - [x] The volumes view uses `VolumeModel` throughout.
+  - [x] Container/contained logic is expressed via `VolumeType` (no boolean flags).
+
+## Task 10: Loop filesystem fallback volume
+- Scope: when enumerating a loop-backed block device with no partitions but a filesystem exists on the block, represent it as a single filesystem volume.
+- Files/areas (likely):
+  - `disks-dbus/src/disks/drive.rs` (enumeration)
+  - `disks-dbus/src/disks/partition.rs` (or new `volume.rs`)
+  - `disks-ui/src/utils/segments.rs` (avoid all-free-space rendering)
+- Steps:
+  - Detect “no partition table or children” for the drive’s main block.
+  - If block has filesystem properties, create one filesystem `VolumeModel` spanning the usable block range.
+  - Ensure mount/unmount actions target the block filesystem volume.
+- Test plan:
+  - Manual: attach an ext4-on-loop image (no partition table) and verify it renders as a filesystem volume.
+  - Manual: attach a partitioned image and verify partitions render as before.
+- Done when:
+  - [x] Loop device with filesystem-on-block renders a single filesystem volume.
+  - [x] Segments no longer show 100% free space for that case.

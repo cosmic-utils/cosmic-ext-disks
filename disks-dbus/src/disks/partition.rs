@@ -7,6 +7,7 @@ use crate::Usage;
 use anyhow::Result;
 use enumflags2::BitFlags;
 use std::path::Path;
+use udisks2::partitiontable::PartitionTableProxy;
 use udisks2::{
     Client,
     block::BlockProxy,
@@ -15,10 +16,16 @@ use udisks2::{
 };
 use zbus::{Connection, zvariant::OwnedObjectPath};
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum VolumeType {
+    Container,
+    Partition,
+    Filesystem,
+}
+
 #[derive(Debug, Clone)]
-pub struct PartitionModel {
-    pub is_contained: bool,
-    pub is_container: bool,
+pub struct VolumeModel {
+    pub volume_type: VolumeType,
     pub table_path: OwnedObjectPath,
     pub name: String,
     pub partition_type: String,
@@ -38,7 +45,7 @@ pub struct PartitionModel {
     pub table_type: String,
 }
 
-impl PartitionModel {
+impl VolumeModel {
     fn decode_c_string_bytes(bytes: &[u8]) -> String {
         let raw = match bytes.split(|b| *b == 0).next() {
             Some(v) => v,
@@ -117,22 +124,40 @@ impl PartitionModel {
             None => None,
         };
 
-        let table_proxy = client.partition_table(partition_proxy).await?;
-        let type_str = match client.partition_type_for_display(
-            &table_proxy.type_().await?,
-            &partition_proxy.type_().await?,
-        ) {
-            Some(val) => val
-                .to_owned()
-                .replace("part-type", "")
-                .replace("\u{004}", ""),
-            _ => partition_proxy.type_().await?,
+        let table_path = partition_proxy.table().await?;
+
+        // Not all table objects actually expose org.freedesktop.UDisks2.PartitionTable
+        // (notably for some loop-backed devices). Treat missing interface as "unknown".
+        let table_type = match PartitionTableProxy::builder(&connection)
+            .path(&table_path)?
+            .build()
+            .await
+        {
+            Ok(proxy) => proxy.type_().await.unwrap_or_default(),
+            Err(_) => String::new(),
+        };
+
+        let type_str = if table_type.is_empty() {
+            partition_proxy.type_().await?
+        } else {
+            match client.partition_type_for_display(&table_type, &partition_proxy.type_().await?) {
+                Some(val) => val
+                    .to_owned()
+                    .replace("part-type", "")
+                    .replace("\u{004}", ""),
+                _ => partition_proxy.type_().await?,
+            }
+        };
+
+        let volume_type = if partition_proxy.is_container().await? {
+            VolumeType::Container
+        } else {
+            VolumeType::Partition
         };
 
         Ok(Self {
-            is_contained: partition_proxy.is_contained().await?,
-            is_container: partition_proxy.is_container().await?,
-            table_path: partition_proxy.table().await?,
+            volume_type,
+            table_path,
             name: partition_proxy.name().await?,
             partition_type: type_str,
             id_type: block_proxy.id_type().await?,
@@ -148,7 +173,75 @@ impl PartitionModel {
             usage,
             connection: Some(connection),
             drive_path,
-            table_type: table_proxy.type_().await?,
+            table_type,
+        })
+    }
+
+    pub async fn filesystem_from_block(
+        connection: &Connection,
+        drive_path: String,
+        block_object_path: OwnedObjectPath,
+        block_proxy: &BlockProxy<'_>,
+    ) -> Result<Self> {
+        let preferred_device = Self::decode_c_string_bytes(&block_proxy.preferred_device().await?);
+        let device = if preferred_device.is_empty() {
+            Self::decode_c_string_bytes(&block_proxy.device().await?)
+        } else {
+            preferred_device
+        };
+
+        let mut device_path = if device.is_empty() {
+            None
+        } else {
+            Some(device)
+        };
+        if device_path.is_none() {
+            let proposed = format!("/dev/{}", block_object_path.split("/").last().unwrap());
+            if Path::new(&proposed).exists() {
+                device_path = Some(proposed);
+            }
+        }
+
+        let (has_filesystem, mount_points) = match FilesystemProxy::builder(connection)
+            .path(&block_object_path)?
+            .build()
+            .await
+        {
+            Ok(proxy) => match proxy.mount_points().await {
+                Ok(mps) => (true, Self::decode_mount_points(mps)),
+                Err(_) => (false, Vec::new()),
+            },
+            Err(_) => (false, Vec::new()),
+        };
+
+        let usage = match mount_points.first() {
+            Some(mount_point) => {
+                crate::usage_for_mount_point(mount_point, device_path.as_deref()).ok()
+            }
+            None => None,
+        };
+
+        let uuid: String = (block_proxy.id_uuid().await).unwrap_or_default();
+
+        Ok(Self {
+            volume_type: VolumeType::Filesystem,
+            table_path: "/".try_into().unwrap(),
+            name: String::new(),
+            partition_type: "Filesystem".to_string(),
+            id_type: block_proxy.id_type().await?,
+            uuid,
+            number: 0,
+            flags: Default::default(),
+            offset: 0,
+            size: block_proxy.size().await?,
+            path: block_object_path.clone(),
+            device_path,
+            has_filesystem,
+            mount_points,
+            usage,
+            connection: Some(connection.clone()),
+            drive_path,
+            table_type: String::new(),
         })
     }
 
@@ -178,7 +271,11 @@ impl PartitionModel {
     }
 
     pub fn name(&self) -> String {
-        format!("Partition {}", &self.number)
+        if self.number > 0 {
+            format!("Partition {}", &self.number)
+        } else {
+            "Filesystem".to_string()
+        }
     }
 
     pub async fn connect(&mut self) -> Result<()> {
@@ -375,20 +472,20 @@ impl PartitionModel {
 
 #[cfg(test)]
 mod tests {
-    use super::PartitionModel;
+    use super::VolumeModel;
 
     #[test]
     fn decode_c_string_bytes_truncates_nul() {
         let bytes = b"/run/media/user/DISK\0garbage";
         assert_eq!(
-            PartitionModel::decode_c_string_bytes(bytes),
+            VolumeModel::decode_c_string_bytes(bytes),
             "/run/media/user/DISK"
         );
     }
 
     #[test]
     fn decode_mount_points_filters_empty_entries() {
-        let decoded = PartitionModel::decode_mount_points(vec![
+        let decoded = VolumeModel::decode_mount_points(vec![
             b"/mnt/a\0".to_vec(),
             b"\0".to_vec(),
             Vec::new(),
@@ -400,9 +497,8 @@ mod tests {
 
     #[test]
     fn can_mount_tracks_filesystem_interface() {
-        let mut p = PartitionModel {
-            is_contained: false,
-            is_container: false,
+        let mut p = VolumeModel {
+            volume_type: super::VolumeType::Partition,
             table_path: "/".try_into().unwrap(),
             name: String::new(),
             partition_type: String::new(),

@@ -46,7 +46,7 @@ fn is_anyhow_device_busy(err: &anyhow::Error) -> bool {
 use crate::CreatePartitionInfo;
 
 use super::{
-    ByteRange, PartitionModel, fallback_gpt_usable_range_bytes, manager::UDisks2ManagerProxy,
+    ByteRange, VolumeModel, fallback_gpt_usable_range_bytes, manager::UDisks2ManagerProxy,
     probe_gpt_usable_range_bytes,
 };
 
@@ -72,7 +72,9 @@ pub struct DriveModel {
     pub size: u64,
     pub name: String,
     pub block_path: String,
-    pub partitions: Vec<PartitionModel>,
+    pub is_loop: bool,
+    pub backing_file: Option<String>,
+    pub volumes_flat: Vec<VolumeModel>,
     pub volumes: Vec<VolumeNode>,
     pub path: String,
     pub partition_table_type: Option<String>,
@@ -83,7 +85,8 @@ pub struct DriveModel {
 #[derive(Debug, Clone)]
 struct DriveBlockPair {
     block_path: OwnedObjectPath,
-    drive_path: OwnedObjectPath,
+    drive_path: Option<OwnedObjectPath>,
+    backing_file: Option<String>,
 }
 
 impl DriveModel {
@@ -118,7 +121,9 @@ impl DriveModel {
             serial: drive_proxy.serial().await?,
             vendor: drive_proxy.vendor().await?,
             block_path: block_path.to_string(),
-            partitions: vec![],
+            is_loop: false,
+            backing_file: None,
+            volumes_flat: vec![],
             volumes: vec![],
             can_power_off: drive_proxy.can_power_off().await?,
             ejectable: drive_proxy.ejectable().await?,
@@ -129,6 +134,75 @@ impl DriveModel {
             optical_blank: drive_proxy.optical_blank().await?,
             removable: drive_proxy.removable().await?,
             revision: drive_proxy.revision().await?,
+            partition_table_type: None,
+            gpt_usable_range: None,
+            connection: Connection::system().await?,
+        })
+    }
+
+    async fn loop_backing_file(
+        connection: &Connection,
+        block_path: &OwnedObjectPath,
+    ) -> Option<String> {
+        let proxy = match zbus::Proxy::new(
+            connection,
+            "org.freedesktop.UDisks2",
+            block_path.as_str(),
+            "org.freedesktop.UDisks2.Loop",
+        )
+        .await
+        {
+            Ok(p) => p,
+            Err(_) => return None,
+        };
+
+        // UDisks2 commonly exposes BackingFile as ay (C-string bytes). Be tolerant.
+        if let Ok(bytes) = proxy.get_property::<Vec<u8>>("BackingFile").await {
+            let raw = bytes.split(|b| *b == 0).next().unwrap_or(&bytes);
+            let s = String::from_utf8_lossy(raw).to_string();
+            if !s.trim().is_empty() {
+                return Some(s);
+            }
+        }
+
+        if let Ok(s) = proxy.get_property::<String>("BackingFile").await
+            && !s.trim().is_empty()
+        {
+            return Some(s);
+        }
+
+        None
+    }
+
+    pub async fn from_block_only(
+        block_path: &OwnedObjectPath,
+        block_proxy: &BlockProxy<'_>,
+        backing_file: Option<String>,
+    ) -> Result<Self> {
+        let size = block_proxy.size().await?;
+
+        Ok(DriveModel {
+            name: block_path.to_string(),
+            path: String::new(),
+            size,
+            id: String::new(),
+            model: String::new(),
+            serial: String::new(),
+            vendor: String::new(),
+            block_path: block_path.to_string(),
+            is_loop: backing_file.is_some(),
+            backing_file,
+            volumes_flat: vec![],
+            volumes: vec![],
+            can_power_off: false,
+            ejectable: false,
+            media_available: true,
+            media_change_detected: false,
+            media_removable: false,
+            optical: false,
+            optical_blank: false,
+            removable: false,
+            revision: String::new(),
             partition_table_type: None,
             gpt_usable_range: None,
             connection: Connection::system().await?,
@@ -166,11 +240,23 @@ impl DriveModel {
             }
 
             match block_device.drive().await {
-                Ok(dp) => drive_paths.push(DriveBlockPair {
+                Ok(dp) if dp.as_str() != "/" => drive_paths.push(DriveBlockPair {
                     block_path: path,
-                    drive_path: dp,
+                    drive_path: Some(dp),
+                    backing_file: None,
                 }),
-                Err(_) => continue,
+                _ => {
+                    // Loop devices have no associated Drive object; include them if they implement
+                    // org.freedesktop.UDisks2.Loop.
+                    let backing = Self::loop_backing_file(connection, &path).await;
+                    if backing.is_some() {
+                        drive_paths.push(DriveBlockPair {
+                            block_path: path,
+                            drive_path: None,
+                            backing_file: backing,
+                        });
+                    }
+                }
             }
         }
 
@@ -187,26 +273,229 @@ impl DriveModel {
         let all_block_objects = manager_proxy.get_block_devices(HashMap::new()).await?;
         let block_index = BlockIndex::build(&connection, &all_block_objects).await?;
 
+        async fn build_volume_nodes_for_drive(
+            drive: &mut DriveModel,
+            connection: &Connection,
+            block_index: &BlockIndex,
+        ) -> Result<()> {
+            // Build nested volumes for UI presentation/actions.
+            drive.volumes = Vec::with_capacity(drive.volumes_flat.len());
+            for p in &drive.volumes_flat {
+                let label = if p.name.is_empty() {
+                    p.name()
+                } else {
+                    p.name.clone()
+                };
+
+                // LUKS: treat as a container; children are cleartext filesystem or LVM PV.
+                let encrypted_probe =
+                    udisks2::encrypted::EncryptedProxy::builder(connection).path(&p.path);
+
+                let volume = if let Ok(builder) = encrypted_probe {
+                    match builder.build().await {
+                        Ok(_) => match VolumeNode::crypto_container_for_partition(
+                            connection,
+                            p.path.clone(),
+                            label.clone(),
+                            block_index,
+                        )
+                        .await
+                        {
+                            Ok(v) => v,
+                            Err(e) if DriveModel::is_missing_encrypted_interface(&e) => {
+                                if p.id_type == "LVM2_member" {
+                                    VolumeNode::from_block_object(
+                                        connection,
+                                        p.path.clone(),
+                                        label,
+                                        VolumeKind::LvmPhysicalVolume,
+                                        Some(block_index),
+                                    )
+                                    .await?
+                                } else if p.has_filesystem {
+                                    VolumeNode::from_block_object(
+                                        connection,
+                                        p.path.clone(),
+                                        label,
+                                        VolumeKind::Filesystem,
+                                        Some(block_index),
+                                    )
+                                    .await?
+                                } else {
+                                    VolumeNode::from_block_object(
+                                        connection,
+                                        p.path.clone(),
+                                        label,
+                                        VolumeKind::Partition,
+                                        Some(block_index),
+                                    )
+                                    .await?
+                                }
+                            }
+                            Err(e) => return Err(e),
+                        },
+                        Err(_) => {
+                            // Not actually encrypted; fall back below.
+                            if p.id_type == "LVM2_member" {
+                                VolumeNode::from_block_object(
+                                    connection,
+                                    p.path.clone(),
+                                    label,
+                                    VolumeKind::LvmPhysicalVolume,
+                                    Some(block_index),
+                                )
+                                .await?
+                            } else if p.has_filesystem {
+                                VolumeNode::from_block_object(
+                                    connection,
+                                    p.path.clone(),
+                                    label,
+                                    VolumeKind::Filesystem,
+                                    Some(block_index),
+                                )
+                                .await?
+                            } else {
+                                VolumeNode::from_block_object(
+                                    connection,
+                                    p.path.clone(),
+                                    label,
+                                    VolumeKind::Partition,
+                                    Some(block_index),
+                                )
+                                .await?
+                            }
+                        }
+                    }
+                } else if p.id_type == "LVM2_member" {
+                    VolumeNode::from_block_object(
+                        connection,
+                        p.path.clone(),
+                        label,
+                        VolumeKind::LvmPhysicalVolume,
+                        Some(block_index),
+                    )
+                    .await?
+                } else if p.has_filesystem {
+                    VolumeNode::from_block_object(
+                        connection,
+                        p.path.clone(),
+                        label,
+                        VolumeKind::Filesystem,
+                        Some(block_index),
+                    )
+                    .await?
+                } else {
+                    VolumeNode::from_block_object(
+                        connection,
+                        p.path.clone(),
+                        label,
+                        VolumeKind::Partition,
+                        Some(block_index),
+                    )
+                    .await?
+                };
+
+                drive.volumes.push(volume);
+            }
+
+            Ok(())
+        }
+
+        async fn partitions_by_table(
+            connection: &Connection,
+            client: &Client,
+            all_block_objects: &[OwnedObjectPath],
+            table_path: OwnedObjectPath,
+            drive_path_for_partition: String,
+        ) -> Result<Vec<VolumeModel>> {
+            let mut out: Vec<VolumeModel> = Vec::new();
+
+            for obj in all_block_objects {
+                let partition_proxy =
+                    match PartitionProxy::builder(connection).path(obj)?.build().await {
+                        Ok(p) => p,
+                        Err(_) => continue,
+                    };
+
+                let table = match partition_proxy.table().await {
+                    Ok(t) => t,
+                    Err(_) => continue,
+                };
+
+                if table != table_path {
+                    continue;
+                }
+
+                let block_proxy = match BlockProxy::builder(connection).path(obj)?.build().await {
+                    Ok(p) => p,
+                    Err(e) => {
+                        warn!("Error getting partition block proxy for {}: {}", obj, e);
+                        continue;
+                    }
+                };
+
+                match VolumeModel::from_proxy(
+                    client,
+                    drive_path_for_partition.clone(),
+                    obj.clone(),
+                    &partition_proxy,
+                    &block_proxy,
+                )
+                .await
+                {
+                    Ok(p) => out.push(p),
+                    Err(e) => {
+                        warn!("Error building partition model for {}: {}", obj, e);
+                        continue;
+                    }
+                }
+            }
+
+            Ok(out)
+        }
+
         let mut drives: HashMap<String, DriveModel> = HashMap::new();
 
         for pair in drive_paths {
-            let drive_proxy = DriveProxy::builder(&connection)
-                .path(&pair.drive_path)?
-                .build()
-                .await?;
-            let mut drive = match DriveModel::from_proxy(
-                &pair.drive_path,
-                &pair.block_path,
-                &drive_proxy,
-            )
-            .await
-            {
-                Ok(d) => d,
-                Err(e) => {
-                    warn!("Could not get drive: {}", e);
-                    continue;
+            let mut drive = if let Some(drive_path) = &pair.drive_path {
+                let drive_proxy = DriveProxy::builder(&connection)
+                    .path(drive_path)?
+                    .build()
+                    .await?;
+
+                match DriveModel::from_proxy(drive_path, &pair.block_path, &drive_proxy).await {
+                    Ok(d) => d,
+                    Err(e) => {
+                        warn!("Could not get drive: {}", e);
+                        continue;
+                    }
+                }
+            } else {
+                let block_proxy = BlockProxy::builder(&connection)
+                    .path(&pair.block_path)?
+                    .build()
+                    .await?;
+
+                match DriveModel::from_block_only(
+                    &pair.block_path,
+                    &block_proxy,
+                    pair.backing_file.clone(),
+                )
+                .await
+                {
+                    Ok(d) => d,
+                    Err(e) => {
+                        warn!("Could not get loop device: {}", e);
+                        continue;
+                    }
                 }
             };
+
+            let drive_path_for_partition = pair
+                .drive_path
+                .as_ref()
+                .map(|p| p.to_string())
+                .unwrap_or_else(|| pair.block_path.to_string());
 
             let partition_table_proxy = match PartitionTableProxy::builder(&connection)
                 .path(&pair.block_path)?
@@ -215,13 +504,107 @@ impl DriveModel {
             {
                 Ok(p) => p,
                 Err(e) => {
-                    error!("Error getting partition table: {}", e);
+                    // Not all devices (notably loop-backed images) have a partition table.
+                    // Treat this as "no partition table" instead of failing enumeration.
+                    warn!("No partition table proxy for {}: {}", pair.block_path, e);
+
+                    if drive.is_loop
+                        && let Ok(parts) = partitions_by_table(
+                            &connection,
+                            &client,
+                            &all_block_objects,
+                            pair.block_path.clone(),
+                            drive_path_for_partition.clone(),
+                        )
+                        .await
+                    {
+                        drive.volumes_flat = parts;
+                        if drive.partition_table_type.is_none() {
+                            drive.partition_table_type = drive
+                                .volumes_flat
+                                .iter()
+                                .find(|p| !p.table_type.is_empty())
+                                .map(|p| p.table_type.clone());
+                        }
+                    }
+
+                    if drive.volumes_flat.is_empty() {
+                        let drive_block_proxy = BlockProxy::builder(&connection)
+                            .path(&pair.block_path)?
+                            .build()
+                            .await?;
+                        if let Ok(v) = VolumeModel::filesystem_from_block(
+                            &connection,
+                            drive_path_for_partition.clone(),
+                            pair.block_path.clone(),
+                            &drive_block_proxy,
+                        )
+                        .await
+                            && v.has_filesystem
+                        {
+                            drive.volumes_flat.push(v);
+                        }
+                    }
+
+                    build_volume_nodes_for_drive(&mut drive, &connection, &block_index).await?;
+
                     drives.insert(drive.name.clone(), drive);
                     continue;
                 }
             };
 
-            drive.partition_table_type = Some(partition_table_proxy.type_().await?);
+            drive.partition_table_type = match partition_table_proxy.type_().await {
+                Ok(t) => Some(t),
+                Err(e) => {
+                    warn!(
+                        "No partition table interface for {}: {}",
+                        pair.block_path, e
+                    );
+
+                    if drive.is_loop
+                        && let Ok(parts) = partitions_by_table(
+                            &connection,
+                            &client,
+                            &all_block_objects,
+                            pair.block_path.clone(),
+                            drive_path_for_partition.clone(),
+                        )
+                        .await
+                    {
+                        drive.volumes_flat = parts;
+                        if drive.partition_table_type.is_none() {
+                            drive.partition_table_type = drive
+                                .volumes_flat
+                                .iter()
+                                .find(|p| !p.table_type.is_empty())
+                                .map(|p| p.table_type.clone());
+                        }
+                    }
+
+                    if drive.volumes_flat.is_empty() {
+                        let drive_block_proxy = BlockProxy::builder(&connection)
+                            .path(&pair.block_path)?
+                            .build()
+                            .await?;
+                        if let Ok(v) = VolumeModel::filesystem_from_block(
+                            &connection,
+                            drive_path_for_partition.clone(),
+                            pair.block_path.clone(),
+                            &drive_block_proxy,
+                        )
+                        .await
+                            && v.has_filesystem
+                        {
+                            drive.volumes_flat.push(v);
+                        }
+                    }
+
+                    build_volume_nodes_for_drive(&mut drive, &connection, &block_index).await?;
+
+                    drives.insert(drive.name.clone(), drive);
+                    continue;
+                }
+            };
 
             if drive.partition_table_type.as_deref() == Some("gpt") {
                 let drive_block_proxy = BlockProxy::builder(&connection)
@@ -253,7 +636,8 @@ impl DriveModel {
             let partition_paths = match partition_table_proxy.partitions().await {
                 Ok(p) => p,
                 Err(e) => {
-                    error!("Error getting partitions for {}: {}", pair.block_path, e);
+                    warn!("No partitions for {}: {}", pair.block_path, e);
+                    drives.insert(drive.name.clone(), drive);
                     continue;
                 }
             };
@@ -271,147 +655,66 @@ impl DriveModel {
                     }
                 };
 
-                let block_proxy = BlockProxy::builder(&connection)
+                let block_proxy = match BlockProxy::builder(&connection)
                     .path(&partition_path)?
                     .build()
-                    .await?;
-
-                drive.partitions.push(
-                    PartitionModel::from_proxy(
-                        &client,
-                        pair.drive_path.to_string(),
-                        partition_path.clone(),
-                        &partition_proxy,
-                        &block_proxy,
-                    )
-                    .await?,
-                );
-            }
-
-            // Build nested volumes for UI presentation/actions.
-            drive.volumes = Vec::with_capacity(drive.partitions.len());
-            for p in &drive.partitions {
-                let label = if p.name.is_empty() {
-                    p.name()
-                } else {
-                    p.name.clone()
-                };
-
-                // LUKS: treat as a container; children are cleartext filesystem or LVM PV.
-                let encrypted_probe =
-                    udisks2::encrypted::EncryptedProxy::builder(&connection).path(&p.path);
-
-                let volume = if let Ok(builder) = encrypted_probe {
-                    match builder.build().await {
-                        Ok(_) => {
-                            match VolumeNode::crypto_container_for_partition(
-                                &connection,
-                                p.path.clone(),
-                                label.clone(),
-                                &block_index,
-                            )
-                            .await
-                            {
-                                Ok(v) => v,
-                                Err(e) if Self::is_missing_encrypted_interface(&e) => {
-                                    // Some UDisks objects don't actually implement the Encrypted
-                                    // interface, but proxy property access may return InvalidArgs.
-                                    // Treat those as non-encrypted and fall back.
-                                    if p.id_type == "LVM2_member" {
-                                        VolumeNode::from_block_object(
-                                            &connection,
-                                            p.path.clone(),
-                                            label,
-                                            VolumeKind::LvmPhysicalVolume,
-                                            Some(&block_index),
-                                        )
-                                        .await?
-                                    } else if p.has_filesystem {
-                                        VolumeNode::from_block_object(
-                                            &connection,
-                                            p.path.clone(),
-                                            label,
-                                            VolumeKind::Filesystem,
-                                            Some(&block_index),
-                                        )
-                                        .await?
-                                    } else {
-                                        VolumeNode::from_block_object(
-                                            &connection,
-                                            p.path.clone(),
-                                            label,
-                                            VolumeKind::Partition,
-                                            Some(&block_index),
-                                        )
-                                        .await?
-                                    }
-                                }
-                                Err(e) => return Err(e),
-                            }
-                        }
-                        Err(_) => {
-                            // Not actually encrypted; fall back below.
-                            if p.id_type == "LVM2_member" {
-                                VolumeNode::from_block_object(
-                                    &connection,
-                                    p.path.clone(),
-                                    label,
-                                    VolumeKind::LvmPhysicalVolume,
-                                    Some(&block_index),
-                                )
-                                .await?
-                            } else if p.has_filesystem {
-                                VolumeNode::from_block_object(
-                                    &connection,
-                                    p.path.clone(),
-                                    label,
-                                    VolumeKind::Filesystem,
-                                    Some(&block_index),
-                                )
-                                .await?
-                            } else {
-                                VolumeNode::from_block_object(
-                                    &connection,
-                                    p.path.clone(),
-                                    label,
-                                    VolumeKind::Partition,
-                                    Some(&block_index),
-                                )
-                                .await?
-                            }
-                        }
+                    .await
+                {
+                    Ok(p) => p,
+                    Err(e) => {
+                        warn!(
+                            "Error getting partition block proxy for {}: {}",
+                            partition_path, e
+                        );
+                        continue;
                     }
-                } else if p.id_type == "LVM2_member" {
-                    VolumeNode::from_block_object(
-                        &connection,
-                        p.path.clone(),
-                        label,
-                        VolumeKind::LvmPhysicalVolume,
-                        Some(&block_index),
-                    )
-                    .await?
-                } else if p.has_filesystem {
-                    VolumeNode::from_block_object(
-                        &connection,
-                        p.path.clone(),
-                        label,
-                        VolumeKind::Filesystem,
-                        Some(&block_index),
-                    )
-                    .await?
-                } else {
-                    VolumeNode::from_block_object(
-                        &connection,
-                        p.path.clone(),
-                        label,
-                        VolumeKind::Partition,
-                        Some(&block_index),
-                    )
-                    .await?
                 };
 
-                drive.volumes.push(volume);
+                let drive_path_for_partition = pair
+                    .drive_path
+                    .as_ref()
+                    .map(|p| p.to_string())
+                    .unwrap_or_else(|| pair.block_path.to_string());
+
+                match VolumeModel::from_proxy(
+                    &client,
+                    drive_path_for_partition,
+                    partition_path.clone(),
+                    &partition_proxy,
+                    &block_proxy,
+                )
+                .await
+                {
+                    Ok(p) => drive.volumes_flat.push(p),
+                    Err(e) => {
+                        warn!(
+                            "Error building partition model for {}: {}",
+                            partition_path, e
+                        );
+                        continue;
+                    }
+                }
             }
+
+            if drive.volumes_flat.is_empty() {
+                let drive_block_proxy = BlockProxy::builder(&connection)
+                    .path(&pair.block_path)?
+                    .build()
+                    .await?;
+                if let Ok(v) = VolumeModel::filesystem_from_block(
+                    &connection,
+                    drive_path_for_partition.clone(),
+                    pair.block_path.clone(),
+                    &drive_block_proxy,
+                )
+                .await
+                    && v.has_filesystem
+                {
+                    drive.volumes_flat.push(v);
+                }
+            }
+
+            build_volume_nodes_for_drive(&mut drive, &connection, &block_index).await?;
 
             drives.insert(drive.name.clone(), drive);
         }
@@ -454,6 +757,10 @@ impl DriveModel {
     }
 
     pub async fn power_off(&self) -> Result<()> {
+        if !self.can_power_off {
+            return Err(anyhow::anyhow!("Not supported by this drive"));
+        }
+
         let proxy = DriveProxy::builder(&self.connection)
             .path(self.path.clone())?
             .build()
