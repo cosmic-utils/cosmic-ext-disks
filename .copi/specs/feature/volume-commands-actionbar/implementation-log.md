@@ -30,4 +30,4 @@
 
 ### Follow-ups
 - Manual validation on a loop device / non-critical disk for each command (polkit prompts, mounted/unmounted error surfacing).
-- Consider pre-filling the new dialogs from existing `fstab`/`crypttab` configuration items.
+- (Optional) Improve prefill behavior when multiple config items exist (GNOME uses first only).

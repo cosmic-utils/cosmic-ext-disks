@@ -309,6 +309,8 @@ Passphrase behavior (GNOME parity):
 - Centralize mount/encryption option parsing/formatting: split on `,`, trim whitespace, stable-dedup tokens, preserve non-managed tokens.
 - GNOME Disks only considers the first `fstab`/`crypttab` config item if multiple exist; do the same.
 - Editing these settings is Polkit-gated; always surface errors via Info dialog.
+- Dialogs should pre-fill from existing `fstab`/`crypttab` configuration items when present.
+- For safety, do not pre-fill passphrase contents.
 
 ### Acceptance Criteria
 - [x] “Edit Encryption Options…” appears only for LUKS containers and opens the dialog described above.
@@ -316,3 +318,4 @@ Passphrase behavior (GNOME parity):
 - [x] “User Session Defaults” removes the corresponding `fstab`/`crypttab` configuration item.
 - [x] Toggle-to-token mappings match GNOME Disks exactly (`noauto`, `x-udisks-auth`, `x-gvfs-*`).
 - [x] Confirm applies settings via UDisks2 configuration item add/update/remove and refreshes the view.
+- [x] Dialogs pre-fill from existing `fstab`/`crypttab` configuration items when present (passphrase not prefilled).
