@@ -1,13 +1,15 @@
 use super::volumes::{CreateMessage, UnlockMessage};
+use crate::app::CreatePartitionDialog;
 use crate::app::Message;
 use crate::app::UnlockEncryptedDialog;
+use crate::app::{FormatDiskDialog, FormatDiskMessage};
 use crate::fl;
 use crate::utils::labelled_spinner;
 use cosmic::{
     Element, iced_widget,
+    widget::text::{caption, caption_heading},
     widget::{button, checkbox, dialog, dropdown, slider, text_input, toggler},
 };
-use disks_dbus::CreatePartitionInfo;
 use disks_dbus::{bytes_to_pretty, get_valid_partition_names};
 use std::borrow::Cow;
 
@@ -16,15 +18,24 @@ pub fn confirmation<'a>(
     prompt: impl Into<Cow<'a, str>>,
     ok_message: Message,
     cancel_message: Option<Message>,
+    running: bool,
 ) -> Element<'a, Message> {
-    let mut dialog = dialog::dialog()
-        .title(title)
-        .body(prompt)
-        .primary_action(button::destructive(fl!("ok")).on_press(ok_message));
+    let mut dialog = dialog::dialog().title(title).body(prompt);
+
+    let mut ok_button = button::destructive(fl!("ok"));
+    if !running {
+        ok_button = ok_button.on_press(ok_message);
+    }
+
+    dialog = dialog.primary_action(ok_button);
 
     if let Some(c) = cancel_message {
         dialog = dialog.secondary_action(button::standard(fl!("cancel")).on_press(c))
     };
+
+    if running {
+        dialog = dialog.body(fl!("working"));
+    }
 
     dialog.into()
 }
@@ -41,7 +52,12 @@ pub fn info<'a>(
         .into()
 }
 
-pub fn create_partition<'a>(create: CreatePartitionInfo) -> Element<'a, Message> {
+pub fn create_partition<'a>(state: CreatePartitionDialog) -> Element<'a, Message> {
+    let CreatePartitionDialog {
+        info: create,
+        running,
+    } = state;
+
     let len = create.max_size as f64;
 
     let size = create.size as f64;
@@ -108,10 +124,13 @@ pub fn create_partition<'a>(create: CreatePartitionInfo) -> Element<'a, Message>
 
     let mut continue_button = button::destructive(fl!("continue"));
 
-    // if create.can_continue
-    //{
-    continue_button = continue_button.on_press(CreateMessage::Partition(create).into());
-    //}
+    if !running {
+        continue_button = continue_button.on_press(CreateMessage::Partition.into());
+    }
+
+    if running {
+        content = content.push(caption(fl!("working")));
+    }
 
     dialog::dialog()
         .title(fl!("create-partition"))
@@ -130,15 +149,65 @@ pub fn unlock_encrypted<'a>(state: UnlockEncryptedDialog) -> Element<'a, Message
     .spacing(12);
 
     if let Some(err) = state.error.as_ref() {
-        content = content.push(cosmic::widget::text::caption(err.clone()));
+        content = content.push(caption(err.clone()));
+    }
+
+    if state.running {
+        content = content.push(caption(fl!("working")));
+    }
+
+    let mut unlock_button = button::destructive(fl!("unlock-button"));
+    if !state.running {
+        unlock_button = unlock_button.on_press(UnlockMessage::Confirm.into());
     }
 
     dialog::dialog()
         .title(fl!("unlock", name = state.partition_name))
         .control(content)
-        .primary_action(
-            button::destructive(fl!("unlock-button")).on_press(UnlockMessage::Confirm.into()),
-        )
+        .primary_action(unlock_button)
         .secondary_action(button::standard(fl!("cancel")).on_press(UnlockMessage::Cancel.into()))
+        .into()
+}
+
+pub fn format_disk<'a>(state: FormatDiskDialog) -> Element<'a, Message> {
+    let erase_options = vec![
+        fl!("erase-dont-overwrite-quick").to_string(),
+        fl!("erase-overwrite-slow").to_string(),
+    ];
+
+    let partitioning_options = vec![
+        fl!("partitioning-dos-mbr").to_string(),
+        fl!("partitioning-gpt").to_string(),
+        fl!("partitioning-none").to_string(),
+    ];
+
+    let mut content = iced_widget::column![
+        caption_heading(fl!("erase")),
+        dropdown(erase_options, Some(state.erase_index), |v| {
+            FormatDiskMessage::EraseUpdate(v).into()
+        }),
+        caption_heading(fl!("partitioning")),
+        dropdown(partitioning_options, Some(state.partitioning_index), |v| {
+            FormatDiskMessage::PartitioningUpdate(v).into()
+        }),
+    ]
+    .spacing(12);
+
+    if state.running {
+        content = content.push(caption(fl!("working")));
+    }
+
+    let mut confirm = button::destructive(fl!("format-disk"));
+    if !state.running {
+        confirm = confirm.on_press(FormatDiskMessage::Confirm.into());
+    }
+
+    dialog::dialog()
+        .title(fl!("format-disk"))
+        .control(content)
+        .primary_action(confirm)
+        .secondary_action(
+            button::standard(fl!("cancel")).on_press(FormatDiskMessage::Cancel.into()),
+        )
         .into()
 }

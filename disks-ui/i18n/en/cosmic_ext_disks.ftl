@@ -26,12 +26,20 @@ wake-up-from-standby = Wake-up From Standby
 ok = Ok
 cancel = Cancel
 continue = Continue
+working = Working…
+
+# Format disk dialog
+erase-dont-overwrite-quick = Don't Overwrite (Quick)
+erase-overwrite-slow = Overwrite (Slow)
+partitioning-dos-mbr = Legacy Compatible (DOS/MBR)
+partitioning-gpt = Modern (GPT)
+partitioning-none = None
 
 # Create partition dialog
 create-partition = Create Partition
 volume-name = Volume Name
 partition-size = Partition Size
-free-space = Free Spacecargo
+free-space = Free Space
 erase = Erase
 password-protected = Password Protected
 password = Password

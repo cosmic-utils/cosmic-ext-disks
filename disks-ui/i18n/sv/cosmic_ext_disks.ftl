@@ -26,12 +26,20 @@ wake-up-from-standby = Vakna upp från vänteläge
 ok = Ok
 cancel = Avbryt
 continue = Fortsätt
+working = Arbetar…
+
+# Formatera disk dialogruta
+erase-dont-overwrite-quick = Skriv inte över (snabbt)
+erase-overwrite-slow = Skriv över (långsamt)
+partitioning-dos-mbr = Bakåtkompatibel (DOS/MBR)
+partitioning-gpt = Modern (GPT)
+partitioning-none = Ingen
 
 # Skapa partition dialogrutan
 create-partition = Skapa partition
 volume-name = Volymnamn
 partition-size = Partitionsstorlek
-free-space = Ledigt utrymme/last
+free-space = Ledigt utrymme
 erase = Radera
 password-protected = Lösenordsskyddad
 password = Lösenord

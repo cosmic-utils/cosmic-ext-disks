@@ -6,6 +6,7 @@ use udisks2::{
     Client, block::BlockProxy, drive::DriveProxy, partition::PartitionProxy,
     partitiontable::PartitionTableProxy,
 };
+use zbus::zvariant::Value;
 use zbus::{Connection, zvariant::OwnedObjectPath};
 
 use crate::CreatePartitionInfo;
@@ -429,6 +430,66 @@ impl DriveModel {
             info,
         )
         .await
+    }
+
+    /// Format the entire disk (drive block device) via UDisks2.
+    ///
+    /// `format_type` is passed directly to `org.freedesktop.UDisks2.Block.Format`, and may be
+    /// values like `"gpt"`, `"dos"`, or `"empty"` (depending on UDisks support).
+    ///
+    /// If `erase` is true, request a zero-fill erase (slow) via the `erase=zero` option.
+    pub async fn format_disk(&self, format_type: &str, erase: bool) -> Result<()> {
+        // Preflight: ensure no mounted filesystems (including nested/LUKS/LVM children) keep the
+        // disk busy, and teardown unlocked encrypted containers.
+        self.preflight_for_format().await?;
+
+        let block_proxy = BlockProxy::builder(&self.connection)
+            .path(self.block_path.clone())?
+            .build()
+            .await?;
+
+        let mut format_options: HashMap<&str, Value<'_>> = HashMap::new();
+
+        if erase {
+            format_options.insert("erase", Value::from("zero"));
+        }
+
+        block_proxy.format(format_type, format_options).await?;
+        Ok(())
+    }
+
+    async fn preflight_for_format(&self) -> Result<()> {
+        let mut first_err: Option<anyhow::Error> = None;
+
+        for v in &self.volumes {
+            // Post-order traversal (children before parent lock), but unmount as soon as we see a
+            // mounted filesystem.
+            let mut stack: Vec<(VolumeNode, bool)> = vec![(v.clone(), false)];
+            while let Some((node, visited)) = stack.pop() {
+                if !visited {
+                    if node.is_mounted()
+                        && let Err(e) = node.unmount().await
+                    {
+                        first_err.get_or_insert(e);
+                    }
+
+                    stack.push((node.clone(), true));
+                    for child in node.children.iter().rev() {
+                        stack.push((child.clone(), false));
+                    }
+                } else if node.can_lock()
+                    && let Err(e) = node.lock().await
+                {
+                    first_err.get_or_insert(e);
+                }
+            }
+        }
+
+        if let Some(e) = first_err {
+            return Err(e);
+        }
+
+        Ok(())
     }
 }
 
