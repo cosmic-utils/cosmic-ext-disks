@@ -6,6 +6,22 @@ Disk utility for the COSMIC™ desktop
 
 - `udisks2` (system service; provides disk enumeration and device add/remove signals)
 
+## Image menu
+
+The **Image** menu supports:
+
+- Creating a new empty disk image file of a chosen size.
+- Attaching an existing image via UDisks2 loop setup.
+- Creating/restoring images from/to the selected drive or selected partition.
+
+Notes:
+
+- **Attach Disk Image** will attempt to mount the image if the attached loop device exposes a
+	top-level filesystem. If the image contains a partition table, it will still be attached, and
+	you can mount the newly discovered partitions from the main view.
+- **Restore** operations overwrite the selected target. Make sure you select the correct drive or
+	partition.
+
 ## Installation
 
 A [justfile](./justfile) is included by default for the [casey/just][just] command runner.

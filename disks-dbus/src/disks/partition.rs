@@ -189,6 +189,14 @@ impl PartitionModel {
         Ok(())
     }
 
+    pub async fn open_for_backup(&self) -> Result<std::os::fd::OwnedFd> {
+        crate::open_for_backup(self.path.clone()).await
+    }
+
+    pub async fn open_for_restore(&self) -> Result<std::os::fd::OwnedFd> {
+        crate::open_for_restore(self.path.clone()).await
+    }
+
     pub async fn mount(&self) -> Result<()> {
         if self.connection.is_none() {
             return Err(DiskError::NotConnected(self.name.clone()).into());

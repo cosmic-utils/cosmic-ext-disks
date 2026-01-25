@@ -723,6 +723,14 @@ impl VolumesControl {
                         eprintln!("CreateMessage received while a SMART dialog is open; ignoring.");
                     }
 
+                    ShowDialog::NewDiskImage(_)
+                    | ShowDialog::AttachDiskImage(_)
+                    | ShowDialog::ImageOperation(_) => {
+                        eprintln!(
+                            "CreateMessage received while an image dialog is open; ignoring."
+                        );
+                    }
+
                     ShowDialog::Info { .. } => {
                         eprintln!("CreateMessage received while an info dialog is open; ignoring.");
                     }
@@ -787,16 +795,19 @@ impl VolumesControl {
                             },
                             move |result| match result {
                                 Ok(drives) => Message::UpdateNav(drives, None).into(),
-                                Err(e) => Message::Dialog(Box::new(ShowDialog::UnlockEncrypted(
-                                    UnlockEncryptedDialog {
-                                        partition_path: partition_path.clone(),
-                                        partition_name: partition_name.clone(),
-                                        passphrase: passphrase.clone(),
-                                        error: Some(e.to_string()),
-                                        running: false,
-                                    },
-                                )))
-                                .into(),
+                                Err(e) => {
+                                    eprintln!("Unlock encrypted dialog error: {e}");
+                                    Message::Dialog(Box::new(ShowDialog::UnlockEncrypted(
+                                        UnlockEncryptedDialog {
+                                            partition_path: partition_path.clone(),
+                                            partition_name: partition_name.clone(),
+                                            passphrase: passphrase.clone(),
+                                            error: Some(e.to_string()),
+                                            running: false,
+                                        },
+                                    )))
+                                    .into()
+                                }
                             },
                         );
                     }

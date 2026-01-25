@@ -1,6 +1,7 @@
 mod create_partition_info;
 mod drive;
 mod gpt;
+mod image;
 mod lvm;
 mod manager;
 mod ops;
@@ -11,6 +12,7 @@ mod volume;
 pub use create_partition_info::*;
 pub use drive::*;
 pub use gpt::*;
+pub use image::*;
 pub use lvm::*;
 pub use manager::*;
 pub use partition::PartitionModel;

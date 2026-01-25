@@ -19,6 +19,12 @@ use disks_dbus::bytes_to_pretty;
 use disks_dbus::{DiskManager, DriveModel};
 use futures_util::{SinkExt, StreamExt};
 use std::collections::HashMap;
+use std::sync::{
+    Arc,
+    atomic::{AtomicBool, Ordering},
+};
+use tokio::fs::OpenOptions;
+use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
 pub const REPOSITORY: &str = env!("CARGO_PKG_REPOSITORY");
 pub const APP_ICON: &[u8] = include_bytes!("../resources/icons/hicolor/scalable/apps/icon.svg");
@@ -37,6 +43,8 @@ pub struct AppModel {
     // Configuration data that persists between application runs.
     config: Config,
 
+    image_op_cancel: Option<Arc<AtomicBool>>,
+
     pub dialog: Option<ShowDialog>,
 }
 
@@ -47,7 +55,43 @@ pub enum ShowDialog {
     UnlockEncrypted(UnlockEncryptedDialog),
     FormatDisk(FormatDiskDialog),
     SmartData(SmartDataDialog),
+    NewDiskImage(Box<NewDiskImageDialog>),
+    AttachDiskImage(Box<AttachDiskImageDialog>),
+    ImageOperation(Box<ImageOperationDialog>),
     Info { title: String, body: String },
+}
+
+#[derive(Debug, Clone)]
+pub struct NewDiskImageDialog {
+    pub path: String,
+    pub size_bytes: u64,
+    pub running: bool,
+    pub error: Option<String>,
+}
+
+#[derive(Debug, Clone)]
+pub struct AttachDiskImageDialog {
+    pub path: String,
+    pub running: bool,
+    pub error: Option<String>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ImageOperationKind {
+    CreateFromDrive,
+    RestoreToDrive,
+    CreateFromPartition,
+    RestoreToPartition,
+}
+
+#[derive(Debug, Clone)]
+pub struct ImageOperationDialog {
+    pub kind: ImageOperationKind,
+    pub drive: DriveModel,
+    pub partition: Option<disks_dbus::PartitionModel>,
+    pub image_path: String,
+    pub running: bool,
+    pub error: Option<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -118,6 +162,55 @@ pub struct UnlockEncryptedDialog {
     pub running: bool,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum NewDiskImageDialogMessage {
+    PathUpdate(String),
+    SizeUpdate(u64),
+    Create,
+    Cancel,
+    Complete(Result<(), String>),
+}
+
+impl From<NewDiskImageDialogMessage> for Message {
+    fn from(val: NewDiskImageDialogMessage) -> Self {
+        Message::NewDiskImageDialog(val)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum AttachDiskImageDialogMessage {
+    PathUpdate(String),
+    Attach,
+    Cancel,
+    Complete(Result<AttachDiskResult, String>),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct AttachDiskResult {
+    pub mounted: bool,
+    pub message: String,
+}
+
+impl From<AttachDiskImageDialogMessage> for Message {
+    fn from(val: AttachDiskImageDialogMessage) -> Self {
+        Message::AttachDiskImageDialog(val)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ImageOperationDialogMessage {
+    PathUpdate(String),
+    Start,
+    CancelOperation,
+    Complete(Result<(), String>),
+}
+
+impl From<ImageOperationDialogMessage> for Message {
+    fn from(val: ImageOperationDialogMessage) -> Self {
+        Message::ImageOperationDialog(val)
+    }
+}
+
 /// Messages emitted by the application and its widgets.
 #[derive(Debug, Clone)]
 #[allow(clippy::enum_variant_names)]
@@ -146,6 +239,11 @@ pub enum Message {
     AttachDisk,
     CreateDiskFrom,
     RestoreImageTo,
+    CreateDiskFromPartition,
+    RestoreImageToPartition,
+    NewDiskImageDialog(NewDiskImageDialogMessage),
+    AttachDiskImageDialog(AttachDiskImageDialogMessage),
+    ImageOperationDialog(ImageOperationDialogMessage),
     Surface(cosmic::surface::Action),
 }
 
@@ -180,6 +278,7 @@ impl Application for AppModel {
             nav: nav_bar::Model::default(),
             dialog: None,
             key_binds: HashMap::new(),
+            image_op_cancel: None,
             // Optional configuration file for an application.
             config: cosmic_config::Config::new(Self::APP_ID, Config::VERSION)
                 .map(|context| match Config::get_entry(&context) {
@@ -242,6 +341,18 @@ impl Application for AppModel {
                 ShowDialog::FormatDisk(state) => Some(dialogs::format_disk(state.clone())),
 
                 ShowDialog::SmartData(state) => Some(dialogs::smart_data(state.clone())),
+
+                ShowDialog::NewDiskImage(state) => {
+                    Some(dialogs::new_disk_image(state.as_ref().clone()))
+                }
+
+                ShowDialog::AttachDiskImage(state) => {
+                    Some(dialogs::attach_disk_image(state.as_ref().clone()))
+                }
+
+                ShowDialog::ImageOperation(state) => {
+                    Some(dialogs::image_operation(state.as_ref().clone()))
+                }
 
                 ShowDialog::Info { title, body } => Some(dialogs::info(
                     title.clone(),
@@ -860,6 +971,7 @@ impl Application for AppModel {
                                 next.error = None;
                             }
                             Err(e) => {
+                                eprintln!("SMART dialog error: {e}");
                                 next.error = Some(e);
                             }
                         }
@@ -946,6 +1058,9 @@ impl Application for AppModel {
                         let mut next = state;
                         next.running = false;
                         next.error = res.err();
+                        if let Some(ref e) = next.error {
+                            eprintln!("SMART dialog action error: {e}");
+                        }
                         self.dialog = Some(ShowDialog::SmartData(next));
 
                         // After a successful action, refresh SMART data.
@@ -959,28 +1074,350 @@ impl Application for AppModel {
                 }
             }
             Message::NewDiskImage => {
-                self.dialog = Some(ShowDialog::Info {
-                    title: fl!("app-title"),
-                    body: "Creating a new disk image is not implemented yet.".to_string(),
-                });
+                self.dialog = Some(ShowDialog::NewDiskImage(Box::new(NewDiskImageDialog {
+                    path: String::new(),
+                    size_bytes: 16 * 1024 * 1024,
+                    running: false,
+                    error: None,
+                })));
             }
             Message::AttachDisk => {
-                self.dialog = Some(ShowDialog::Info {
-                    title: fl!("app-title"),
-                    body: "Attaching a disk image is not implemented yet.".to_string(),
-                });
+                self.dialog = Some(ShowDialog::AttachDiskImage(Box::new(
+                    AttachDiskImageDialog {
+                        path: String::new(),
+                        running: false,
+                        error: None,
+                    },
+                )));
             }
             Message::CreateDiskFrom => {
-                self.dialog = Some(ShowDialog::Info {
-                    title: fl!("app-title"),
-                    body: "Creating an image from a drive is not implemented yet.".to_string(),
-                });
+                let Some(drive) = self.nav.active_data::<DriveModel>().cloned() else {
+                    return Task::none();
+                };
+
+                self.dialog = Some(ShowDialog::ImageOperation(
+                    ImageOperationDialog {
+                        kind: ImageOperationKind::CreateFromDrive,
+                        drive,
+                        partition: None,
+                        image_path: String::new(),
+                        running: false,
+                        error: None,
+                    }
+                    .into(),
+                ));
             }
             Message::RestoreImageTo => {
-                self.dialog = Some(ShowDialog::Info {
-                    title: fl!("app-title"),
-                    body: "Restoring an image to a drive is not implemented yet.".to_string(),
-                });
+                let Some(drive) = self.nav.active_data::<DriveModel>().cloned() else {
+                    return Task::none();
+                };
+
+                self.dialog = Some(ShowDialog::ImageOperation(
+                    ImageOperationDialog {
+                        kind: ImageOperationKind::RestoreToDrive,
+                        drive,
+                        partition: None,
+                        image_path: String::new(),
+                        running: false,
+                        error: None,
+                    }
+                    .into(),
+                ));
+            }
+            Message::CreateDiskFromPartition => {
+                let Some(drive) = self.nav.active_data::<DriveModel>().cloned() else {
+                    return Task::none();
+                };
+
+                let Some(volumes_control) = self.nav.active_data::<VolumesControl>() else {
+                    self.dialog = Some(ShowDialog::Info {
+                        title: fl!("app-title"),
+                        body: fl!("no-disk-selected"),
+                    });
+                    return Task::none();
+                };
+
+                let partition = volumes_control
+                    .segments
+                    .get(volumes_control.selected_segment)
+                    .and_then(|s| s.partition.clone());
+
+                let Some(partition) = partition else {
+                    self.dialog = Some(ShowDialog::Info {
+                        title: fl!("app-title"),
+                        body: "Select a partition to create an image from.".to_string(),
+                    });
+                    return Task::none();
+                };
+
+                self.dialog = Some(ShowDialog::ImageOperation(
+                    ImageOperationDialog {
+                        kind: ImageOperationKind::CreateFromPartition,
+                        drive,
+                        partition: Some(partition),
+                        image_path: String::new(),
+                        running: false,
+                        error: None,
+                    }
+                    .into(),
+                ));
+            }
+            Message::RestoreImageToPartition => {
+                let Some(drive) = self.nav.active_data::<DriveModel>().cloned() else {
+                    return Task::none();
+                };
+
+                let Some(volumes_control) = self.nav.active_data::<VolumesControl>() else {
+                    self.dialog = Some(ShowDialog::Info {
+                        title: fl!("app-title"),
+                        body: fl!("no-disk-selected"),
+                    });
+                    return Task::none();
+                };
+
+                let partition = volumes_control
+                    .segments
+                    .get(volumes_control.selected_segment)
+                    .and_then(|s| s.partition.clone());
+
+                let Some(partition) = partition else {
+                    self.dialog = Some(ShowDialog::Info {
+                        title: fl!("app-title"),
+                        body: "Select a partition to restore an image to.".to_string(),
+                    });
+                    return Task::none();
+                };
+
+                self.dialog = Some(ShowDialog::ImageOperation(
+                    ImageOperationDialog {
+                        kind: ImageOperationKind::RestoreToPartition,
+                        drive,
+                        partition: Some(partition),
+                        image_path: String::new(),
+                        running: false,
+                        error: None,
+                    }
+                    .into(),
+                ));
+            }
+            Message::NewDiskImageDialog(msg) => {
+                let Some(ShowDialog::NewDiskImage(state)) = self.dialog.as_mut() else {
+                    return Task::none();
+                };
+
+                match msg {
+                    NewDiskImageDialogMessage::PathUpdate(v) => state.path = v,
+                    NewDiskImageDialogMessage::SizeUpdate(v) => state.size_bytes = v,
+                    NewDiskImageDialogMessage::Cancel => {
+                        self.dialog = None;
+                    }
+                    NewDiskImageDialogMessage::Create => {
+                        if state.running {
+                            return Task::none();
+                        }
+
+                        let path = state.path.clone();
+                        let size_bytes = state.size_bytes;
+
+                        state.running = true;
+                        state.error = None;
+
+                        return Task::perform(
+                            async move {
+                                if path.trim().is_empty() {
+                                    anyhow::bail!("Destination path is required");
+                                }
+
+                                let file = OpenOptions::new()
+                                    .write(true)
+                                    .create_new(true)
+                                    .open(&path)
+                                    .await?;
+                                file.set_len(size_bytes).await?;
+                                Ok(())
+                            },
+                            |res: anyhow::Result<()>| {
+                                Message::NewDiskImageDialog(NewDiskImageDialogMessage::Complete(
+                                    res.map_err(|e| e.to_string()),
+                                ))
+                                .into()
+                            },
+                        );
+                    }
+                    NewDiskImageDialogMessage::Complete(res) => {
+                        state.running = false;
+                        match res {
+                            Ok(()) => {
+                                self.dialog = Some(ShowDialog::Info {
+                                    title: fl!("app-title"),
+                                    body: "Disk image created.".to_string(),
+                                });
+                            }
+                            Err(e) => {
+                                eprintln!("New disk image dialog error: {e}");
+                                state.error = Some(e);
+                            }
+                        }
+                    }
+                }
+            }
+            Message::AttachDiskImageDialog(msg) => {
+                let Some(ShowDialog::AttachDiskImage(state)) = self.dialog.as_mut() else {
+                    return Task::none();
+                };
+
+                match msg {
+                    AttachDiskImageDialogMessage::PathUpdate(v) => state.path = v,
+                    AttachDiskImageDialogMessage::Cancel => {
+                        if !state.running {
+                            self.dialog = None;
+                        }
+                    }
+                    AttachDiskImageDialogMessage::Attach => {
+                        if state.running {
+                            return Task::none();
+                        }
+
+                        let path = state.path.clone();
+                        state.running = true;
+                        state.error = None;
+
+                        return Task::perform(
+                            async move {
+                                if path.trim().is_empty() {
+                                    anyhow::bail!("Image file path is required");
+                                }
+
+                                let block_object_path = disks_dbus::loop_setup(&path).await?;
+
+                                match disks_dbus::mount_filesystem(block_object_path.clone()).await
+                                {
+                                    Ok(()) => Ok(AttachDiskResult {
+                                        mounted: true,
+                                        message: "Attached and mounted image.".to_string(),
+                                    }),
+                                    Err(e) => {
+                                        eprintln!("Attach image: mount attempt failed: {e}");
+                                        Ok(AttachDiskResult {
+                                        mounted: false,
+                                        message: "Attached image. If it contains partitions, select and mount them from the main view.".to_string(),
+                                        })
+                                    }
+                                }
+                            },
+                            |res: anyhow::Result<AttachDiskResult>| {
+                                Message::AttachDiskImageDialog(
+                                    AttachDiskImageDialogMessage::Complete(
+                                        res.map_err(|e| e.to_string()),
+                                    ),
+                                )
+                                .into()
+                            },
+                        );
+                    }
+                    AttachDiskImageDialogMessage::Complete(res) => {
+                        state.running = false;
+                        match res {
+                            Ok(r) => {
+                                self.dialog = Some(ShowDialog::Info {
+                                    title: fl!("app-title"),
+                                    body: r.message,
+                                });
+
+                                return Task::perform(
+                                    async { DriveModel::get_drives().await.ok() },
+                                    |drives| match drives {
+                                        None => Message::None.into(),
+                                        Some(drives) => Message::UpdateNav(drives, None).into(),
+                                    },
+                                );
+                            }
+                            Err(e) => {
+                                eprintln!("Attach disk image dialog error: {e}");
+                                state.error = Some(e);
+                            }
+                        }
+                    }
+                }
+            }
+            Message::ImageOperationDialog(msg) => {
+                let Some(ShowDialog::ImageOperation(state)) = self.dialog.as_mut() else {
+                    return Task::none();
+                };
+
+                match msg {
+                    ImageOperationDialogMessage::PathUpdate(v) => state.image_path = v,
+                    ImageOperationDialogMessage::CancelOperation => {
+                        if state.running {
+                            if let Some(flag) = self.image_op_cancel.as_ref() {
+                                flag.store(true, Ordering::SeqCst);
+                            }
+                        } else {
+                            self.dialog = None;
+                        }
+                    }
+                    ImageOperationDialogMessage::Start => {
+                        if state.running {
+                            return Task::none();
+                        }
+
+                        let image_path = state.image_path.clone();
+                        if image_path.trim().is_empty() {
+                            let e = "Image path is required".to_string();
+                            eprintln!("Image operation dialog error: {e}");
+                            state.error = Some(e);
+                            return Task::none();
+                        }
+
+                        let kind = state.kind;
+                        let drive = state.drive.clone();
+                        let partition = state.partition.clone();
+
+                        let cancel = Arc::new(AtomicBool::new(false));
+                        self.image_op_cancel = Some(cancel.clone());
+
+                        state.running = true;
+                        state.error = None;
+
+                        return Task::perform(
+                            async move {
+                                run_image_operation(kind, drive, partition, image_path, cancel)
+                                    .await
+                                    .map_err(|e| e.to_string())
+                            },
+                            |res| {
+                                Message::ImageOperationDialog(
+                                    ImageOperationDialogMessage::Complete(res),
+                                )
+                                .into()
+                            },
+                        );
+                    }
+                    ImageOperationDialogMessage::Complete(res) => {
+                        self.image_op_cancel = None;
+                        state.running = false;
+                        match res {
+                            Ok(()) => {
+                                self.dialog = Some(ShowDialog::Info {
+                                    title: fl!("app-title"),
+                                    body: "Operation completed.".to_string(),
+                                });
+
+                                return Task::perform(
+                                    async { DriveModel::get_drives().await.ok() },
+                                    |drives| match drives {
+                                        None => Message::None.into(),
+                                        Some(drives) => Message::UpdateNav(drives, None).into(),
+                                    },
+                                );
+                            }
+                            Err(e) => {
+                                eprintln!("Image operation dialog error: {e}");
+                                state.error = Some(e);
+                            }
+                        }
+                    }
+                }
             }
             Message::Surface(action) => {
                 return cosmic::task::message(cosmic::Action::Cosmic(
@@ -1030,6 +1467,124 @@ impl AppModel {
             self.set_window_title(window_title, id)
         } else {
             Task::none()
+        }
+    }
+}
+
+async fn copy_with_cancel<R, W>(
+    mut reader: R,
+    mut writer: W,
+    cancel: Arc<AtomicBool>,
+) -> anyhow::Result<u64>
+where
+    R: tokio::io::AsyncRead + Unpin,
+    W: tokio::io::AsyncWrite + Unpin,
+{
+    let mut buf = vec![0u8; 4 * 1024 * 1024];
+    let mut total: u64 = 0;
+
+    loop {
+        if cancel.load(Ordering::Relaxed) {
+            anyhow::bail!("Cancelled");
+        }
+
+        let n = reader.read(&mut buf).await?;
+        if n == 0 {
+            break;
+        }
+
+        writer.write_all(&buf[..n]).await?;
+        total = total.saturating_add(n as u64);
+    }
+
+    writer.flush().await?;
+    Ok(total)
+}
+
+async fn run_image_operation(
+    kind: ImageOperationKind,
+    drive: DriveModel,
+    partition: Option<disks_dbus::PartitionModel>,
+    image_path: String,
+    cancel: Arc<AtomicBool>,
+) -> anyhow::Result<()> {
+    match kind {
+        ImageOperationKind::CreateFromDrive => {
+            let fd = drive.open_for_backup().await?;
+            let reader = tokio::fs::File::from_std(std::fs::File::from(fd));
+            let writer = OpenOptions::new()
+                .write(true)
+                .create_new(true)
+                .open(&image_path)
+                .await?;
+
+            let _bytes = copy_with_cancel(reader, writer, cancel).await?;
+            Ok(())
+        }
+        ImageOperationKind::CreateFromPartition => {
+            let Some(partition) = partition else {
+                anyhow::bail!("No partition selected");
+            };
+
+            let fd = partition.open_for_backup().await?;
+            let reader = tokio::fs::File::from_std(std::fs::File::from(fd));
+            let writer = OpenOptions::new()
+                .write(true)
+                .create_new(true)
+                .open(&image_path)
+                .await?;
+
+            let _bytes = copy_with_cancel(reader, writer, cancel).await?;
+            Ok(())
+        }
+        ImageOperationKind::RestoreToDrive => {
+            // Preflight: attempt to unmount all mounted partitions.
+            for p in &drive.partitions {
+                if p.is_mounted() {
+                    p.unmount().await?;
+                }
+            }
+
+            let src_meta = tokio::fs::metadata(&image_path).await?;
+            if src_meta.len() > drive.size {
+                anyhow::bail!(
+                    "Image is larger than the selected drive (image={} bytes, drive={} bytes)",
+                    src_meta.len(),
+                    drive.size
+                );
+            }
+
+            let src = tokio::fs::File::open(&image_path).await?;
+            let fd = drive.open_for_restore().await?;
+            let dest = tokio::fs::File::from_std(std::fs::File::from(fd));
+
+            let _bytes = copy_with_cancel(src, dest, cancel).await?;
+            Ok(())
+        }
+        ImageOperationKind::RestoreToPartition => {
+            let Some(partition) = partition else {
+                anyhow::bail!("No partition selected");
+            };
+
+            if partition.is_mounted() {
+                partition.unmount().await?;
+            }
+
+            let src_meta = tokio::fs::metadata(&image_path).await?;
+            if src_meta.len() > partition.size {
+                anyhow::bail!(
+                    "Image is larger than the selected partition (image={} bytes, partition={} bytes)",
+                    src_meta.len(),
+                    partition.size
+                );
+            }
+
+            let src = tokio::fs::File::open(&image_path).await?;
+            let fd = partition.open_for_restore().await?;
+            let dest = tokio::fs::File::from_std(std::fs::File::from(fd));
+
+            let _bytes = copy_with_cancel(src, dest, cancel).await?;
+            Ok(())
         }
     }
 }
