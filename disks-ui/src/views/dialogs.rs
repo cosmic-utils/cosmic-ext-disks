@@ -507,7 +507,7 @@ pub fn edit_filesystem_label<'a>(state: EditFilesystemLabelDialog) -> Element<'a
 
 pub fn take_ownership<'a>(state: TakeOwnershipDialog) -> Element<'a, Message> {
     let TakeOwnershipDialog {
-        volume: _,
+        target: _,
         recursive,
         running,
     } = state;

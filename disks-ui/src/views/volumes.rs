@@ -1010,21 +1010,30 @@ impl VolumesControl {
                     return Task::none();
                 }
 
-                let Some(segment) = self.segments.get(self.selected_segment) else {
-                    return Task::none();
-                };
-                let Some(volume) = segment.volume.clone() else {
-                    return Task::none();
-                };
+                let target = if let Some(node) = self.selected_volume_node() {
+                    if !node.can_mount() {
+                        return Task::none();
+                    }
+                    FilesystemTarget::Node(node.clone())
+                } else {
+                    let Some(segment) = self.segments.get(self.selected_segment) else {
+                        return Task::none();
+                    };
+                    let Some(volume) = segment.volume.clone() else {
+                        return Task::none();
+                    };
 
-                if volume.volume_type != disks_dbus::VolumeType::Filesystem {
-                    return Task::none();
-                }
+                    if !volume.can_mount() {
+                        return Task::none();
+                    }
+
+                    FilesystemTarget::Volume(volume)
+                };
 
                 *dialog = Some(ShowDialog::ConfirmAction(ConfirmActionDialog {
                     title: fl!("repair-filesystem").to_string(),
                     body: fl!("repair-filesystem-warning").to_string(),
-                    target: FilesystemTarget::Volume(volume),
+                    target,
                     ok_message: VolumesControlMessage::RepairFilesystemConfirm.into(),
                     running: false,
                 }));
@@ -1066,19 +1075,28 @@ impl VolumesControl {
                     return Task::none();
                 }
 
-                let Some(segment) = self.segments.get(self.selected_segment) else {
-                    return Task::none();
-                };
-                let Some(volume) = segment.volume.clone() else {
-                    return Task::none();
-                };
+                let target = if let Some(node) = self.selected_volume_node() {
+                    if !node.can_mount() {
+                        return Task::none();
+                    }
+                    FilesystemTarget::Node(node.clone())
+                } else {
+                    let Some(segment) = self.segments.get(self.selected_segment) else {
+                        return Task::none();
+                    };
+                    let Some(volume) = segment.volume.clone() else {
+                        return Task::none();
+                    };
 
-                if volume.volume_type != disks_dbus::VolumeType::Filesystem {
-                    return Task::none();
-                }
+                    if !volume.can_mount() {
+                        return Task::none();
+                    }
+
+                    FilesystemTarget::Volume(volume)
+                };
 
                 *dialog = Some(ShowDialog::TakeOwnership(TakeOwnershipDialog {
-                    volume,
+                    target,
                     recursive: true,
                     running: false,
                 }));
@@ -1504,12 +1522,19 @@ impl VolumesControl {
                         }
 
                         state.running = true;
-                        let volume = state.volume.clone();
+                        let target = state.target.clone();
                         let recursive = state.recursive;
 
                         return Task::perform(
                             async move {
-                                volume.take_ownership(recursive).await?;
+                                match target {
+                                    FilesystemTarget::Volume(v) => {
+                                        v.take_ownership(recursive).await?
+                                    }
+                                    FilesystemTarget::Node(n) => {
+                                        n.take_ownership(recursive).await?
+                                    }
+                                }
                                 DriveModel::get_drives().await
                             },
                             |result| match result {
@@ -1881,12 +1906,8 @@ impl VolumesControl {
                     fl!("check-filesystem").to_string(),
                     Some(VolumesControlMessage::OpenCheckFilesystem.into()),
                 ));
-            }
 
-            // Filesystem-only (VolumeType::Filesystem): Repair + Take Ownership
-            if selected_child_volume.is_none()
-                && p.volume_type == disks_dbus::VolumeType::Filesystem
-            {
+                // Filesystem operations: Repair + Take Ownership
                 action_bar.push(tooltip_icon_button(
                     "tools-symbolic",
                     fl!("repair-filesystem").to_string(),

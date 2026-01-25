@@ -121,7 +121,7 @@ pub struct EditFilesystemLabelDialog {
 
 #[derive(Debug, Clone)]
 pub struct TakeOwnershipDialog {
-    pub volume: VolumeModel,
+    pub target: FilesystemTarget,
     pub recursive: bool,
     pub running: bool,
 }
