@@ -1097,7 +1097,10 @@ impl VolumesControl {
                     return Task::none();
                 };
 
-                if volume.volume_type != disks_dbus::VolumeType::Container {
+                let is_crypto_container =
+                    find_volume_node_for_partition(&self.model.volumes, &volume)
+                        .is_some_and(|n| n.kind == VolumeKind::CryptoContainer);
+                if !is_crypto_container {
                     return Task::none();
                 }
 
@@ -1743,6 +1746,33 @@ impl VolumesControl {
         match selected.kind {
             DiskSegmentKind::Partition => {
                 if let Some(p) = selected.volume.as_ref() {
+                    // Container actions are based on the selected partition (segment).
+                    if let Some(v) = selected_volume
+                        && v.kind == VolumeKind::CryptoContainer
+                    {
+                        if v.locked {
+                            action_bar.push(tooltip_icon_button(
+                                "dialog-password-symbolic",
+                                fl!("unlock-button").to_string(),
+                                Some(Message::Dialog(Box::new(ShowDialog::UnlockEncrypted(
+                                    UnlockEncryptedDialog {
+                                        partition_path: p.path.to_string(),
+                                        partition_name: p.name(),
+                                        passphrase: String::new(),
+                                        error: None,
+                                        running: false,
+                                    },
+                                )))),
+                            ));
+                        } else {
+                            action_bar.push(tooltip_icon_button(
+                                "changes-prevent-symbolic",
+                                fl!("lock").to_string(),
+                                Some(VolumesControlMessage::LockContainer.into()),
+                            ));
+                        }
+                    }
+
                     // If a child filesystem/LV is selected, mount/unmount applies to it.
                     if let Some(v) = selected_child_volume {
                         if v.can_mount() {
@@ -1762,47 +1792,23 @@ impl VolumesControl {
                                 Some(msg.into()),
                             ));
                         }
-                    } else if let Some(v) = selected_volume {
-                        if v.kind == VolumeKind::CryptoContainer {
-                            if v.locked {
-                                action_bar.push(tooltip_icon_button(
-                                    "dialog-password-symbolic",
-                                    fl!("unlock-button").to_string(),
-                                    Some(Message::Dialog(Box::new(ShowDialog::UnlockEncrypted(
-                                        UnlockEncryptedDialog {
-                                            partition_path: p.path.to_string(),
-                                            partition_name: p.name(),
-                                            passphrase: String::new(),
-                                            error: None,
-                                            running: false,
-                                        },
-                                    )))),
-                                ));
-                            } else {
-                                action_bar.push(tooltip_icon_button(
-                                    "changes-prevent-symbolic",
-                                    fl!("lock").to_string(),
-                                    Some(VolumesControlMessage::LockContainer.into()),
-                                ));
-                            }
-                        } else if p.can_mount() {
-                            let (icon_name, msg) = if p.is_mounted() {
-                                (
-                                    "media-playback-stop-symbolic",
-                                    VolumesControlMessage::Unmount,
-                                )
-                            } else {
-                                (
-                                    "media-playback-start-symbolic",
-                                    VolumesControlMessage::Mount,
-                                )
-                            };
-                            action_bar.push(tooltip_icon_button(
-                                icon_name,
-                                fl!("mount-toggle").to_string(),
-                                Some(msg.into()),
-                            ));
-                        }
+                    } else if p.can_mount() {
+                        let (icon_name, msg) = if p.is_mounted() {
+                            (
+                                "media-playback-stop-symbolic",
+                                VolumesControlMessage::Unmount,
+                            )
+                        } else {
+                            (
+                                "media-playback-start-symbolic",
+                                VolumesControlMessage::Mount,
+                            )
+                        };
+                        action_bar.push(tooltip_icon_button(
+                            icon_name,
+                            fl!("mount-toggle").to_string(),
+                            Some(msg.into()),
+                        ));
                     }
                 }
             }
@@ -1894,8 +1900,7 @@ impl VolumesControl {
             }
 
             // Container-only (VolumeType::Container): Change Passphrase
-            if selected_child_volume.is_none() && p.volume_type == disks_dbus::VolumeType::Container
-            {
+            if selected_volume.is_some_and(|v| v.kind == VolumeKind::CryptoContainer) {
                 action_bar.push(tooltip_icon_button(
                     "dialog-password-symbolic",
                     fl!("change-passphrase").to_string(),
