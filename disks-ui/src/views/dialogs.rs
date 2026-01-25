@@ -548,8 +548,6 @@ pub fn change_passphrase<'a>(state: ChangePassphraseDialog) -> Element<'a, Messa
         running,
     } = state;
 
-    let valid = !new_passphrase.is_empty() && new_passphrase == confirm_passphrase;
-
     let current_for_input = current_passphrase.clone();
     let new_for_input = new_passphrase.clone();
     let confirm_for_input = confirm_passphrase.clone();
@@ -569,8 +567,6 @@ pub fn change_passphrase<'a>(state: ChangePassphraseDialog) -> Element<'a, Messa
 
     if let Some(err) = error.as_ref() {
         content = content.push(caption(err.clone()));
-    } else if !valid && (!new_passphrase.is_empty() || !confirm_passphrase.is_empty()) {
-        content = content.push(caption(fl!("passphrase-mismatch")));
     }
 
     if running {
@@ -578,7 +574,7 @@ pub fn change_passphrase<'a>(state: ChangePassphraseDialog) -> Element<'a, Messa
     }
 
     let mut apply = button::standard(fl!("apply"));
-    if !running && valid {
+    if !running {
         apply = apply.on_press(ChangePassphraseMessage::Confirm.into());
     }
 
