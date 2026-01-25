@@ -195,12 +195,12 @@ impl VolumeModel {
         } else {
             Some(device)
         };
-        if device_path.is_none() {
-            if let Some(last) = block_object_path.split('/').last() {
-                let proposed = format!("/dev/{}", last);
-                if Path::new(&proposed).exists() {
-                    device_path = Some(proposed);
-                }
+        if device_path.is_none()
+            && let Some(last) = block_object_path.split('/').next_back()
+        {
+            let proposed = format!("/dev/{}", last);
+            if Path::new(&proposed).exists() {
+                device_path = Some(proposed);
             }
         }
 
