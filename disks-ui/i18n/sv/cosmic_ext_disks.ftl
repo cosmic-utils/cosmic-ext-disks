@@ -52,13 +52,18 @@ partitioning-none = Ingen
 
 # Skapa partition dialogrutan
 create-partition = Skapa partition
+format-partition = Formatera partition
+format-partition-description = Detta kommer att formatera den valda volymen. Storlek: { $size }
 volume-name = Volymnamn
+partition-name = Partitionsnamn
 partition-size = Partitionsstorlek
 free-space = Ledigt utrymme
 erase = Radera
 password-protected = Lösenordsskyddad
 password = Lösenord
 confirm = Bekräfta
+apply = Verkställ
+untitled = Namnlös
 
 # Huvudvy
 no-disk-selected = Ingen disk vald
@@ -101,11 +106,54 @@ unlock-button = Lås upp
 lock = Lås
 unlock = Lås upp { $name }
 passphrase = Lösenfras
+current-passphrase = Nuvarande lösenfras
+new-passphrase = Ny lösenfras
+change-passphrase = Byt lösenfras
+passphrase-mismatch = Lösenfraserna matchar inte.
 locked = Låst
 unlocked = Upplåst
 unlock-failed = Upplåsning misslyckades
 lock-failed = Låsning misslyckades
 unlock-missing-partition = Kunde inte hitta { $name } i den aktuella enhetslistan.
+
+# Volume commands
+mount-toggle = Montera / avmontera
+edit-mount-options = Redigera monteringsalternativ…
+edit-encryption-options = Redigera krypteringsalternativ…
+edit-partition = Redigera partition
+edit-partition-no-types = Inga partitionstyper är tillgängliga för denna partitionstabell.
+flag-legacy-bios-bootable = Legacy BIOS-startbar
+flag-system-partition = Systempartition
+flag-hide-from-firmware = Dölj från firmware
+resize-partition = Ändra partitionsstorlek
+resize-partition-range = Tillåtet intervall: { $min } till { $max }
+new-size = Ny storlek
+edit-filesystem = Redigera filsystem
+filesystem-label = Filsystemetikett
+check-filesystem = Kontrollera filsystem
+check-filesystem-warning = Att kontrollera ett filsystem kan ta lång tid. Fortsätt?
+repair-filesystem = Reparera filsystem
+repair-filesystem-warning = Att reparera ett filsystem kan ta lång tid och kan riskera dataförlust. Fortsätt?
+take-ownership = Ta ägarskap
+take-ownership-warning = Detta kommer att ändra ägarskap för filer till din användare. Detta kan ta lång tid och kan inte enkelt ångras.
+take-ownership-recursive = Tillämpa rekursivt
+
+# Mount/encryption options
+user-session-defaults = Användarsessionens standardvärden
+mount-at-startup = Montera vid systemstart
+unlock-at-startup = Lås upp vid systemstart
+require-auth-to-mount = Kräv behörighet för att montera eller avmontera
+require-auth-to-unlock = Kräv behörighet för att låsa upp
+show-in-ui = Visa i användargränssnittet
+identify-as = Identifiera som
+other-options = Andra alternativ
+mount-point = Monteringspunkt
+filesystem-type = Filsystemstyp
+display-name = Visningsnamn
+icon-name = Ikonnamn
+symbolic-icon-name = Symboliskt ikonnamn
+show-passphrase = Visa lösenfras
+name = Namn
 
 # SMART
 smart-no-data = Ingen SMART-data tillgänglig.

@@ -52,13 +52,17 @@ partitioning-none = None
 
 # Create partition dialog
 create-partition = Create Partition
+format-partition = Format Partition
+format-partition-description = This will format the selected volume. Size: { $size }
 volume-name = Volume Name
+partition-name = Partition Name
 partition-size = Partition Size
 free-space = Free Space
 erase = Erase
 password-protected = Password Protected
 password = Password
 confirm = Confirm
+apply = Apply
 untitled = Untitled
 
 # Main view
@@ -102,11 +106,54 @@ unlock-button = Unlock
 lock = Lock
 unlock = Unlock { $name }
 passphrase = Passphrase
+current-passphrase = Current passphrase
+new-passphrase = New passphrase
+change-passphrase = Change Passphrase
+passphrase-mismatch = Passphrases do not match.
 locked = Locked
 unlocked = Unlocked
 unlock-failed = Unlock failed
 lock-failed = Lock failed
 unlock-missing-partition = Could not find { $name } in the current device list.
+
+# Volume commands
+mount-toggle = Mount / Unmount
+edit-mount-options = Edit Mount Options…
+edit-encryption-options = Edit Encryption Options…
+edit-partition = Edit Partition
+edit-partition-no-types = No partition types available for this partition table.
+flag-legacy-bios-bootable = Legacy BIOS Bootable
+flag-system-partition = System Partition
+flag-hide-from-firmware = Hide from firmware
+resize-partition = Resize Partition
+resize-partition-range = Allowed range: { $min } to { $max }
+new-size = New Size
+edit-filesystem = Edit Filesystem
+filesystem-label = Filesystem Label
+check-filesystem = Check Filesystem
+check-filesystem-warning = Checking a filesystem can take a long time. Continue?
+repair-filesystem = Repair Filesystem
+repair-filesystem-warning = Repairing a filesystem can take a long time and may risk data loss. Continue?
+take-ownership = Take Ownership
+take-ownership-warning = This will change ownership of files to your user. This can take a long time and cannot be easily undone.
+take-ownership-recursive = Apply recursively
+
+# Mount/encryption options
+user-session-defaults = User Session Defaults
+mount-at-startup = Mount at system startup
+unlock-at-startup = Unlock at system startup
+require-auth-to-mount = Require authorization to mount or unmount
+require-auth-to-unlock = Require authorization to unlock
+show-in-ui = Show in user interface
+identify-as = Identify As
+other-options = Other options
+mount-point = Mount point
+filesystem-type = Filesystem type
+display-name = Display name
+icon-name = Icon name
+symbolic-icon-name = Symbolic icon name
+show-passphrase = Show passphrase
+name = Name
 
 # SMART
 smart-no-data = No SMART data available.

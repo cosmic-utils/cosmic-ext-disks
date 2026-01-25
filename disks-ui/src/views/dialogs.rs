@@ -1,5 +1,8 @@
-use super::volumes::{CreateMessage, UnlockMessage};
-use crate::app::CreatePartitionDialog;
+use super::volumes::{
+    ChangePassphraseMessage, CreateMessage, EditEncryptionOptionsMessage,
+    EditFilesystemLabelMessage, EditMountOptionsMessage, EditPartitionMessage,
+    ResizePartitionMessage, TakeOwnershipMessage, UnlockMessage,
+};
 use crate::app::Message;
 use crate::app::SmartDataDialog;
 use crate::app::SmartDialogMessage;
@@ -7,6 +10,11 @@ use crate::app::UnlockEncryptedDialog;
 use crate::app::{
     AttachDiskImageDialog, AttachDiskImageDialogMessage, ImageOperationDialog,
     ImageOperationDialogMessage, ImageOperationKind, NewDiskImageDialog, NewDiskImageDialogMessage,
+};
+use crate::app::{
+    ChangePassphraseDialog, CreatePartitionDialog, EditEncryptionOptionsDialog,
+    EditFilesystemLabelDialog, EditMountOptionsDialog, EditPartitionDialog, FormatPartitionDialog,
+    ResizePartitionDialog, TakeOwnershipDialog,
 };
 use crate::app::{FormatDiskDialog, FormatDiskMessage};
 use crate::fl;
@@ -16,7 +24,7 @@ use cosmic::{
     widget::text::{caption, caption_heading},
     widget::{button, checkbox, dialog, dropdown, slider, text_input, toggler},
 };
-use disks_dbus::{bytes_to_pretty, get_valid_partition_names};
+use disks_dbus::{PartitionTypeInfo, bytes_to_pretty, get_valid_partition_names};
 use std::borrow::Cow;
 
 pub fn new_disk_image<'a>(state: NewDiskImageDialog) -> Element<'a, Message> {
@@ -314,6 +322,507 @@ pub fn create_partition<'a>(state: CreatePartitionDialog) -> Element<'a, Message
         .control(content.spacing(20.))
         .primary_action(continue_button)
         .secondary_action(button::standard(fl!("cancel")).on_press(CreateMessage::Cancel.into()))
+        .into()
+}
+
+pub fn format_partition<'a>(state: FormatPartitionDialog) -> Element<'a, Message> {
+    let FormatPartitionDialog {
+        volume: _,
+        info: create,
+        running,
+    } = state;
+
+    let size_pretty = bytes_to_pretty(&create.size, false);
+    let valid_partition_types = get_valid_partition_names(create.table_type.clone());
+
+    let mut content = iced_widget::column![
+        caption(fl!("format-partition-description", size = size_pretty)),
+        text_input(fl!("volume-name"), create.name.clone())
+            .label(fl!("volume-name"))
+            .on_input(|t| CreateMessage::NameUpdate(t).into()),
+        toggler(create.erase)
+            .label(fl!("erase"))
+            .on_toggle(|v| CreateMessage::EraseUpdate(v).into()),
+        dropdown(
+            valid_partition_types,
+            Some(create.selected_partitition_type),
+            |v| CreateMessage::PartitionTypeUpdate(v).into()
+        ),
+    ]
+    .spacing(12);
+
+    if running {
+        content = content.push(caption(fl!("working")));
+    }
+
+    let mut confirm = button::destructive(fl!("format-partition"));
+    if !running {
+        confirm = confirm.on_press(CreateMessage::Partition.into());
+    }
+
+    dialog::dialog()
+        .title(fl!("format-partition"))
+        .control(content)
+        .primary_action(confirm)
+        .secondary_action(button::standard(fl!("cancel")).on_press(CreateMessage::Cancel.into()))
+        .into()
+}
+
+pub fn edit_partition<'a>(state: EditPartitionDialog) -> Element<'a, Message> {
+    let EditPartitionDialog {
+        volume: _,
+        partition_types,
+        selected_type_index,
+        name,
+        legacy_bios_bootable,
+        system_partition,
+        hidden,
+        running,
+    } = state;
+
+    let opts: Vec<String> = partition_types
+        .iter()
+        .map(|t: &PartitionTypeInfo| format!("{} - {}", t.name, t.ty))
+        .collect();
+
+    let mut content = iced_widget::column![
+        dropdown(opts, Some(selected_type_index), |v| {
+            EditPartitionMessage::TypeUpdate(v).into()
+        }),
+        text_input(fl!("partition-name"), name)
+            .label(fl!("partition-name"))
+            .on_input(|t| EditPartitionMessage::NameUpdate(t).into()),
+        checkbox(fl!("flag-legacy-bios-bootable"), legacy_bios_bootable)
+            .on_toggle(|v| EditPartitionMessage::LegacyBiosBootableUpdate(v).into()),
+        checkbox(fl!("flag-system-partition"), system_partition)
+            .on_toggle(|v| EditPartitionMessage::SystemPartitionUpdate(v).into()),
+        checkbox(fl!("flag-hide-from-firmware"), hidden)
+            .on_toggle(|v| EditPartitionMessage::HiddenUpdate(v).into()),
+    ]
+    .spacing(12);
+
+    if running {
+        content = content.push(caption(fl!("working")));
+    }
+
+    let mut apply = button::standard(fl!("apply"));
+    if !running {
+        apply = apply.on_press(EditPartitionMessage::Confirm.into());
+    }
+
+    dialog::dialog()
+        .title(fl!("edit-partition"))
+        .control(content)
+        .primary_action(apply)
+        .secondary_action(
+            button::standard(fl!("cancel")).on_press(EditPartitionMessage::Cancel.into()),
+        )
+        .into()
+}
+
+pub fn resize_partition<'a>(state: ResizePartitionDialog) -> Element<'a, Message> {
+    let ResizePartitionDialog {
+        volume: _,
+        min_size_bytes,
+        max_size_bytes,
+        new_size_bytes,
+        running,
+    } = state;
+
+    let min = min_size_bytes as f64;
+    let max = max_size_bytes as f64;
+    let value = new_size_bytes as f64;
+    let step = disks_dbus::get_step(&new_size_bytes);
+
+    let min_pretty = bytes_to_pretty(&min_size_bytes, false);
+    let max_pretty = bytes_to_pretty(&max_size_bytes, false);
+    let value_pretty = bytes_to_pretty(&new_size_bytes, false);
+
+    let can_resize = max_size_bytes.saturating_sub(min_size_bytes) >= 1024;
+
+    let mut content = iced_widget::column![
+        caption(fl!(
+            "resize-partition-range",
+            min = min_pretty,
+            max = max_pretty
+        )),
+        slider(min..=max, value, |v| {
+            ResizePartitionMessage::SizeUpdate(v as u64).into()
+        }),
+        labelled_spinner(fl!("new-size"), value_pretty, value, step, min, max, |v| {
+            ResizePartitionMessage::SizeUpdate(v as u64).into()
+        },),
+    ]
+    .spacing(12);
+
+    if running {
+        content = content.push(caption(fl!("working")));
+    }
+
+    let mut apply = button::standard(fl!("apply"));
+    if !running && can_resize {
+        apply = apply.on_press(ResizePartitionMessage::Confirm.into());
+    }
+
+    dialog::dialog()
+        .title(fl!("resize-partition"))
+        .control(content)
+        .primary_action(apply)
+        .secondary_action(
+            button::standard(fl!("cancel")).on_press(ResizePartitionMessage::Cancel.into()),
+        )
+        .into()
+}
+
+pub fn edit_filesystem_label<'a>(state: EditFilesystemLabelDialog) -> Element<'a, Message> {
+    let EditFilesystemLabelDialog {
+        target: _,
+        label,
+        running,
+    } = state;
+
+    let mut content = iced_widget::column![
+        text_input(fl!("filesystem-label"), label)
+            .label(fl!("filesystem-label"))
+            .on_input(|t| EditFilesystemLabelMessage::LabelUpdate(t).into()),
+    ]
+    .spacing(12);
+
+    if running {
+        content = content.push(caption(fl!("working")));
+    }
+
+    let mut apply = button::standard(fl!("apply"));
+    if !running {
+        apply = apply.on_press(EditFilesystemLabelMessage::Confirm.into());
+    }
+
+    dialog::dialog()
+        .title(fl!("edit-filesystem"))
+        .control(content)
+        .primary_action(apply)
+        .secondary_action(
+            button::standard(fl!("cancel")).on_press(EditFilesystemLabelMessage::Cancel.into()),
+        )
+        .into()
+}
+
+pub fn edit_mount_options<'a>(state: EditMountOptionsDialog) -> Element<'a, Message> {
+    let EditMountOptionsDialog {
+        target: _,
+        use_defaults,
+        mount_at_startup,
+        require_auth,
+        show_in_ui,
+        other_options,
+        display_name,
+        icon_name,
+        symbolic_icon_name,
+        mount_point,
+        identify_as_options,
+        identify_as_index,
+        filesystem_type,
+        error,
+        running,
+    } = state;
+
+    let other_options_for_input = other_options.clone();
+    let mount_point_for_input = mount_point.clone();
+    let filesystem_type_for_input = filesystem_type.clone();
+
+    let controls_enabled = !use_defaults;
+
+    let mut defaults_cb = checkbox(fl!("user-session-defaults"), use_defaults);
+    if !running {
+        defaults_cb =
+            defaults_cb.on_toggle(|v| EditMountOptionsMessage::UseDefaultsUpdate(v).into());
+    }
+
+    let mut mount_start_cb = checkbox(fl!("mount-at-startup"), mount_at_startup);
+    if controls_enabled && !running {
+        mount_start_cb =
+            mount_start_cb.on_toggle(|v| EditMountOptionsMessage::MountAtStartupUpdate(v).into());
+    }
+
+    let mut auth_cb = checkbox(fl!("require-auth-to-mount"), require_auth);
+    if controls_enabled && !running {
+        auth_cb = auth_cb.on_toggle(|v| EditMountOptionsMessage::RequireAuthUpdate(v).into());
+    }
+
+    let mut show_cb = checkbox(fl!("show-in-ui"), show_in_ui);
+    if controls_enabled && !running {
+        show_cb = show_cb.on_toggle(|v| EditMountOptionsMessage::ShowInUiUpdate(v).into());
+    }
+
+    let mut identify_dropdown = dropdown(identify_as_options, Some(identify_as_index), |v| {
+        EditMountOptionsMessage::IdentifyAsIndexUpdate(v).into()
+    });
+    if !controls_enabled || running {
+        // Best-effort: disable via style by removing interaction.
+        identify_dropdown = dropdown(Vec::<String>::new(), None, |_| Message::None);
+    }
+
+    let mut other_opts_input =
+        text_input(fl!("other-options"), other_options_for_input).label(fl!("other-options"));
+    if controls_enabled && !running {
+        other_opts_input =
+            other_opts_input.on_input(|t| EditMountOptionsMessage::OtherOptionsUpdate(t).into());
+    }
+
+    let mut mount_point_input =
+        text_input(fl!("mount-point"), mount_point_for_input).label(fl!("mount-point"));
+    if controls_enabled && !running {
+        mount_point_input =
+            mount_point_input.on_input(|t| EditMountOptionsMessage::MountPointUpdate(t).into());
+    }
+
+    let mut fs_type_input =
+        text_input(fl!("filesystem-type"), filesystem_type_for_input).label(fl!("filesystem-type"));
+    if controls_enabled && !running {
+        fs_type_input =
+            fs_type_input.on_input(|t| EditMountOptionsMessage::FilesystemTypeUpdate(t).into());
+    }
+
+    let mut display_name_input =
+        text_input(fl!("display-name"), display_name).label(fl!("display-name"));
+    if controls_enabled && !running {
+        display_name_input =
+            display_name_input.on_input(|t| EditMountOptionsMessage::DisplayNameUpdate(t).into());
+    }
+
+    let mut icon_input = text_input(fl!("icon-name"), icon_name).label(fl!("icon-name"));
+    if controls_enabled && !running {
+        icon_input = icon_input.on_input(|t| EditMountOptionsMessage::IconNameUpdate(t).into());
+    }
+
+    let mut sym_icon_input =
+        text_input(fl!("symbolic-icon-name"), symbolic_icon_name).label(fl!("symbolic-icon-name"));
+    if controls_enabled && !running {
+        sym_icon_input =
+            sym_icon_input.on_input(|t| EditMountOptionsMessage::SymbolicIconNameUpdate(t).into());
+    }
+
+    let mut content = iced_widget::column![
+        defaults_cb,
+        mount_start_cb,
+        auth_cb,
+        show_cb,
+        caption_heading(fl!("identify-as")),
+        identify_dropdown,
+        other_opts_input,
+        mount_point_input,
+        fs_type_input,
+        display_name_input,
+        icon_input,
+        sym_icon_input,
+    ]
+    .spacing(12);
+
+    if let Some(err) = error.as_ref() {
+        content = content.push(caption(err.clone()));
+    }
+    if running {
+        content = content.push(caption(fl!("working")));
+    }
+
+    let can_apply = use_defaults
+        || (!running
+            && !mount_point.trim().is_empty()
+            && !filesystem_type.trim().is_empty()
+            && !other_options.trim().is_empty());
+
+    let mut apply = button::standard(fl!("apply"));
+    if can_apply {
+        apply = apply.on_press(EditMountOptionsMessage::Confirm.into());
+    }
+
+    dialog::dialog()
+        .title(fl!("edit-mount-options"))
+        .control(content)
+        .primary_action(apply)
+        .secondary_action(
+            button::standard(fl!("cancel")).on_press(EditMountOptionsMessage::Cancel.into()),
+        )
+        .into()
+}
+
+pub fn take_ownership<'a>(state: TakeOwnershipDialog) -> Element<'a, Message> {
+    let TakeOwnershipDialog {
+        target: _,
+        recursive,
+        running,
+    } = state;
+
+    let mut content = iced_widget::column![
+        caption(fl!("take-ownership-warning")),
+        checkbox(fl!("take-ownership-recursive"), recursive)
+            .on_toggle(|v| TakeOwnershipMessage::RecursiveUpdate(v).into()),
+    ]
+    .spacing(12);
+
+    if running {
+        content = content.push(caption(fl!("working")));
+    }
+
+    let mut apply = button::destructive(fl!("take-ownership"));
+    if !running {
+        apply = apply.on_press(TakeOwnershipMessage::Confirm.into());
+    }
+
+    dialog::dialog()
+        .title(fl!("take-ownership"))
+        .control(content)
+        .primary_action(apply)
+        .secondary_action(
+            button::standard(fl!("cancel")).on_press(TakeOwnershipMessage::Cancel.into()),
+        )
+        .into()
+}
+
+pub fn change_passphrase<'a>(state: ChangePassphraseDialog) -> Element<'a, Message> {
+    let ChangePassphraseDialog {
+        volume: _,
+        current_passphrase,
+        new_passphrase,
+        confirm_passphrase,
+        error,
+        running,
+    } = state;
+
+    let current_for_input = current_passphrase.clone();
+    let new_for_input = new_passphrase.clone();
+    let confirm_for_input = confirm_passphrase.clone();
+
+    let mut content = iced_widget::column![
+        text_input::secure_input("", current_for_input, None, true)
+            .label(fl!("current-passphrase"))
+            .on_input(|v| ChangePassphraseMessage::CurrentUpdate(v).into()),
+        text_input::secure_input("", new_for_input, None, true)
+            .label(fl!("new-passphrase"))
+            .on_input(|v| ChangePassphraseMessage::NewUpdate(v).into()),
+        text_input::secure_input("", confirm_for_input, None, true)
+            .label(fl!("confirm"))
+            .on_input(|v| ChangePassphraseMessage::ConfirmUpdate(v).into()),
+    ]
+    .spacing(12);
+
+    if let Some(err) = error.as_ref() {
+        content = content.push(caption(err.clone()));
+    }
+
+    if running {
+        content = content.push(caption(fl!("working")));
+    }
+
+    let mut apply = button::standard(fl!("apply"));
+    if !running {
+        apply = apply.on_press(ChangePassphraseMessage::Confirm.into());
+    }
+
+    dialog::dialog()
+        .title(fl!("change-passphrase"))
+        .control(content)
+        .primary_action(apply)
+        .secondary_action(
+            button::standard(fl!("cancel")).on_press(ChangePassphraseMessage::Cancel.into()),
+        )
+        .into()
+}
+
+pub fn edit_encryption_options<'a>(state: EditEncryptionOptionsDialog) -> Element<'a, Message> {
+    let EditEncryptionOptionsDialog {
+        volume: _,
+        use_defaults,
+        unlock_at_startup,
+        require_auth,
+        other_options,
+        name,
+        passphrase,
+        show_passphrase,
+        error,
+        running,
+    } = state;
+
+    let name_for_input = name.clone();
+
+    let controls_enabled = !use_defaults;
+
+    let mut defaults_cb = checkbox(fl!("user-session-defaults"), use_defaults);
+    if !running {
+        defaults_cb =
+            defaults_cb.on_toggle(|v| EditEncryptionOptionsMessage::UseDefaultsUpdate(v).into());
+    }
+
+    let mut startup_cb = checkbox(fl!("unlock-at-startup"), unlock_at_startup);
+    if controls_enabled && !running {
+        startup_cb =
+            startup_cb.on_toggle(|v| EditEncryptionOptionsMessage::UnlockAtStartupUpdate(v).into());
+    }
+
+    let mut auth_cb = checkbox(fl!("require-auth-to-unlock"), require_auth);
+    if controls_enabled && !running {
+        auth_cb = auth_cb.on_toggle(|v| EditEncryptionOptionsMessage::RequireAuthUpdate(v).into());
+    }
+
+    let mut other_opts_input =
+        text_input(fl!("other-options"), other_options).label(fl!("other-options"));
+    if controls_enabled && !running {
+        other_opts_input = other_opts_input
+            .on_input(|t| EditEncryptionOptionsMessage::OtherOptionsUpdate(t).into());
+    }
+
+    let mut name_input = text_input(fl!("name"), name_for_input).label(fl!("name"));
+    if controls_enabled && !running {
+        name_input = name_input.on_input(|t| EditEncryptionOptionsMessage::NameUpdate(t).into());
+    }
+
+    let mut passphrase_input = if show_passphrase {
+        text_input(fl!("passphrase"), passphrase.clone()).label(fl!("passphrase"))
+    } else {
+        text_input::secure_input("", passphrase.clone(), None, true).label(fl!("passphrase"))
+    };
+    if controls_enabled && !running {
+        passphrase_input =
+            passphrase_input.on_input(|t| EditEncryptionOptionsMessage::PassphraseUpdate(t).into());
+    }
+
+    let mut show_pass_cb = checkbox(fl!("show-passphrase"), show_passphrase);
+    if controls_enabled && !running {
+        show_pass_cb = show_pass_cb
+            .on_toggle(|v| EditEncryptionOptionsMessage::ShowPassphraseUpdate(v).into());
+    }
+
+    let mut content = iced_widget::column![
+        defaults_cb,
+        startup_cb,
+        auth_cb,
+        other_opts_input,
+        name_input,
+        passphrase_input,
+        show_pass_cb,
+    ]
+    .spacing(12);
+
+    if let Some(err) = error.as_ref() {
+        content = content.push(caption(err.clone()));
+    }
+    if running {
+        content = content.push(caption(fl!("working")));
+    }
+
+    let can_apply = use_defaults || (!name.trim().is_empty() && !running);
+    let mut apply = button::standard(fl!("apply"));
+    if can_apply {
+        apply = apply.on_press(EditEncryptionOptionsMessage::Confirm.into());
+    }
+
+    dialog::dialog()
+        .title(fl!("edit-encryption-options"))
+        .control(content)
+        .primary_action(apply)
+        .secondary_action(
+            button::standard(fl!("cancel")).on_press(EditEncryptionOptionsMessage::Cancel.into()),
+        )
         .into()
 }
 

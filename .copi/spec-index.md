@@ -17,7 +17,9 @@ A lightweight mapping of audited gaps/work items to implementation specs.
 | GAP-012 | SPDX header placeholder in i18n module | `.copi/specs/chore/gap-010-012-tests-release-spdx/` | `chore/gap-010-012-tests-release-spdx` | `.copi/audits/2026-01-24T18-03-04Z.md` | Implemented |
 | N/A | Remove old/backup polling for device events logic | `.copi/specs/fix/remove-device-polling-fallback/` | `fix/remove-device-polling-fallback` | N/A (brief) | Implemented |
 | N/A | Support LUKS + logical/nested volumes (unlock prompt + show inner filesystems) | `.copi/specs/feature/luks-logical-volumes/` | `feature/luks-logical-volumes` | N/A (brief) | Implemented |
-| N/A | LUKS delete preflight (unmount children + lock) + hide delete for child volumes | `.copi/specs/fix/luks-delete-preflight/` | `fix/luks-delete-preflight` | N/A (brief; PR #36 follow-up) | Implemented (manual validation pending) |
+| N/A | LUKS delete preflight (unmount children + lock) + hide delete for child volumes | `.copi/specs/fix/luks-delete-preflight/` | `fix/luks-delete-preflight` | N/A (brief; PR #36 follow-up) | Implemented |
 | N/A | Disk → Format Disk dialog (erase + partitioning) | `.copi/specs/feature/format-disk-dialog/` | `feature/format-disk-dialog` | N/A (brief) | Implemented |
 | N/A | Implement remaining Disk menu commands (SMART/power/standby) | `.copi/specs/feature/disk-menu-commands/` | `feature/disk-menu-commands` | N/A (brief) | Spec created |
 | N/A | Implement all Image menu commands (disk imaging + attach/new image) | `.copi/specs/feature/image-menu-commands/` | `feature/image-menu-commands` | N/A (brief) | Implemented |
+| N/A | Implement all volume commands (actionbar + dialogs + DBus) | `.copi/specs/feature/volume-commands-actionbar/` | `feature/volume-commands-actionbar` | N/A (brief; 2026-01-25) | Implemented |
+| N/A | GNOME Disks parity: Edit Mount Options + Edit Encryption Options dialogs | `.copi/specs/feature/volume-commands-actionbar/` | `feature/volume-commands-actionbar` | N/A (brief; 2026-01-25 addendum) | Implemented |
