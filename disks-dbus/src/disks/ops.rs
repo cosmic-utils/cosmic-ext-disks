@@ -2,7 +2,6 @@ use std::collections::HashMap;
 
 use anyhow::Result;
 use futures::future::BoxFuture;
-use tokio::time::{Duration, sleep};
 use udisks2::{
     block::BlockProxy, filesystem::FilesystemProxy, partitiontable::PartitionTableProxy,
 };
@@ -155,225 +154,14 @@ impl DiskBackend for RealDiskBackend {
 
     fn partition_delete(&self, path: OwnedObjectPath) -> BoxFuture<'_, Result<()>> {
         Box::pin(async move {
-            // Gather some best-effort context for error messages.
-            let decode_c_string_bytes = |bytes: &[u8]| -> String {
-                let raw = bytes.split(|b| *b == 0).next().unwrap_or(bytes);
-                String::from_utf8_lossy(raw).to_string()
-            };
-
-            let open_fds_for_device = |needle: &str| -> Option<Vec<String>> {
-                #[cfg(target_os = "linux")]
-                {
-                    use std::path::PathBuf;
-
-                    if needle.trim().is_empty() {
-                        return None;
-                    }
-
-                    let mut hits = Vec::new();
-                    let dir = PathBuf::from("/proc/self/fd");
-                    let Ok(entries) = std::fs::read_dir(&dir) else {
-                        return None;
-                    };
-
-                    for entry in entries.flatten() {
-                        let path = entry.path();
-                        if let Ok(target) = std::fs::read_link(&path) {
-                            let target_str = target.to_string_lossy();
-                            if target_str.contains(needle) {
-                                hits.push(format!("{} -> {}", path.display(), target_str));
-                            }
-                        }
-                        if hits.len() >= 8 {
-                            break;
-                        }
-                    }
-
-                    if hits.is_empty() { None } else { Some(hits) }
-                }
-
-                #[cfg(not(target_os = "linux"))]
-                {
-                    let _ = needle;
-                    None
-                }
-            };
-
-            let mut device_for_display: Option<String> = None;
-            let mut read_only: Option<bool> = None;
-            if let Ok(builder) = BlockProxy::builder(&self.connection).path(&path) {
-                if let Ok(block_proxy) = builder.build().await {
-                    if let Ok(preferred) = block_proxy.preferred_device().await {
-                        let s = decode_c_string_bytes(&preferred);
-                        if !s.trim().is_empty() {
-                            device_for_display = Some(s);
-                        }
-                    }
-                    if device_for_display.is_none() {
-                        if let Ok(dev) = block_proxy.device().await {
-                            let s = decode_c_string_bytes(&dev);
-                            if !s.trim().is_empty() {
-                                device_for_display = Some(s);
-                            }
-                        }
-                    }
-
-                    read_only = block_proxy.read_only().await.ok();
-                }
-            }
-
-            // Best-effort extra properties that `udisks2` crate doesn't currently expose.
-            // These are extremely helpful to diagnose failures like EINVAL when the disk is in use.
-            let mut hint_system: Option<bool> = None;
-            let mut holders: Option<Vec<OwnedObjectPath>> = None;
-            if let Ok(props) = Proxy::new(
-                &self.connection,
-                "org.freedesktop.UDisks2",
-                &path,
-                "org.freedesktop.DBus.Properties",
-            )
-            .await
-            {
-                hint_system = props
-                    .call("Get", &("org.freedesktop.UDisks2.Block", "HintSystem"))
-                    .await
-                    .ok()
-                    .and_then(|v: zbus::zvariant::OwnedValue| v.try_into().ok());
-
-                holders = props
-                    .call("Get", &("org.freedesktop.UDisks2.Block", "Holders"))
-                    .await
-                    .ok()
-                    .and_then(|v: zbus::zvariant::OwnedValue| v.try_into().ok());
-            }
-
-            let mut partition_number: Option<u32> = None;
-            let mut table_path: Option<OwnedObjectPath> = None;
-            let mut table_type: Option<String> = None;
-            let mut table_in_use_notes: Vec<String> = Vec::new();
-            if let Ok(builder) =
-                udisks2::partition::PartitionProxy::builder(&self.connection).path(&path)
-            {
-                if let Ok(partition_proxy) = builder.build().await {
-                    partition_number = partition_proxy.number().await.ok();
-                    table_path = partition_proxy.table().await.ok();
-
-                    if let Some(tp) = table_path.as_ref() {
-                        if let Ok(table_builder) =
-                            PartitionTableProxy::builder(&self.connection).path(tp)
-                        {
-                            if let Ok(table_proxy) = table_builder.build().await {
-                                table_type = table_proxy.type_().await.ok();
-
-                                // Best-effort: check whether other partitions on the same disk are
-                                // mounted or used as active swap. This often explains why modifying
-                                // the partition table fails.
-                                if let Ok(parts) = table_proxy.partitions().await {
-                                    for part_path in parts {
-                                        if part_path == path {
-                                            continue;
-                                        }
-
-                                        // Device label for display.
-                                        let mut part_dev: Option<String> = None;
-                                        if let Ok(bb) =
-                                            BlockProxy::builder(&self.connection).path(&part_path)
-                                        {
-                                            if let Ok(bp) = bb.build().await {
-                                                if let Ok(preferred) = bp.preferred_device().await {
-                                                    let s = decode_c_string_bytes(&preferred);
-                                                    if !s.trim().is_empty() {
-                                                        part_dev = Some(s);
-                                                    }
-                                                }
-                                                if part_dev.is_none() {
-                                                    if let Ok(dev) = bp.device().await {
-                                                        let s = decode_c_string_bytes(&dev);
-                                                        if !s.trim().is_empty() {
-                                                            part_dev = Some(s);
-                                                        }
-                                                    }
-                                                }
-                                            }
-                                        }
-
-                                        // Mounted filesystem?
-                                        if let Ok(fs_builder) =
-                                            FilesystemProxy::builder(&self.connection)
-                                                .path(&part_path)
-                                        {
-                                            if let Ok(fs) = fs_builder.build().await {
-                                                if let Ok(mps) = fs.mount_points().await {
-                                                    let mps: Vec<String> = mps
-                                                        .into_iter()
-                                                        .filter_map(|mp| {
-                                                            let s = decode_c_string_bytes(&mp);
-                                                            if s.trim().is_empty() {
-                                                                None
-                                                            } else {
-                                                                Some(s)
-                                                            }
-                                                        })
-                                                        .collect();
-                                                    if !mps.is_empty() {
-                                                        let dev =
-                                                            part_dev.clone().unwrap_or_else(|| {
-                                                                part_path.to_string()
-                                                            });
-                                                        table_in_use_notes.push(format!(
-                                                            "mounted: {dev} -> {}",
-                                                            mps.join(", ")
-                                                        ));
-                                                    }
-                                                }
-                                            }
-                                        }
-
-                                        // Active swap?
-                                        if let Ok(sw_builder) =
-                                            udisks2::swapspace::SwapspaceProxy::builder(
-                                                &self.connection,
-                                            )
-                                            .path(&part_path)
-                                        {
-                                            if let Ok(sw) = sw_builder.build().await {
-                                                if let Ok(active) = sw.active().await {
-                                                    if active {
-                                                        let dev =
-                                                            part_dev.clone().unwrap_or_else(|| {
-                                                                part_path.to_string()
-                                                            });
-                                                        table_in_use_notes
-                                                            .push(format!("active swap: {dev}"));
-                                                    }
-                                                }
-                                            }
-                                        }
-
-                                        if table_in_use_notes.len() >= 8 {
-                                            break;
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-
             // NOTE: We intentionally call this via a raw zbus proxy instead of the `udisks2`
             // crate proxy. `udisks2::error::Error` maps most MethodErrors to enum variants
             // and drops the original error message, leaving only “The operation failed”,
             // which is not actionable for users.
 
-            // UDisks expects a{sv} (string -> variant). Use `Value` like the generated
-            // `udisks2` proxies do.
-            //
-            // GNOME Disks calls `Partition.Delete` with *empty* options (`a{sv}`) after an
-            // “ensure unused” preflight, so we do the same for maximum parity.
+            // UDisks expects a{sv} (string -> variant). Use `Value` like the generated proxies.
+            // GNOME Disks calls `Partition.Delete` with *empty* options (`a{sv}`).
             let options_empty: HashMap<&str, Value<'_>> = HashMap::new();
-            let mut options_teardown: HashMap<&str, Value<'_>> = HashMap::new();
-            options_teardown.insert("tear-down", Value::from(true));
 
             let proxy = Proxy::new(
                 &self.connection,
@@ -383,96 +171,52 @@ impl DiskBackend for RealDiskBackend {
             )
             .await?;
 
-            // Keep the deletion attempt simple and GNOME Disks-like:
-            // - try empty options first
-            // - if the device is busy (udev/libblockdev races), retry briefly
-            // - if that fails, try once with `tear-down=true` as a fallback
+            let device_for_display =
+                if let Ok(builder) = BlockProxy::builder(&self.connection).path(&path) {
+                    if let Ok(block_proxy) = builder.build().await {
+                        let decode = |bytes: &[u8]| {
+                            let raw = bytes.split(|b| *b == 0).next().unwrap_or(bytes);
+                            let s = String::from_utf8_lossy(raw).to_string();
+                            if s.trim().is_empty() { None } else { Some(s) }
+                        };
 
-            let mut last_err: Option<zbus::Error> = None;
-            for attempt in 0..4 {
-                match proxy.call_method("Delete", &(options_empty)).await {
-                    Ok(_) => return Ok(()),
-                    Err(err) => {
-                        let is_busy = matches!(&err,
-                            zbus::Error::MethodError(name, _msg, _info)
-                                if name.as_str() == "org.freedesktop.UDisks2.Error.DeviceBusy"
-                        );
-
-                        if is_busy && attempt < 3 {
-                            last_err = Some(err);
-                            sleep(Duration::from_millis(250)).await;
-                            continue;
-                        }
-
-                        // Preserve D-Bus error name + message.
-                        if let zbus::Error::MethodError(name, msg, _info) = &err {
-                            let msg = msg.as_deref().unwrap_or("");
-
-                            // Parity fallback: allow `tear-down=true` if empty options fail.
-                            // Some stacks (esp. around crypto/DM) appear to need it.
-                            if proxy
-                                .call_method("Delete", &(options_teardown))
-                                .await
-                                .is_ok()
-                            {
-                                return Ok(());
-                            }
-
-                            let device =
-                                device_for_display.as_deref().unwrap_or("<unknown device>");
-                            let open_fds = open_fds_for_device(device)
-                                .map(|v| v.join("; "))
-                                .unwrap_or_else(|| "none".to_string());
-                            let part_no = partition_number
-                                .map(|n| n.to_string())
-                                .unwrap_or_else(|| "?".to_string());
-                            let table_path = table_path
-                                .as_ref()
-                                .map(|p| p.to_string())
-                                .unwrap_or_else(|| "?".to_string());
-                            let table_type = table_type.as_deref().unwrap_or("?");
-
-                            let read_only = read_only
-                                .map(|b| b.to_string())
-                                .unwrap_or_else(|| "?".to_string());
-                            let hint_system = hint_system
-                                .map(|b| b.to_string())
-                                .unwrap_or_else(|| "?".to_string());
-                            let holders_str = holders
-                                .as_ref()
-                                .map(|hs| {
-                                    hs.iter()
-                                        .take(8)
-                                        .map(|p| p.to_string())
-                                        .collect::<Vec<_>>()
-                                        .join(", ")
-                                })
-                                .unwrap_or_else(|| "?".to_string());
-                            let holders_count = holders.as_ref().map(|h| h.len()).unwrap_or(0);
-
-                            let table_in_use = if table_in_use_notes.is_empty() {
-                                "none".to_string()
+                        if let Ok(preferred) = block_proxy.preferred_device().await {
+                            if let Some(s) = decode(&preferred) {
+                                Some(s)
+                            } else if let Ok(dev) = block_proxy.device().await {
+                                decode(&dev)
                             } else {
-                                table_in_use_notes.join("; ")
-                            };
-                            anyhow::bail!(
-                                "UDisks2 Partition.Delete failed for {device} (partition_number={part_no}, table_type={table_type}, table_path={table_path}, object_path={path}, read_only={read_only}, hint_system={hint_system}, holders_count={holders_count}, holders={holders_str}, table_in_use={table_in_use}, open_fds_for_device={open_fds}): {}{}{}",
-                                name.as_str(),
-                                if msg.is_empty() { "" } else { ": " },
-                                msg
-                            );
+                                None
+                            }
+                        } else if let Ok(dev) = block_proxy.device().await {
+                            decode(&dev)
+                        } else {
+                            None
                         }
-
-                        return Err(err.into());
+                    } else {
+                        None
                     }
+                } else {
+                    None
+                };
+
+            match proxy.call_method("Delete", &(options_empty)).await {
+                Ok(_) => Ok(()),
+                Err(err) => {
+                    if let zbus::Error::MethodError(name, msg, _info) = &err {
+                        let device = device_for_display.as_deref().unwrap_or("<unknown device>");
+                        let msg = msg.as_deref().unwrap_or("");
+                        anyhow::bail!(
+                            "UDisks2 Partition.Delete failed for {device} (object_path={path}): {}{}{}",
+                            name.as_str(),
+                            if msg.is_empty() { "" } else { ": " },
+                            msg
+                        );
+                    }
+
+                    Err(err.into())
                 }
             }
-
-            if let Some(err) = last_err {
-                return Err(err.into());
-            }
-
-            Ok(())
         })
     }
 
