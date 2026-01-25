@@ -28,6 +28,11 @@ cancel = Avbryt
 continue = Fortsätt
 working = Arbetar…
 
+# Common
+close = Stäng
+refresh = Uppdatera
+details = Detaljer
+
 # Formatera disk dialogruta
 erase-dont-overwrite-quick = Skriv inte över (snabbt)
 erase-overwrite-slow = Skriv över (långsamt)
@@ -89,3 +94,14 @@ unlocked = Upplåst
 unlock-failed = Upplåsning misslyckades
 lock-failed = Låsning misslyckades
 unlock-missing-partition = Kunde inte hitta { $name } i den aktuella enhetslistan.
+
+# SMART
+smart-no-data = Ingen SMART-data tillgänglig.
+smart-type = Typ
+smart-updated = Uppdaterad
+smart-temperature = Temperatur
+smart-power-on-hours = Drifttimmar
+smart-selftest = Självtest
+smart-selftest-short = Kort självtest
+smart-selftest-extended = Utökat självtest
+smart-selftest-abort = Avbryt självtest

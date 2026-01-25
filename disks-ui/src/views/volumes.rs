@@ -719,6 +719,10 @@ impl VolumesControl {
                         );
                     }
 
+                    ShowDialog::SmartData(_) => {
+                        eprintln!("CreateMessage received while a SMART dialog is open; ignoring.");
+                    }
+
                     ShowDialog::Info { .. } => {
                         eprintln!("CreateMessage received while an info dialog is open; ignoring.");
                     }

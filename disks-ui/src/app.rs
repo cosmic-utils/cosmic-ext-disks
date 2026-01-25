@@ -46,7 +46,16 @@ pub enum ShowDialog {
     AddPartition(CreatePartitionDialog),
     UnlockEncrypted(UnlockEncryptedDialog),
     FormatDisk(FormatDiskDialog),
+    SmartData(SmartDataDialog),
     Info { title: String, body: String },
+}
+
+#[derive(Debug, Clone)]
+pub struct SmartDataDialog {
+    pub drive: DriveModel,
+    pub running: bool,
+    pub info: Option<disks_dbus::SmartInfo>,
+    pub error: Option<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -83,6 +92,23 @@ impl From<FormatDiskMessage> for Message {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum SmartDialogMessage {
+    Refresh,
+    SelfTestShort,
+    SelfTestExtended,
+    AbortSelfTest,
+    Close,
+    Loaded(Result<disks_dbus::SmartInfo, String>),
+    ActionComplete(Result<(), String>),
+}
+
+impl From<SmartDialogMessage> for Message {
+    fn from(val: SmartDialogMessage) -> Self {
+        Message::SmartDialog(val)
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct UnlockEncryptedDialog {
     pub partition_path: String,
@@ -112,11 +138,10 @@ pub enum Message {
     Eject,
     PowerOff,
     Format,
-    Benchmark,
     SmartData,
-    DriveSettings,
     StandbyNow,
     Wakeup,
+    SmartDialog(SmartDialogMessage),
     NewDiskImage,
     AttachDisk,
     CreateDiskFrom,
@@ -215,6 +240,8 @@ impl Application for AppModel {
                 }
 
                 ShowDialog::FormatDisk(state) => Some(dialogs::format_disk(state.clone())),
+
+                ShowDialog::SmartData(state) => Some(dialogs::smart_data(state.clone())),
 
                 ShowDialog::Info { title, body } => Some(dialogs::info(
                     title.clone(),
@@ -715,10 +742,28 @@ impl Application for AppModel {
                 }
             }
             Message::PowerOff => {
-                self.dialog = Some(ShowDialog::Info {
-                    title: fl!("app-title"),
-                    body: "Power off is not implemented yet.".to_string(),
-                });
+                let Some(drive) = self.nav.active_data::<DriveModel>().cloned() else {
+                    return Task::none();
+                };
+
+                return Task::perform(
+                    async move {
+                        let res = drive.power_off().await;
+                        let drives = DriveModel::get_drives().await.ok();
+                        (res, drives)
+                    },
+                    |(res, drives)| match res {
+                        Ok(()) => match drives {
+                            Some(drives) => Message::UpdateNav(drives, None).into(),
+                            None => Message::None.into(),
+                        },
+                        Err(e) => Message::Dialog(Box::new(ShowDialog::Info {
+                            title: fl!("app-title"),
+                            body: e.to_string(),
+                        }))
+                        .into(),
+                    },
+                );
             }
             Message::Format => {
                 let Some(drive) = self.nav.active_data::<DriveModel>().cloned() else {
@@ -738,35 +783,176 @@ impl Application for AppModel {
                     running: false,
                 }));
             }
-            Message::Benchmark => {
-                self.dialog = Some(ShowDialog::Info {
-                    title: fl!("app-title"),
-                    body: "Benchmark is not implemented yet.".to_string(),
-                });
-            }
             Message::SmartData => {
-                self.dialog = Some(ShowDialog::Info {
-                    title: fl!("app-title"),
-                    body: "SMART data/self-tests are not implemented yet.".to_string(),
-                });
-            }
-            Message::DriveSettings => {
-                self.dialog = Some(ShowDialog::Info {
-                    title: fl!("app-title"),
-                    body: "Drive settings are not implemented yet.".to_string(),
-                });
+                let Some(drive) = self.nav.active_data::<DriveModel>().cloned() else {
+                    return Task::none();
+                };
+
+                self.dialog = Some(ShowDialog::SmartData(SmartDataDialog {
+                    drive: drive.clone(),
+                    running: true,
+                    info: None,
+                    error: None,
+                }));
+
+                return Task::perform(
+                    async move { drive.smart_info().await.map_err(|e| e.to_string()) },
+                    |res| Message::SmartDialog(SmartDialogMessage::Loaded(res)).into(),
+                );
             }
             Message::StandbyNow => {
-                self.dialog = Some(ShowDialog::Info {
-                    title: fl!("app-title"),
-                    body: "Standby is not implemented yet.".to_string(),
-                });
+                let Some(drive) = self.nav.active_data::<DriveModel>().cloned() else {
+                    return Task::none();
+                };
+
+                return Task::perform(
+                    async move { drive.standby_now().await.map_err(|e| e.to_string()) },
+                    |res| {
+                        Message::Dialog(Box::new(ShowDialog::Info {
+                            title: fl!("app-title"),
+                            body: match res {
+                                Ok(()) => "Standby requested.".to_string(),
+                                Err(e) => e,
+                            },
+                        }))
+                        .into()
+                    },
+                );
             }
             Message::Wakeup => {
-                self.dialog = Some(ShowDialog::Info {
-                    title: fl!("app-title"),
-                    body: "Wake up from standby is not implemented yet.".to_string(),
-                });
+                let Some(drive) = self.nav.active_data::<DriveModel>().cloned() else {
+                    return Task::none();
+                };
+
+                return Task::perform(
+                    async move { drive.wakeup().await.map_err(|e| e.to_string()) },
+                    |res| {
+                        Message::Dialog(Box::new(ShowDialog::Info {
+                            title: fl!("app-title"),
+                            body: match res {
+                                Ok(()) => "Wake-up requested.".to_string(),
+                                Err(e) => e,
+                            },
+                        }))
+                        .into()
+                    },
+                );
+            }
+            Message::SmartDialog(msg) => {
+                let Some(ShowDialog::SmartData(state)) = self.dialog.clone() else {
+                    return Task::none();
+                };
+
+                match msg {
+                    SmartDialogMessage::Close => {
+                        self.dialog = None;
+                    }
+                    SmartDialogMessage::Loaded(res) => {
+                        let mut next = state;
+                        next.running = false;
+                        match res {
+                            Ok(info) => {
+                                next.info = Some(info);
+                                next.error = None;
+                            }
+                            Err(e) => {
+                                next.error = Some(e);
+                            }
+                        }
+                        self.dialog = Some(ShowDialog::SmartData(next));
+                    }
+                    SmartDialogMessage::Refresh => {
+                        let drive = state.drive.clone();
+                        self.dialog = Some(ShowDialog::SmartData(SmartDataDialog {
+                            drive: drive.clone(),
+                            running: true,
+                            info: state.info.clone(),
+                            error: None,
+                        }));
+
+                        return Task::perform(
+                            async move { drive.smart_info().await.map_err(|e| e.to_string()) },
+                            |res| Message::SmartDialog(SmartDialogMessage::Loaded(res)).into(),
+                        );
+                    }
+                    SmartDialogMessage::SelfTestShort => {
+                        let drive = state.drive.clone();
+                        self.dialog = Some(ShowDialog::SmartData(SmartDataDialog {
+                            drive: drive.clone(),
+                            running: true,
+                            info: state.info.clone(),
+                            error: None,
+                        }));
+                        return Task::perform(
+                            async move {
+                                drive
+                                    .smart_selftest_start(disks_dbus::SmartSelfTestKind::Short)
+                                    .await
+                                    .map_err(|e| e.to_string())
+                            },
+                            |res| {
+                                Message::SmartDialog(SmartDialogMessage::ActionComplete(res)).into()
+                            },
+                        );
+                    }
+                    SmartDialogMessage::SelfTestExtended => {
+                        let drive = state.drive.clone();
+                        self.dialog = Some(ShowDialog::SmartData(SmartDataDialog {
+                            drive: drive.clone(),
+                            running: true,
+                            info: state.info.clone(),
+                            error: None,
+                        }));
+                        return Task::perform(
+                            async move {
+                                drive
+                                    .smart_selftest_start(disks_dbus::SmartSelfTestKind::Extended)
+                                    .await
+                                    .map_err(|e| e.to_string())
+                            },
+                            |res| {
+                                Message::SmartDialog(SmartDialogMessage::ActionComplete(res)).into()
+                            },
+                        );
+                    }
+                    SmartDialogMessage::AbortSelfTest => {
+                        let drive = state.drive.clone();
+                        self.dialog = Some(ShowDialog::SmartData(SmartDataDialog {
+                            drive: drive.clone(),
+                            running: true,
+                            info: state.info.clone(),
+                            error: None,
+                        }));
+                        return Task::perform(
+                            async move {
+                                drive
+                                    .smart_selftest_abort()
+                                    .await
+                                    .map_err(|e| e.to_string())
+                            },
+                            |res| {
+                                Message::SmartDialog(SmartDialogMessage::ActionComplete(res)).into()
+                            },
+                        );
+                    }
+                    SmartDialogMessage::ActionComplete(res) => {
+                        let drive = state.drive.clone();
+                        let ok = res.is_ok();
+
+                        let mut next = state;
+                        next.running = false;
+                        next.error = res.err();
+                        self.dialog = Some(ShowDialog::SmartData(next));
+
+                        // After a successful action, refresh SMART data.
+                        if ok {
+                            return Task::perform(
+                                async move { drive.smart_info().await.map_err(|e| e.to_string()) },
+                                |res| Message::SmartDialog(SmartDialogMessage::Loaded(res)).into(),
+                            );
+                        }
+                    }
+                }
             }
             Message::NewDiskImage => {
                 self.dialog = Some(ShowDialog::Info {
