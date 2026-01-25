@@ -539,9 +539,24 @@ impl Application for AppModel {
                     None => "Unknown".into(),
                 };
 
+                let can_remove = drive.is_loop || (drive.removable && drive.can_power_off);
+
+                let mut drive_header = iced_widget::Row::new()
+                    .push(heading(drive.name()))
+                    .push(Space::new(Length::Fill, 0))
+                    .spacing(10)
+                    .width(Length::Fill);
+
+                if can_remove {
+                    drive_header = drive_header.push(
+                        widget::button::custom(icon::from_name("media-eject-symbolic"))
+                            .on_press(Message::Eject),
+                    );
+                }
+
                 let drive_info = if drive.is_loop {
                     iced_widget::column![
-                        heading(drive.name()),
+                        drive_header,
                         Space::new(0, 10),
                         labelled_info("Size", bytes_to_pretty(&drive.size, true)),
                         labelled_info("Backing File", drive.backing_file.as_deref().unwrap_or(""),),
@@ -550,7 +565,7 @@ impl Application for AppModel {
                     .width(Length::Fill)
                 } else {
                     iced_widget::column![
-                        heading(drive.name()),
+                        drive_header,
                         Space::new(0, 10),
                         labelled_info("Model", &drive.model),
                         labelled_info("Serial", &drive.serial),
@@ -852,7 +867,7 @@ impl Application for AppModel {
 
                 return Task::perform(
                     async move {
-                        let res = drive.eject().await;
+                        let res = drive.remove().await;
                         let drives = DriveModel::get_drives().await.ok();
                         (res, drives)
                     },

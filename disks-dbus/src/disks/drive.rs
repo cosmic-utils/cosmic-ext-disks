@@ -1043,7 +1043,7 @@ impl DriveModel {
     pub async fn format_disk(&self, format_type: &str, erase: bool) -> Result<()> {
         // Preflight: ensure no mounted filesystems (including nested/LUKS/LVM children) keep the
         // disk busy, and teardown unlocked encrypted containers.
-        self.preflight_for_format().await?;
+        self.preflight_unmount_and_lock().await?;
 
         let block_proxy = BlockProxy::builder(&self.connection)
             .path(self.block_path.clone())?
@@ -1060,7 +1060,7 @@ impl DriveModel {
         Ok(())
     }
 
-    async fn preflight_for_format(&self) -> Result<()> {
+    async fn preflight_unmount_and_lock(&self) -> Result<()> {
         let mut first_err: Option<anyhow::Error> = None;
 
         for v in &self.volumes {
@@ -1092,6 +1092,47 @@ impl DriveModel {
         }
 
         Ok(())
+    }
+
+    pub async fn remove(&self) -> Result<()> {
+        // Always unmount any child volumes first so the device isn't busy.
+        // Also lock (close) unlocked encrypted containers where possible.
+        self.preflight_unmount_and_lock().await?;
+
+        if self.is_loop {
+            let proxy = zbus::Proxy::new(
+                &self.connection,
+                "org.freedesktop.UDisks2",
+                self.block_path.as_str(),
+                "org.freedesktop.UDisks2.Loop",
+            )
+            .await?;
+
+            let options: HashMap<&str, Value<'_>> = HashMap::new();
+            let res: Result<()> = proxy.call("Delete", &(options)).await.map_err(Into::into);
+            match res {
+                Ok(()) => Ok(()),
+                Err(e) if is_anyhow_not_supported(&e) => Err(anyhow::anyhow!(
+                    "Remove not supported: device does not implement org.freedesktop.UDisks2.Loop"
+                )),
+                Err(e) if is_anyhow_device_busy(&e) => Err(anyhow::anyhow!(
+                    "Device is busy. Unmount any volumes on it and try again."
+                )),
+                Err(e) => Err(e),
+            }
+        } else if self.removable {
+            // For removable drives, the expected "safe remove" behavior is power off.
+            if !self.can_power_off {
+                return Err(anyhow::anyhow!(
+                    "Remove not supported: drive is removable but does not support power off"
+                ));
+            }
+            self.power_off().await
+        } else {
+            Err(anyhow::anyhow!(
+                "Remove not supported: device is neither a loop-backed image nor a removable drive"
+            ))
+        }
     }
 }
 
