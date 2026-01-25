@@ -59,6 +59,7 @@ partitioning = Partitionering
 # Bekräftelsedialogruta
 delete = Radera { $name }
 delete-confirmation = Är du säker på att du vill radera { $name }?
+delete-failed = Radering misslyckades
 
 # Volymsegment
 free-space-segment = Ledigt utrymme

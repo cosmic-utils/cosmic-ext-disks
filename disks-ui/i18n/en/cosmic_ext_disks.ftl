@@ -60,6 +60,7 @@ partitioning = Partitioning
 # Confirmation dialog
 delete = Delete { $name }
 delete-confirmation = Are you sure you wish to delete { $name }?
+delete-failed = Delete failed
 
 # Volume segments
 free-space-segment = Free Space

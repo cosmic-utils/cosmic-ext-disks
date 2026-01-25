@@ -17,3 +17,4 @@ A lightweight mapping of audited gaps/work items to implementation specs.
 | GAP-012 | SPDX header placeholder in i18n module | `.copi/specs/chore/gap-010-012-tests-release-spdx/` | `chore/gap-010-012-tests-release-spdx` | `.copi/audits/2026-01-24T18-03-04Z.md` | Implemented |
 | N/A | Remove old/backup polling for device events logic | `.copi/specs/fix/remove-device-polling-fallback/` | `fix/remove-device-polling-fallback` | N/A (brief) | Implemented |
 | N/A | Support LUKS + logical/nested volumes (unlock prompt + show inner filesystems) | `.copi/specs/feature/luks-logical-volumes/` | `feature/luks-logical-volumes` | N/A (brief) | Implemented |
+| N/A | LUKS delete preflight (unmount children + lock) + hide delete for child volumes | `.copi/specs/fix/luks-delete-preflight/` | `fix/luks-delete-preflight` | N/A (brief; PR #36 follow-up) | Implemented (manual validation pending) |

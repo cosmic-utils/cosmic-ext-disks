@@ -3,10 +3,10 @@ use std::collections::HashMap;
 use anyhow::Result;
 use futures::future::BoxFuture;
 use udisks2::{
-    block::BlockProxy, filesystem::FilesystemProxy, partition::PartitionProxy,
-    partitiontable::PartitionTableProxy,
+    block::BlockProxy, filesystem::FilesystemProxy, partitiontable::PartitionTableProxy,
 };
-use zbus::{Connection, zvariant::OwnedObjectPath};
+use zbus::zvariant::Value;
+use zbus::{Connection, Proxy, zvariant::OwnedObjectPath};
 
 use super::ByteRange;
 use crate::{COMMON_DOS_TYPES, COMMON_GPT_TYPES, CreatePartitionInfo, PartitionTypeInfo};
@@ -154,12 +154,69 @@ impl DiskBackend for RealDiskBackend {
 
     fn partition_delete(&self, path: OwnedObjectPath) -> BoxFuture<'_, Result<()>> {
         Box::pin(async move {
-            let proxy = PartitionProxy::builder(&self.connection)
-                .path(&path)?
-                .build()
-                .await?;
-            proxy.delete(HashMap::new()).await?;
-            Ok(())
+            // NOTE: We intentionally call this via a raw zbus proxy instead of the `udisks2`
+            // crate proxy. `udisks2::error::Error` maps most MethodErrors to enum variants
+            // and drops the original error message, leaving only “The operation failed”,
+            // which is not actionable for users.
+
+            // UDisks expects a{sv} (string -> variant). Use `Value` like the generated proxies.
+            // GNOME Disks calls `Partition.Delete` with *empty* options (`a{sv}`).
+            let options_empty: HashMap<&str, Value<'_>> = HashMap::new();
+
+            let proxy = Proxy::new(
+                &self.connection,
+                "org.freedesktop.UDisks2",
+                &path,
+                "org.freedesktop.UDisks2.Partition",
+            )
+            .await?;
+
+            let device_for_display =
+                if let Ok(builder) = BlockProxy::builder(&self.connection).path(&path) {
+                    if let Ok(block_proxy) = builder.build().await {
+                        let decode = |bytes: &[u8]| {
+                            let raw = bytes.split(|b| *b == 0).next().unwrap_or(bytes);
+                            let s = String::from_utf8_lossy(raw).to_string();
+                            if s.trim().is_empty() { None } else { Some(s) }
+                        };
+
+                        if let Ok(preferred) = block_proxy.preferred_device().await {
+                            if let Some(s) = decode(&preferred) {
+                                Some(s)
+                            } else if let Ok(dev) = block_proxy.device().await {
+                                decode(&dev)
+                            } else {
+                                None
+                            }
+                        } else if let Ok(dev) = block_proxy.device().await {
+                            decode(&dev)
+                        } else {
+                            None
+                        }
+                    } else {
+                        None
+                    }
+                } else {
+                    None
+                };
+
+            match proxy.call_method("Delete", &(options_empty)).await {
+                Ok(_) => Ok(()),
+                Err(err) => {
+                    if let zbus::Error::MethodError(name, msg, _info) = &err {
+                        let device = device_for_display.as_deref().unwrap_or("<unknown device>");
+                        let msg = msg.as_deref().unwrap_or("");
+                        anyhow::bail!(
+                            "UDisks2 Partition.Delete failed for {device} (object_path={path}): {}{}{}",
+                            name.as_str(),
+                            if msg.is_empty() { "" } else { ": " },
+                            msg
+                        );
+                    }
+
+                    Err(err.into())
+                }
+            }
         })
     }
 
