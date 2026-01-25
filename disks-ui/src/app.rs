@@ -42,10 +42,45 @@ pub struct AppModel {
 
 #[derive(Debug, Clone)]
 pub enum ShowDialog {
-    DeletePartition(String),
-    AddPartition(CreatePartitionInfo),
+    DeletePartition(DeletePartitionDialog),
+    AddPartition(CreatePartitionDialog),
     UnlockEncrypted(UnlockEncryptedDialog),
+    FormatDisk(FormatDiskDialog),
     Info { title: String, body: String },
+}
+
+#[derive(Debug, Clone)]
+pub struct DeletePartitionDialog {
+    pub name: String,
+    pub running: bool,
+}
+
+#[derive(Debug, Clone)]
+pub struct CreatePartitionDialog {
+    pub info: CreatePartitionInfo,
+    pub running: bool,
+}
+
+#[derive(Debug, Clone)]
+pub struct FormatDiskDialog {
+    pub drive: DriveModel,
+    pub erase_index: usize,
+    pub partitioning_index: usize,
+    pub running: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum FormatDiskMessage {
+    EraseUpdate(usize),
+    PartitioningUpdate(usize),
+    Cancel,
+    Confirm,
+}
+
+impl From<FormatDiskMessage> for Message {
+    fn from(val: FormatDiskMessage) -> Self {
+        Message::FormatDisk(val)
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -54,6 +89,7 @@ pub struct UnlockEncryptedDialog {
     pub partition_name: String,
     pub passphrase: String,
     pub error: Option<String>,
+    pub running: bool,
 }
 
 /// Messages emitted by the application and its widgets.
@@ -66,11 +102,12 @@ pub enum Message {
     UpdateConfig(Config),
     LaunchUrl(String),
     VolumesMessage(VolumesControlMessage),
+    FormatDisk(FormatDiskMessage),
     DriveRemoved(String),
     DriveAdded(String),
     None,
     UpdateNav(Vec<DriveModel>, Option<String>),
-    Dialog(ShowDialog),
+    Dialog(Box<ShowDialog>),
     CloseDialog,
     Eject,
     PowerOff,
@@ -163,18 +200,21 @@ impl Application for AppModel {
     fn dialog(&self) -> Option<Element<'_, Self::Message>> {
         match self.dialog {
             Some(ref d) => match d {
-                ShowDialog::DeletePartition(name) => Some(dialogs::confirmation(
-                    fl!("delete", name = name),
-                    fl!("delete-confirmation", name = name),
+                ShowDialog::DeletePartition(state) => Some(dialogs::confirmation(
+                    fl!("delete", name = state.name.clone()),
+                    fl!("delete-confirmation", name = state.name.clone()),
                     VolumesControlMessage::Delete.into(),
                     Some(Message::CloseDialog),
+                    state.running,
                 )),
 
-                ShowDialog::AddPartition(create) => Some(dialogs::create_partition(create.clone())),
+                ShowDialog::AddPartition(state) => Some(dialogs::create_partition(state.clone())),
 
                 ShowDialog::UnlockEncrypted(state) => {
                     Some(dialogs::unlock_encrypted(state.clone()))
                 }
+
+                ShowDialog::FormatDisk(state) => Some(dialogs::format_disk(state.clone())),
 
                 ShowDialog::Info { title, body } => Some(dialogs::info(
                     title.clone(),
@@ -478,6 +518,53 @@ impl Application for AppModel {
                 let volumes_control = self.nav.active_data_mut::<VolumesControl>().unwrap(); //TODO: HANDLE UNWRAP.
                 return volumes_control.update(message, &mut self.dialog);
             }
+
+            Message::FormatDisk(msg) => {
+                let Some(ShowDialog::FormatDisk(state)) = self.dialog.as_mut() else {
+                    return Task::none();
+                };
+
+                match msg {
+                    FormatDiskMessage::EraseUpdate(v) => state.erase_index = v,
+                    FormatDiskMessage::PartitioningUpdate(v) => state.partitioning_index = v,
+                    FormatDiskMessage::Cancel => {
+                        self.dialog = None;
+                    }
+                    FormatDiskMessage::Confirm => {
+                        if state.running {
+                            return Task::none();
+                        }
+
+                        state.running = true;
+
+                        let drive = state.drive.clone();
+                        let selected = drive.block_path.clone();
+                        let erase = state.erase_index == 1;
+                        let format_type = match state.partitioning_index {
+                            0 => "dos",
+                            1 => "gpt",
+                            _ => "empty",
+                        };
+
+                        return Task::perform(
+                            async move {
+                                drive.format_disk(format_type, erase).await?;
+                                DriveModel::get_drives().await
+                            },
+                            move |res| match res {
+                                Ok(drives) => {
+                                    Message::UpdateNav(drives, Some(selected.clone())).into()
+                                }
+                                Err(e) => Message::Dialog(Box::new(ShowDialog::Info {
+                                    title: fl!("app-title"),
+                                    body: format!("{e:#}"),
+                                }))
+                                .into(),
+                            },
+                        );
+                    }
+                };
+            }
             Message::DriveRemoved(_drive_model) => {
                 //TODO: use DeviceManager.apply_change()
 
@@ -516,9 +603,17 @@ impl Application for AppModel {
             }
             Message::None => {}
             Message::UpdateNav(drive_models, selected) => {
-                // Unlocking an encrypted container triggers a refresh; close the unlock dialog so it
-                // doesn't linger after a successful unlock.
-                if matches!(self.dialog, Some(ShowDialog::UnlockEncrypted(_))) {
+                // Some actions (unlock/format/create/delete) trigger a refresh; close the dialog if
+                // it is in a running state so it doesn't linger after success.
+                let should_close = match self.dialog.as_ref() {
+                    Some(ShowDialog::UnlockEncrypted(s)) => s.running,
+                    Some(ShowDialog::FormatDisk(s)) => s.running,
+                    Some(ShowDialog::AddPartition(s)) => s.running,
+                    Some(ShowDialog::DeletePartition(s)) => s.running,
+                    _ => false,
+                };
+
+                if should_close {
                     self.dialog = None;
                 }
 
@@ -595,7 +690,7 @@ impl Application for AppModel {
                     }
                 }
             }
-            Message::Dialog(show_dialog) => self.dialog = Some(show_dialog),
+            Message::Dialog(show_dialog) => self.dialog = Some(*show_dialog),
             Message::CloseDialog => {
                 self.dialog = None;
             }
@@ -626,10 +721,22 @@ impl Application for AppModel {
                 });
             }
             Message::Format => {
-                self.dialog = Some(ShowDialog::Info {
-                    title: fl!("app-title"),
-                    body: "Format disk is not implemented yet.".to_string(),
-                });
+                let Some(drive) = self.nav.active_data::<DriveModel>().cloned() else {
+                    return Task::none();
+                };
+
+                let partitioning_index = match drive.partition_table_type.as_deref() {
+                    Some("dos") => 0,
+                    Some("gpt") => 1,
+                    _ => 2,
+                };
+
+                self.dialog = Some(ShowDialog::FormatDisk(FormatDiskDialog {
+                    drive,
+                    erase_index: 0,
+                    partitioning_index,
+                    running: false,
+                }));
             }
             Message::Benchmark => {
                 self.dialog = Some(ShowDialog::Info {

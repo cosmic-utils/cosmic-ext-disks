@@ -10,7 +10,9 @@ use cosmic::{
 };
 
 use crate::{
-    app::{Message, ShowDialog, UnlockEncryptedDialog},
+    app::{
+        CreatePartitionDialog, DeletePartitionDialog, Message, ShowDialog, UnlockEncryptedDialog,
+    },
     fl,
     utils::{DiskSegmentKind, PartitionExtent, SegmentAnomaly, compute_disk_segments},
 };
@@ -48,7 +50,7 @@ pub enum CreateMessage {
     #[allow(dead_code)]
     Continue,
     Cancel,
-    Partition(CreatePartitionInfo),
+    Partition,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -559,10 +561,10 @@ impl VolumesControl {
                             Ok(drives) => Message::UpdateNav(drives, None).into(),
                             Err(e) => {
                                 eprintln!("{e:#}");
-                                Message::Dialog(ShowDialog::Info {
+                                Message::Dialog(Box::new(ShowDialog::Info {
                                     title: fl!("lock-failed"),
                                     body: e.to_string(),
-                                })
+                                }))
                                 .into()
                             }
                         },
@@ -571,6 +573,25 @@ impl VolumesControl {
                 return Task::none();
             }
             VolumesControlMessage::Delete => {
+                let d = match dialog.as_mut() {
+                    Some(d) => d,
+                    None => {
+                        eprintln!("Delete received with no active dialog; ignoring.");
+                        return Task::none();
+                    }
+                };
+
+                let ShowDialog::DeletePartition(delete_state) = d else {
+                    eprintln!("Delete received while a different dialog is open; ignoring.");
+                    return Task::none();
+                };
+
+                if delete_state.running {
+                    return Task::none();
+                }
+
+                delete_state.running = true;
+
                 let segment = self.segments.get(self.selected_segment).cloned();
                 let task = match segment.clone() {
                     Some(s) => match s.partition {
@@ -608,10 +629,10 @@ impl VolumesControl {
                                     Ok(drives) => Message::UpdateNav(drives, None).into(),
                                     Err(e) => {
                                         eprintln!("{e:#}");
-                                        Message::Dialog(ShowDialog::Info {
+                                        Message::Dialog(Box::new(ShowDialog::Info {
                                             title: fl!("delete-failed"),
                                             body: format!("{e:#}"),
-                                        })
+                                        }))
                                         .into()
                                     }
                                 },
@@ -622,7 +643,7 @@ impl VolumesControl {
                     None => Task::none(),
                 };
 
-                return Task::done(Message::CloseDialog.into()).chain(task);
+                return task;
             }
             VolumesControlMessage::CreateMessage(create_message) => {
                 let d = match dialog.as_mut() {
@@ -636,59 +657,65 @@ impl VolumesControl {
                 match d {
                     ShowDialog::DeletePartition(_) => {}
 
-                    ShowDialog::AddPartition(create) => match create_message {
-                        CreateMessage::SizeUpdate(size) => create.size = size,
+                    ShowDialog::AddPartition(state) => match create_message {
+                        CreateMessage::SizeUpdate(size) => state.info.size = size,
                         CreateMessage::NameUpdate(name) => {
-                            create.name = name;
+                            state.info.name = name;
                         }
-                        CreateMessage::PasswordUpdate(password) => create.password = password,
+                        CreateMessage::PasswordUpdate(password) => state.info.password = password,
                         CreateMessage::ConfirmedPasswordUpdate(confirmed_password) => {
-                            create.confirmed_password = confirmed_password
+                            state.info.confirmed_password = confirmed_password
                         }
                         CreateMessage::PasswordProectedUpdate(protect) => {
-                            create.password_protected = protect
+                            state.info.password_protected = protect
                         }
-                        CreateMessage::EraseUpdate(erase) => create.erase = erase,
+                        CreateMessage::EraseUpdate(erase) => state.info.erase = erase,
                         CreateMessage::PartitionTypeUpdate(p_type) => {
-                            create.selected_partitition_type = p_type
+                            state.info.selected_partitition_type = p_type
                         }
                         CreateMessage::Continue => {
                             eprintln!("CreateMessage::Continue is not implemented; ignoring.");
                         }
                         CreateMessage::Cancel => return Task::done(Message::CloseDialog.into()),
-                        CreateMessage::Partition(mut create_partition_info) => {
-                            //println!("{:?}", create_partition_info);
+                        CreateMessage::Partition => {
+                            if state.running {
+                                return Task::none();
+                            }
 
+                            state.running = true;
+
+                            let mut create_partition_info: CreatePartitionInfo = state.info.clone();
                             if create_partition_info.name.is_empty() {
                                 create_partition_info.name = fl!("untitled").to_string();
                             }
+
                             let model = self.model.clone();
-                            let task = Task::perform(
+                            return Task::perform(
                                 async move {
-                                    match model.create_partition(create_partition_info).await {
-                                        Ok(_) => match DriveModel::get_drives().await {
-                                            Ok(drives) => Ok(drives),
-                                            Err(e) => Err(e),
-                                        },
-                                        Err(e) => Err(e),
-                                    }
+                                    model.create_partition(create_partition_info).await?;
+                                    DriveModel::get_drives().await
                                 },
                                 |result| match result {
                                     Ok(drives) => Message::UpdateNav(drives, None).into(),
-                                    Err(e) => {
-                                        println!("{e}");
-                                        Message::None.into()
-                                    }
+                                    Err(e) => Message::Dialog(Box::new(ShowDialog::Info {
+                                        title: fl!("app-title"),
+                                        body: format!("{e:#}"),
+                                    }))
+                                    .into(),
                                 },
                             );
-
-                            return Task::done(Message::CloseDialog.into()).chain(task);
                         }
                     },
 
                     ShowDialog::UnlockEncrypted(_) => {
                         eprintln!(
                             "CreateMessage received while an unlock dialog is open; ignoring."
+                        );
+                    }
+
+                    ShowDialog::FormatDisk(_) => {
+                        eprintln!(
+                            "CreateMessage received while a format disk dialog is open; ignoring."
                         );
                     }
 
@@ -716,13 +743,21 @@ impl VolumesControl {
                     UnlockMessage::PassphraseUpdate(p) => {
                         state.passphrase = p;
                         state.error = None;
+                        state.running = false;
                         return Task::none();
                     }
                     UnlockMessage::Cancel => return Task::done(Message::CloseDialog.into()),
                     UnlockMessage::Confirm => {
+                        if state.running {
+                            return Task::none();
+                        }
+
+                        state.running = true;
+
                         let partition_path = state.partition_path.clone();
                         let partition_name = state.partition_name.clone();
                         let passphrase = state.passphrase.clone();
+                        let passphrase_for_task = passphrase.clone();
 
                         // Look up the partition in the current model.
                         let part = self
@@ -734,29 +769,30 @@ impl VolumesControl {
 
                         let Some(p) = part else {
                             return Task::done(
-                                Message::Dialog(ShowDialog::Info {
+                                Message::Dialog(Box::new(ShowDialog::Info {
                                     title: fl!("unlock-failed"),
                                     body: fl!("unlock-missing-partition", name = partition_name),
-                                })
+                                }))
                                 .into(),
                             );
                         };
 
                         return Task::perform(
                             async move {
-                                p.unlock(&passphrase).await?;
+                                p.unlock(&passphrase_for_task).await?;
                                 DriveModel::get_drives().await
                             },
                             move |result| match result {
                                 Ok(drives) => Message::UpdateNav(drives, None).into(),
-                                Err(e) => Message::Dialog(ShowDialog::UnlockEncrypted(
+                                Err(e) => Message::Dialog(Box::new(ShowDialog::UnlockEncrypted(
                                     UnlockEncryptedDialog {
                                         partition_path: partition_path.clone(),
                                         partition_name: partition_name.clone(),
-                                        passphrase: String::new(),
+                                        passphrase: passphrase.clone(),
                                         error: Some(e.to_string()),
+                                        running: false,
                                     },
-                                ))
+                                )))
                                 .into(),
                             },
                         );
@@ -951,13 +987,14 @@ impl VolumesControl {
                                     widget::button::custom(icon::from_name(
                                         "dialog-password-symbolic",
                                     ))
-                                    .on_press(Message::Dialog(ShowDialog::UnlockEncrypted(
-                                        UnlockEncryptedDialog {
+                                    .on_press(Message::Dialog(Box::new(
+                                        ShowDialog::UnlockEncrypted(UnlockEncryptedDialog {
                                             partition_path: p.path.to_string(),
                                             partition_name: p.name(),
                                             passphrase: String::new(),
                                             error: None,
-                                        },
+                                            running: false,
+                                        }),
                                     )))
                                     .into(),
                                 );
@@ -991,9 +1028,12 @@ impl VolumesControl {
             DiskSegmentKind::FreeSpace => {
                 action_bar.push(
                     widget::button::custom(icon::from_name("list-add-symbolic"))
-                        .on_press(Message::Dialog(ShowDialog::AddPartition(
-                            selected.get_create_info(),
-                        )))
+                        .on_press(Message::Dialog(Box::new(ShowDialog::AddPartition(
+                            CreatePartitionDialog {
+                                info: selected.get_create_info(),
+                                running: false,
+                            },
+                        ))))
                         .into(),
                 );
             }
@@ -1006,9 +1046,12 @@ impl VolumesControl {
             action_bar.push(widget::horizontal_space().into());
             action_bar.push(
                 widget::button::custom(icon::from_name("edit-delete-symbolic"))
-                    .on_press(Message::Dialog(ShowDialog::DeletePartition(
-                        selected.name.clone(),
-                    )))
+                    .on_press(Message::Dialog(Box::new(ShowDialog::DeletePartition(
+                        DeletePartitionDialog {
+                            name: selected.name.clone(),
+                            running: false,
+                        },
+                    ))))
                     .into(),
             );
         }
@@ -1067,6 +1110,7 @@ fn find_volume_node_for_partition<'a>(
     let target = partition.path.to_string();
     find_volume_node(volumes, &target)
 }
+
 fn volume_row_compact<'a>(
     segment_index: usize,
     parent: &VolumeNode,

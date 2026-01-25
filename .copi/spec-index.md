@@ -18,3 +18,4 @@ A lightweight mapping of audited gaps/work items to implementation specs.
 | N/A | Remove old/backup polling for device events logic | `.copi/specs/fix/remove-device-polling-fallback/` | `fix/remove-device-polling-fallback` | N/A (brief) | Implemented |
 | N/A | Support LUKS + logical/nested volumes (unlock prompt + show inner filesystems) | `.copi/specs/feature/luks-logical-volumes/` | `feature/luks-logical-volumes` | N/A (brief) | Implemented |
 | N/A | LUKS delete preflight (unmount children + lock) + hide delete for child volumes | `.copi/specs/fix/luks-delete-preflight/` | `fix/luks-delete-preflight` | N/A (brief; PR #36 follow-up) | Implemented (manual validation pending) |
+| N/A | Disk → Format Disk dialog (erase + partitioning) | `.copi/specs/feature/format-disk-dialog/` | `feature/format-disk-dialog` | N/A (brief) | Implemented |
