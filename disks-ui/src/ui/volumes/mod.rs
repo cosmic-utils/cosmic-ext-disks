@@ -1,1 +1,3 @@
-// Placeholder module for extracted volumes UI.
+pub(crate) mod message;
+
+pub use message::VolumesControlMessage;

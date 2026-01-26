@@ -8,6 +8,13 @@
   - `cargo fmt --all`
   - `cargo clippy --workspace --all-features`
   - `cargo test --workspace --all-features`
+
+- Started **Task 3** by extracting `VolumesControlMessage` + conversion impls into `disks-ui/src/ui/volumes/message.rs`.
+- Kept `disks-ui/src/views/volumes.rs` as a compatibility layer via re-export.
+- Commands run:
+  - `cargo fmt --all`
+  - `cargo clippy --workspace --all-features`
+  - `cargo test --workspace --all-features`
 - Result:
   - Clippy clean; all tests passing.
 
