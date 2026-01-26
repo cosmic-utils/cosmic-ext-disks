@@ -16,9 +16,7 @@ use crate::{
     fl,
     utils::DiskSegmentKind,
 };
-use disks_dbus::{
-    CreatePartitionInfo, DriveModel, VolumeKind, VolumeModel, VolumeNode,
-};
+use disks_dbus::{CreatePartitionInfo, DriveModel, VolumeKind, VolumeModel, VolumeNode};
 
 use super::{VolumesControl, VolumesControlMessage};
 

@@ -48,3 +48,10 @@
   - `cargo fmt --all`
   - `cargo clippy --workspace --all-features -- -D warnings`
   - `cargo test --workspace --all-features`
+
+- Continued **Task 3** by extracting rendering to `disks-ui/src/ui/volumes/view.rs` and moving non-UI impls into `disks-ui/src/ui/volumes/state.rs`.
+- Reduced `disks-ui/src/views/volumes.rs` to a tiny re-export shim.
+- Commands run:
+  - `cargo fmt --all`
+  - `cargo clippy --workspace --all-features -- -D warnings`
+  - `cargo test --workspace --all-features`
