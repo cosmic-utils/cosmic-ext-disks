@@ -21,7 +21,7 @@ This is a refactor-only track. Each task should be a small PR (or one squash-mer
   - `cargo clippy --workspace --all-features`
   - `cargo test --workspace --all-features`
 - Done when:
-  - App still builds/runs; no logic changes; new modules exist.
+  - [x] App still builds/runs; no logic changes; new modules exist.
 
 ## Task 2: Move dialog state + messages under `ui/dialogs/`
 

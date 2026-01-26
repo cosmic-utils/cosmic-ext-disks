@@ -3,6 +3,7 @@
 mod app;
 mod config;
 mod i18n;
+mod ui;
 mod utils;
 mod views;
 
