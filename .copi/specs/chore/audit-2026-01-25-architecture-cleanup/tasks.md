@@ -35,7 +35,7 @@ This is a refactor-only track. Each task should be a small PR (or one squash-mer
   - Ensure dialog views do not import volumes message enums.
 - Test plan: standard workspace fmt/clippy/test.
 - Done when:
-  - `disks-ui/src/app.rs` no longer defines dialog structs.
+  - [x] `disks-ui/src/app.rs` no longer defines dialog structs.
 
 ## Task 3: Split volumes module into state/message/update/view/actions
 

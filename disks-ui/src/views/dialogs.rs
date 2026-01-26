@@ -1,23 +1,19 @@
-use super::volumes::{
-    ChangePassphraseMessage, CreateMessage, EditEncryptionOptionsMessage,
-    EditFilesystemLabelMessage, EditMountOptionsMessage, EditPartitionMessage,
-    ResizePartitionMessage, TakeOwnershipMessage, UnlockMessage,
-};
 use crate::app::Message;
-use crate::app::SmartDataDialog;
-use crate::app::SmartDialogMessage;
-use crate::app::UnlockEncryptedDialog;
-use crate::app::{
-    AttachDiskImageDialog, AttachDiskImageDialogMessage, ImageOperationDialog,
-    ImageOperationDialogMessage, ImageOperationKind, NewDiskImageDialog, NewDiskImageDialogMessage,
-};
-use crate::app::{
-    ChangePassphraseDialog, CreatePartitionDialog, EditEncryptionOptionsDialog,
-    EditFilesystemLabelDialog, EditMountOptionsDialog, EditPartitionDialog, FormatPartitionDialog,
-    ResizePartitionDialog, TakeOwnershipDialog,
-};
-use crate::app::{FormatDiskDialog, FormatDiskMessage};
 use crate::fl;
+use crate::ui::dialogs::message::{
+    AttachDiskImageDialogMessage, ChangePassphraseMessage, CreateMessage,
+    EditEncryptionOptionsMessage, EditFilesystemLabelMessage, EditMountOptionsMessage,
+    EditPartitionMessage, FormatDiskMessage, ImageOperationDialogMessage,
+    NewDiskImageDialogMessage, ResizePartitionMessage, SmartDialogMessage, TakeOwnershipMessage,
+    UnlockMessage,
+};
+use crate::ui::dialogs::state::{
+    AttachDiskImageDialog, ChangePassphraseDialog, CreatePartitionDialog,
+    EditEncryptionOptionsDialog, EditFilesystemLabelDialog, EditMountOptionsDialog,
+    EditPartitionDialog, FormatDiskDialog, FormatPartitionDialog, ImageOperationDialog,
+    ImageOperationKind, NewDiskImageDialog, ResizePartitionDialog, SmartDataDialog,
+    TakeOwnershipDialog, UnlockEncryptedDialog,
+};
 use crate::utils::labelled_spinner;
 use cosmic::{
     Element, iced_widget,

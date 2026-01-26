@@ -10,3 +10,13 @@
   - `cargo test --workspace --all-features`
 - Result:
   - Clippy clean; all tests passing.
+
+- Implemented **Task 2** (dialogs state/messages moved under `ui/dialogs/`).
+- Notable changes:
+  - Added `disks-ui/src/ui/dialogs/state.rs` and `disks-ui/src/ui/dialogs/message.rs`.
+  - Removed dialog type definitions from `disks-ui/src/app.rs` (now re-exported from `ui::dialogs`).
+  - Dialog views no longer import message enums from `views/volumes.rs`.
+- Commands run:
+  - `cargo fmt --all`
+  - `cargo clippy --workspace --all-features`
+  - `cargo test --workspace --all-features`

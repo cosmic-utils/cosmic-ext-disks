@@ -9,6 +9,11 @@ use cosmic::{
     },
 };
 
+use crate::ui::dialogs::message::{
+    ChangePassphraseMessage, CreateMessage, EditEncryptionOptionsMessage,
+    EditFilesystemLabelMessage, EditMountOptionsMessage, EditPartitionMessage,
+    ResizePartitionMessage, TakeOwnershipMessage, UnlockMessage,
+};
 use crate::{
     app::{
         ChangePassphraseDialog, ConfirmActionDialog, CreatePartitionDialog, DeletePartitionDialog,
@@ -58,99 +63,6 @@ pub enum VolumesControlMessage {
     TakeOwnershipMessage(TakeOwnershipMessage),
     ChangePassphraseMessage(ChangePassphraseMessage),
     EditEncryptionOptionsMessage(EditEncryptionOptionsMessage),
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum EditPartitionMessage {
-    TypeUpdate(usize),
-    NameUpdate(String),
-    LegacyBiosBootableUpdate(bool),
-    SystemPartitionUpdate(bool),
-    HiddenUpdate(bool),
-    Confirm,
-    Cancel,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum ResizePartitionMessage {
-    SizeUpdate(u64),
-    Confirm,
-    Cancel,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum EditFilesystemLabelMessage {
-    LabelUpdate(String),
-    Confirm,
-    Cancel,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum EditMountOptionsMessage {
-    UseDefaultsUpdate(bool),
-    MountAtStartupUpdate(bool),
-    RequireAuthUpdate(bool),
-    ShowInUiUpdate(bool),
-    OtherOptionsUpdate(String),
-    DisplayNameUpdate(String),
-    IconNameUpdate(String),
-    SymbolicIconNameUpdate(String),
-    MountPointUpdate(String),
-    IdentifyAsIndexUpdate(usize),
-    FilesystemTypeUpdate(String),
-    Confirm,
-    Cancel,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum TakeOwnershipMessage {
-    RecursiveUpdate(bool),
-    Confirm,
-    Cancel,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum ChangePassphraseMessage {
-    CurrentUpdate(String),
-    NewUpdate(String),
-    ConfirmUpdate(String),
-    Confirm,
-    Cancel,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum EditEncryptionOptionsMessage {
-    UseDefaultsUpdate(bool),
-    UnlockAtStartupUpdate(bool),
-    RequireAuthUpdate(bool),
-    OtherOptionsUpdate(String),
-    NameUpdate(String),
-    PassphraseUpdate(String),
-    ShowPassphraseUpdate(bool),
-    Confirm,
-    Cancel,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum CreateMessage {
-    SizeUpdate(u64),
-    NameUpdate(String),
-    PasswordUpdate(String),
-    ConfirmedPasswordUpdate(String),
-    PasswordProectedUpdate(bool),
-    EraseUpdate(bool),
-    PartitionTypeUpdate(usize),
-    #[allow(dead_code)]
-    Continue,
-    Cancel,
-    Partition,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum UnlockMessage {
-    PassphraseUpdate(String),
-    Confirm,
-    Cancel,
 }
 
 impl From<CreateMessage> for VolumesControlMessage {

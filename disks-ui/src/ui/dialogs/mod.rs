@@ -1,1 +1,2 @@
-// Placeholder module for extracted dialogs.
+pub(crate) mod message;
+pub(crate) mod state;
