@@ -59,71 +59,8 @@ pub use crate::ui::dialogs::state::{
     ResizePartitionDialog, ShowDialog, SmartDataDialog, TakeOwnershipDialog, UnlockEncryptedDialog,
 };
 
-impl From<FormatDiskMessage> for Message {
-    fn from(val: FormatDiskMessage) -> Self {
-        Message::FormatDisk(val)
-    }
-}
-
-impl From<SmartDialogMessage> for Message {
-    fn from(val: SmartDialogMessage) -> Self {
-        Message::SmartDialog(val)
-    }
-}
-
-impl From<NewDiskImageDialogMessage> for Message {
-    fn from(val: NewDiskImageDialogMessage) -> Self {
-        Message::NewDiskImageDialog(val)
-    }
-}
-
-impl From<AttachDiskImageDialogMessage> for Message {
-    fn from(val: AttachDiskImageDialogMessage) -> Self {
-        Message::AttachDiskImageDialog(val)
-    }
-}
-
-impl From<ImageOperationDialogMessage> for Message {
-    fn from(val: ImageOperationDialogMessage) -> Self {
-        Message::ImageOperationDialog(val)
-    }
-}
-
-/// Messages emitted by the application and its widgets.
-#[derive(Debug, Clone)]
-#[allow(clippy::enum_variant_names)]
-pub enum Message {
-    OpenRepositoryUrl,
-    OpenPath(String),
-    ToggleContextPage(ContextPage),
-    UpdateConfig(Config),
-    LaunchUrl(String),
-    VolumesMessage(VolumesControlMessage),
-    FormatDisk(FormatDiskMessage),
-    DriveRemoved(String),
-    DriveAdded(String),
-    None,
-    UpdateNav(Vec<DriveModel>, Option<String>),
-    Dialog(Box<ShowDialog>),
-    CloseDialog,
-    Eject,
-    PowerOff,
-    Format,
-    SmartData,
-    StandbyNow,
-    Wakeup,
-    SmartDialog(SmartDialogMessage),
-    NewDiskImage,
-    AttachDisk,
-    CreateDiskFrom,
-    RestoreImageTo,
-    CreateDiskFromPartition,
-    RestoreImageToPartition,
-    NewDiskImageDialog(NewDiskImageDialogMessage),
-    AttachDiskImageDialog(AttachDiskImageDialogMessage),
-    ImageOperationDialog(ImageOperationDialogMessage),
-    Surface(cosmic::surface::Action),
-}
+pub use crate::ui::app::message::Message;
+pub use crate::ui::app::state::ContextPage;
 
 /// Create a COSMIC application from the app model
 impl Application for AppModel {
@@ -1538,11 +1475,4 @@ async fn run_image_operation(
             Ok(())
         }
     }
-}
-
-/// The context page to display in the context drawer.
-#[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
-pub enum ContextPage {
-    #[default]
-    About,
 }

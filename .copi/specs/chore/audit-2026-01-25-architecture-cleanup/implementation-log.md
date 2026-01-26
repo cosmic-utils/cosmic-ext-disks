@@ -55,3 +55,10 @@
   - `cargo fmt --all`
   - `cargo clippy --workspace --all-features -- -D warnings`
   - `cargo test --workspace --all-features`
+
+- Started **Task 4** by extracting `Message` into `disks-ui/src/ui/app/message.rs` and `ContextPage` into `disks-ui/src/ui/app/state.rs`.
+- `disks-ui/src/app.rs` now re-exports both types for API stability.
+- Commands run:
+  - `cargo fmt --all`
+  - `cargo clippy --workspace --all-features -- -D warnings`
+  - `cargo test --workspace --all-features`

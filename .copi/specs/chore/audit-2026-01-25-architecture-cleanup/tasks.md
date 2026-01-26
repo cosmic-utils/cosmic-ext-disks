@@ -75,6 +75,14 @@ This is a refactor-only track. Each task should be a small PR (or one squash-mer
 - Done when:
   - No single module exceeds ~400 LOC without justification.
 
+- Progress:
+  - [x] `ui/app/message.rs` owns `Message`
+  - [x] `ui/app/state.rs` owns `ContextPage`
+  - [ ] Move `AppModel` struct + init
+  - [ ] Move `update()`
+  - [ ] Move `view()`
+  - [ ] Move subscriptions
+
 ## Task 5: Fix naming typos (mechanical rename)
 
 - Scope: Resolve GAP-008.
