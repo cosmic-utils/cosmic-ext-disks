@@ -78,10 +78,10 @@ This is a refactor-only track. Each task should be a small PR (or one squash-mer
 - Progress:
   - [x] `ui/app/message.rs` owns `Message`
   - [x] `ui/app/state.rs` owns `ContextPage`
-  - [ ] Move `AppModel` struct + init
-  - [ ] Move `update()`
-  - [ ] Move `view()`
-  - [ ] Move subscriptions
+  - [x] Move `AppModel` struct + init
+  - [x] Move `update()` (further split into `ui/app/update/*` submodules)
+  - [x] Move `view()`
+  - [x] Move subscriptions
 
 ## Task 5: Fix naming typos (mechanical rename)
 
@@ -93,10 +93,14 @@ This is a refactor-only track. Each task should be a small PR (or one squash-mer
   - Rename in `CreatePartitionInfo` and all UI call sites.
   - Update any persisted state or serialization if present (likely none).
 - Test plan:
-  - `rg "partitition|proected"` returns no results.
+  - `rg -g'*.rs' "partitition|proected"` returns no results.
   - standard workspace fmt/clippy/test.
 - Done when:
   - No typo identifiers remain.
+
+- Progress:
+  - [x] Renamed `PasswordProectedUpdate` → `PasswordProtectedUpdate`
+  - [x] Renamed `selected_partitition_type` → `selected_partition_type_index`
 
 ## Task 6: Deduplicate bytestring/mount-point decoding helpers in `disks-dbus`
 
@@ -112,6 +116,10 @@ This is a refactor-only track. Each task should be a small PR (or one squash-mer
 - Done when:
   - Duplicated helpers removed; tests cover decode edge cases.
 
+- Progress:
+  - [x] Added `disks-dbus/src/dbus/bytestring.rs` and wired `disks-dbus/src/dbus/mod.rs` + crate exports.
+  - [x] Migrated `disks-dbus/src/disks/partition.rs` and `disks-dbus/src/disks/volume.rs` to use shared helpers; removed duplicates.
+
 ## Task 7: Standardize byte formatting to a single implementation
 
 - Scope: Resolve GAP-007.
@@ -124,6 +132,10 @@ This is a refactor-only track. Each task should be a small PR (or one squash-mer
 - Test plan: standard workspace fmt/clippy/test.
 - Done when:
   - Only one `bytes_to_pretty/pretty_to_bytes/get_numeric/get_step` implementation remains.
+
+- Progress:
+  - [x] Removed unused UI duplicate `disks-ui/src/utils/format.rs`.
+  - [x] Confirmed UI call sites use `disks_dbus::{bytes_to_pretty, pretty_to_bytes, get_step}`.
 
 ## Task 8: Unify vocabulary: remove `PartitionModel` alias and clarify “partition vs volume”
 
@@ -142,6 +154,11 @@ This is a refactor-only track. Each task should be a small PR (or one squash-mer
 - Done when:
   - `PartitionModel` no longer exists anywhere; `VolumeModel` is consistently used.
 
+- Progress:
+  - [x] Renamed `disks-dbus/src/disks/partition.rs` → `disks-dbus/src/disks/volume_model.rs`.
+  - [x] Removed `pub type PartitionModel = VolumeModel` and updated exports in `disks-dbus/src/disks/mod.rs`.
+  - [x] Verified `rg "PartitionModel"` finds no matches.
+
 ## Task 9: Split `DriveModel` by responsibility (discovery/actions/smart/tree)
 
 - Scope: Resolve GAP-004.
@@ -156,6 +173,11 @@ This is a refactor-only track. Each task should be a small PR (or one squash-mer
 - Done when:
   - Drive code is split and readable; public API remains stable.
 
+- Progress:
+  - [x] Converted `disks-dbus/src/disks/drive.rs` into `disks-dbus/src/disks/drive/` module dir.
+  - [x] Split by responsibility: `model.rs`, `discovery.rs`, `volume_tree.rs`, `smart.rs`, `actions.rs`.
+  - [x] Kept public API stable via re-export from `disks-dbus/src/disks/drive/mod.rs`.
+
 ## Task 10: Partition type catalog refactor
 
 - Scope: Resolve GAP-005.
@@ -169,6 +191,12 @@ This is a refactor-only track. Each task should be a small PR (or one squash-mer
   - Add/keep minimal unit tests to verify counts and a few known IDs map.
 - Done when:
   - `partition_type.rs` no longer contains the full giant array.
+
+- Progress:
+  - [x] Replaced `disks-dbus/src/partition_type.rs` with `disks-dbus/src/partition_types/` modules.
+  - [x] Split catalog data into `gpt.rs` and `dos.rs` (and `apm.rs` to preserve existing APM entries).
+  - [x] Kept the public API stable via `pub use partition_types::*` from `disks-dbus/src/lib.rs`.
+  - [x] Added unit tests verifying counts and known lookups.
 
 ## Task 11: Remove unwrap-based crash paths in UI view
 
@@ -185,6 +213,11 @@ This is a refactor-only track. Each task should be a small PR (or one squash-mer
 - Done when:
   - No unwraps remain in `view()` for nav/segment selection.
 
+- Progress:
+  - [x] Removed unwraps from `disks-ui/src/ui/app/view.rs` for `VolumesControl`/segment access.
+  - [x] Clamped stale segment indices in `VolumesControl::update` to avoid out-of-range selection.
+  - [x] Added an empty-volumes fallback string (`no-volumes`) for safe rendering.
+
 ## Task 12: Logging layering cleanup
 
 - Scope: Resolve GAP-011.
@@ -196,3 +229,8 @@ This is a refactor-only track. Each task should be a small PR (or one squash-mer
 - Test plan: standard workspace fmt/clippy/test.
 - Done when:
   - Logging is consistent and layered.
+
+- Progress:
+  - [x] Initialized tracing subscriber in `disks-ui/src/main.rs`.
+  - [x] Replaced UI `println!/eprintln!` with `tracing::{warn!, error!}` across update/subscription paths.
+  - [x] Added missing `tracing` dependency to `disks-ui/Cargo.toml`.

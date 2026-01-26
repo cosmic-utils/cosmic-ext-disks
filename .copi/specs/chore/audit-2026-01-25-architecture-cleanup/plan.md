@@ -55,7 +55,7 @@ This section is the canonical “map” of what moves where. Each node lists:
 | Volumes control | `VolumesControl` in `disks-ui/src/views/volumes.rs` | `disks-ui/src/ui/volumes/state.rs` | Pure state + helpers; no direct `eprintln!`. |
 | Volumes messages | `VolumesControlMessage` + submessages in `disks-ui/src/views/volumes.rs` | `disks-ui/src/ui/volumes/message.rs` | Fix naming typos during migration (see “Naming”). |
 | Segmentation | `compute_disk_segments` in `disks-ui/src/utils/segments.rs` | unchanged (for now) | This is already reasonably cohesive; just update imports if module paths change. |
-| Byte formatting | `disks-ui/src/utils/format.rs` (dup) | remove; import from `disks-dbus` or new `common` | See DBus section; goal is single implementation. |
+| Byte formatting | `disks-ui/src/utils/format.rs` (dup) | remove; import from `disks-dbus` | DBus crate remains canonical; no new shared/common crate. |
 
 ### DBus crate (`disks-dbus`)
 
@@ -123,14 +123,14 @@ This section is the canonical “map” of what moves where. Each node lists:
 
 ## Acceptance Criteria (covers all audit gaps)
 
-- [ ] GAP-001 (UI god file): `disks-ui/src/app.rs` is reduced via `ui/app/*` split; no single module remains > ~400 LOC without justification.
-- [ ] GAP-002 (volumes god file): `views/volumes.rs` split into state/message/update/view/actions modules.
-- [ ] GAP-003 (dialogs coupling): dialog state + messages moved under `ui/dialogs/*`; dialogs do not depend on volumes message enums.
-- [ ] GAP-004 (DriveModel mixing): drive code split by domain (discovery/actions/smart/tree).
-- [ ] GAP-005 (partition types giant file): `partition_type.rs` split (or moved to data) and prepared for localization.
-- [ ] GAP-006 (duplicated bytestring helpers): a shared helper module exists and is used by both flat + tree models.
-- [ ] GAP-007 (byte formatting duplication): single canonical formatting implementation is used by UI and DBus.
-- [ ] GAP-008 (typos): `rg "partitition|proected"` yields no matches.
-- [ ] GAP-009 (Volume/Partition naming confusion): remove `pub type PartitionModel = VolumeModel`; keep `VolumeModel` as the canonical multi-role model; rename files/modules accordingly.
-- [ ] GAP-010 (unwrap crashes): no unwraps in UI `view()` for nav/segment selection; safe fallbacks exist.
-- [ ] GAP-011 (logging layering): operational errors routed via one approach (`tracing` and/or UI Info dialog) rather than scattered `println!/eprintln!`.
+- [x] GAP-001 (UI god file): `disks-ui/src/app.rs` is reduced via `ui/app/*` split; no single module remains > ~400 LOC without justification.
+- [x] GAP-002 (volumes god file): `views/volumes.rs` split into state/message/update/view/actions modules.
+- [x] GAP-003 (dialogs coupling): dialog state + messages moved under `ui/dialogs/*`; dialogs do not depend on volumes message enums.
+- [x] GAP-004 (DriveModel mixing): drive code split by domain (discovery/actions/smart/tree).
+- [x] GAP-005 (partition types giant file): `partition_type.rs` split into `partition_types/` modules (GPT/DOS/APM) with stable API + tests.
+- [x] GAP-006 (duplicated bytestring helpers): a shared helper module exists and is used by both flat + tree models.
+- [x] GAP-007 (byte formatting duplication): single canonical formatting implementation is used by UI and DBus.
+- [x] GAP-008 (typos): `rg -g'*.rs' "partitition|proected"` yields no matches.
+- [x] GAP-009 (Volume/Partition naming confusion): remove `pub type PartitionModel = VolumeModel`; keep `VolumeModel` as the canonical multi-role model; rename files/modules accordingly.
+- [x] GAP-010 (unwrap crashes): no unwraps in UI `view()` for nav/segment selection; safe fallbacks exist.
+- [x] GAP-011 (logging layering): operational errors routed via `tracing` (and existing UI Info dialogs for actionable failures) rather than scattered `println!/eprintln!`.

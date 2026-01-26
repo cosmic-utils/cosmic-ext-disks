@@ -1,21 +1,20 @@
 use cosmic::Task;
 
+use crate::app::Message;
+use crate::fl;
 use crate::ui::dialogs::message::{
     ChangePassphraseMessage, CreateMessage, EditEncryptionOptionsMessage,
     EditFilesystemLabelMessage, EditMountOptionsMessage, EditPartitionMessage,
     ResizePartitionMessage, TakeOwnershipMessage, UnlockMessage,
 };
-use crate::ui::volumes::helpers;
-use crate::{
-    app::{
-        ChangePassphraseDialog, ConfirmActionDialog, EditEncryptionOptionsDialog,
-        EditFilesystemLabelDialog, EditMountOptionsDialog, EditPartitionDialog, FilesystemTarget,
-        FormatPartitionDialog, Message, ResizePartitionDialog, ShowDialog, TakeOwnershipDialog,
-        UnlockEncryptedDialog,
-    },
-    fl,
-    utils::DiskSegmentKind,
+use crate::ui::dialogs::state::{
+    ChangePassphraseDialog, ConfirmActionDialog, EditEncryptionOptionsDialog,
+    EditFilesystemLabelDialog, EditMountOptionsDialog, EditPartitionDialog, FilesystemTarget,
+    FormatPartitionDialog, ResizePartitionDialog, ShowDialog, TakeOwnershipDialog,
+    UnlockEncryptedDialog,
 };
+use crate::ui::volumes::helpers;
+use crate::utils::DiskSegmentKind;
 use disks_dbus::{CreatePartitionInfo, DriveModel, VolumeKind, VolumeModel, VolumeNode};
 
 use super::{VolumesControl, VolumesControlMessage};
@@ -29,6 +28,13 @@ impl VolumesControl {
         match message {
             VolumesControlMessage::SegmentSelected(index) => {
                 if dialog.is_none() {
+                    let Some(last_index) = self.segments.len().checked_sub(1) else {
+                        self.selected_segment = 0;
+                        self.selected_volume = None;
+                        return Task::none();
+                    };
+
+                    let index = index.min(last_index);
                     self.selected_segment = index;
                     self.selected_volume = None;
                     self.segments.iter_mut().for_each(|s| s.state = false);
@@ -42,6 +48,13 @@ impl VolumesControl {
                 object_path,
             } => {
                 if dialog.is_none() {
+                    let Some(last_index) = self.segments.len().checked_sub(1) else {
+                        self.selected_segment = 0;
+                        self.selected_volume = None;
+                        return Task::none();
+                    };
+
+                    let segment_index = segment_index.min(last_index);
                     self.selected_segment = segment_index;
                     self.selected_volume = Some(object_path);
                     self.segments.iter_mut().for_each(|s| s.state = false);
@@ -71,7 +84,7 @@ impl VolumesControl {
                                 |result| match result {
                                     Ok(drives) => Message::UpdateNav(drives, None).into(),
                                     Err(e) => {
-                                        println!("{e:#}");
+                                        tracing::error!(?e, "mount failed");
                                         Message::None.into()
                                     }
                                 },
@@ -100,7 +113,7 @@ impl VolumesControl {
                                 |result| match result {
                                     Ok(drives) => Message::UpdateNav(drives, None).into(),
                                     Err(e) => {
-                                        println!("{e}");
+                                        tracing::error!(%e, "unmount failed");
                                         Message::None.into()
                                     }
                                 },
@@ -122,7 +135,7 @@ impl VolumesControl {
                         |result| match result {
                             Ok(drives) => Message::UpdateNav(drives, None).into(),
                             Err(e) => {
-                                eprintln!("{e:#}");
+                                tracing::error!(?e, "child mount failed");
                                 Message::None.into()
                             }
                         },
@@ -141,7 +154,7 @@ impl VolumesControl {
                         |result| match result {
                             Ok(drives) => Message::UpdateNav(drives, None).into(),
                             Err(e) => {
-                                eprintln!("{e:#}");
+                                tracing::error!(?e, "child unmount failed");
                                 Message::None.into()
                             }
                         },
@@ -173,7 +186,7 @@ impl VolumesControl {
                         |result| match result {
                             Ok(drives) => Message::UpdateNav(drives, None).into(),
                             Err(e) => {
-                                eprintln!("{e:#}");
+                                tracing::error!(?e, "lock container failed");
                                 Message::Dialog(Box::new(ShowDialog::Info {
                                     title: fl!("lock-failed"),
                                     body: e.to_string(),
@@ -189,13 +202,13 @@ impl VolumesControl {
                 let d = match dialog.as_mut() {
                     Some(d) => d,
                     None => {
-                        eprintln!("Delete received with no active dialog; ignoring.");
+                        tracing::warn!("delete received with no active dialog; ignoring");
                         return Task::none();
                     }
                 };
 
                 let ShowDialog::DeletePartition(delete_state) = d else {
-                    eprintln!("Delete received while a different dialog is open; ignoring.");
+                    tracing::warn!("delete received while a different dialog is open; ignoring");
                     return Task::none();
                 };
 
@@ -242,7 +255,7 @@ impl VolumesControl {
                                 |result| match result {
                                     Ok(drives) => Message::UpdateNav(drives, None).into(),
                                     Err(e) => {
-                                        eprintln!("{e:#}");
+                                        tracing::error!(?e, "delete failed");
                                         Message::Dialog(Box::new(ShowDialog::Info {
                                             title: fl!("delete-failed"),
                                             body: format!("{e:#}"),
@@ -278,7 +291,7 @@ impl VolumesControl {
                     volume.table_type.clone()
                 };
 
-                let selected_partitition_type = helpers::common_partition_type_index_for(
+                let selected_partition_type_index = helpers::common_partition_type_index_for(
                     &table_type,
                     if volume.id_type.trim().is_empty() {
                         None
@@ -293,7 +306,7 @@ impl VolumesControl {
                     max_size: volume.size,
                     offset: volume.offset,
                     erase: false,
-                    selected_partitition_type,
+                    selected_partition_type_index,
                     table_type,
                     ..Default::default()
                 };
@@ -1154,7 +1167,7 @@ impl VolumesControl {
                 let d = match dialog.as_mut() {
                     Some(d) => d,
                     None => {
-                        eprintln!("CreateMessage received with no active dialog; ignoring.");
+                        tracing::warn!("create message received with no active dialog; ignoring");
                         return Task::none();
                     }
                 };
@@ -1173,15 +1186,15 @@ impl VolumesControl {
                         CreateMessage::ConfirmedPasswordUpdate(confirmed_password) => {
                             state.info.confirmed_password = confirmed_password
                         }
-                        CreateMessage::PasswordProectedUpdate(protect) => {
+                        CreateMessage::PasswordProtectedUpdate(protect) => {
                             state.info.password_protected = protect
                         }
                         CreateMessage::EraseUpdate(erase) => state.info.erase = erase,
                         CreateMessage::PartitionTypeUpdate(p_type) => {
-                            state.info.selected_partitition_type = p_type
+                            state.info.selected_partition_type_index = p_type
                         }
                         CreateMessage::Continue => {
-                            eprintln!("CreateMessage::Continue is not implemented; ignoring.");
+                            tracing::warn!("create message continue is not implemented; ignoring");
                         }
                         CreateMessage::Cancel => return Task::done(Message::CloseDialog.into()),
                         CreateMessage::Partition => {
@@ -1220,7 +1233,7 @@ impl VolumesControl {
                         }
                         CreateMessage::EraseUpdate(erase) => state.info.erase = erase,
                         CreateMessage::PartitionTypeUpdate(p_type) => {
-                            state.info.selected_partitition_type = p_type
+                            state.info.selected_partition_type_index = p_type
                         }
                         CreateMessage::Cancel => return Task::done(Message::CloseDialog.into()),
                         CreateMessage::Partition => {
@@ -1235,7 +1248,7 @@ impl VolumesControl {
                                 async move {
                                     let fs_type = helpers::common_partition_filesystem_type(
                                         info.table_type.as_str(),
-                                        info.selected_partitition_type,
+                                        info.selected_partition_type_index,
                                     )
                                     .ok_or_else(|| anyhow::anyhow!("Invalid filesystem selection"))?
                                     .to_string();
@@ -1259,26 +1272,28 @@ impl VolumesControl {
                     },
 
                     ShowDialog::UnlockEncrypted(_) => {
-                        eprintln!(
-                            "CreateMessage received while an unlock dialog is open; ignoring."
+                        tracing::warn!(
+                            "create message received while an unlock dialog is open; ignoring"
                         );
                     }
 
                     ShowDialog::FormatDisk(_) => {
-                        eprintln!(
-                            "CreateMessage received while a format disk dialog is open; ignoring."
+                        tracing::warn!(
+                            "create message received while a format disk dialog is open; ignoring"
                         );
                     }
 
                     ShowDialog::SmartData(_) => {
-                        eprintln!("CreateMessage received while a SMART dialog is open; ignoring.");
+                        tracing::warn!(
+                            "create message received while a SMART dialog is open; ignoring"
+                        );
                     }
 
                     ShowDialog::NewDiskImage(_)
                     | ShowDialog::AttachDiskImage(_)
                     | ShowDialog::ImageOperation(_) => {
-                        eprintln!(
-                            "CreateMessage received while an image dialog is open; ignoring."
+                        tracing::warn!(
+                            "create message received while an image dialog is open; ignoring"
                         );
                     }
 
@@ -1288,13 +1303,15 @@ impl VolumesControl {
                     | ShowDialog::ConfirmAction(_)
                     | ShowDialog::TakeOwnership(_)
                     | ShowDialog::ChangePassphrase(_) => {
-                        eprintln!(
-                            "CreateMessage received while a different dialog is open; ignoring."
+                        tracing::warn!(
+                            "create message received while a different dialog is open; ignoring"
                         );
                     }
 
                     ShowDialog::Info { .. } => {
-                        eprintln!("CreateMessage received while an info dialog is open; ignoring.");
+                        tracing::warn!(
+                            "create message received while an info dialog is open; ignoring"
+                        );
                     }
                 }
             }
@@ -1303,13 +1320,15 @@ impl VolumesControl {
                 let d = match dialog.as_mut() {
                     Some(d) => d,
                     None => {
-                        eprintln!("UnlockMessage received with no active dialog; ignoring.");
+                        tracing::warn!("unlock message received with no active dialog; ignoring");
                         return Task::none();
                     }
                 };
 
                 let ShowDialog::UnlockEncrypted(state) = d else {
-                    eprintln!("UnlockMessage received while a different dialog is open; ignoring.");
+                    tracing::warn!(
+                        "unlock message received while a different dialog is open; ignoring"
+                    );
                     return Task::none();
                 };
 
@@ -1358,7 +1377,7 @@ impl VolumesControl {
                             move |result| match result {
                                 Ok(drives) => Message::UpdateNav(drives, None).into(),
                                 Err(e) => {
-                                    eprintln!("Unlock encrypted dialog error: {e}");
+                                    tracing::error!(%e, "unlock encrypted dialog error");
                                     Message::Dialog(Box::new(ShowDialog::UnlockEncrypted(
                                         UnlockEncryptedDialog {
                                             partition_path: partition_path.clone(),

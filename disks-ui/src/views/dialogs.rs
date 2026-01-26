@@ -282,11 +282,11 @@ pub fn create_partition<'a>(state: CreatePartitionDialog) -> Element<'a, Message
             .on_toggle(|v| CreateMessage::EraseUpdate(v).into()),
         dropdown(
             valid_partition_types,
-            Some(create_clone.selected_partitition_type),
+            Some(create_clone.selected_partition_type_index),
             |v| CreateMessage::PartitionTypeUpdate(v).into()
         ),
         checkbox(fl!("password-protected"), create.password_protected)
-            .on_toggle(|v| CreateMessage::PasswordProectedUpdate(v).into()),
+            .on_toggle(|v| CreateMessage::PasswordProtectedUpdate(v).into()),
     ];
 
     if create.password_protected {
@@ -341,7 +341,7 @@ pub fn format_partition<'a>(state: FormatPartitionDialog) -> Element<'a, Message
             .on_toggle(|v| CreateMessage::EraseUpdate(v).into()),
         dropdown(
             valid_partition_types,
-            Some(create.selected_partitition_type),
+            Some(create.selected_partition_type_index),
             |v| CreateMessage::PartitionTypeUpdate(v).into()
         ),
     ]

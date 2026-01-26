@@ -75,7 +75,7 @@ pub enum CreateMessage {
     NameUpdate(String),
     PasswordUpdate(String),
     ConfirmedPasswordUpdate(String),
-    PasswordProectedUpdate(bool),
+    PasswordProtectedUpdate(bool),
     EraseUpdate(bool),
     PartitionTypeUpdate(usize),
     #[allow(dead_code)]

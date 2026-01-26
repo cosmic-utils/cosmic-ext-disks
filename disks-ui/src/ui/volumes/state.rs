@@ -146,8 +146,11 @@ impl Segment {
                     partition_offset,
                     previous_end,
                 } => {
-                    eprintln!(
-                        "partition segmentation anomaly: partition #{id} overlaps previous segment (offset={partition_offset}, previous_end={previous_end})"
+                    tracing::warn!(
+                        id,
+                        partition_offset,
+                        previous_end,
+                        "partition segmentation anomaly: overlaps previous segment"
                     );
                 }
                 SegmentAnomaly::PartitionStartsPastDisk {
@@ -155,8 +158,11 @@ impl Segment {
                     partition_offset,
                     disk_size,
                 } => {
-                    eprintln!(
-                        "partition segmentation anomaly: partition #{id} starts past disk end (offset={partition_offset}, disk_size={disk_size})"
+                    tracing::warn!(
+                        id,
+                        partition_offset,
+                        disk_size,
+                        "partition segmentation anomaly: starts past disk end"
                     );
                 }
                 SegmentAnomaly::PartitionEndPastDisk {
@@ -164,8 +170,11 @@ impl Segment {
                     partition_end,
                     disk_size,
                 } => {
-                    eprintln!(
-                        "partition segmentation anomaly: partition #{id} ends past disk end (end={partition_end}, disk_size={disk_size})"
+                    tracing::warn!(
+                        id,
+                        partition_end,
+                        disk_size,
+                        "partition segmentation anomaly: ends past disk end"
                     );
                 }
             }

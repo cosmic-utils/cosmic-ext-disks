@@ -9,14 +9,13 @@ use cosmic::{
     },
 };
 
-use crate::ui::volumes::helpers;
-use crate::{
-    app::{
-        CreatePartitionDialog, DeletePartitionDialog, Message, ShowDialog, UnlockEncryptedDialog,
-    },
-    fl,
-    utils::DiskSegmentKind,
+use crate::app::Message;
+use crate::fl;
+use crate::ui::dialogs::state::{
+    CreatePartitionDialog, DeletePartitionDialog, ShowDialog, UnlockEncryptedDialog,
 };
+use crate::ui::volumes::helpers;
+use crate::utils::DiskSegmentKind;
 use disks_dbus::bytes_to_pretty;
 use disks_dbus::{VolumeKind, VolumeNode};
 
