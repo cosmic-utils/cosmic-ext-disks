@@ -52,6 +52,14 @@ This is a refactor-only track. Each task should be a small PR (or one squash-mer
 - Done when:
   - Old `disks-ui/src/views/volumes.rs` becomes a small compatibility shim or is removed.
 
+- Progress:
+  - [x] `message.rs` extracted
+  - [x] `state.rs` extracted
+  - [x] `helpers.rs` extracted
+  - [x] `update.rs` extracted
+  - [ ] `view.rs` extracted
+  - [ ] `actions.rs` extracted (if still needed)
+
 ## Task 4: Reduce `AppModel` file by splitting message/state/update/view/subscriptions
 
 - Scope: Resolve GAP-001 (app “god file”).

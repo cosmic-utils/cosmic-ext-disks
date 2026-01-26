@@ -41,3 +41,10 @@
   - `cargo fmt --all`
   - `cargo clippy --workspace --all-features`
   - `cargo test --workspace --all-features`
+
+- Continued **Task 3** by extracting `VolumesControl::update` into `disks-ui/src/ui/volumes/update.rs`.
+- Kept `disks-ui/src/views/volumes.rs` responsible for rendering, but removed the legacy `update()` implementation to avoid duplication.
+- Commands run:
+  - `cargo fmt --all`
+  - `cargo clippy --workspace --all-features -- -D warnings`
+  - `cargo test --workspace --all-features`
