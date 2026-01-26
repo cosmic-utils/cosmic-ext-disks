@@ -22,6 +22,13 @@
   - `cargo fmt --all`
   - `cargo clippy --workspace --all-features`
   - `cargo test --workspace --all-features`
+
+- Continued **Task 3** by extracting shared volumes helpers into `disks-ui/src/ui/volumes/helpers.rs`.
+- Moved partition-type selection helpers + volume tree search helpers out of `disks-ui/src/views/volumes.rs`.
+- Commands run:
+  - `cargo fmt --all`
+  - `cargo clippy --workspace --all-features`
+  - `cargo test --workspace --all-features`
 - Result:
   - Clippy clean; all tests passing.
 

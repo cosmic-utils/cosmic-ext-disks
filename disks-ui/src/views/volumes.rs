@@ -14,6 +14,7 @@ use crate::ui::dialogs::message::{
     EditFilesystemLabelMessage, EditMountOptionsMessage, EditPartitionMessage,
     ResizePartitionMessage, TakeOwnershipMessage, UnlockMessage,
 };
+use crate::ui::volumes::helpers;
 use crate::{
     app::{
         ChangePassphraseDialog, ConfirmActionDialog, CreatePartitionDialog, DeletePartitionDialog,
@@ -26,7 +27,7 @@ use crate::{
 };
 use disks_dbus::CreatePartitionInfo;
 use disks_dbus::bytes_to_pretty;
-use disks_dbus::{DriveModel, PartitionTypeInfo, VolumeKind, VolumeModel, VolumeNode};
+use disks_dbus::{DriveModel, VolumeKind, VolumeModel, VolumeNode};
 
 pub use crate::ui::volumes::VolumesControlMessage;
 pub use crate::ui::volumes::{Segment, ToggleState, VolumesControl};
@@ -300,7 +301,7 @@ impl VolumesControl {
 
     pub fn selected_volume_node(&self) -> Option<&VolumeNode> {
         let object_path = self.selected_volume.as_deref()?;
-        find_volume_node(&self.model.volumes, object_path)
+        helpers::find_volume_node(&self.model.volumes, object_path)
     }
 
     pub fn set_show_reserved(&mut self, show_reserved: bool) {
@@ -408,7 +409,7 @@ impl VolumesControl {
                 return Task::none();
             }
             VolumesControlMessage::ChildMount(object_path) => {
-                let node = find_volume_node(&self.model.volumes, &object_path).cloned();
+                let node = helpers::find_volume_node(&self.model.volumes, &object_path).cloned();
                 if let Some(v) = node {
                     return Task::perform(
                         async move {
@@ -427,7 +428,7 @@ impl VolumesControl {
                 return Task::none();
             }
             VolumesControlMessage::ChildUnmount(object_path) => {
-                let node = find_volume_node(&self.model.volumes, &object_path).cloned();
+                let node = helpers::find_volume_node(&self.model.volumes, &object_path).cloned();
                 if let Some(v) = node {
                     return Task::perform(
                         async move {
@@ -452,8 +453,8 @@ impl VolumesControl {
                     && let Some(p) = s.volume
                 {
                     let mounted_children: Vec<VolumeNode> =
-                        find_volume_node_for_partition(&self.model.volumes, &p)
-                            .map(collect_mounted_descendants_leaf_first)
+                        helpers::find_volume_node_for_partition(&self.model.volumes, &p)
+                            .map(helpers::collect_mounted_descendants_leaf_first)
                             .unwrap_or_default();
 
                     return Task::perform(
@@ -506,7 +507,8 @@ impl VolumesControl {
                     Some(s) => match s.volume {
                         Some(p) => {
                             let volume_node =
-                                find_volume_node_for_partition(&self.model.volumes, &p).cloned();
+                                helpers::find_volume_node_for_partition(&self.model.volumes, &p)
+                                    .cloned();
                             let is_unlocked_crypto = matches!(
                                 volume_node.as_ref(),
                                 Some(v) if v.kind == VolumeKind::CryptoContainer && !v.locked
@@ -514,7 +516,7 @@ impl VolumesControl {
                             let mounted_children: Vec<VolumeNode> = if is_unlocked_crypto {
                                 volume_node
                                     .as_ref()
-                                    .map(collect_mounted_descendants_leaf_first)
+                                    .map(helpers::collect_mounted_descendants_leaf_first)
                                     .unwrap_or_default()
                             } else {
                                 Vec::new()
@@ -573,7 +575,7 @@ impl VolumesControl {
                     volume.table_type.clone()
                 };
 
-                let selected_partitition_type = common_partition_type_index_for(
+                let selected_partitition_type = helpers::common_partition_type_index_for(
                     &table_type,
                     if volume.id_type.trim().is_empty() {
                         None
@@ -1091,7 +1093,7 @@ impl VolumesControl {
                 };
 
                 let is_crypto_container =
-                    find_volume_node_for_partition(&self.model.volumes, &volume)
+                    helpers::find_volume_node_for_partition(&self.model.volumes, &volume)
                         .is_some_and(|n| n.kind == VolumeKind::CryptoContainer);
                 if !is_crypto_container {
                     return Task::none();
@@ -1121,7 +1123,7 @@ impl VolumesControl {
                 };
 
                 let is_crypto_container =
-                    find_volume_node_for_partition(&self.model.volumes, &volume)
+                    helpers::find_volume_node_for_partition(&self.model.volumes, &volume)
                         .is_some_and(|n| n.kind == VolumeKind::CryptoContainer);
                 if !is_crypto_container {
                     return Task::none();
@@ -1528,7 +1530,7 @@ impl VolumesControl {
                             let info = state.info.clone();
                             return Task::perform(
                                 async move {
-                                    let fs_type = common_partition_filesystem_type(
+                                    let fs_type = helpers::common_partition_filesystem_type(
                                         info.table_type.as_str(),
                                         info.selected_partitition_type,
                                     )
@@ -1952,7 +1954,7 @@ impl VolumesControl {
                 let container_volume = segment
                     .volume
                     .as_ref()
-                    .and_then(|p| find_volume_node_for_partition(&self.model.volumes, p))
+                    .and_then(|p| helpers::find_volume_node_for_partition(&self.model.volumes, p))
                     .filter(|v| v.kind == VolumeKind::CryptoContainer);
 
                 if let Some(v) = container_volume {
@@ -2079,7 +2081,7 @@ impl VolumesControl {
         let selected_volume = selected
             .volume
             .as_ref()
-            .and_then(|p| find_volume_node_for_partition(&self.model.volumes, p));
+            .and_then(|p| helpers::find_volume_node_for_partition(&self.model.volumes, p));
 
         let selected_child_volume = self.selected_volume_node();
 
@@ -2292,34 +2294,6 @@ impl VolumesControl {
     }
 }
 
-fn common_partition_filesystem_type(table_type: &str, index: usize) -> Option<&'static str> {
-    match table_type {
-        "gpt" => disks_dbus::COMMON_GPT_TYPES
-            .get(index)
-            .map(|p: &PartitionTypeInfo| p.filesystem_type),
-        "dos" => disks_dbus::COMMON_DOS_TYPES
-            .get(index)
-            .map(|p: &PartitionTypeInfo| p.filesystem_type),
-        _ => None,
-    }
-}
-
-fn common_partition_type_index_for(table_type: &str, id_type: Option<&str>) -> usize {
-    let Some(id_type) = id_type else {
-        return 0;
-    };
-
-    let list: &[PartitionTypeInfo] = match table_type {
-        "gpt" => &disks_dbus::COMMON_GPT_TYPES,
-        "dos" => &disks_dbus::COMMON_DOS_TYPES,
-        _ => return 0,
-    };
-
-    list.iter()
-        .position(|p| p.filesystem_type.eq_ignore_ascii_case(id_type))
-        .unwrap_or(0)
-}
-
 fn tooltip_icon_button(
     icon_name: &str,
     tooltip: String,
@@ -2336,42 +2310,6 @@ fn tooltip_icon_button(
         widget::tooltip::Position::Top,
     )
     .into()
-}
-
-fn collect_mounted_descendants_leaf_first(node: &VolumeNode) -> Vec<VolumeNode> {
-    fn visit(node: &VolumeNode, out: &mut Vec<VolumeNode>) {
-        for child in &node.children {
-            visit(child, out);
-        }
-
-        if node.can_mount() && node.is_mounted() {
-            out.push(node.clone());
-        }
-    }
-
-    let mut out = Vec::new();
-    visit(node, &mut out);
-    out
-}
-
-fn find_volume_node<'a>(volumes: &'a [VolumeNode], object_path: &str) -> Option<&'a VolumeNode> {
-    for v in volumes {
-        if v.object_path.to_string() == object_path {
-            return Some(v);
-        }
-        if let Some(child) = find_volume_node(&v.children, object_path) {
-            return Some(child);
-        }
-    }
-    None
-}
-
-fn find_volume_node_for_partition<'a>(
-    volumes: &'a [VolumeNode],
-    partition: &VolumeModel,
-) -> Option<&'a VolumeNode> {
-    let target = partition.path.to_string();
-    find_volume_node(volumes, &target)
 }
 
 fn volume_row_compact<'a>(
