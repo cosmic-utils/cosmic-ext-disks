@@ -1,4 +1,5 @@
 use crate::Usage;
+use crate::dbus::bytestring as bs;
 use crate::udisks_block_config::{ConfigurationItem, UDisks2BlockConfigurationProxy};
 use crate::{
     join_options, remove_prefixed, remove_token, set_prefixed_value, set_token_present,
@@ -51,23 +52,6 @@ pub struct VolumeNode {
 }
 
 impl VolumeNode {
-    fn encode_bytestring(value: &str) -> Vec<u8> {
-        let mut bytes = value.as_bytes().to_vec();
-        bytes.push(0);
-        bytes
-    }
-
-    fn bytestring_owned_value(value: &str) -> OwnedValue {
-        Value::from(Self::encode_bytestring(value))
-            .try_into()
-            .expect("zvariant Value<Vec<u8>> should convert into OwnedValue")
-    }
-
-    fn owned_value_to_bytestring(value: &OwnedValue) -> Option<String> {
-        let bytes: Vec<u8> = value.clone().try_into().ok()?;
-        Some(Self::decode_c_string_bytes(&bytes))
-    }
-
     fn extract_prefixed_value(tokens: &[String], prefix: &str) -> String {
         tokens
             .iter()
@@ -80,29 +64,6 @@ impl VolumeNode {
         kind: &str,
     ) -> Option<ConfigurationItem> {
         items.iter().find(|(t, _)| t == kind).cloned()
-    }
-
-    fn decode_c_string_bytes(bytes: &[u8]) -> String {
-        let raw = match bytes.split(|b| *b == 0).next() {
-            Some(v) => v,
-            None => bytes,
-        };
-
-        String::from_utf8_lossy(raw).to_string()
-    }
-
-    fn decode_mount_points(mount_points: Vec<Vec<u8>>) -> Vec<String> {
-        mount_points
-            .into_iter()
-            .filter_map(|mp| {
-                let decoded = Self::decode_c_string_bytes(&mp);
-                if decoded.is_empty() {
-                    None
-                } else {
-                    Some(decoded)
-                }
-            })
-            .collect()
     }
 
     pub fn is_mounted(&self) -> bool {
@@ -132,9 +93,9 @@ impl VolumeNode {
             .build()
             .await?;
 
-        let preferred_device = Self::decode_c_string_bytes(&block_proxy.preferred_device().await?);
+        let preferred_device = bs::decode_c_string_bytes(&block_proxy.preferred_device().await?);
         let device = if preferred_device.is_empty() {
-            Self::decode_c_string_bytes(&block_proxy.device().await?)
+            bs::decode_c_string_bytes(&block_proxy.device().await?)
         } else {
             preferred_device
         };
@@ -157,7 +118,7 @@ impl VolumeNode {
             .await
         {
             Ok(proxy) => match proxy.mount_points().await {
-                Ok(mps) => (true, Self::decode_mount_points(mps)),
+                Ok(mps) => (true, bs::decode_mount_points(mps)),
                 Err(_) => (false, Vec::new()),
             },
             Err(_) => (false, Vec::new()),
@@ -389,19 +350,19 @@ impl VolumeNode {
 
         let identify_as = dict
             .get("fsname")
-            .and_then(Self::owned_value_to_bytestring)
+            .and_then(bs::owned_value_to_bytestring)
             .unwrap_or_default();
         let mount_point = dict
             .get("dir")
-            .and_then(Self::owned_value_to_bytestring)
+            .and_then(bs::owned_value_to_bytestring)
             .unwrap_or_default();
         let filesystem_type = dict
             .get("type")
-            .and_then(Self::owned_value_to_bytestring)
+            .and_then(bs::owned_value_to_bytestring)
             .unwrap_or_default();
         let opts = dict
             .get("opts")
-            .and_then(Self::owned_value_to_bytestring)
+            .and_then(bs::owned_value_to_bytestring)
             .unwrap_or_default();
 
         let tokens = split_options(&opts);
@@ -493,20 +454,17 @@ impl VolumeNode {
             std::collections::HashMap::new();
         dict.insert(
             "fsname".to_string(),
-            Self::bytestring_owned_value(identify_as.trim()),
+            bs::bytestring_owned_value(identify_as.trim()),
         );
         dict.insert(
             "dir".to_string(),
-            Self::bytestring_owned_value(mount_point.trim()),
+            bs::bytestring_owned_value(mount_point.trim()),
         );
         dict.insert(
             "type".to_string(),
-            Self::bytestring_owned_value(file_system_type.trim()),
+            bs::bytestring_owned_value(file_system_type.trim()),
         );
-        dict.insert(
-            "opts".to_string(),
-            Self::bytestring_owned_value(opts.trim()),
-        );
+        dict.insert("opts".to_string(), bs::bytestring_owned_value(opts.trim()));
         dict.insert("freq".to_string(), OwnedValue::from(0i32));
         dict.insert("passno".to_string(), OwnedValue::from(0i32));
 
@@ -637,10 +595,9 @@ impl BlockIndex {
                 Err(_) => continue,
             };
 
-            let preferred_device =
-                VolumeNode::decode_c_string_bytes(&proxy.preferred_device().await?);
+            let preferred_device = bs::decode_c_string_bytes(&proxy.preferred_device().await?);
             let device = if preferred_device.is_empty() {
-                VolumeNode::decode_c_string_bytes(&proxy.device().await?)
+                bs::decode_c_string_bytes(&proxy.device().await?)
             } else {
                 preferred_device
             };

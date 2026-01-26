@@ -4,6 +4,7 @@ use super::ops::{
     partition_format, partition_mount, partition_unmount,
 };
 use crate::Usage;
+use crate::dbus::bytestring as bs;
 use crate::udisks_block_config::{ConfigurationItem, UDisks2BlockConfigurationProxy};
 use crate::{
     join_options, remove_prefixed, remove_token, set_prefixed_value, set_token_present,
@@ -19,7 +20,7 @@ use udisks2::{
     filesystem::FilesystemProxy,
     partition::{PartitionFlags, PartitionProxy},
 };
-use zbus::zvariant::{OwnedValue, Value};
+use zbus::zvariant::OwnedValue;
 use zbus::{Connection, zvariant::OwnedObjectPath};
 
 use super::{EncryptionOptionsSettings, MountOptionsSettings};
@@ -55,23 +56,6 @@ pub struct VolumeModel {
 }
 
 impl VolumeModel {
-    fn encode_bytestring(value: &str) -> Vec<u8> {
-        let mut bytes = value.as_bytes().to_vec();
-        bytes.push(0);
-        bytes
-    }
-
-    fn bytestring_owned_value(value: &str) -> OwnedValue {
-        Value::from(Self::encode_bytestring(value))
-            .try_into()
-            .expect("zvariant Value<Vec<u8>> should convert into OwnedValue")
-    }
-
-    fn owned_value_to_bytestring(value: &OwnedValue) -> Option<String> {
-        let bytes: Vec<u8> = value.clone().try_into().ok()?;
-        Some(Self::decode_c_string_bytes(&bytes))
-    }
-
     fn find_configuration_item(
         items: &[ConfigurationItem],
         kind: &str,
@@ -84,29 +68,6 @@ impl VolumeModel {
             .iter()
             .find_map(|t| t.strip_prefix(prefix).map(|v| v.to_string()))
             .unwrap_or_default()
-    }
-
-    fn decode_c_string_bytes(bytes: &[u8]) -> String {
-        let raw = match bytes.split(|b| *b == 0).next() {
-            Some(v) => v,
-            None => bytes,
-        };
-
-        String::from_utf8_lossy(raw).to_string()
-    }
-
-    fn decode_mount_points(mount_points: Vec<Vec<u8>>) -> Vec<String> {
-        mount_points
-            .into_iter()
-            .filter_map(|mp| {
-                let decoded = Self::decode_c_string_bytes(&mp);
-                if decoded.is_empty() {
-                    None
-                } else {
-                    Some(decoded)
-                }
-            })
-            .collect()
     }
 
     pub fn is_mounted(&self) -> bool {
@@ -126,9 +87,9 @@ impl VolumeModel {
     ) -> Result<Self> {
         let connection = Connection::system().await?;
 
-        let preferred_device = Self::decode_c_string_bytes(&block_proxy.preferred_device().await?);
+        let preferred_device = bs::decode_c_string_bytes(&block_proxy.preferred_device().await?);
         let device = if preferred_device.is_empty() {
-            Self::decode_c_string_bytes(&block_proxy.device().await?)
+            bs::decode_c_string_bytes(&block_proxy.device().await?)
         } else {
             preferred_device
         };
@@ -151,7 +112,7 @@ impl VolumeModel {
             .await
         {
             Ok(proxy) => match proxy.mount_points().await {
-                Ok(mps) => (true, Self::decode_mount_points(mps)),
+                Ok(mps) => (true, bs::decode_mount_points(mps)),
                 Err(_) => (false, Vec::new()),
             },
             Err(_) => (false, Vec::new()),
@@ -226,9 +187,9 @@ impl VolumeModel {
         block_object_path: OwnedObjectPath,
         block_proxy: &BlockProxy<'_>,
     ) -> Result<Self> {
-        let preferred_device = Self::decode_c_string_bytes(&block_proxy.preferred_device().await?);
+        let preferred_device = bs::decode_c_string_bytes(&block_proxy.preferred_device().await?);
         let device = if preferred_device.is_empty() {
-            Self::decode_c_string_bytes(&block_proxy.device().await?)
+            bs::decode_c_string_bytes(&block_proxy.device().await?)
         } else {
             preferred_device
         };
@@ -253,7 +214,7 @@ impl VolumeModel {
             .await
         {
             Ok(proxy) => match proxy.mount_points().await {
-                Ok(mps) => (true, Self::decode_mount_points(mps)),
+                Ok(mps) => (true, bs::decode_mount_points(mps)),
                 Err(_) => (false, Vec::new()),
             },
             Err(_) => (false, Vec::new()),
@@ -591,19 +552,19 @@ impl VolumeModel {
 
         let identify_as = dict
             .get("fsname")
-            .and_then(Self::owned_value_to_bytestring)
+            .and_then(bs::owned_value_to_bytestring)
             .unwrap_or_default();
         let mount_point = dict
             .get("dir")
-            .and_then(Self::owned_value_to_bytestring)
+            .and_then(bs::owned_value_to_bytestring)
             .unwrap_or_default();
         let filesystem_type = dict
             .get("type")
-            .and_then(Self::owned_value_to_bytestring)
+            .and_then(bs::owned_value_to_bytestring)
             .unwrap_or_default();
         let opts = dict
             .get("opts")
-            .and_then(Self::owned_value_to_bytestring)
+            .and_then(bs::owned_value_to_bytestring)
             .unwrap_or_default();
 
         let tokens = split_options(&opts);
@@ -658,11 +619,11 @@ impl VolumeModel {
 
         let name = dict
             .get("name")
-            .and_then(Self::owned_value_to_bytestring)
+            .and_then(bs::owned_value_to_bytestring)
             .unwrap_or_default();
         let options = dict
             .get("options")
-            .and_then(Self::owned_value_to_bytestring)
+            .and_then(bs::owned_value_to_bytestring)
             .unwrap_or_default();
 
         let tokens = split_options(&options);
@@ -762,20 +723,17 @@ impl VolumeModel {
             std::collections::HashMap::new();
         dict.insert(
             "fsname".to_string(),
-            Self::bytestring_owned_value(identify_as.trim()),
+            bs::bytestring_owned_value(identify_as.trim()),
         );
         dict.insert(
             "dir".to_string(),
-            Self::bytestring_owned_value(mount_point.trim()),
+            bs::bytestring_owned_value(mount_point.trim()),
         );
         dict.insert(
             "type".to_string(),
-            Self::bytestring_owned_value(file_system_type.trim()),
+            bs::bytestring_owned_value(file_system_type.trim()),
         );
-        dict.insert(
-            "opts".to_string(),
-            Self::bytestring_owned_value(opts.trim()),
-        );
+        dict.insert("opts".to_string(), bs::bytestring_owned_value(opts.trim()));
         dict.insert("freq".to_string(), OwnedValue::from(0i32));
         dict.insert("passno".to_string(), OwnedValue::from(0i32));
 
@@ -840,7 +798,7 @@ impl VolumeModel {
         let existing_passphrase_path = old_item
             .as_ref()
             .and_then(|(_, d)| d.get("passphrase-path"))
-            .and_then(Self::owned_value_to_bytestring)
+            .and_then(bs::owned_value_to_bytestring)
             .unwrap_or_default();
 
         let mut passphrase_path = String::new();
@@ -857,22 +815,19 @@ impl VolumeModel {
 
         let mut dict: std::collections::HashMap<String, OwnedValue> =
             std::collections::HashMap::new();
-        dict.insert("device".to_string(), Self::bytestring_owned_value(&device));
-        dict.insert(
-            "name".to_string(),
-            Self::bytestring_owned_value(name.trim()),
-        );
+        dict.insert("device".to_string(), bs::bytestring_owned_value(&device));
+        dict.insert("name".to_string(), bs::bytestring_owned_value(name.trim()));
         dict.insert(
             "options".to_string(),
-            Self::bytestring_owned_value(options.trim()),
+            bs::bytestring_owned_value(options.trim()),
         );
         dict.insert(
             "passphrase-path".to_string(),
-            Self::bytestring_owned_value(&passphrase_path),
+            bs::bytestring_owned_value(&passphrase_path),
         );
         dict.insert(
             "passphrase-contents".to_string(),
-            Self::bytestring_owned_value(&passphrase_contents),
+            bs::bytestring_owned_value(&passphrase_contents),
         );
 
         let new_item: ConfigurationItem = ("crypttab".to_string(), dict);
@@ -929,19 +884,20 @@ impl VolumeModel {
 #[cfg(test)]
 mod tests {
     use super::VolumeModel;
+    use crate::dbus::bytestring;
 
     #[test]
     fn decode_c_string_bytes_truncates_nul() {
         let bytes = b"/run/media/user/DISK\0garbage";
         assert_eq!(
-            VolumeModel::decode_c_string_bytes(bytes),
+            bytestring::decode_c_string_bytes(bytes),
             "/run/media/user/DISK"
         );
     }
 
     #[test]
     fn decode_mount_points_filters_empty_entries() {
-        let decoded = VolumeModel::decode_mount_points(vec![
+        let decoded = bytestring::decode_mount_points(vec![
             b"/mnt/a\0".to_vec(),
             b"\0".to_vec(),
             Vec::new(),

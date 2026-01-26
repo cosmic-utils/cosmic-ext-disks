@@ -6,7 +6,7 @@ pub struct CreatePartitionInfo {
     pub offset: u64,
     pub erase: bool,
     pub selected_type: String,
-    pub selected_partitition_type: usize,
+    pub selected_partition_type_index: usize,
     pub password_protected: bool,
     pub password: String,
     pub confirmed_password: String,

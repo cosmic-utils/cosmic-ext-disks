@@ -1,23 +1,19 @@
-use super::volumes::{
-    ChangePassphraseMessage, CreateMessage, EditEncryptionOptionsMessage,
-    EditFilesystemLabelMessage, EditMountOptionsMessage, EditPartitionMessage,
-    ResizePartitionMessage, TakeOwnershipMessage, UnlockMessage,
-};
 use crate::app::Message;
-use crate::app::SmartDataDialog;
-use crate::app::SmartDialogMessage;
-use crate::app::UnlockEncryptedDialog;
-use crate::app::{
-    AttachDiskImageDialog, AttachDiskImageDialogMessage, ImageOperationDialog,
-    ImageOperationDialogMessage, ImageOperationKind, NewDiskImageDialog, NewDiskImageDialogMessage,
-};
-use crate::app::{
-    ChangePassphraseDialog, CreatePartitionDialog, EditEncryptionOptionsDialog,
-    EditFilesystemLabelDialog, EditMountOptionsDialog, EditPartitionDialog, FormatPartitionDialog,
-    ResizePartitionDialog, TakeOwnershipDialog,
-};
-use crate::app::{FormatDiskDialog, FormatDiskMessage};
 use crate::fl;
+use crate::ui::dialogs::message::{
+    AttachDiskImageDialogMessage, ChangePassphraseMessage, CreateMessage,
+    EditEncryptionOptionsMessage, EditFilesystemLabelMessage, EditMountOptionsMessage,
+    EditPartitionMessage, FormatDiskMessage, ImageOperationDialogMessage,
+    NewDiskImageDialogMessage, ResizePartitionMessage, SmartDialogMessage, TakeOwnershipMessage,
+    UnlockMessage,
+};
+use crate::ui::dialogs::state::{
+    AttachDiskImageDialog, ChangePassphraseDialog, CreatePartitionDialog,
+    EditEncryptionOptionsDialog, EditFilesystemLabelDialog, EditMountOptionsDialog,
+    EditPartitionDialog, FormatDiskDialog, FormatPartitionDialog, ImageOperationDialog,
+    ImageOperationKind, NewDiskImageDialog, ResizePartitionDialog, SmartDataDialog,
+    TakeOwnershipDialog, UnlockEncryptedDialog,
+};
 use crate::utils::labelled_spinner;
 use cosmic::{
     Element, iced_widget,
@@ -286,11 +282,11 @@ pub fn create_partition<'a>(state: CreatePartitionDialog) -> Element<'a, Message
             .on_toggle(|v| CreateMessage::EraseUpdate(v).into()),
         dropdown(
             valid_partition_types,
-            Some(create_clone.selected_partitition_type),
+            Some(create_clone.selected_partition_type_index),
             |v| CreateMessage::PartitionTypeUpdate(v).into()
         ),
         checkbox(fl!("password-protected"), create.password_protected)
-            .on_toggle(|v| CreateMessage::PasswordProectedUpdate(v).into()),
+            .on_toggle(|v| CreateMessage::PasswordProtectedUpdate(v).into()),
     ];
 
     if create.password_protected {
@@ -345,7 +341,7 @@ pub fn format_partition<'a>(state: FormatPartitionDialog) -> Element<'a, Message
             .on_toggle(|v| CreateMessage::EraseUpdate(v).into()),
         dropdown(
             valid_partition_types,
-            Some(create.selected_partitition_type),
+            Some(create.selected_partition_type_index),
             |v| CreateMessage::PartitionTypeUpdate(v).into()
         ),
     ]

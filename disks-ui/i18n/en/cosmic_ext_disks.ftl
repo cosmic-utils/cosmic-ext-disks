@@ -67,6 +67,7 @@ untitled = Untitled
 
 # Main view
 no-disk-selected = No disk selected
+no-volumes = No volumes available
 partition-number = Partition { $number }
 partition-number-with-name = Partition { $number }: { $name }
 volumes = Volumes
