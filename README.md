@@ -51,15 +51,3 @@ AI has been used as a ***tool*** for development of this project, and has not be
 
 I have been a professional (employed) software engineer since 2012, and I am very much against AI slop and the existential threat it imposes on our industry.
 That being said, when used correctly, I believe it's an invaulable tool for a sole developer on a project as large as this; Especially when money, or the threat of taking somebody's job, isn't on the line.
-
-Example cases where AI has been used:
- - Boilerplate - Building out long, boring, and technically simple logic
- - Research - UDisks2 documentation is all over the place, and pretty sparse when it comes to the details. Having an AI Agent compile this into one place makes life a lot easier.
- - First draft - All logic generated with AI that has a medium/high complexity goes through the following process:
-   - Initially specified to a high degree of detail by me
-   - an intermediatary plan is then fleshed out by an agent, for concepts/restrictions/goals to be more authorative when read by an agent later
-   - Tasks are then generated using an agent, and then verified by me
-   - Implementation happens and I then read, tweak, modify, and "humanise" it to my liking.
- - Project Structure & Management
-   - Big refactors suck.
- - PRs - Github Copilot is handy for catching things I miss, and summarising work completed.
