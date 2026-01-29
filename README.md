@@ -17,31 +17,49 @@ For partition type support:
 
 
 ### What Works
- * Read disk info (Slight issues with offset)
- * Delete partition 
- * Create Partition 
-    * Both GPT/MBR supported
-    * EXT4, vFAT, extFAT & NTFS tested so far
+Most things, although the app is pretty ugly at the moment!
 
-I am currently actively developing this again after a 5 month hiatus, so this list should be getting longer quite regularly from now on.
+### Upcoming Changes
 
-### What doesn't work
-Everything else!
+#### V1 - 99% Feature Parity with Gnome Disks (plus a few extras!)
+1. UI - The current UI is a bare minimum to test out functionality... and very ugly.
+2. Solve LUKS Creation issues (all other functionality working)
+3. Automatic "Resource Busy" resolution on unmount
+   - Essentially this will list what processes are holding the mount open, and give you the option to kill them.
+5. Implement log files & improve generated events
+6. Make sure all UI strings are in i8n for language support
+7. Add detection for required packages:
+    - Add help text in about pane listing missing deps and what functionality relies on them. 
+8. Test Pass (integeration/functional tests)
+9. Documentation Pass (Readme and code summaries)
+10. Packaging for package managers/flathub 
 
 
 
-### Future Plans
+#### Later
+1. Benchmark Disks
+2. ATA Drive Settings
+4. LVM Support
+5. 1st class BTRFS support - Subvolumes CRUD, and snapshotting maybe?
 
-#### Better UI/UX
-The UI of disks is essentially a clone of Gnome Disks at the moment. There are plans to focus on this and improve it once the lower-level functionality is somewhat complete.
 
 ![Screenshot of cosmos-disks](https://github.com/stoorps/cosmos-apps/blob/main/screenshots/cosmos-disks.png)
 
 
-### Project structure
+### Notes on use of AI
+AI has been used as a ***tool*** for development of this project, and has not been treated as a self-sufficient engineer.
 
-#### disks-ui
-The application.
+I have been a professional (employed) software engineer since 2012, and I am very much against AI slop and the existential threat it imposes on our industry.
+That being said, when used correctly, I believe it's an invaulable tool for a sole developer on a project as large as this; Especially when money, or the threat of taking somebody's job, isn't on the line.
 
-#### disks-dbus
-This project is an abstraction layer for dbus interfaces. The idea here is to provide models that can easily be swapped out at a later date, as better suited rust crates become available for achieving the same functionality.
+Example cases where AI has been used:
+ - Boilerplate - Building out long, boring, and technically simple logic
+ - Research - UDisks2 documentation is all over the place, and pretty sparse when it comes to the details. Having an AI Agent compile this into one place makes life a lot easier.
+ - First draft - All logic generated with AI that has a medium/high complexity goes through the following process:
+   - Initially specified to a high degree of detail by me
+   - an intermediatary plan is then fleshed out by an agent, for concepts/restrictions/goals to be more authorative when read by an agent later
+   - Tasks are then generated using an agent, and then verified by me
+   - Implementation happens and I then read, tweak, modify, and "humanise" it to my liking.
+ - Project Structure & Management
+   - Big refactors suck.
+ - PRs - Github Copilot is handy for catching things I miss, and summarising work completed.
