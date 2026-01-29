@@ -328,7 +328,7 @@ pub(crate) fn build_create_partition_and_format_args(
 
     // Find a partition type that matches the table type.
     // Note: UDisks2 reports DOS/MBR partition tables as "dos".
-    let partition_info = common_partition_info_for(table_type, info.selected_partitition_type)?;
+    let partition_info = common_partition_info_for(table_type, info.selected_partition_type_index)?;
 
     if partition_info.table_type != table_type {
         return Err(anyhow::anyhow!(
@@ -582,7 +582,7 @@ mod tests {
             size: 10,
             max_size: 100,
             erase: false,
-            selected_partitition_type: 1, // Linux Filesystem (ext4)
+            selected_partition_type_index: 1, // Linux Filesystem (ext4)
             ..Default::default()
         };
 
@@ -613,7 +613,7 @@ mod tests {
             size: 10,
             max_size: 100,
             erase: false,
-            selected_partitition_type: 5, // Microsoft Basic Data (NTFS)
+            selected_partition_type_index: 5, // Microsoft Basic Data (NTFS)
             ..Default::default()
         };
 

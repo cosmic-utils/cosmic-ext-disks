@@ -67,6 +67,7 @@ untitled = Namnlös
 
 # Huvudvy
 no-disk-selected = Ingen disk vald
+no-volumes = Inga volymer tillgängliga
 partition-number = Partition { $number }
 partition-number-with-name = Partition { $number }: { $name }
 volumes = Volymer

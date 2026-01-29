@@ -1,0 +1,123 @@
+use crate::ui::dialogs::message::SmartDialogMessage;
+use crate::ui::dialogs::state::{ShowDialog, SmartDataDialog};
+use cosmic::app::Task;
+
+use super::super::message::Message;
+use super::super::state::AppModel;
+
+pub(super) fn smart_dialog(app: &mut AppModel, msg: SmartDialogMessage) -> Task<Message> {
+    let Some(ShowDialog::SmartData(state)) = app.dialog.clone() else {
+        return Task::none();
+    };
+
+    match msg {
+        SmartDialogMessage::Close => {
+            app.dialog = None;
+        }
+        SmartDialogMessage::Loaded(res) => {
+            let mut next = state;
+            next.running = false;
+            match res {
+                Ok(info) => {
+                    next.info = Some(info);
+                    next.error = None;
+                }
+                Err(e) => {
+                    tracing::error!(%e, "SMART dialog error");
+                    next.error = Some(e);
+                }
+            }
+            app.dialog = Some(ShowDialog::SmartData(next));
+        }
+        SmartDialogMessage::Refresh => {
+            let drive = state.drive.clone();
+            app.dialog = Some(ShowDialog::SmartData(SmartDataDialog {
+                drive: drive.clone(),
+                running: true,
+                info: state.info.clone(),
+                error: None,
+            }));
+
+            return Task::perform(
+                async move { drive.smart_info().await.map_err(|e| e.to_string()) },
+                |res| Message::SmartDialog(SmartDialogMessage::Loaded(res)).into(),
+            );
+        }
+        SmartDialogMessage::SelfTestShort => {
+            let drive = state.drive.clone();
+            app.dialog = Some(ShowDialog::SmartData(SmartDataDialog {
+                drive: drive.clone(),
+                running: true,
+                info: state.info.clone(),
+                error: None,
+            }));
+            return Task::perform(
+                async move {
+                    drive
+                        .smart_selftest_start(disks_dbus::SmartSelfTestKind::Short)
+                        .await
+                        .map_err(|e| e.to_string())
+                },
+                |res| Message::SmartDialog(SmartDialogMessage::ActionComplete(res)).into(),
+            );
+        }
+        SmartDialogMessage::SelfTestExtended => {
+            let drive = state.drive.clone();
+            app.dialog = Some(ShowDialog::SmartData(SmartDataDialog {
+                drive: drive.clone(),
+                running: true,
+                info: state.info.clone(),
+                error: None,
+            }));
+            return Task::perform(
+                async move {
+                    drive
+                        .smart_selftest_start(disks_dbus::SmartSelfTestKind::Extended)
+                        .await
+                        .map_err(|e| e.to_string())
+                },
+                |res| Message::SmartDialog(SmartDialogMessage::ActionComplete(res)).into(),
+            );
+        }
+        SmartDialogMessage::AbortSelfTest => {
+            let drive = state.drive.clone();
+            app.dialog = Some(ShowDialog::SmartData(SmartDataDialog {
+                drive: drive.clone(),
+                running: true,
+                info: state.info.clone(),
+                error: None,
+            }));
+            return Task::perform(
+                async move {
+                    drive
+                        .smart_selftest_abort()
+                        .await
+                        .map_err(|e| e.to_string())
+                },
+                |res| Message::SmartDialog(SmartDialogMessage::ActionComplete(res)).into(),
+            );
+        }
+        SmartDialogMessage::ActionComplete(res) => {
+            let drive = state.drive.clone();
+            let ok = res.is_ok();
+
+            let mut next = state;
+            next.running = false;
+            next.error = res.err();
+            if let Some(ref e) = next.error {
+                tracing::error!(%e, "SMART dialog action error");
+            }
+            app.dialog = Some(ShowDialog::SmartData(next));
+
+            // After a successful action, refresh SMART data.
+            if ok {
+                return Task::perform(
+                    async move { drive.smart_info().await.map_err(|e| e.to_string()) },
+                    |res| Message::SmartDialog(SmartDialogMessage::Loaded(res)).into(),
+                );
+            }
+        }
+    }
+
+    Task::none()
+}

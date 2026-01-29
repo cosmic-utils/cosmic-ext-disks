@@ -5,9 +5,9 @@ mod image;
 mod lvm;
 mod manager;
 mod ops;
-mod partition;
 mod smart;
 mod volume;
+mod volume_model;
 
 pub use create_partition_info::*;
 pub use drive::*;
@@ -15,11 +15,10 @@ pub use gpt::*;
 pub use image::*;
 pub use lvm::*;
 pub use manager::*;
-pub use partition::{VolumeModel, VolumeType};
-pub type PartitionModel = VolumeModel;
 pub use smart::*;
 use thiserror::Error;
 pub use volume::*;
+pub use volume_model::{VolumeModel, VolumeType};
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct MountOptionsSettings {

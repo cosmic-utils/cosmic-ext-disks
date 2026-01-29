@@ -1,94 +1,4 @@
-/// Flags describing a partition type.
-#[derive(Debug, Clone, Copy, Default)]
-pub enum PartitionTypeInfoFlags {
-    /// No flags set.
-    #[default]
-    None = 0,
-    /// Partition type is used for swap.
-    Swap = (1 << 0),
-    /// Partition type is used for RAID/LVM or similar.
-    Raid = (1 << 1),
-    /// Partition type indicates the partition is hidden
-    /// (e.g. 'dos' type 0x1b PartitionType::new("Hidden W95 FAT32").
-    /// Note that this is not the same as user-toggleable
-    /// attributes/flags for a partition.
-    Hidden = (1 << 2),
-    /// Partition type can only be used when creating a partition
-    /// and e.g. should not be selectable in a "change partition type"
-    /// user interface (e.g. 'dos' type 0x05, 0x0f and 0x85
-    /// for extended partitions).
-    CreateOnly = (1 << 3),
-    /// Partition type indicates the partition is part of the system / bootloader (e.g. 'dos' types 0xee, 0xff, 'gpt' types for 'EFI System partition' and 'BIOS Boot partition').
-    System = (1 << 4),
-}
-
-/// Detailed information about a partition type.
-///
-/// `table_subtype` is used to break the set of partition types for
-/// `table_type` into a logical subsets. It is typically only used in
-/// user interfaces where the partition type is selected.
-#[derive(Debug, Clone, Default)]
-pub struct PartitionTypeInfo {
-    /// A partition table type e.g. `dos` or `gpt`
-    pub table_type: &'static str,
-    /// A partition table sub-type
-    pub table_subtype: &'static str,
-    /// A partition type
-    pub ty: &'static str,
-    /// Name of the partition
-    pub name: &'static str,
-    /// Flags describing the partition type
-    pub flags: PartitionTypeInfoFlags,
-    /// Default filesystem type for this partition type
-    pub filesystem_type: &'static str,
-}
-
-impl PartitionTypeInfo {
-    const fn new(
-        table_type: &'static str,
-        table_subtype: &'static str,
-        ty: &'static str,
-        name: &'static str,
-        flags: PartitionTypeInfoFlags,
-        filesystem_type: &'static str,
-    ) -> Self {
-        //TODO: wrap name with gettext call
-        Self {
-            table_type,
-            table_subtype,
-            ty,
-            name,
-            flags,
-            filesystem_type,
-        }
-    }
-
-    pub fn find_by_id(type_id: String) -> Option<PartitionTypeInfo> {
-        PARTITION_TYPES.iter().find(|p| p.ty == type_id).cloned()
-    }
-}
-
-pub fn get_valid_partition_names(table_type: String) -> Vec<String> {
-    match table_type.as_str() {
-        "gpt" => COMMON_GPT_TYPES
-            .iter()
-            .map(|p| format!("{} - {}", p.name, p.ty))
-            .collect(),
-        "dos" => COMMON_DOS_TYPES
-            .iter()
-            .map(|p| format!("{} - {}", p.name, p.ty))
-            .collect(),
-        _ => vec![],
-    }
-}
-
-pub fn get_all_partition_type_infos(table_type: &str) -> Vec<PartitionTypeInfo> {
-    PARTITION_TYPES
-        .iter()
-        .filter(|p| p.table_type == table_type)
-        .cloned()
-        .collect()
-}
+use super::{PartitionTypeInfo, PartitionTypeInfoFlags};
 
 pub static COMMON_GPT_TYPES: [PartitionTypeInfo; 8] = [
     // EFI System Partition - typically FAT32
@@ -165,68 +75,7 @@ pub static COMMON_GPT_TYPES: [PartitionTypeInfo; 8] = [
     ),
 ];
 
-// DOS/MBR partition types with common filesystem types
-pub static COMMON_DOS_TYPES: [PartitionTypeInfo; 6] = [
-    // Linux filesystem - ext4
-    PartitionTypeInfo::new(
-        "dos",
-        "linux",
-        "0x83",
-        "Linux (ext4)",
-        PartitionTypeInfoFlags::None,
-        "ext4",
-    ),
-    // Linux filesystem - ext3
-    PartitionTypeInfo::new(
-        "dos",
-        "linux",
-        "0x83",
-        "Linux (ext3)",
-        PartitionTypeInfoFlags::None,
-        "ext3",
-    ),
-    // Linux swap
-    PartitionTypeInfo::new(
-        "dos",
-        "linux",
-        "0x82",
-        "Linux Swap",
-        PartitionTypeInfoFlags::Swap,
-        "swap",
-    ),
-    // FAT32 (LBA)
-    PartitionTypeInfo::new(
-        "dos",
-        "microsoft",
-        "0x0c",
-        "FAT32 (LBA)",
-        PartitionTypeInfoFlags::None,
-        "vfat",
-    ),
-    // NTFS/exFAT/HPFS - NTFS
-    PartitionTypeInfo::new(
-        "dos",
-        "microsoft",
-        "0x07",
-        "NTFS",
-        PartitionTypeInfoFlags::None,
-        "ntfs",
-    ),
-    // NTFS/exFAT/HPFS - exFAT
-    PartitionTypeInfo::new(
-        "dos",
-        "microsoft",
-        "0x07",
-        "exFAT",
-        PartitionTypeInfoFlags::None,
-        "exfat",
-    ),
-];
-
-/// Known [PartitionType]s.
-/// see http://en.wikipedia.org/wiki/GUID_Partition_Table
-pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
-    // Not associated with any OS
+pub const PARTITION_TYPES: [PartitionTypeInfo; 178] = [
     PartitionTypeInfo::new(
         "gpt",
         "generic",
@@ -251,7 +100,6 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         PartitionTypeInfoFlags::System,
         "",
     ),
-    // This is also defined in the Apple and Solaris section
     PartitionTypeInfo::new(
         "gpt",
         "generic",
@@ -260,7 +108,6 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         PartitionTypeInfoFlags::None,
         "",
     ),
-    // Extended Boot Partition, see http://www.freedesktop.org/wiki/Specifications/BootLoaderSpec/
     PartitionTypeInfo::new(
         "gpt",
         "generic",
@@ -269,7 +116,6 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         PartitionTypeInfoFlags::None,
         "",
     ),
-    // Discoverable Linux Partitions, see http://systemd.io/DISCOVERABLE_PARTITIONS/
     PartitionTypeInfo::new(
         "gpt",
         "linux",
@@ -1222,7 +1068,6 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         PartitionTypeInfoFlags::None,
         "",
     ),
-    // Linux
     PartitionTypeInfo::new(
         "gpt",
         "linux",
@@ -1263,7 +1108,6 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         PartitionTypeInfoFlags::None,
         "",
     ),
-    // Microsoft
     PartitionTypeInfo::new(
         "gpt",
         "microsoft",
@@ -1304,7 +1148,6 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         PartitionTypeInfoFlags::None,
         "",
     ),
-    // Apple OS X
     PartitionTypeInfo::new(
         "gpt",
         "apple",
@@ -1336,7 +1179,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "Apple ZFS",
         PartitionTypeInfoFlags::None,
         "",
-    ), // same as ZFS
+    ),
     PartitionTypeInfo::new(
         "gpt",
         "apple",
@@ -1385,7 +1228,6 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         PartitionTypeInfoFlags::Raid,
         "",
     ),
-    // HP-UX
     PartitionTypeInfo::new(
         "gpt",
         "other",
@@ -1402,7 +1244,6 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         PartitionTypeInfoFlags::None,
         "",
     ),
-    // FreeBSD
     PartitionTypeInfo::new(
         "gpt",
         "other",
@@ -1451,7 +1292,6 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         PartitionTypeInfoFlags::None,
         "",
     ),
-    // Solaris
     PartitionTypeInfo::new(
         "gpt",
         "other",
@@ -1491,7 +1331,7 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         "Solaris /usr",
         PartitionTypeInfoFlags::None,
         "",
-    ), // same as ZFS
+    ),
     PartitionTypeInfo::new(
         "gpt",
         "other",
@@ -1556,7 +1396,6 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         PartitionTypeInfoFlags::None,
         "",
     ),
-    // NetBSD
     PartitionTypeInfo::new(
         "gpt",
         "other",
@@ -1605,7 +1444,6 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         PartitionTypeInfoFlags::None,
         "",
     ),
-    // VMWare, see http://blogs.vmware.com/vsphere/2011/08/vsphere-50-storage-features-part-7-gpt.html
     PartitionTypeInfo::new(
         "gpt",
         "other",
@@ -1622,7 +1460,6 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         PartitionTypeInfoFlags::None,
         "",
     ),
-    // ChromeOS, see http://www.chromium.org/chromium-os/chromiumos-design-docs/disk-format
     PartitionTypeInfo::new(
         "gpt",
         "other",
@@ -1655,417 +1492,11 @@ pub static PARTITION_TYPES: [PartitionTypeInfo; 228] = [
         PartitionTypeInfoFlags::None,
         "",
     ),
-    // Intel Partition Types
-    //     FFS = Fast Flash Standby, aka Intel Rapid start
-    //     http://downloadmirror.intel.com/22647/eng/Intel%20Rapid%20Start%20Technology%20Deployment%20Guide%20v1.0.pdf
     PartitionTypeInfo::new(
         "gpt",
         "other",
         "d3bfe2de-3daf-11df-ba40-e3a556d89593",
         "Intel FFS Reserved",
-        PartitionTypeInfoFlags::None,
-        "",
-    ),
-    // see http://developer.apple.com/documentation/mac/devices/devices-126.html
-    //     http://lists.apple.com/archives/Darwin-drivers/2003/May/msg00021.html
-    PartitionTypeInfo::new(
-        "apm",
-        "apple",
-        "Apple_Unix_SVR2",
-        "Apple UFS",
-        PartitionTypeInfoFlags::None,
-        "",
-    ),
-    PartitionTypeInfo::new(
-        "apm",
-        "apple",
-        "Apple_HFS",
-        "Apple HFS/HFS",
-        PartitionTypeInfoFlags::None,
-        "",
-    ),
-    PartitionTypeInfo::new(
-        "apm",
-        "apple",
-        "Apple_partition_map",
-        "Apple Partition Map",
-        PartitionTypeInfoFlags::None,
-        "",
-    ),
-    PartitionTypeInfo::new(
-        "apm",
-        "apple",
-        "Apple_Free",
-        "Unused",
-        PartitionTypeInfoFlags::None,
-        "",
-    ),
-    PartitionTypeInfo::new(
-        "apm",
-        "apple",
-        "Apple_Scratch",
-        "Empty",
-        PartitionTypeInfoFlags::None,
-        "",
-    ),
-    PartitionTypeInfo::new(
-        "apm",
-        "apple",
-        "Apple_Driver",
-        "Driver",
-        PartitionTypeInfoFlags::None,
-        "",
-    ),
-    PartitionTypeInfo::new(
-        "apm",
-        "apple",
-        "Apple_Driver43",
-        "Driver 4.3",
-        PartitionTypeInfoFlags::None,
-        "",
-    ),
-    PartitionTypeInfo::new(
-        "apm",
-        "apple",
-        "Apple_PRODOS",
-        "ProDOS file system",
-        PartitionTypeInfoFlags::None,
-        "",
-    ),
-    PartitionTypeInfo::new(
-        "apm",
-        "microsoft",
-        "DOS_FAT_12",
-        "FAT 12",
-        PartitionTypeInfoFlags::None,
-        "",
-    ),
-    PartitionTypeInfo::new(
-        "apm",
-        "microsoft",
-        "DOS_FAT_16",
-        "FAT 16",
-        PartitionTypeInfoFlags::None,
-        "",
-    ),
-    PartitionTypeInfo::new(
-        "apm",
-        "microsoft",
-        "DOS_FAT_32",
-        "FAT 32",
-        PartitionTypeInfoFlags::None,
-        "",
-    ),
-    PartitionTypeInfo::new(
-        "apm",
-        "microsoft",
-        "Windows_FAT_16",
-        "FAT 16 (Windows)",
-        PartitionTypeInfoFlags::None,
-        "",
-    ),
-    PartitionTypeInfo::new(
-        "apm",
-        "microsoft",
-        "Windows_FAT_32",
-        "FAT 32 (Windows)",
-        PartitionTypeInfoFlags::None,
-        "",
-    ),
-    // see http://www.win.tue.nl/~aeb/partitions/partition_types-1.html
-    PartitionTypeInfo::new(
-        "dos",
-        "generic",
-        "0x05",
-        "Extended",
-        PartitionTypeInfoFlags::CreateOnly,
-        "",
-    ),
-    PartitionTypeInfo::new(
-        "dos",
-        "generic",
-        "0xee",
-        "EFI GPT",
-        PartitionTypeInfoFlags::System,
-        "",
-    ),
-    PartitionTypeInfo::new(
-        "dos",
-        "generic",
-        "0xef",
-        "EFI (FAT-12/16/32)",
-        PartitionTypeInfoFlags::System,
-        "",
-    ),
-    PartitionTypeInfo::new(
-        "dos",
-        "linux",
-        "0x82",
-        "Linux swap",
-        PartitionTypeInfoFlags::Swap,
-        "",
-    ),
-    PartitionTypeInfo::new(
-        "dos",
-        "linux",
-        "0x83",
-        "Linux",
-        PartitionTypeInfoFlags::None,
-        "",
-    ),
-    PartitionTypeInfo::new(
-        "dos",
-        "linux",
-        "0x85",
-        "Linux Extended",
-        PartitionTypeInfoFlags::CreateOnly,
-        "",
-    ),
-    PartitionTypeInfo::new(
-        "dos",
-        "linux",
-        "0x8e",
-        "Linux LVM",
-        PartitionTypeInfoFlags::Raid,
-        "",
-    ),
-    PartitionTypeInfo::new(
-        "dos",
-        "linux",
-        "0xfd",
-        "Linux RAID auto",
-        PartitionTypeInfoFlags::Raid,
-        "",
-    ),
-    PartitionTypeInfo::new(
-        "dos",
-        "microsoft",
-        "0x01",
-        "FAT12",
-        PartitionTypeInfoFlags::None,
-        "",
-    ),
-    PartitionTypeInfo::new(
-        "dos",
-        "microsoft",
-        "0x04",
-        "FAT16 <32M",
-        PartitionTypeInfoFlags::None,
-        "",
-    ),
-    PartitionTypeInfo::new(
-        "dos",
-        "microsoft",
-        "0x06",
-        "FAT16",
-        PartitionTypeInfoFlags::None,
-        "",
-    ),
-    PartitionTypeInfo::new(
-        "dos",
-        "microsoft",
-        "0x07",
-        "NTFS/exFAT/HPFS",
-        PartitionTypeInfoFlags::None,
-        "",
-    ),
-    PartitionTypeInfo::new(
-        "dos",
-        "microsoft",
-        "0x0b",
-        "W95 FAT32",
-        PartitionTypeInfoFlags::None,
-        "",
-    ),
-    PartitionTypeInfo::new(
-        "dos",
-        "microsoft",
-        "0x0c",
-        "W95 FAT32 (LBA)",
-        PartitionTypeInfoFlags::None,
-        "",
-    ),
-    PartitionTypeInfo::new(
-        "dos",
-        "microsoft",
-        "0x0e",
-        "W95 FAT16 (LBA)",
-        PartitionTypeInfoFlags::None,
-        "",
-    ),
-    PartitionTypeInfo::new(
-        "dos",
-        "microsoft",
-        "0x0f",
-        "W95 Ext d (LBA)",
-        PartitionTypeInfoFlags::CreateOnly,
-        "",
-    ),
-    PartitionTypeInfo::new(
-        "dos",
-        "microsoft",
-        "0x11",
-        "Hidden FAT12",
-        PartitionTypeInfoFlags::Hidden,
-        "",
-    ),
-    PartitionTypeInfo::new(
-        "dos",
-        "microsoft",
-        "0x14",
-        "Hidden FAT16 <32M",
-        PartitionTypeInfoFlags::Hidden,
-        "",
-    ),
-    PartitionTypeInfo::new(
-        "dos",
-        "microsoft",
-        "0x16",
-        "Hidden FAT16",
-        PartitionTypeInfoFlags::Hidden,
-        "",
-    ),
-    PartitionTypeInfo::new(
-        "dos",
-        "microsoft",
-        "0x17",
-        "Hidden HPFS/NTFS",
-        PartitionTypeInfoFlags::Hidden,
-        "",
-    ),
-    PartitionTypeInfo::new(
-        "dos",
-        "microsoft",
-        "0x1b",
-        "Hidden W95 FAT32",
-        PartitionTypeInfoFlags::Hidden,
-        "",
-    ),
-    PartitionTypeInfo::new(
-        "dos",
-        "microsoft",
-        "0x1c",
-        "Hidden W95 FAT32 (LBA)",
-        PartitionTypeInfoFlags::Hidden,
-        "",
-    ),
-    PartitionTypeInfo::new(
-        "dos",
-        "microsoft",
-        "0x1e",
-        "Hidden W95 FAT16 (LBA)",
-        PartitionTypeInfoFlags::Hidden,
-        "",
-    ),
-    PartitionTypeInfo::new(
-        "dos",
-        "other",
-        "0x10",
-        "OPUS",
-        PartitionTypeInfoFlags::None,
-        "",
-    ),
-    PartitionTypeInfo::new(
-        "dos",
-        "other",
-        "0x12",
-        "Compaq diagnostics",
-        PartitionTypeInfoFlags::None,
-        "",
-    ),
-    PartitionTypeInfo::new(
-        "dos",
-        "other",
-        "0x3c",
-        "PartitionMagic",
-        PartitionTypeInfoFlags::None,
-        "",
-    ),
-    PartitionTypeInfo::new(
-        "dos",
-        "other",
-        "0x81",
-        "Minix",
-        PartitionTypeInfoFlags::None,
-        "",
-    ), // cf. http://en.wikipedia.org/wiki/MINIX_file_system
-    PartitionTypeInfo::new(
-        "dos",
-        "other",
-        "0x84",
-        "Hibernation",
-        PartitionTypeInfoFlags::None,
-        "",
-    ),
-    PartitionTypeInfo::new(
-        "dos",
-        "other",
-        "0xa0",
-        "Hibernation",
-        PartitionTypeInfoFlags::None,
-        "",
-    ),
-    PartitionTypeInfo::new(
-        "dos",
-        "other",
-        "0xa5",
-        "FreeBSD",
-        PartitionTypeInfoFlags::None,
-        "",
-    ),
-    PartitionTypeInfo::new(
-        "dos",
-        "other",
-        "0xa6",
-        "OpenBSD",
-        PartitionTypeInfoFlags::None,
-        "",
-    ),
-    PartitionTypeInfo::new(
-        "dos",
-        "other",
-        "0xa8",
-        "Mac OS X",
-        PartitionTypeInfoFlags::None,
-        "",
-    ),
-    PartitionTypeInfo::new(
-        "dos",
-        "other",
-        "0xaf",
-        "Mac OS X",
-        PartitionTypeInfoFlags::None,
-        "",
-    ),
-    PartitionTypeInfo::new(
-        "dos",
-        "other",
-        "0xbe",
-        "Solaris boot",
-        PartitionTypeInfoFlags::None,
-        "",
-    ),
-    PartitionTypeInfo::new(
-        "dos",
-        "other",
-        "0xbf",
-        "Solaris",
-        PartitionTypeInfoFlags::None,
-        "",
-    ),
-    PartitionTypeInfo::new(
-        "dos",
-        "other",
-        "0xeb",
-        "BeOS BFS",
-        PartitionTypeInfoFlags::None,
-        "",
-    ),
-    PartitionTypeInfo::new(
-        "dos",
-        "other",
-        "0xec",
-        "SkyOS SkyFS",
         PartitionTypeInfoFlags::None,
         "",
     ),
