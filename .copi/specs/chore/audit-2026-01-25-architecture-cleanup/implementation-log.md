@@ -59,6 +59,21 @@
   - `cargo clippy --workspace --all-features -- -D warnings`
   - `cargo test --workspace --all-features`
 
+## 2026-01-29
+
+- Implemented **Task 13** (move dialog rendering under `ui/dialogs/view/*`).
+  - Added `disks-ui/src/ui/dialogs/view/*` modules and re-wired `disks-ui/src/ui/app/view.rs` to import dialogs via `ui::dialogs::view`.
+  - Reduced `disks-ui/src/views/dialogs.rs` to a small compatibility shim.
+
+- Implemented **Task 14** (split `VolumesControl::update` into submodules).
+  - Added `disks-ui/src/ui/volumes/update/*` domain modules.
+  - Reworked `disks-ui/src/ui/volumes/update.rs` into a thin dispatcher delegating all handlers to submodules.
+
+- Commands run:
+  - `cargo fmt --all --check`
+  - `cargo clippy --workspace --all-features`
+  - `cargo test --workspace --all-features`
+
 - Implemented **Task 11** (remove unwrap-based crash paths in UI view).
 - Notable changes:
   - Removed unwraps from `disks-ui/src/ui/app/view.rs` when resolving `VolumesControl` and selected segment.

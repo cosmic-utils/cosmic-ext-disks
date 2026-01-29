@@ -234,3 +234,55 @@ This is a refactor-only track. Each task should be a small PR (or one squash-mer
   - [x] Initialized tracing subscriber in `disks-ui/src/main.rs`.
   - [x] Replaced UI `println!/eprintln!` with `tracing::{warn!, error!}` across update/subscription paths.
   - [x] Added missing `tracing` dependency to `disks-ui/Cargo.toml`.
+
+## Task 13: Move dialog rendering under `ui/dialogs/view/*` (reduce legacy `views/dialogs.rs`)
+
+- Scope: Finish the UI “ownership boundary” so dialogs are fully owned by the `ui/dialogs` tree (state + messages + view).
+- Motivation:
+  - `disks-ui/src/views/dialogs.rs` remains large (~975 LOC) and is now structurally out-of-place given state/messages already moved to `disks-ui/src/ui/dialogs/*`.
+- Files/areas:
+  - Add: `disks-ui/src/ui/dialogs/view/mod.rs`
+  - Add: `disks-ui/src/ui/dialogs/view/image.rs` (new/attach/image-operation)
+  - Add: `disks-ui/src/ui/dialogs/view/partition.rs` (create/edit/resize/format partition)
+  - Add: `disks-ui/src/ui/dialogs/view/encryption.rs` (unlock/change-passphrase/edit-encryption)
+  - Add: `disks-ui/src/ui/dialogs/view/mount.rs` (edit mount options)
+  - Add: `disks-ui/src/ui/dialogs/view/disk.rs` (format disk + smart data/smart dialog)
+  - Update: `disks-ui/src/ui/app/view.rs` (import dialogs via `ui/dialogs/view` instead of `views/dialogs`)
+  - Update: `disks-ui/src/views/dialogs.rs` (reduce to shim re-exporting new functions, or delete once call sites move)
+- Steps:
+  - Create `ui/dialogs/view/mod.rs` that re-exports the dialog view functions (same signatures) to minimize churn.
+  - Move the code in cohesive groups (image/partition/encryption/mount/disk), keeping function names stable.
+  - Update imports in `ui/app/view.rs` to call into `ui::dialogs::view`.
+  - Optionally keep `views/dialogs.rs` as a short shim (re-export) until downstream references are removed.
+- Test plan:
+  - `cargo fmt --all --check`
+  - `cargo clippy --workspace --all-features`
+  - `cargo test --workspace --all-features`
+- Done when:
+  - [x] `disks-ui/src/views/dialogs.rs` is < ~200 LOC or removed.
+  - [x] Dialog view code is discoverable under `disks-ui/src/ui/dialogs/view/`.
+
+## Task 14: Split `VolumesControl::update` into submodules under `ui/volumes/update/`
+
+- Scope: Reduce `disks-ui/src/ui/volumes/update.rs` (~1655 LOC) into cohesive handlers while keeping behavior unchanged.
+- Files/areas:
+  - Add: `disks-ui/src/ui/volumes/update/mod.rs`
+  - Add (suggested):
+    - `disks-ui/src/ui/volumes/update/selection.rs` (segment/volume selection + show_reserved)
+    - `disks-ui/src/ui/volumes/update/mount.rs` (mount/unmount + child mount/unmount)
+    - `disks-ui/src/ui/volumes/update/encryption.rs` (lock/unlock/change-passphrase/encryption options)
+    - `disks-ui/src/ui/volumes/update/partition.rs` (create/edit/resize/format/delete + ownership)
+    - `disks-ui/src/ui/volumes/update/dialogs.rs` (open/close dialog state transitions)
+    - `disks-ui/src/ui/volumes/update/refresh.rs` (DriveModel refresh patterns)
+  - Update: `disks-ui/src/ui/volumes/mod.rs` and `disks-ui/src/ui/volumes/state.rs` as needed for shared helpers.
+- Steps:
+  - Introduce private helper fns per category that return `Option<Task<...>>` (or directly `Task`) to keep control flow clear.
+  - Move match arms in chunks to submodules, keeping `VolumesControl::update` as a thin dispatcher.
+  - Centralize duplicated “refresh drives and map to `Message::UpdateNav`” logic in `refresh.rs` (still called by all operations).
+- Test plan:
+  - `cargo fmt --all --check`
+  - `cargo clippy --workspace --all-features`
+  - `cargo test --workspace --all-features`
+- Done when:
+  - [x] `disks-ui/src/ui/volumes/update.rs` is < ~400 LOC (or is replaced by `ui/volumes/update/mod.rs` dispatcher).
+  - [x] No user-visible behavior changes in mount/unmount/create/resize/format/delete flows.

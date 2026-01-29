@@ -134,3 +134,28 @@ This section is the canonical “map” of what moves where. Each node lists:
 - [x] GAP-009 (Volume/Partition naming confusion): remove `pub type PartitionModel = VolumeModel`; keep `VolumeModel` as the canonical multi-role model; rename files/modules accordingly.
 - [x] GAP-010 (unwrap crashes): no unwraps in UI `view()` for nav/segment selection; safe fallbacks exist.
 - [x] GAP-011 (logging layering): operational errors routed via `tracing` (and existing UI Info dialogs for actionable failures) rather than scattered `println!/eprintln!`.
+
+## Addendum (2026-01-26) — Remaining UI module breakdown
+
+The original scope is implemented, but two UI areas remain significantly oversized and are worth finishing to fully realize the “small cohesive modules” intent.
+
+### Context
+
+- `disks-ui/src/ui/volumes/update.rs` remains a large, monolithic `match` handler (~1655 LOC).
+- Dialog rendering remains in a large legacy module `disks-ui/src/views/dialogs.rs` (~975 LOC) while dialog state/messages live under `disks-ui/src/ui/dialogs/`.
+
+### Goals
+
+- Split dialog rendering into `disks-ui/src/ui/dialogs/view/*` modules (grouped by domain) and reduce or retire `disks-ui/src/views/dialogs.rs`.
+- Split `VolumesControl::update` handling into focused submodules under `disks-ui/src/ui/volumes/update/` (selection, mount/unmount, encryption, partition ops, dialogs, etc.).
+
+### Non-goals
+
+- No UX changes; only code organization and wiring.
+- No behavior changes to disk operations; keep all async tasks and error surfaces equivalent.
+
+### Updated acceptance criteria (addendum)
+
+- [x] `disks-ui/src/ui/volumes/update.rs` becomes a thin dispatcher (or is reduced to < ~400 LOC) with domain-focused submodules.
+- [x] Dialog rendering code lives under `disks-ui/src/ui/dialogs/view/` (or equivalent) and `disks-ui/src/views/dialogs.rs` is either removed or reduced to a compatibility shim.
+- [x] App view continues to treat views as “pure view” (no IO, no panicking invariants) while importing dialogs from the `ui` hierarchy.

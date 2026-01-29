@@ -1,10 +1,10 @@
 use super::message::Message;
 use super::state::{AppModel, ContextPage};
 use crate::fl;
+use crate::ui::dialogs::view as dialogs;
 use crate::ui::volumes::{VolumesControl, VolumesControlMessage};
 use crate::utils::{labelled_info, link_info};
 use crate::views::about::about;
-use crate::views::dialogs;
 use crate::views::menu::menu_view;
 use cosmic::app::context_drawer as cosmic_context_drawer;
 use cosmic::iced::Length;
