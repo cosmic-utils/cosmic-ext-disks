@@ -302,6 +302,7 @@ impl VolumesControl {
                         CreatePartitionDialog {
                             info: selected.get_create_info(),
                             running: false,
+                            error: None,
                         },
                     )))),
                 ));

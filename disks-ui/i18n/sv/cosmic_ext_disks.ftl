@@ -62,6 +62,8 @@ erase = Radera
 password-protected = Lösenordsskyddad
 password = Lösenord
 confirm = Bekräfta
+password-required = Lösenord krävs.
+password-mismatch = Lösenorden matchar inte.
 apply = Verkställ
 untitled = Namnlös
 

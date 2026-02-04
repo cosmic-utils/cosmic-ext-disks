@@ -173,6 +173,7 @@ pub struct DeletePartitionDialog {
 pub struct CreatePartitionDialog {
     pub info: CreatePartitionInfo,
     pub running: bool,
+    pub error: Option<String>,
 }
 
 #[derive(Debug, Clone)]

@@ -28,20 +28,33 @@ pub(super) fn create_message(
         ShowDialog::EditMountOptions(_) | ShowDialog::EditEncryptionOptions(_) => {}
 
         ShowDialog::AddPartition(state) => match create_message {
-            CreateMessage::SizeUpdate(size) => state.info.size = size,
+            CreateMessage::SizeUpdate(size) => {
+                state.info.size = size;
+                state.error = None;
+            }
             CreateMessage::NameUpdate(name) => {
                 state.info.name = name;
+                state.error = None;
             }
-            CreateMessage::PasswordUpdate(password) => state.info.password = password,
+            CreateMessage::PasswordUpdate(password) => {
+                state.info.password = password;
+                state.error = None;
+            }
             CreateMessage::ConfirmedPasswordUpdate(confirmed_password) => {
-                state.info.confirmed_password = confirmed_password
+                state.info.confirmed_password = confirmed_password;
+                state.error = None;
             }
             CreateMessage::PasswordProtectedUpdate(protect) => {
-                state.info.password_protected = protect
+                state.info.password_protected = protect;
+                state.error = None;
             }
-            CreateMessage::EraseUpdate(erase) => state.info.erase = erase,
+            CreateMessage::EraseUpdate(erase) => {
+                state.info.erase = erase;
+                state.error = None;
+            }
             CreateMessage::PartitionTypeUpdate(p_type) => {
-                state.info.selected_partition_type_index = p_type
+                state.info.selected_partition_type_index = p_type;
+                state.error = None;
             }
             CreateMessage::Continue => {
                 tracing::warn!("create message continue is not implemented; ignoring");
@@ -52,7 +65,20 @@ pub(super) fn create_message(
                     return Task::none();
                 }
 
+                // UI-side validation for encrypted partition creation.
+                if state.info.password_protected {
+                    if state.info.password.is_empty() {
+                        state.error = Some(fl!("password-required").to_string());
+                        return Task::none();
+                    }
+                    if state.info.password != state.info.confirmed_password {
+                        state.error = Some(fl!("password-mismatch").to_string());
+                        return Task::none();
+                    }
+                }
+
                 state.running = true;
+                state.error = None;
 
                 let mut create_partition_info: CreatePartitionInfo = state.info.clone();
                 if create_partition_info.name.is_empty() {
