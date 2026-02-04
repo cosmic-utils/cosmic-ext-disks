@@ -11,6 +11,25 @@ use zbus::{Connection, Proxy, zvariant::OwnedObjectPath};
 use super::ByteRange;
 use crate::{COMMON_DOS_TYPES, COMMON_GPT_TYPES, CreatePartitionInfo, PartitionTypeInfo};
 
+#[derive(Clone, PartialEq, Eq)]
+pub(crate) struct RedactedString(String);
+
+impl RedactedString {
+    pub(crate) fn new(value: String) -> Self {
+        Self(value)
+    }
+
+    pub(crate) fn expose(&self) -> &str {
+        self.0.as_str()
+    }
+}
+
+impl std::fmt::Debug for RedactedString {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("<redacted>")
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct CreatePartitionAndFormatArgs {
     pub(crate) table_block_path: String,
@@ -23,6 +42,8 @@ pub(crate) struct CreatePartitionAndFormatArgs {
     pub(crate) filesystem_type: String,
     pub(crate) erase: bool,
     pub(crate) label: Option<String>,
+    pub(crate) encrypt_type: Option<String>,
+    pub(crate) encrypt_passphrase: Option<RedactedString>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -86,6 +107,20 @@ impl DiskBackend for RealDiskBackend {
                 && !label.is_empty()
             {
                 format_options.insert("label", zbus::zvariant::Value::from(label));
+            }
+
+            // UDisks2 Block.Format supports encrypt.* options. When set, it will create a LUKS
+            // container and format the filesystem on the unlocked device.
+            // Docs: https://storaged.org/doc/udisks2-api/latest/gdbus-org.freedesktop.UDisks2.Block.html
+            if let Some(encrypt_type) = args.encrypt_type.as_deref()
+                && let Some(passphrase) = args.encrypt_passphrase.as_ref()
+            {
+                format_options.insert("encrypt.type", zbus::zvariant::Value::from(encrypt_type));
+                // NOTE: Never log passphrases.
+                format_options.insert(
+                    "encrypt.passphrase",
+                    zbus::zvariant::Value::from(passphrase.expose()),
+                );
             }
 
             proxy
@@ -356,6 +391,25 @@ pub(crate) fn build_create_partition_and_format_args(
         Some(info.name.clone())
     };
 
+    let (encrypt_type, encrypt_passphrase) = if info.password_protected {
+        if info.password.is_empty() {
+            return Err(anyhow::anyhow!(
+                "Missing passphrase for encrypted partition"
+            ));
+        }
+        if info.password != info.confirmed_password {
+            return Err(anyhow::anyhow!("Passphrases do not match"));
+        }
+
+        (
+            // Default to LUKS2 for new volumes.
+            Some("luks2".to_string()),
+            Some(RedactedString::new(info.password.clone())),
+        )
+    } else {
+        (None, None)
+    };
+
     Ok(CreatePartitionAndFormatArgs {
         table_block_path,
         table_type: table_type.to_string(),
@@ -367,6 +421,8 @@ pub(crate) fn build_create_partition_and_format_args(
         filesystem_type: partition_info.filesystem_type.to_string(),
         erase: info.erase,
         label,
+        encrypt_type,
+        encrypt_passphrase,
     })
 }
 
@@ -396,15 +452,22 @@ pub(crate) async fn drive_create_partition<B: DiskBackend>(
             _ => "",
         };
 
+        let encrypt_hint = if args.encrypt_type.is_some() {
+            " Hint: Encrypted volumes require cryptsetup (dm-crypt)."
+        } else {
+            ""
+        };
+
         return Err(anyhow::anyhow!(
-            "UDisks2 CreatePartitionAndFormat failed (table_type={}, offset={}, size={}, part_type={}, fs={}): {}.{}",
+            "UDisks2 CreatePartitionAndFormat failed (table_type={}, offset={}, size={}, part_type={}, fs={}): {}.{}{}",
             args.table_type,
             args.offset,
             args.size,
             args.partition_type,
             fs,
             e,
-            hint
+            hint,
+            encrypt_hint
         ));
     }
 
@@ -600,6 +663,42 @@ mod tests {
         assert_eq!(args.create_name, "MyData");
         assert_eq!(args.filesystem_type, "ext4");
         assert_eq!(args.create_partition_kind, None);
+        assert_eq!(args.encrypt_type, None);
+        assert_eq!(args.encrypt_passphrase, None);
+    }
+
+    #[test]
+    fn build_args_encrypted_sets_encrypt_options_and_redacts_passphrase() {
+        let info = CreatePartitionInfo {
+            name: "Secret".to_string(),
+            offset: 2 * 1024 * 1024,
+            size: 10,
+            max_size: 100,
+            erase: false,
+            selected_partition_type_index: 1, // Linux Filesystem (ext4)
+            password_protected: true,
+            password: "pw".to_string(),
+            confirmed_password: "pw".to_string(),
+            ..Default::default()
+        };
+
+        let args = build_create_partition_and_format_args(
+            "/org/freedesktop/UDisks2/block_devices/sda".to_string(),
+            "gpt",
+            Some(ByteRange {
+                start: 2 * 1024 * 1024,
+                end: 100 * 1024 * 1024,
+            }),
+            info,
+        )
+        .expect("args should build");
+
+        assert_eq!(args.encrypt_type.as_deref(), Some("luks2"));
+        assert!(args.encrypt_passphrase.is_some());
+
+        let dbg = format!("{args:?}");
+        assert!(!dbg.contains("pw"));
+        assert!(dbg.contains("<redacted>"));
     }
 
     #[tokio::test]

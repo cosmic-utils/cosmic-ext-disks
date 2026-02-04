@@ -19,6 +19,7 @@ pub fn create_partition<'a>(state: CreatePartitionDialog) -> Element<'a, Message
     let CreatePartitionDialog {
         info: create,
         running,
+        error,
     } = state;
 
     let len = create.max_size as f64;
@@ -83,6 +84,10 @@ pub fn create_partition<'a>(state: CreatePartitionDialog) -> Element<'a, Message
                 .label(fl!("confirm"))
                 .on_input(|v| CreateMessage::ConfirmedPasswordUpdate(v).into()),
         );
+    }
+
+    if let Some(err) = error.as_ref() {
+        content = content.push(caption(err.clone()));
     }
 
     let mut continue_button = button::destructive(fl!("continue"));

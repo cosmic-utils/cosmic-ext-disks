@@ -18,6 +18,7 @@ A lightweight mapping of audited gaps/work items to implementation specs.
 | N/A | Remove old/backup polling for device events logic | `.copi/specs/fix/remove-device-polling-fallback/` | `fix/remove-device-polling-fallback` | N/A (brief) | Implemented |
 | N/A | Support LUKS + logical/nested volumes (unlock prompt + show inner filesystems) | `.copi/specs/feature/luks-logical-volumes/` | `feature/luks-logical-volumes` | N/A (brief) | Implemented |
 | N/A | LUKS delete preflight (unmount children + lock) + hide delete for child volumes | `.copi/specs/fix/luks-delete-preflight/` | `fix/luks-delete-preflight` | N/A (brief; PR #36 follow-up) | Implemented |
+| N/A | Create-partition “Password protected” should create LUKS | `.copi/specs/fix/create-partition-password-protection/` | `fix/create-partition-password-protection` | N/A (brief; 2026-02-04) | Implemented |
 | N/A | Disk → Format Disk dialog (erase + partitioning) | `.copi/specs/feature/format-disk-dialog/` | `feature/format-disk-dialog` | N/A (brief) | Implemented |
 | N/A | Implement remaining Disk menu commands (SMART/power/standby) | `.copi/specs/feature/disk-menu-commands/` | `feature/disk-menu-commands` | N/A (brief) | Spec created |
 | N/A | Implement all Image menu commands (disk imaging + attach/new image) | `.copi/specs/feature/image-menu-commands/` | `feature/image-menu-commands` | N/A (brief) | Implemented |

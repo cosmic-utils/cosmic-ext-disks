@@ -62,6 +62,8 @@ erase = Erase
 password-protected = Password Protected
 password = Password
 confirm = Confirm
+password-required = Password is required.
+password-mismatch = Passwords do not match.
 apply = Apply
 untitled = Untitled
 
