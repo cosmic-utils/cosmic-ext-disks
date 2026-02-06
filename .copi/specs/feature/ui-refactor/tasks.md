@@ -504,7 +504,7 @@
   - [ ] LUKS containers display actual aggregated child usage (not 0).
   - [ ] Pie chart reflects correct usage values.
 
-### Task 29: Re-add "Mounted at:" file explorer link
+### Task 29: Re-add "Mounted at:" file explorer link ✅
 - Scope: restore the clickable link to open mount point in file explorer.
 - Files/areas:
   - `disks-ui/src/ui/app/view.rs` (build_volume_node_info, build_partition_info)
@@ -515,9 +515,9 @@
   - Apply to both volume node and partition info displays.
 - Test plan: manual UI test; click mount point link and verify file explorer opens.
 - Done when:
-  - [ ] Mount point displays as clickable link.
-  - [ ] Clicking link opens file explorer at mount point.
-  - [ ] Works for both volume nodes and partitions.
+  - [x] Mount point displays as clickable link.
+  - [x] Clicking link opens file explorer at mount point.
+  - [x] Works for both volume nodes and partitions.
 
 ### Task 30: Multi-partition usage pie with key
 - Scope: pie chart should show breakdown of each partition on disk with legend below.
@@ -537,7 +537,7 @@
   - [ ] Legend below pie shows all partitions with names and sizes.
   - [ ] Disk pie is larger than volume pie.
 
-### Task 31: Shorten action button text labels
+### Task 31: Shorten action button text labels ✅
 - Scope: make button labels more concise and context-appropriate.
 - Files/areas:
   - `disks-ui/src/ui/app/view.rs` (all action_button calls)
@@ -561,11 +561,11 @@
   - "Restore Disk Image To Partition" → "Restore Image"
 - Test plan: manual UI test; verify all buttons readable and understandable.
 - Done when:
-  - [ ] All action button labels shortened per plan.
-  - [ ] Labels remain clear and understandable.
-  - [ ] Mount/Unmount shows correct state-dependent text.
+  - [x] All action button labels shortened per plan.
+  - [x] Labels remain clear and understandable.
+  - [x] Mount/Unmount shows correct state-dependent text.
 
-### Task 32: Uniform action button sizing
+### Task 32: Uniform action button sizing ✅
 - Scope: all action buttons should have same width and height.
 - Files/areas:
   - `disks-ui/src/ui/app/view.rs` (action_button function)
@@ -576,11 +576,11 @@
   - Apply to both disk and partition action buttons.
 - Test plan: manual UI test; verify all buttons same size and aligned.
 - Done when:
-  - [ ] All action buttons have uniform width.
-  - [ ] Buttons remain readable with fixed sizing.
-  - [ ] Button rows look visually aligned.
+  - [x] All action buttons have uniform width.
+  - [x] Buttons remain readable with fixed sizing.
+  - [x] Button rows look visually aligned.
 
-### Task 33: Horizontal action button layout (icon beside text)
+### Task 33: Horizontal action button layout (icon beside text) ✅
 - Scope: change button layout from vertical (icon above text) to horizontal (icon beside text).
 - Files/areas:
   - `disks-ui/src/ui/app/view.rs` (action_button function)
@@ -591,9 +591,9 @@
   - Ensure text doesn't wrap awkwardly with shorter labels.
 - Test plan: manual UI test; verify buttons look good with horizontal layout.
 - Done when:
-  - [ ] Action buttons display icon beside text (horizontal).
-  - [ ] Spacing looks appropriate.
-  - [ ] Works well with shortened labels from Task 31.
+  - [x] Action buttons display icon beside text (horizontal).
+  - [x] Spacing looks appropriate.
+  - [x] Works well with shortened labels from Task 31.
 
 ### Task 34: Move drive actions to header bar, remove menubar, add About button
 - Scope: replace menubar with drive action buttons in header, add standalone About button.

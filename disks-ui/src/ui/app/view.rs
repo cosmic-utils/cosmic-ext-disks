@@ -260,7 +260,7 @@ fn volume_detail_view<'a>(
     let header_section = if let Some(v) = selected_volume_node {
         build_volume_node_info(v)
     } else if let Some(ref p) = segment.volume {
-        build_partition_info(p)
+        build_partition_info(p, selected_volume)
     } else {
         build_free_space_info(segment)
     };
@@ -297,8 +297,13 @@ fn build_volume_node_info(v: &disks_dbus::VolumeNode) -> Element<'_, Message> {
     
     // Pie chart showing usage (left side, replacing icon)
     // For LUKS containers, aggregate children's usage
-    let used = if v.kind == VolumeKind::CryptoContainer && !v.children.is_empty() {
-        aggregate_children_usage(v)
+    let used = if v.kind == VolumeKind::CryptoContainer {
+        if !v.children.is_empty() {
+            aggregate_children_usage(v)
+        } else {
+            // Unlocked LUKS with no children or locked LUKS - show 0
+            0
+        }
     } else {
         v.usage.as_ref().map(|u| u.used).unwrap_or(0)
     };
@@ -369,11 +374,20 @@ fn build_volume_node_info(v: &disks_dbus::VolumeNode) -> Element<'_, Message> {
 }
 
 /// Build info display for a partition - mirrors disk header layout
-fn build_partition_info(p: &disks_dbus::VolumeModel) -> Element<'_, Message> {
+fn build_partition_info<'a>(p: &'a disks_dbus::VolumeModel, volume_node: Option<&'a disks_dbus::VolumeNode>) -> Element<'a, Message> {
     use crate::ui::volumes::usage_pie;
     
     // Pie chart showing usage (left side)
-    let used = p.usage.as_ref().map(|u| u.used).unwrap_or(0);
+    // For LUKS containers, aggregate children's usage
+    let used = if let Some(v) = volume_node {
+        if v.kind == VolumeKind::CryptoContainer && !v.children.is_empty() {
+            aggregate_children_usage(v)
+        } else {
+            p.usage.as_ref().map(|u| u.used).unwrap_or(0)
+        }
+    } else {
+        p.usage.as_ref().map(|u| u.used).unwrap_or(0)
+    };
     let pie_chart = usage_pie::usage_pie(used, p.size);
 
     // Name, type, mount point (center text column)
