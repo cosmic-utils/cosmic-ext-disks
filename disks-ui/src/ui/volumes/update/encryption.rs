@@ -241,13 +241,17 @@ pub(super) fn unlock_message(
                 );
             };
 
+            let object_path_for_selection = partition_path.clone();
             Task::perform(
                 async move {
                     p.unlock(&passphrase_for_task).await?;
                     DriveModel::get_drives().await
                 },
                 move |result| match result {
-                    Ok(drives) => Message::UpdateNav(drives, None).into(),
+                    Ok(drives) => {
+                        // After unlock, select the unlocked volume (which may have new child nodes)
+                        Message::UpdateNavWithChildSelection(drives, Some(object_path_for_selection.clone())).into()
+                    }
                     Err(e) => {
                         tracing::error!(
                             ?e,
@@ -474,6 +478,7 @@ pub(super) fn lock_container(control: &mut VolumesControl) -> Task<cosmic::Actio
                 .map(helpers::collect_mounted_descendants_leaf_first)
                 .unwrap_or_default();
 
+        let object_path_for_selection = p.path.to_string();
         return Task::perform(
             async move {
                 // UDisks2 typically refuses to lock while the cleartext/child FS is mounted.
@@ -484,8 +489,11 @@ pub(super) fn lock_container(control: &mut VolumesControl) -> Task<cosmic::Actio
                 p.lock().await?;
                 DriveModel::get_drives().await
             },
-            |result| match result {
-                Ok(drives) => Message::UpdateNav(drives, None).into(),
+            move |result| match result {
+                Ok(drives) => {
+                    // After lock, stay on the locked container
+                    Message::UpdateNavWithChildSelection(drives, Some(object_path_for_selection.clone())).into()
+                }
                 Err(e) => {
                     let ctx = UiErrorContext::new("lock_container");
                     log_error_and_show_dialog(fl!("lock-failed"), e, ctx).into()

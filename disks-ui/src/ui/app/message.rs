@@ -23,6 +23,7 @@ pub enum Message {
     DriveAdded(String),
     None,
     UpdateNav(Vec<DriveModel>, Option<String>),
+    UpdateNavWithChildSelection(Vec<DriveModel>, Option<String>),
     Dialog(Box<ShowDialog>),
     CloseDialog,
     Eject,

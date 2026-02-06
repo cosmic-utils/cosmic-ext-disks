@@ -11,6 +11,7 @@ use crate::ui::volumes::VolumesControl;
 fn perform_volume_operation<F, Fut>(
     operation: F,
     operation_name: &'static str,
+    preserve_selection: Option<String>,
 ) -> Task<cosmic::Action<Message>>
 where
     F: FnOnce() -> Fut + Send + 'static,
@@ -22,7 +23,10 @@ where
             DriveModel::get_drives().await
         },
         move |result| match result {
-            Ok(drives) => Message::UpdateNav(drives, None).into(),
+            Ok(drives) => {
+                // Pass the selected volume to preserve selection after reload
+                Message::UpdateNavWithChildSelection(drives, preserve_selection.clone()).into()
+            }
             Err(e) => {
                 tracing::error!(?e, "{operation_name} failed");
                 Message::None.into()
@@ -40,7 +44,12 @@ pub(super) fn mount(control: &mut VolumesControl) -> Task<cosmic::Action<Message
         return Task::none();
     };
 
-    perform_volume_operation(|| async move { volume.mount().await }, "mount")
+    let object_path = volume.path.to_string();
+    perform_volume_operation(
+        || async move { volume.mount().await },
+        "mount",
+        Some(object_path),
+    )
 }
 
 pub(super) fn unmount(control: &mut VolumesControl) -> Task<cosmic::Action<Message>> {
@@ -52,7 +61,12 @@ pub(super) fn unmount(control: &mut VolumesControl) -> Task<cosmic::Action<Messa
         return Task::none();
     };
 
-    perform_volume_operation(|| async move { volume.unmount().await }, "unmount")
+    let object_path = volume.path.to_string();
+    perform_volume_operation(
+        || async move { volume.unmount().await },
+        "unmount",
+        Some(object_path),
+    )
 }
 
 pub(super) fn child_mount(
@@ -64,7 +78,12 @@ pub(super) fn child_mount(
         return Task::none();
     };
 
-    perform_volume_operation(|| async move { node.mount().await }, "child mount")
+    let object_path_for_selection = object_path.clone();
+    perform_volume_operation(
+        || async move { node.mount().await },
+        "child mount",
+        Some(object_path_for_selection),
+    )
 }
 
 pub(super) fn child_unmount(
@@ -76,5 +95,10 @@ pub(super) fn child_unmount(
         return Task::none();
     };
 
-    perform_volume_operation(|| async move { node.unmount().await }, "child unmount")
+    let object_path_for_selection = object_path.clone();
+    perform_volume_operation(
+        || async move { node.unmount().await },
+        "child unmount",
+        Some(object_path_for_selection),
+    )
 }

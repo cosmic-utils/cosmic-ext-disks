@@ -140,6 +140,34 @@ pub(crate) fn update(app: &mut AppModel, message: Message) -> Task<Message> {
         Message::UpdateNav(drive_models, selected) => {
             nav::update_nav(app, drive_models, selected);
         }
+        Message::UpdateNavWithChildSelection(drive_models, child_object_path) => {
+            // Update drives while preserving child volume selection
+            nav::update_nav(app, drive_models, None);
+            
+            // Restore child selection if provided
+            if let Some(object_path) = child_object_path {
+                app.sidebar.selected_child =
+                    Some(crate::ui::sidebar::SidebarNodeKey::Volume(object_path.clone()));
+
+                if let Some(control) = app.nav.active_data_mut::<VolumesControl>() {
+                    if let Some((segment_idx, is_child)) =
+                        find_segment_for_volume(control, &object_path)
+                    {
+                        control.selected_volume = if is_child {
+                            Some(object_path.clone())
+                        } else {
+                            None
+                        };
+
+                        control.segments.iter_mut().for_each(|s| s.state = false);
+                        control.selected_segment = segment_idx;
+                        if let Some(segment) = control.segments.get_mut(segment_idx) {
+                            segment.state = true;
+                        }
+                    }
+                }
+            }
+        }
         Message::Dialog(show_dialog) => app.dialog = Some(*show_dialog),
         Message::CloseDialog => {
             app.dialog = None;

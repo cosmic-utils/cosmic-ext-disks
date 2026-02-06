@@ -903,11 +903,11 @@
     - Drive removed during operation
 - Test plan: mount/unmount/lock/unlock various volumes; verify selection stays on operated volume.
 - Done when:
-  - [ ] Selection preserved after mount operation.
-  - [ ] Selection preserved after unmount operation.
-  - [ ] Selection preserved after lock operation.
-  - [ ] Selection preserved after unlock operation (selects unlocked child if created).
-  - [ ] Graceful fallback if volume disappears.
+  - [x] Selection preserved after mount operation.
+  - [x] Selection preserved after unmount operation.
+  - [x] Selection preserved after lock operation.
+  - [x] Selection preserved after unlock operation (selects unlocked child if created).
+  - [x] Graceful fallback if volume disappears.
 
 ### Task 47: Add Create/Restore Partition Image buttons
 - Scope: complete implementation of partition image operations.
