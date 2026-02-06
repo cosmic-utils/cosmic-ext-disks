@@ -27,7 +27,18 @@ pub(super) fn segment_selected(
             segment.state = true;
         }
 
-        // Sync with sidebar: clear child selection when segment is selected
+        // Sync with sidebar: select the segment's volume node if it has one
+        if let Some(segment) = control.segments.get(index) {
+            if let Some(vol) = &segment.volume {
+                return Task::batch(vec![Task::done(cosmic::Action::App(
+                    Message::SidebarSelectChild {
+                        object_path: vol.path.to_string(),
+                    },
+                ))]);
+            }
+        }
+
+        // No volume on this segment (e.g., free space), clear selection
         return Task::batch(vec![Task::done(cosmic::Action::App(
             Message::SidebarClearChildSelection,
         ))]);
