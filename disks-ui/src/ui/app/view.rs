@@ -125,8 +125,6 @@ pub(crate) fn nav_bar(app: &AppModel) -> Option<Element<'_, cosmic::Action<Messa
     let mut nav = sidebar::view::sidebar(&app.nav, &app.sidebar, controls_enabled)
         .map(Into::into)
         .apply(widget::container)
-        .padding(8)
-        .class(cosmic::style::Container::Card)
         // XXX both must be shrink to avoid flex layout from ignoring it
         .width(cosmic::iced::Length::Shrink)
         .height(cosmic::iced::Length::Shrink);

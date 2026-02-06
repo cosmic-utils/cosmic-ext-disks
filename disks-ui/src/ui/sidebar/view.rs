@@ -71,16 +71,19 @@ fn row_container<'a>(
     widget::container(row)
         .padding([6, 8])
         .class(cosmic::style::Container::custom(move |theme| {
-            use cosmic::iced::{Border, Shadow};
+            use cosmic::iced::{Background, Border, Shadow};
 
-            let component = &theme.current_container().component;
+            // Match the visual background used by `cosmic::style::Container::Card`.
+            let component = &theme.cosmic().background.component;
 
+            let bg = component.base;
             let mut on = component.on;
 
             let mut border_width = 0.0;
             let mut border_color = component.base.with_alpha(0.0);
 
             if !enabled {
+                // Keep the card background, but visually de-emphasize content.
                 on = component.on.with_alpha(0.35);
             } else if selected {
                 border_width = 1.0;
@@ -90,7 +93,7 @@ fn row_container<'a>(
             cosmic::iced_widget::container::Style {
                 icon_color: Some(on.into()),
                 text_color: Some(on.into()),
-                background: None,
+                background: Some(Background::Color(bg.into())),
                 border: Border {
                     radius: theme.cosmic().corner_radii.radius_s.into(),
                     width: border_width,
