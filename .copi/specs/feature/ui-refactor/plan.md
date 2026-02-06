@@ -109,14 +109,14 @@ Current navigation is built on COSMIC’s built-in nav bar widget and model:
   - Mitigation: phase the implementation: start with drives + volumes, then add containers/partitions once the required models are available in UI state.
 
 ## Acceptance Criteria
-- [ ] Sidebar renders a treeview with expand/collapse on nodes that have children.
-- [ ] Sidebar rows render as `Expander | Icon | Title | Trailing actions` with single-line title.
-- [ ] Sidebar rows include an inline Eject/Unmount action button that triggers without changing selection.
-- [ ] Disk-menu-equivalent actions remain available via the existing top-level Disk menu.
-- [ ] Sidebar shows section headers and groups items under: Logical / Internal / External / Images.
-- [ ] Selecting a drive still activates the correct page and updates window title.
-- [ ] Selecting a child node (partition/container/volume) does not change the main view yet (still shows the parent drive view).
-- [ ] No regressions in condensed vs non-condensed layouts (manual QA).
+- [x] Sidebar renders a treeview with expand/collapse on nodes that have children.
+- [x] Sidebar rows render as `Expander | Icon | Title | Trailing actions` with single-line title.
+- [x] Sidebar rows include an inline Eject/Unmount action button that triggers without changing selection.
+- [x] Disk-menu-equivalent actions remain available via the existing top-level Disk menu.
+- [x] Sidebar shows section headers and groups items under: Logical / Internal / External / Images.
+- [x] Selecting a drive still activates the correct page and updates window title.
+- [x] Selecting a child node (partition/container/volume) does not change the main view yet (still shows the parent drive view).
+- [x] No regressions in condensed vs non-condensed layouts (manual QA).
 
 ---
 
@@ -311,15 +311,15 @@ After implementing the split view and usage visualization, several refinements a
   - Mitigation: keep button labels consistent with menu items; consider adding tooltips.
 
 ### Acceptance Criteria
-- [ ] Disk header shrinks to fit contents; volume detail view fills remaining space.
-- [ ] Volume detail header matches disk header layout with pie chart replacing icon.
-- [ ] Pie chart displays usage proportion with "Used / Total" text inside.
-- [ ] Usage bar height reduced to ~1/4 of current.
-- [ ] Usage metrics display actual used space, not total partition sizes.
-- [ ] Treeview subitems appear in disk offset order (matching volumes control).
-- [ ] Selecting LUKS container in volumes control updates treeview selection.
-- [ ] Disk operation buttons appear below disk header (including disk image ops).
-- [ ] Partition image operations appear in volume detail action buttons.
-- [ ] "Create Image" / "Attach Image" segmented button at bottom of sidebar.
-- [ ] Menubar no longer contains disk/partition operations.
-- [ ] All operations functional with no regressions.
+- [x] Disk header shrinks to fit contents; volume detail view fills remaining space.
+- [x] Volume detail header matches disk header layout with pie chart replacing icon.
+- [x] Pie chart displays usage proportion with "Used / Total" text inside.
+- [x] Usage bar height reduced to ~1/4 of current.
+- [x] Usage metrics display actual used space, not total partition sizes.
+- [x] Treeview subitems appear in disk offset order (matching volumes control).
+- [x] Selecting LUKS container in volumes control updates treeview selection.
+- [x] Disk operation buttons appear below disk header (including disk image ops).
+- [x] Partition image operations appear in volume detail action buttons.
+- [x] "Create Image" / "Attach Image" segmented button at bottom of sidebar.
+- [x] Menubar no longer contains disk/partition operations.
+- [x] All operations functional with no regressions.
