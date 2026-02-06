@@ -148,16 +148,11 @@ fn row_container<'a>(
 
             let mut on = component.on;
 
-            let mut border_width = 0.0;
-            let mut border_color = component.base.with_alpha(0.0);
-
             if !enabled {
                 // Keep the card background, but visually de-emphasize content.
                 on = component.on.with_alpha(0.35);
             } else if selected {
                 on = theme.cosmic().accent_color();
-                border_width = 1.0;
-                border_color = theme.cosmic().accent_color();
             }
 
             cosmic::iced_widget::container::Style {
@@ -166,8 +161,7 @@ fn row_container<'a>(
                 background: None,
                 border: Border {
                     radius: theme.cosmic().corner_radii.radius_s.into(),
-                    width: border_width,
-                    color: border_color.into(),
+                    ..Default::default()
                 },
                 shadow: Shadow::default(),
             }
