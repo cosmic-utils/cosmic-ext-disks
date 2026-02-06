@@ -46,7 +46,7 @@ pub fn usage_bar<'a>(segments: &'a [Segment], total_size: u64) -> Element<'a, Me
                     ..Default::default()
                 },
             )
-            .height(Length::Fixed(24.0))
+            .height(Length::Fixed(6.0))
             .width(Length::FillPortion(width_portion));
 
         bar_segments.push(segment_bar.into());

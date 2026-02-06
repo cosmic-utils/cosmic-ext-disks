@@ -221,16 +221,16 @@ pub(crate) fn view(app: &AppModel) -> Element<'_, Message> {
             // Bottom section: Volume-specific detail view (2/3 of height)
             let bottom_section = volume_detail_view(volumes_control, segment);
 
-            // Split layout with approximate height ratios
+            // Split layout: header shrinks to fit, detail view fills remaining space
             iced_widget::column![
                 widget::container(top_section)
                     .padding(20)
                     .width(Length::Fill)
-                    .height(Length::FillPortion(1)),
+                    .height(Length::Shrink),
                 widget::container(bottom_section)
                     .padding(20)
                     .width(Length::Fill)
-                    .height(Length::FillPortion(2))
+                    .height(Length::Fill)
             ]
             .spacing(0)
             .width(Length::Fill)
