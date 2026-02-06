@@ -176,6 +176,24 @@ pub(crate) fn update(app: &mut AppModel, message: Message) -> Task<Message> {
         Message::SidebarSelectChild { object_path } => {
             app.sidebar.selected_child = Some(SidebarNodeKey::Volume(object_path.clone()));
 
+            // Find which drive contains this volume node
+            let drive_for_volume = app.sidebar.drives.iter()
+                .find(|d| volumes_helpers::find_volume_node(&d.volumes, &object_path).is_some())
+                .cloned();
+
+            // If the volume belongs to a different drive, switch to that drive first
+            if let Some(drive) = drive_for_volume {
+                let current_drive_block_path = app.sidebar.active_drive_block_path(&app.nav);
+                if current_drive_block_path.as_deref() != Some(&drive.block_path) {
+                    // Switch to the correct drive
+                    if let Some(id) = app.sidebar.drive_entities.get(&drive.block_path).copied() {
+                        let switch_task = on_nav_select(app, id);
+                        // After switching, we need to select the volume again
+                        return switch_task.chain(Task::done(cosmic::Action::App(Message::SidebarSelectChild { object_path })));
+                    }
+                }
+            }
+
             // Sync with volumes control: select the corresponding volume
             let Some(volumes_control) = app.nav.active_data_mut::<VolumesControl>() else {
                 return Task::none();

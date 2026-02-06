@@ -129,24 +129,30 @@ static PARTITION_TYPES_DATA: std::sync::LazyLock<Vec<PartitionTypeInfo>> =
 pub static PARTITION_TYPES: std::sync::LazyLock<Vec<PartitionTypeInfo>> =
     std::sync::LazyLock::new(|| PARTITION_TYPES_DATA.clone());
 
-/// Common GPT partition types for UI display
+/// Common GPT partition types for UI display (user-selectable filesystem types)
 pub static COMMON_GPT_TYPES: std::sync::LazyLock<Vec<PartitionTypeInfo>> =
     std::sync::LazyLock::new(|| {
         PARTITION_TYPES_DATA
             .iter()
-            .filter(|p| p.table_type == "gpt" && p.table_subtype == "generic")
-            .take(8)
+            .filter(|p| {
+                p.table_type == "gpt" 
+                && (p.table_subtype == "linux" || p.table_subtype == "microsoft")
+                && matches!(p.flags, PartitionTypeInfoFlags::None | PartitionTypeInfoFlags::Swap)
+            })
             .cloned()
             .collect()
     });
 
-/// Common DOS partition types for UI display
+/// Common DOS partition types for UI display (user-selectable filesystem types)
 pub static COMMON_DOS_TYPES: std::sync::LazyLock<Vec<PartitionTypeInfo>> =
     std::sync::LazyLock::new(|| {
         PARTITION_TYPES_DATA
             .iter()
-            .filter(|p| p.table_type == "dos" && (p.table_subtype == "linux" || p.table_subtype == "microsoft" || p.table_subtype == "generic"))
-            .take(6)
+            .filter(|p| {
+                p.table_type == "dos" 
+                && (p.table_subtype == "linux" || p.table_subtype == "microsoft")
+                && matches!(p.flags, PartitionTypeInfoFlags::None | PartitionTypeInfoFlags::Swap)
+            })
             .cloned()
             .collect()
     });

@@ -643,7 +643,7 @@ fn build_partition_info<'a>(
         if resize_enabled {
             action_buttons.push(
                 widget::tooltip(
-                    widget::button::icon(icon::from_name("transform-scale-symbolic"))
+                    widget::button::icon(icon::from_name("view-fullscreen-symbolic"))
                         .on_press(Message::VolumesMessage(VolumesControlMessage::OpenResizePartition)),
                     widget::text(fl!("resize")),
                     widget::tooltip::Position::Bottom,
@@ -791,9 +791,29 @@ fn build_free_space_info(segment: &crate::ui::volumes::Segment) -> Element<'_, M
         .spacing(4)
         .width(Length::Fill);
 
-    // Row layout: text_column | pie_chart (aligned right, shrink to fit)
+    // Action button for creating a partition in free space
+    let add_partition_button = widget::tooltip(
+        widget::button::icon(icon::from_name("list-add-symbolic"))
+            .on_press(Message::Dialog(Box::new(ShowDialog::AddPartition(
+                crate::ui::dialogs::state::CreatePartitionDialog {
+                    info: segment.get_create_info(),
+                    running: false,
+                    error: None,
+                },
+            )))),
+        widget::text(fl!("create-partition")),
+        widget::tooltip::Position::Bottom,
+    );
+
+    let info_and_actions = iced_widget::column![
+        text_column,
+        widget::Row::with_children(vec![add_partition_button.into()]).spacing(4)
+    ]
+    .spacing(8);
+
+    // Row layout: info_and_actions | pie_chart (aligned right, shrink to fit)
     iced_widget::Row::new()
-        .push(text_column)
+        .push(info_and_actions)
         .push(
             widget::container(pie_chart)
                 .width(Length::Shrink)

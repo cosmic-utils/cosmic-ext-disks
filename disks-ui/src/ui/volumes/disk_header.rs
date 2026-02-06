@@ -73,16 +73,18 @@ pub fn disk_header<'a>(
         );
     }
     
-    // Power Off
-    drive_actions.push(
-        widget::tooltip(
-            widget::button::icon(icon::from_name("system-shutdown-symbolic"))
-                .on_press(Message::PowerOff),
-            widget::text(fl!("power-off")),
-            widget::tooltip::Position::Bottom,
-        )
-        .into(),
-    );
+    // Power Off (only if supported)
+    if drive.can_power_off {
+        drive_actions.push(
+            widget::tooltip(
+                widget::button::icon(icon::from_name("system-shutdown-symbolic"))
+                    .on_press(Message::PowerOff),
+                widget::text(fl!("power-off")),
+                widget::tooltip::Position::Bottom,
+            )
+            .into(),
+        );
+    }
     
     // Format (wipe disk)
     drive_actions.push(
@@ -95,7 +97,7 @@ pub fn disk_header<'a>(
         .into(),
     );
     
-    // SMART Data
+    // SMART Data (not for loop devices)
     if !drive.is_loop {
         drive_actions.push(
             widget::tooltip(
@@ -108,8 +110,8 @@ pub fn disk_header<'a>(
         );
     }
     
-    // Standby
-    if !drive.is_loop {
+    // Standby (only for drives that support power management)
+    if !drive.is_loop && drive.can_power_off {
         drive_actions.push(
             widget::tooltip(
                 widget::button::icon(icon::from_name("media-playback-pause-symbolic"))
@@ -121,8 +123,8 @@ pub fn disk_header<'a>(
         );
     }
     
-    // Wake Up
-    if !drive.is_loop {
+    // Wake Up (only for drives that support power management)
+    if !drive.is_loop && drive.can_power_off {
         drive_actions.push(
             widget::tooltip(
                 widget::button::icon(icon::from_name("alarm-symbolic"))
