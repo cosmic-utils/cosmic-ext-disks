@@ -129,49 +129,14 @@ pub(crate) fn update(app: &mut AppModel, message: Message) -> Task<Message> {
             app.sidebar.selected_child = Some(SidebarNodeKey::Volume(object_path));
         }
         Message::SidebarToggleExpanded(key) => {
-            app.sidebar.close_menu();
             app.sidebar.toggle_expanded(key);
         }
-        Message::SidebarOpenMenu(key) => {
-            if app.sidebar.open_menu_for.as_ref() == Some(&key) {
-                app.sidebar.close_menu();
-            } else {
-                app.sidebar.open_menu(key);
-            }
-        }
         Message::SidebarDriveEject(block_path) => {
-            app.sidebar.close_menu();
             if let Some(drive) = app.sidebar.find_drive(&block_path) {
                 return drive::eject_drive(drive);
             }
         }
-        Message::SidebarDriveAction { drive, action } => {
-            app.sidebar.close_menu();
-            let Some(model) = app.sidebar.find_drive(&drive) else {
-                return Task::none();
-            };
-
-            return match action {
-                crate::ui::app::message::SidebarDriveAction::Eject => drive::eject_drive(model),
-                crate::ui::app::message::SidebarDriveAction::PowerOff => {
-                    drive::power_off_drive(model)
-                }
-                crate::ui::app::message::SidebarDriveAction::Format => {
-                    drive::format_for(app, model);
-                    Task::none()
-                }
-                crate::ui::app::message::SidebarDriveAction::SmartData => {
-                    drive::smart_data_for(app, model)
-                }
-                crate::ui::app::message::SidebarDriveAction::StandbyNow => {
-                    drive::standby_now_drive(model)
-                }
-                crate::ui::app::message::SidebarDriveAction::Wakeup => drive::wakeup_drive(model),
-            };
-        }
         Message::SidebarVolumeUnmount { drive, object_path } => {
-            app.sidebar.close_menu();
-
             let Some(drive_model) = app.sidebar.find_drive(&drive) else {
                 return Task::none();
             };

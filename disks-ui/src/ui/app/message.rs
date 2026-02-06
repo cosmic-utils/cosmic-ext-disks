@@ -8,16 +8,6 @@ use crate::ui::dialogs::state::ShowDialog;
 use crate::ui::volumes::VolumesControlMessage;
 use disks_dbus::DriveModel;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum SidebarDriveAction {
-    Eject,
-    PowerOff,
-    Format,
-    SmartData,
-    StandbyNow,
-    Wakeup,
-}
-
 /// Messages emitted by the application and its widgets.
 #[derive(Debug, Clone)]
 #[allow(clippy::enum_variant_names)]
@@ -44,20 +34,10 @@ pub enum Message {
 
     // Sidebar (custom treeview)
     SidebarSelectDrive(String),
-    SidebarSelectChild {
-        object_path: String,
-    },
+    SidebarSelectChild { object_path: String },
     SidebarToggleExpanded(crate::ui::sidebar::SidebarNodeKey),
-    SidebarOpenMenu(crate::ui::sidebar::SidebarNodeKey),
     SidebarDriveEject(String),
-    SidebarDriveAction {
-        drive: String,
-        action: SidebarDriveAction,
-    },
-    SidebarVolumeUnmount {
-        drive: String,
-        object_path: String,
-    },
+    SidebarVolumeUnmount { drive: String, object_path: String },
     SmartDialog(SmartDialogMessage),
     NewDiskImage,
     AttachDisk,

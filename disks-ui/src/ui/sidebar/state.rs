@@ -21,9 +21,6 @@ pub struct SidebarState {
 
     /// Selected (focused) child node. Drive selection is still managed via `app.nav`.
     pub selected_child: Option<SidebarNodeKey>,
-
-    /// Which node currently has its kebab menu open.
-    pub open_menu_for: Option<SidebarNodeKey>,
 }
 
 impl SidebarState {
@@ -49,14 +46,6 @@ impl SidebarState {
         if !self.expanded.insert(key.clone()) {
             self.expanded.remove(&key);
         }
-    }
-
-    pub fn close_menu(&mut self) {
-        self.open_menu_for = None;
-    }
-
-    pub fn open_menu(&mut self, key: SidebarNodeKey) {
-        self.open_menu_for = Some(key);
     }
 
     pub fn find_drive(&self, block_path: &str) -> Option<DriveModel> {

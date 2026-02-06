@@ -1,5 +1,4 @@
 use crate::app::Message;
-use crate::fl;
 use crate::ui::sidebar::state::{SidebarNodeKey, SidebarState};
 use cosmic::cosmic_theme::palette::WithAlpha;
 use cosmic::iced::Length;
@@ -62,86 +61,6 @@ fn section_header(label: String) -> Element<'static, Message> {
         .apply(widget::container)
         .padding([8, 12, 4, 12])
         .into()
-}
-
-fn menu_item(
-    label: String,
-    icon_name: &'static str,
-    msg: Message,
-) -> widget::Button<'static, Message> {
-    let row = widget::Row::with_children(vec![
-        icon::from_name(icon_name).size(16).into(),
-        widget::text(label).into(),
-    ])
-    .spacing(8)
-    .align_y(cosmic::iced::Alignment::Center);
-
-    widget::menu::menu_button(vec![row.into()]).on_press(msg)
-}
-
-fn kebab_menu(drive_block_path: &str) -> Element<'static, Message> {
-    let drive = drive_block_path.to_string();
-
-    let col = widget::Column::with_children(vec![
-        menu_item(
-            fl!("eject"),
-            "media-eject-symbolic",
-            Message::SidebarDriveAction {
-                drive: drive.clone(),
-                action: crate::ui::app::message::SidebarDriveAction::Eject,
-            },
-        )
-        .into(),
-        menu_item(
-            fl!("power-off"),
-            "system-shutdown-symbolic",
-            Message::SidebarDriveAction {
-                drive: drive.clone(),
-                action: crate::ui::app::message::SidebarDriveAction::PowerOff,
-            },
-        )
-        .into(),
-        menu_item(
-            fl!("format-disk"),
-            "edit-clear-all-symbolic",
-            Message::SidebarDriveAction {
-                drive: drive.clone(),
-                action: crate::ui::app::message::SidebarDriveAction::Format,
-            },
-        )
-        .into(),
-        menu_item(
-            fl!("smart-data-self-tests"),
-            "utilities-system-monitor-symbolic",
-            Message::SidebarDriveAction {
-                drive: drive.clone(),
-                action: crate::ui::app::message::SidebarDriveAction::SmartData,
-            },
-        )
-        .into(),
-        menu_item(
-            fl!("standby-now"),
-            "media-playback-pause-symbolic",
-            Message::SidebarDriveAction {
-                drive: drive.clone(),
-                action: crate::ui::app::message::SidebarDriveAction::StandbyNow,
-            },
-        )
-        .into(),
-        menu_item(
-            fl!("wake-up-from-standby"),
-            "media-playback-start-symbolic",
-            Message::SidebarDriveAction {
-                drive,
-                action: crate::ui::app::message::SidebarDriveAction::Wakeup,
-            },
-        )
-        .into(),
-    ])
-    .spacing(0)
-    .width(Length::Shrink);
-
-    widget::container(col).padding(4).into()
 }
 
 fn row_container<'a>(
@@ -233,27 +152,6 @@ fn drive_row(
         actions.push(eject_btn.into());
     }
 
-    // Kebab menu.
-    let menu_key = SidebarNodeKey::Drive(drive.block_path.clone());
-    let open = sidebar.open_menu_for.as_ref() == Some(&menu_key);
-
-    let mut kebab_button =
-        widget::button::custom(icon::from_name("open-menu-symbolic").size(16)).padding(4);
-    if controls_enabled {
-        kebab_button = kebab_button.on_press(Message::SidebarOpenMenu(menu_key.clone()));
-    }
-
-    let kebab = if open {
-        widget::popover(kebab_button)
-            .position(cosmic::widget::popover::Position::Bottom)
-            .popup(kebab_menu(&drive.block_path))
-            .into()
-    } else {
-        kebab_button.into()
-    };
-
-    actions.push(kebab);
-
     let row = widget::Row::with_children(vec![
         expander,
         icon::from_name(drive_icon_name).size(16).into(),
@@ -322,27 +220,6 @@ fn volume_row(
         }
         actions.push(unmount_btn.into());
     }
-
-    // Kebab menu (Disk actions), targeting the parent drive.
-    let menu_key = SidebarNodeKey::Volume(node.object_path.to_string());
-    let open = sidebar.open_menu_for.as_ref() == Some(&menu_key);
-
-    let mut kebab_button =
-        widget::button::custom(icon::from_name("open-menu-symbolic").size(16)).padding(4);
-    if controls_enabled {
-        kebab_button = kebab_button.on_press(Message::SidebarOpenMenu(menu_key.clone()));
-    }
-
-    let kebab = if open {
-        widget::popover(kebab_button)
-            .position(cosmic::widget::popover::Position::Bottom)
-            .popup(kebab_menu(drive_block_path))
-            .into()
-    } else {
-        kebab_button.into()
-    };
-
-    actions.push(kebab);
 
     let indent = depth * 18;
 
