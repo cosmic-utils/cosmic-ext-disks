@@ -95,6 +95,8 @@ uuid = UUID
 model = Model
 serial = Serial
 partitioning = Partitioning
+backing-file = Backing File
+disk-usage = Disk Usage
 
 # Confirmation dialog
 delete = Delete { $name }

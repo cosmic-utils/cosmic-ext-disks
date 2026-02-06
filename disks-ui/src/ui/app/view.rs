@@ -3,7 +3,7 @@ use super::state::{AppModel, ContextPage};
 use crate::fl;
 use crate::ui::dialogs::view as dialogs;
 use crate::ui::sidebar;
-use crate::ui::volumes::{VolumesControl, VolumesControlMessage};
+use crate::ui::volumes::{VolumesControl, VolumesControlMessage, disk_header};
 use crate::utils::{labelled_info, link_info};
 use crate::views::about::about;
 use crate::views::menu::menu_view;
@@ -11,7 +11,7 @@ use cosmic::app::context_drawer as cosmic_context_drawer;
 use cosmic::iced::Length;
 use cosmic::iced::alignment::{Horizontal, Vertical};
 use cosmic::widget::text::heading;
-use cosmic::widget::{self, Space, icon};
+use cosmic::widget::{self, Space};
 use cosmic::{Apply, Element, iced_widget};
 use disks_dbus::DriveModel;
 use disks_dbus::bytes_to_pretty;
@@ -196,22 +196,123 @@ pub(crate) fn view(app: &AppModel) -> Element<'_, Message> {
                     .into();
             };
 
-            let info = if let Some(v) = volumes_control.selected_volume_node() {
+            // Calculate used space for the disk
+            let used: u64 = volumes_control
+                .segments
+                .iter()
+                .filter_map(|s| s.volume.as_ref())
+                .map(|v| v.size)
+                .sum();
+
+            // Top section: Disk header + volumes control (1/3 of height)
+            let top_section = iced_widget::column![
+                disk_header::disk_header(drive, used),
+                Space::new(0, 20),
+                volumes_control.view()
+            ]
+            .spacing(10)
+            .width(Length::Fill);
+
+            // Bottom section: Volume-specific detail view (2/3 of height)
+            let bottom_section = volume_detail_view(volumes_control, segment);
+
+            // Split layout with approximate height ratios
+            iced_widget::column![
+                widget::container(top_section)
+                    .padding(20)
+                    .width(Length::Fill)
+                    .height(Length::FillPortion(1)),
+                widget::container(bottom_section)
+                    .padding(20)
+                    .width(Length::Fill)
+                    .height(Length::FillPortion(2))
+            ]
+            .spacing(0)
+            .width(Length::Fill)
+            .height(Length::Fill)
+            .into()
+        }
+    }
+}
+
+/// Renders the volume detail view for the selected volume.
+fn volume_detail_view<'a>(
+    volumes_control: &'a VolumesControl,
+    segment: &'a crate::ui::volumes::Segment,
+) -> Element<'a, Message> {
+    if let Some(v) = volumes_control.selected_volume_node() {
+        let mut col = iced_widget::column![
+            heading(v.label.clone()),
+            Space::new(0, 10),
+            labelled_info(fl!("size"), bytes_to_pretty(&v.size, true)),
+        ]
+        .spacing(5);
+
+        if let Some(usage) = &v.usage {
+            col = col.push(labelled_info(
+                fl!("usage"),
+                bytes_to_pretty(&usage.used, false),
+            ));
+        }
+
+        if let Some(mount_point) = v.mount_points.first() {
+            col = col.push(link_info(
+                fl!("mounted-at"),
+                mount_point,
+                Message::OpenPath(mount_point.clone()),
+            ));
+        }
+
+        let contents = if v.id_type.is_empty() {
+            match v.kind {
+                disks_dbus::VolumeKind::Filesystem => fl!("filesystem"),
+                disks_dbus::VolumeKind::LvmLogicalVolume => "LVM LV".to_string(),
+                disks_dbus::VolumeKind::LvmPhysicalVolume => "LVM PV".to_string(),
+                disks_dbus::VolumeKind::CryptoContainer => "LUKS".to_string(),
+                disks_dbus::VolumeKind::Partition => "Partition".to_string(),
+                disks_dbus::VolumeKind::Block => "Device".to_string(),
+            }
+        } else {
+            v.id_type.to_uppercase()
+        };
+
+        col.push(labelled_info(fl!("contents"), contents))
+            .push(labelled_info(
+                fl!("device"),
+                match v.device_path.as_ref() {
+                    Some(s) => s.clone(),
+                    None => fl!("unresolved"),
+                },
+            ))
+            .into()
+    } else {
+        match segment.volume.clone() {
+            Some(p) => {
+                let mut name = p.name.clone();
+                if name.is_empty() {
+                    name = fl!("partition-number", number = p.number);
+                } else {
+                    name = fl!("partition-number-with-name", number = p.number, name = name);
+                }
+
+                let mut type_str = p.id_type.clone().to_uppercase();
+                type_str = format!("{} - {}", type_str, p.partition_type.clone());
+
                 let mut col = iced_widget::column![
-                    heading(v.label.clone()),
+                    heading(name),
                     Space::new(0, 10),
-                    labelled_info(fl!("size"), bytes_to_pretty(&v.size, true)),
+                    labelled_info(fl!("size"), bytes_to_pretty(&p.size, true)),
                 ]
                 .spacing(5);
 
-                if let Some(usage) = &v.usage {
+                if let Some(usage) = &p.usage {
                     col = col.push(labelled_info(
                         fl!("usage"),
                         bytes_to_pretty(&usage.used, false),
                     ));
                 }
 
-                if let Some(mount_point) = v.mount_points.first() {
+                if let Some(mount_point) = p.mount_points.first() {
                     col = col.push(link_info(
                         fl!("mounted-at"),
                         mount_point,
@@ -219,140 +320,25 @@ pub(crate) fn view(app: &AppModel) -> Element<'_, Message> {
                     ));
                 }
 
-                let contents = if v.id_type.is_empty() {
-                    match v.kind {
-                        disks_dbus::VolumeKind::Filesystem => fl!("filesystem"),
-                        disks_dbus::VolumeKind::LvmLogicalVolume => "LVM LV".to_string(),
-                        disks_dbus::VolumeKind::LvmPhysicalVolume => "LVM PV".to_string(),
-                        disks_dbus::VolumeKind::CryptoContainer => "LUKS".to_string(),
-                        disks_dbus::VolumeKind::Partition => "Partition".to_string(),
-                        disks_dbus::VolumeKind::Block => "Device".to_string(),
-                    }
-                } else {
-                    v.id_type.to_uppercase()
-                };
-
-                col.push(labelled_info(fl!("contents"), contents))
+                col = col
+                    .push(labelled_info(fl!("contents"), &type_str))
                     .push(labelled_info(
                         fl!("device"),
-                        match v.device_path.as_ref() {
-                            Some(s) => s.clone(),
+                        match p.device_path {
+                            Some(s) => s,
                             None => fl!("unresolved"),
                         },
                     ))
-            } else {
-                match segment.volume.clone() {
-                    Some(p) => {
-                        let mut name = p.name.clone();
-                        if name.is_empty() {
-                            name = fl!("partition-number", number = p.number);
-                        } else {
-                            name =
-                                fl!("partition-number-with-name", number = p.number, name = name);
-                        }
+                    .push(labelled_info(fl!("uuid"), &p.uuid));
 
-                        let mut type_str = p.id_type.clone().to_uppercase();
-                        type_str = format!("{} - {}", type_str, p.partition_type.clone());
-
-                        let mut col = iced_widget::column![
-                            heading(name),
-                            Space::new(0, 10),
-                            labelled_info(fl!("size"), bytes_to_pretty(&p.size, true)),
-                        ]
-                        .spacing(5);
-
-                        if let Some(usage) = &p.usage {
-                            col = col.push(labelled_info(
-                                fl!("usage"),
-                                bytes_to_pretty(&usage.used, false),
-                            ));
-                        }
-
-                        if let Some(mount_point) = p.mount_points.first() {
-                            col = col.push(link_info(
-                                fl!("mounted-at"),
-                                mount_point,
-                                Message::OpenPath(mount_point.clone()),
-                            ));
-                        }
-
-                        col = col
-                            .push(labelled_info(fl!("contents"), &type_str))
-                            .push(labelled_info(
-                                fl!("device"),
-                                match p.device_path {
-                                    Some(s) => s,
-                                    None => fl!("unresolved"),
-                                },
-                            ))
-                            .push(labelled_info(fl!("uuid"), &p.uuid));
-
-                        col
-                    }
-                    None => iced_widget::column![
-                        heading(&segment.label),
-                        labelled_info("Size", bytes_to_pretty(&segment.size, true)),
-                    ]
-                    .spacing(5),
-                }
-            };
-
-            let partition_type = match &drive.partition_table_type {
-                Some(t) => t.clone().to_uppercase(),
-                None => "Unknown".into(),
-            };
-
-            let can_remove = drive.is_loop || (drive.removable && drive.can_power_off);
-
-            let mut drive_header = iced_widget::Row::new()
-                .push(heading(drive.name()))
-                .push(Space::new(Length::Fill, 0))
-                .spacing(10)
-                .width(Length::Fill);
-
-            if can_remove {
-                drive_header = drive_header.push(
-                    widget::button::custom(icon::from_name("media-eject-symbolic"))
-                        .on_press(Message::Eject),
-                );
+                col.into()
             }
-
-            let drive_info = if drive.is_loop {
-                iced_widget::column![
-                    drive_header,
-                    Space::new(0, 10),
-                    labelled_info("Size", bytes_to_pretty(&drive.size, true)),
-                    labelled_info("Backing File", drive.backing_file.as_deref().unwrap_or(""),),
-                ]
-                .spacing(5)
-                .width(Length::Fill)
-            } else {
-                iced_widget::column![
-                    drive_header,
-                    Space::new(0, 10),
-                    labelled_info("Model", &drive.model),
-                    labelled_info("Serial", &drive.serial),
-                    labelled_info("Size", bytes_to_pretty(&drive.size, true)),
-                    labelled_info("Partitioning", &partition_type),
-                ]
-                .spacing(5)
-                .width(Length::Fill)
-            };
-            iced_widget::column![
-                drive_info,
-                iced_widget::column![
-                    heading("Volumes"),
-                    Space::new(0, 10),
-                    volumes_control.view()
-                ]
-                .spacing(5)
-                .width(Length::Fill),
-                info
+            None => iced_widget::column![
+                heading(&segment.label),
+                labelled_info("Size", bytes_to_pretty(&segment.size, true)),
             ]
-            .spacing(60)
-            .padding(20)
-            .width(Length::Fill)
-            .into()
+            .spacing(5)
+            .into(),
         }
     }
 }

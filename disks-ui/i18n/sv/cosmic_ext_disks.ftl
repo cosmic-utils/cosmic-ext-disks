@@ -95,6 +95,8 @@ uuid = UUID
 model = Modell
 serial = Serienummer
 partitioning = Partitionering
+backing-file = Bakgrundsfil
+disk-usage = Diskanvändning
 
 # Bekräftelsedialogruta
 delete = Radera { $name }
