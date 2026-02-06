@@ -125,8 +125,7 @@ pub(super) fn create_message(
                             info.table_type.as_str(),
                             info.selected_partition_type_index,
                         )
-                        .ok_or_else(|| anyhow::anyhow!("Invalid filesystem selection"))?
-                        .to_string();
+                        .ok_or_else(|| anyhow::anyhow!("Invalid filesystem selection"))?;
 
                         volume
                             .format(info.name.clone(), info.erase, fs_type)

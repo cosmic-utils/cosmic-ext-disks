@@ -1,0 +1,343 @@
+[[types]]
+table_type = "dos"
+table_subtype = "linux"
+ty = "0x83"
+name = "Linux (ext4)"
+flags = ""
+filesystem_type = "ext4"
+
+[[types]]
+table_type = "dos"
+table_subtype = "linux"
+ty = "0x83"
+name = "Linux (ext3)"
+flags = ""
+filesystem_type = "ext3"
+
+[[types]]
+table_type = "dos"
+table_subtype = "linux"
+ty = "0x82"
+name = "Linux Swap"
+flags = "Swap"
+filesystem_type = "swap"
+
+[[types]]
+table_type = "dos"
+table_subtype = "microsoft"
+ty = "0x0c"
+name = "FAT32 (LBA)"
+flags = ""
+filesystem_type = "vfat"
+
+[[types]]
+table_type = "dos"
+table_subtype = "microsoft"
+ty = "0x07"
+name = "NTFS"
+flags = ""
+filesystem_type = "ntfs"
+
+[[types]]
+table_type = "dos"
+table_subtype = "microsoft"
+ty = "0x07"
+name = "exFAT"
+flags = ""
+filesystem_type = "exfat"
+
+[[types]]
+table_type = "dos"
+table_subtype = "generic"
+ty = "0x05"
+name = "Extended"
+flags = "CreateOnly"
+filesystem_type = ""
+
+[[types]]
+table_type = "dos"
+table_subtype = "generic"
+ty = "0xee"
+name = "EFI GPT"
+flags = "System"
+filesystem_type = ""
+
+[[types]]
+table_type = "dos"
+table_subtype = "generic"
+ty = "0xef"
+name = "EFI (FAT-12/16/32)"
+flags = "System"
+filesystem_type = ""
+
+[[types]]
+table_type = "dos"
+table_subtype = "linux"
+ty = "0x82"
+name = "Linux swap"
+flags = "Swap"
+filesystem_type = ""
+
+[[types]]
+table_type = "dos"
+table_subtype = "linux"
+ty = "0x83"
+name = "Linux"
+flags = ""
+filesystem_type = ""
+
+[[types]]
+table_type = "dos"
+table_subtype = "linux"
+ty = "0x85"
+name = "Linux Extended"
+flags = "CreateOnly"
+filesystem_type = ""
+
+[[types]]
+table_type = "dos"
+table_subtype = "linux"
+ty = "0x8e"
+name = "Linux LVM"
+flags = "Raid"
+filesystem_type = ""
+
+[[types]]
+table_type = "dos"
+table_subtype = "linux"
+ty = "0xfd"
+name = "Linux RAID auto"
+flags = "Raid"
+filesystem_type = ""
+
+[[types]]
+table_type = "dos"
+table_subtype = "microsoft"
+ty = "0x01"
+name = "FAT12"
+flags = ""
+filesystem_type = ""
+
+[[types]]
+table_type = "dos"
+table_subtype = "microsoft"
+ty = "0x04"
+name = "FAT16 <32M"
+flags = ""
+filesystem_type = ""
+
+[[types]]
+table_type = "dos"
+table_subtype = "microsoft"
+ty = "0x06"
+name = "FAT16"
+flags = ""
+filesystem_type = ""
+
+[[types]]
+table_type = "dos"
+table_subtype = "microsoft"
+ty = "0x07"
+name = "NTFS/exFAT/HPFS"
+flags = ""
+filesystem_type = ""
+
+[[types]]
+table_type = "dos"
+table_subtype = "microsoft"
+ty = "0x0b"
+name = "W95 FAT32"
+flags = ""
+filesystem_type = ""
+
+[[types]]
+table_type = "dos"
+table_subtype = "microsoft"
+ty = "0x0c"
+name = "W95 FAT32 (LBA)"
+flags = ""
+filesystem_type = ""
+
+[[types]]
+table_type = "dos"
+table_subtype = "microsoft"
+ty = "0x0e"
+name = "W95 FAT16 (LBA)"
+flags = ""
+filesystem_type = ""
+
+[[types]]
+table_type = "dos"
+table_subtype = "microsoft"
+ty = "0x0f"
+name = "W95 Ext d (LBA)"
+flags = "CreateOnly"
+filesystem_type = ""
+
+[[types]]
+table_type = "dos"
+table_subtype = "microsoft"
+ty = "0x11"
+name = "Hidden FAT12"
+flags = "Hidden"
+filesystem_type = ""
+
+[[types]]
+table_type = "dos"
+table_subtype = "microsoft"
+ty = "0x14"
+name = "Hidden FAT16 <32M"
+flags = "Hidden"
+filesystem_type = ""
+
+[[types]]
+table_type = "dos"
+table_subtype = "microsoft"
+ty = "0x16"
+name = "Hidden FAT16"
+flags = "Hidden"
+filesystem_type = ""
+
+[[types]]
+table_type = "dos"
+table_subtype = "microsoft"
+ty = "0x17"
+name = "Hidden HPFS/NTFS"
+flags = "Hidden"
+filesystem_type = ""
+
+[[types]]
+table_type = "dos"
+table_subtype = "microsoft"
+ty = "0x1b"
+name = "Hidden W95 FAT32"
+flags = "Hidden"
+filesystem_type = ""
+
+[[types]]
+table_type = "dos"
+table_subtype = "microsoft"
+ty = "0x1c"
+name = "Hidden W95 FAT32 (LBA)"
+flags = "Hidden"
+filesystem_type = ""
+
+[[types]]
+table_type = "dos"
+table_subtype = "microsoft"
+ty = "0x1e"
+name = "Hidden W95 FAT16 (LBA)"
+flags = "Hidden"
+filesystem_type = ""
+
+[[types]]
+table_type = "dos"
+table_subtype = "other"
+ty = "0x10"
+name = "OPUS"
+flags = ""
+filesystem_type = ""
+
+[[types]]
+table_type = "dos"
+table_subtype = "other"
+ty = "0x12"
+name = "Compaq diagnostics"
+flags = ""
+filesystem_type = ""
+
+[[types]]
+table_type = "dos"
+table_subtype = "other"
+ty = "0x3c"
+name = "PartitionMagic"
+flags = ""
+filesystem_type = ""
+
+[[types]]
+table_type = "dos"
+table_subtype = "other"
+ty = "0x81"
+name = "Minix"
+flags = ""
+filesystem_type = ""
+
+[[types]]
+table_type = "dos"
+table_subtype = "other"
+ty = "0x84"
+name = "Hibernation"
+flags = ""
+filesystem_type = ""
+
+[[types]]
+table_type = "dos"
+table_subtype = "other"
+ty = "0xa0"
+name = "Hibernation"
+flags = ""
+filesystem_type = ""
+
+[[types]]
+table_type = "dos"
+table_subtype = "other"
+ty = "0xa5"
+name = "FreeBSD"
+flags = ""
+filesystem_type = ""
+
+[[types]]
+table_type = "dos"
+table_subtype = "other"
+ty = "0xa6"
+name = "OpenBSD"
+flags = ""
+filesystem_type = ""
+
+[[types]]
+table_type = "dos"
+table_subtype = "other"
+ty = "0xa8"
+name = "Mac OS X"
+flags = ""
+filesystem_type = ""
+
+[[types]]
+table_type = "dos"
+table_subtype = "other"
+ty = "0xaf"
+name = "Mac OS X"
+flags = ""
+filesystem_type = ""
+
+[[types]]
+table_type = "dos"
+table_subtype = "other"
+ty = "0xbe"
+name = "Solaris boot"
+flags = ""
+filesystem_type = ""
+
+[[types]]
+table_type = "dos"
+table_subtype = "other"
+ty = "0xbf"
+name = "Solaris"
+flags = ""
+filesystem_type = ""
+
+[[types]]
+table_type = "dos"
+table_subtype = "other"
+ty = "0xeb"
+name = "BeOS BFS"
+flags = ""
+filesystem_type = ""
+
+[[types]]
+table_type = "dos"
+table_subtype = "other"
+ty = "0xec"
+name = "SkyOS SkyFS"
+flags = ""
+filesystem_type = ""
