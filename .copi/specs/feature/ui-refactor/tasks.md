@@ -399,10 +399,10 @@
   - Ensure text remains readable and properly aligned.
 - Test plan: manual UI test; verify pie chart appearance is improved.
 - Done when:
-  - [ ] Pie chart border is 2x thicker than current.
-  - [ ] Only percentage text displays inside the pie circle.
-  - [ ] "Used / Total" text displays below the pie chart.
-  - [ ] Styling is consistent and readable.
+  - [x] Pie chart border is 2x thicker than current.
+  - [x] Only percentage text displays inside the pie circle.
+  - [x] "Used / Total" text displays below the pie chart.
+  - [x] Styling is consistent and readable.
 
 ### Task 23: Replace usage bar with pie chart in disk header
 - Scope: disk header should use pie chart instead of text-based usage display; remove usage bar entirely.
@@ -416,9 +416,9 @@
   - Ensure pie chart in disk header displays drive usage correctly.
 - Test plan: manual UI test; verify disk header shows pie chart and usage bar is removed.
 - Done when:
-  - [ ] Disk header displays usage pie chart on the right side.
-  - [ ] Usage bar component removed from main view layout.
-  - [ ] Pie chart correctly shows disk-level usage.
+  - [x] Disk header displays usage pie chart on the right side.
+  - [x] Usage bar component removed from main view layout.
+  - [x] Pie chart correctly shows disk-level usage.
 
 ### Task 24: Update action buttons to show icon above text label
 - Scope: action buttons should display icon above text label instead of icon-only with tooltip.
@@ -431,10 +431,10 @@
   - Ensure consistent spacing and alignment across all buttons.
 - Test plan: manual UI test; verify all action buttons show icon + label and are readable.
 - Done when:
-  - [ ] All action buttons display icon above text label.
-  - [ ] Tooltips removed (label makes them redundant).
-  - [ ] Consistent styling across disk and partition action buttons.
-  - [ ] Text labels are readable and properly truncated if needed.
+  - [x] All action buttons display icon above text label.
+  - [x] Tooltips removed (label makes them redundant).
+  - [x] Consistent styling across disk and partition action buttons.
+  - [x] Text labels are readable and properly truncated if needed.
 
 ### Task 25: LUKS container usage should aggregate children
 - Scope: LUKS containers should display sum of children's used space instead of container size.
@@ -448,9 +448,9 @@
   - Ensure containers without children still display their own usage correctly.
 - Test plan: manual UI test with encrypted partition; verify LUKS container shows child filesystem usage.
 - Done when:
-  - [ ] LUKS containers display sum of children's used space.
-  - [ ] Pie chart for LUKS container reflects child usage aggregation.
-  - [ ] Containers without children still display correctly.
+  - [x] LUKS containers display sum of children's used space.
+  - [x] Pie chart for LUKS container reflects child usage aggregation.
+  - [x] Containers without children still display correctly.
 
 ### Task 26: Rename partition header builders to use "info" terminology
 - Scope: refactor function names from "header" to "info" for volume/partition detail functions.
@@ -464,9 +464,9 @@
   - Update any related comments/documentation.
 - Test plan: cargo check; verify all references updated correctly.
 - Done when:
-  - [ ] All "header" function names changed to "info".
-  - [ ] All call sites updated.
-  - [ ] Code compiles without errors.
+  - [x] All "header" function names changed to "info".
+  - [x] All call sites updated.
+  - [x] Code compiles without errors.
 
 ### Task 27: Fix sidebar image button sizing and text wrapping
 - Scope: ensure both "New Disk Image" and "Attach Disk Image" buttons are visible with equal width.
@@ -479,7 +479,7 @@
   - Verify both buttons remain visible and clickable.
 - Test plan: manual UI test; verify both buttons visible at various sidebar widths.
 - Done when:
-  - [ ] Both "New Disk Image" and "Attach Disk Image" buttons visible.
-  - [ ] Buttons maintain equal width (50/50 split).
-  - [ ] Text wraps appropriately to fit within button bounds.
-  - [ ] Buttons remain readable and functional.
+  - [x] Both "New Disk Image" and "Attach Disk Image" buttons visible.
+  - [x] Buttons maintain equal width (50/50 split).
+  - [x] Text wraps appropriately to fit within button bounds.
+  - [x] Buttons remain readable and functional.

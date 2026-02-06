@@ -8,6 +8,7 @@ use crate::ui::volumes::Segment;
 use crate::utils::DiskSegmentKind;
 
 /// Renders a color-coded usage bar showing stacked volume usage with a legend.
+#[allow(dead_code)]  // Replaced by pie chart in disk header (Task 23)
 pub fn usage_bar<'a>(segments: &'a [Segment], total_size: u64) -> Element<'a, Message> {
     // Filter to only actual partitions (not free space or reserved)
     let partitions: Vec<&Segment> = segments
@@ -110,6 +111,7 @@ pub fn usage_bar<'a>(segments: &'a [Segment], total_size: u64) -> Element<'a, Me
 }
 
 /// Generate a distinct color for each segment based on index.
+#[allow(dead_code)]
 fn get_segment_color(index: usize) -> Color {
     // Color palette with distinct, accessible colors
     let colors = [
