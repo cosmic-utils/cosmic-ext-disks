@@ -323,3 +323,40 @@ After implementing the split view and usage visualization, several refinements a
 - [x] "Create Image" / "Attach Image" segmented button at bottom of sidebar.
 - [x] Menubar no longer contains disk/partition operations.
 - [x] All operations functional with no regressions.
+
+---
+
+## Remaining Issues
+
+**Added:** 2026-02-06
+
+### Missing action buttons on filesystem node under LUKS
+When a filesystem is selected under an unlocked LUKS container (child node), the following action buttons are missing from the volume detail view:
+- Edit Filesystem/Label
+- Format
+- Check Filesystem
+- Repair Filesystem
+- Take Ownership
+- Edit Mount Options
+- Create Partition Image
+- Restore Partition Image
+
+**Issue:** Child filesystem nodes under LUKS containers are not showing the full set of filesystem-specific action buttons. These actions should be available since the child is a regular filesystem that can be mounted, formatted, checked, etc.
+
+### Missing action buttons on standard partitions
+Standard partition types (like ext4 filesystems) are missing the following action buttons:
+- Take Ownership
+- Create Partition Image
+- Restore Partition Image
+
+**Issue:** Image operations and ownership management should be available for all partition types, not just specific cases.
+
+### Incorrect drive power management capability detection
+`can_power_off` is not an appropriate check for whether a disk can standby/wake. This field indicates whether the drive can be safely powered off (removed from the system), not whether it supports power management features like spinning down.
+
+**Issue:** NVMe drives don't support traditional spindown/standby commands, but the current code uses `can_power_off` to determine whether to show Standby/Wake buttons. This causes these buttons to appear for drives that don't support them (or not appear for drives that do). A more appropriate check would be:
+- Check for `rotation_rate` > 0 (indicates spinning disk that can spin down)
+- Or check drive connection type (exclude NVMe, include SATA/SAS)
+- Or query UDisks2 for actual power management capabilities
+
+**Impact:** Users see non-functional Standby/Wake buttons on NVMe drives, or don't see them on drives that do support power management.

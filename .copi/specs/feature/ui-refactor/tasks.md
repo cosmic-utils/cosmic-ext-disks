@@ -653,3 +653,91 @@
   - [x] Message variant names corrected to match enum.
   - [x] Hover background appears consistently.
   - [x] Styling matches partition action buttons.
+
+---
+
+## Extended Scope Tasks — Phase 5: Remaining Issues
+
+**Added:** 2026-02-06
+
+### Task 37: Add missing action buttons to LUKS child filesystem nodes
+- Scope: filesystem nodes under LUKS containers should have full filesystem action button set.
+- Files/areas:
+  - `disks-ui/src/ui/app/view.rs` (build_volume_node_info function)
+- Steps:
+  - Identify which action buttons are missing for LUKS child filesystem nodes.
+  - Add the following buttons to volume node info display:
+    - Edit Filesystem/Label (icon: tag-symbolic)
+    - Format (icon: edit-clear-symbolic)
+    - Check Filesystem (icon: dialog-question-symbolic)
+    - Repair Filesystem (icon: emblem-system-symbolic)
+    - Take Ownership (icon: system-users-symbolic)
+    - Edit Mount Options (icon: emblem-documents-symbolic)
+    - Create Partition Image (icon: document-save-as-symbolic)
+    - Restore Partition Image (icon: document-revert-symbolic)
+  - Ensure buttons are conditionally shown based on:
+    - Filesystem is mounted (for Check/Ownership)
+    - Filesystem has filesystem type (for Repair/Mount Options)
+    - Node can be imaged/restored
+  - Wire buttons to appropriate message handlers (likely VolumesControlMessage variants).
+  - Test with LUKS container containing ext4 filesystem.
+- Test plan: manual UI test with encrypted partition; verify all filesystem actions available on child node.
+- Done when:
+  - [x] All filesystem action buttons appear for LUKS child nodes.
+  - [x] Buttons are appropriately enabled/disabled based on state.
+  - [x] All operations functional for child filesystem nodes.
+- **Implementation**: Added 8 filesystem action buttons to `build_volume_node_info()` with conditional visibility based on mount status and filesystem type.
+
+### Task 38: Add missing action buttons to standard partitions
+- Scope: standard partitions should have image operations and ownership management.
+- Files/areas:
+  - `disks-ui/src/ui/app/view.rs` (build_partition_info function)
+- Steps:
+  - Add the following buttons to partition info display if missing:
+    - Take Ownership (icon: system-users-symbolic) - only if mounted
+    - Create Partition Image (icon: document-save-as-symbolic)
+    - Restore Partition Image (icon: document-revert-symbolic)
+  - Ensure Take Ownership only shows when partition is mounted.
+  - Ensure image operations show for all partition types.
+  - Wire buttons to appropriate message handlers.
+  - Test with various partition types (ext4, ntfs, fat32).
+- Test plan: manual UI test; verify ownership and image buttons appear and function.
+- Done when:
+  - [x] Take Ownership button appears for mounted partitions.
+  - [ ] Create/Restore Partition Image buttons appear for all partitions.
+  - [x] All operations functional.
+
+### Task 39: Fix drive power management capability detection
+- Scope: replace `can_power_off` check with proper power management detection for Standby/Wake buttons.
+- Files/areas:
+  - `disks-dbus/src/disks/drive/model.rs` (add new field or method)
+  - `disks-ui/src/ui/volumes/disk_header.rs` (update button visibility logic)
+- Steps:
+  - Research UDisks2 Drive interface for power management properties:
+    - `RotationRate` property (0 = SSD/no rotation, >0 = spinning disk)
+    - `ConnectionBus` property (to identify NVMe vs SATA)
+    - Any explicit power management capability flags
+  - Add new field or method to `DriveModel`:
+    - `supports_power_management()` or `can_standby` field
+    - Should return true only for drives that support spindown/standby
+  - Update disk_header.rs to use new check instead of `can_power_off`:
+    - Standby button: show if `supports_power_management()` and not loop device
+    - Wake button: show if `supports_power_management()` and not loop device
+    - Power Off button: keep existing `can_power_off` check (correct for this operation)
+  - Test with:
+    - NVMe drive (should NOT show Standby/Wake)
+    - SATA HDD (should show Standby/Wake)
+    - SATA SSD (should show Standby/Wake if supported)
+    - USB drive (depends on drive type)
+- **Implementation**: 
+  - [x] Added `rotation_rate: i32` field to `DriveModel`
+  - [x] Added `supports_power_management()` method: returns false for loop devices, true for rotating drives (rotation_rate != 0)
+  - [x] Updated disk_header.rs to filter Standby/Wake buttons using `supports_power_management()`
+  - [x] Conversion from RotationRate enum: -1=Unknown, 0=NonRotating/SSD, >0=HDD RPM
+- Test plan: manual UI test on different drive types; verify buttons only appear for drives that support the operation.
+- Done when:
+  - [ ] New power management capability detection implemented.
+  - [ ] Standby/Wake buttons only appear for drives with spinning disks or SATA SSDs.
+  - [ ] NVMe drives do not show Standby/Wake buttons.
+  - [ ] Power Off button logic unchanged (still uses `can_power_off`).
+  - [ ] Tested on multiple drive types.

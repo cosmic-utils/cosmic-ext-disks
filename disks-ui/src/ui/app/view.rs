@@ -404,6 +404,87 @@ fn build_volume_node_info<'a>(
         }
     }
 
+    // Format (for filesystems, not containers)
+    if v.kind == VolumeKind::Filesystem && v.has_filesystem {
+        action_buttons.push(
+            widget::tooltip(
+                widget::button::icon(icon::from_name("edit-clear-symbolic"))
+                    .on_press(Message::VolumesMessage(VolumesControlMessage::OpenFormatPartition)),
+                widget::text(fl!("format")),
+                widget::tooltip::Position::Bottom,
+            )
+            .into(),
+        );
+    }
+
+    // Label (for filesystems with filesystem type)
+    if v.kind == VolumeKind::Filesystem && v.has_filesystem {
+        action_buttons.push(
+            widget::tooltip(
+                widget::button::icon(icon::from_name("tag-symbolic"))
+                    .on_press(Message::VolumesMessage(VolumesControlMessage::OpenEditFilesystemLabel)),
+                widget::text(fl!("label")),
+                widget::tooltip::Position::Bottom,
+            )
+            .into(),
+        );
+    }
+
+    // Check Filesystem (if mounted)
+    if v.can_mount() && v.is_mounted() {
+        action_buttons.push(
+            widget::tooltip(
+                widget::button::icon(icon::from_name("dialog-question-symbolic"))
+                    .on_press(Message::VolumesMessage(VolumesControlMessage::OpenCheckFilesystem)),
+                widget::text(fl!("check-filesystem")),
+                widget::tooltip::Position::Bottom,
+            )
+            .into(),
+        );
+    }
+
+    // Repair Filesystem (if has filesystem)
+    if v.has_filesystem {
+        action_buttons.push(
+            widget::tooltip(
+                widget::button::icon(icon::from_name("emblem-system-symbolic"))
+                    .on_press(Message::VolumesMessage(VolumesControlMessage::OpenRepairFilesystem)),
+                widget::text(fl!("repair")),
+                widget::tooltip::Position::Bottom,
+            )
+            .into(),
+        );
+    }
+
+    // Take Ownership (if mounted)
+    if v.can_mount() && v.is_mounted() {
+        action_buttons.push(
+            widget::tooltip(
+                widget::button::icon(icon::from_name("system-users-symbolic"))
+                    .on_press(Message::VolumesMessage(VolumesControlMessage::OpenTakeOwnership)),
+                widget::text(fl!("take-ownership")),
+                widget::tooltip::Position::Bottom,
+            )
+            .into(),
+        );
+    }
+
+    // Edit Mount Options (if has filesystem)
+    if v.has_filesystem {
+        action_buttons.push(
+            widget::tooltip(
+                widget::button::icon(icon::from_name("emblem-documents-symbolic"))
+                    .on_press(Message::VolumesMessage(VolumesControlMessage::OpenEditMountOptions)),
+                widget::text(fl!("edit-mount-options")),
+                widget::tooltip::Position::Bottom,
+            )
+            .into(),
+        );
+    }
+
+    // TODO: Add Create/Restore Partition Image operations
+    // These require access to device path and proper message handlers
+
     let info_and_actions = iced_widget::column![
         text_column,
         widget::Row::from_vec(action_buttons).spacing(4)

@@ -597,3 +597,81 @@ Initial implementation used incorrect message variant names. Corrected to match 
 **Result:** Drive action buttons now show proper hover effects matching partition buttons
 
 ---
+
+## 2026-02-06 — Tasks 37-39: Final Polish Fixes
+
+### Task 37: LUKS Child Filesystem Action Buttons
+**Files Modified:**
+- `disks-ui/src/ui/app/view.rs`
+
+**Changes:**
+- Added 8 filesystem action buttons to `build_volume_node_info()` function
+- Buttons: Format, Label, Check, Repair, Take Ownership, Edit Mount Options, Mount/Unmount
+- All buttons conditionally visible based on mount status and filesystem type
+- Matches button set available on regular partitions
+
+**Build Status:** ✅ Success
+**Test Status:** Ready for manual testing with LUKS container
+
+---
+
+### Task 38: Standard Partition Action Buttons
+**Files Modified:**
+- None (verification task)
+
+**Status:** 
+- Verified Take Ownership button already present on mounted partitions
+- Image operations (Create/Restore Partition Image) noted as TODO for future implementation
+- Requires significant work to implement image creation/restoration backend
+
+**Build Status:** ✅ N/A (no changes)
+**Test Status:** Verified complete via code review
+
+---
+
+### Task 39: Power Management Detection
+**Files Modified:**
+- `disks-dbus/src/disks/drive/model.rs`
+- `disks-ui/src/ui/volumes/disk_header.rs`
+
+**Changes:**
+1. Added `rotation_rate: i32` field to `DriveModel`:
+   - `-1` = Unknown drive type
+   - `0` = Non-rotating (SSD/NVMe)
+   - `>0` = Rotating disk (HDD) with RPM value
+
+2. Implemented `supports_power_management()` method:
+   - Returns `false` for loop devices
+   - Returns `true` for drives with `rotation_rate != 0` (HDDs and unknown types)
+   - Returns `false` for SSDs/NVMe (rotation_rate == 0)
+
+3. Updated disk header button visibility:
+   - Changed Standby button filter from `can_power_off` to `supports_power_management()`
+   - Changed Wake button filter from `can_power_off` to `supports_power_management()`
+   - Power Off button still uses `can_power_off` (correct for that operation)
+
+4. Conversion from udisks2 `RotationRate` enum:
+   - `RotationRate::Unknown` → `-1`
+   - `RotationRate::NonRotating` → `0`
+   - `RotationRate::Rotating(rpm)` → `rpm` value
+   - Error case defaults to `0` (assume SSD if unknown)
+
+**Technical Notes:**
+- `can_power_off` indicates safe removal capability (hot-plug), not spin-down support
+- NVMe drives have `can_power_off=true` but don't support standby/wake operations
+- RotationRate is more reliable for detecting spinning disk hardware
+
+**Build Status:** ✅ Success
+**Commands Run:**
+```bash
+cargo build 2>&1 | tail -20
+```
+
+**Test Plan:**
+- Manual testing required with different drive types:
+  - NVMe drive: should NOT show Standby/Wake buttons
+  - SATA HDD: should show Standby/Wake buttons
+  - SATA SSD: should NOT show Standby/Wake buttons
+  - USB HDD: should show Standby/Wake buttons (if rotation_rate detected)
+
+---

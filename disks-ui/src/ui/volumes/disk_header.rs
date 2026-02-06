@@ -110,8 +110,8 @@ pub fn disk_header<'a>(
         );
     }
     
-    // Standby (only for drives that support power management)
-    if !drive.is_loop && drive.can_power_off {
+    // Standby (only for drives that support power management - spinning disks)
+    if drive.supports_power_management() {
         drive_actions.push(
             widget::tooltip(
                 widget::button::icon(icon::from_name("media-playback-pause-symbolic"))
@@ -123,8 +123,8 @@ pub fn disk_header<'a>(
         );
     }
     
-    // Wake Up (only for drives that support power management)
-    if !drive.is_loop && drive.can_power_off {
+    // Wake Up (only for drives that support power management - spinning disks)
+    if drive.supports_power_management() {
         drive_actions.push(
             widget::tooltip(
                 widget::button::icon(icon::from_name("alarm-symbolic"))
