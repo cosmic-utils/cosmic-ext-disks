@@ -1,5 +1,34 @@
 # feature/ui-refactor — Implementation Log
 
+## 2026-02-06 (Continued - Phase 4)
+
+**Task 28: Fix LUKS Container Usage Aggregation ✅**
+- Commit: b80b7a6
+- Issue: LUKS containers showing 0 usage instead of children's filesystem usage
+- Root Cause: LUKS containers displayed via `build_partition_info` (VolumeModel only), not `build_volume_node_info` (VolumeNode with children)
+- Solution: Modified `build_partition_info` to accept `Option<&VolumeNode>`, added aggregation logic for CryptoContainer volumes
+- Test Status: All tests pass (36/36), clippy clean
+
+**Task 29: Re-add Mount Point File Explorer Links ✅**
+- Commit: 1db21a2
+- Added clickable `link_info` links in both `build_volume_node_info` and `build_partition_info`
+- Links use `Message::OpenPath` to open file explorer at mount point
+
+**Task 31: Shorten Action Button Labels ✅**
+- Commit: 1db21a2
+- Added shortened locale keys, updated all 18 action_button calls
+- Mount/Unmount now context-dependent based on state
+
+**Task 32: Uniform Button Sizing ✅**
+- Commit: 1db21a2
+- Set all action buttons to `Length::Fixed(96.0)` width
+
+**Task 33: Horizontal Button Layout ✅**
+- Commit: 1db21a2
+- Changed from column to row layout, icon 24px→16px, spacing 6px, padding [4,8]
+
+---
+
 ## 2026-02-06
 
 - Implemented custom sidebar treeview to replace built-in `widget::nav_bar` rendering.

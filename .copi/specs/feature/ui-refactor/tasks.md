@@ -490,7 +490,7 @@
 
 **Added:** 2026-02-06
 
-### Task 28: Fix LUKS usage displaying 0 instead of children's total
+### Task 28: Fix LUKS usage displaying 0 instead of children's total ✅
 - Scope: LUKS containers still showing 0 usage instead of aggregated child usage.
 - Files/areas:
   - `disks-ui/src/ui/app/view.rs` (aggregate_children_usage function)
@@ -501,8 +501,8 @@
   - Test with actual LUKS container to verify aggregation works.
 - Test plan: manual UI test with LUKS-encrypted partition; verify usage displays correctly.
 - Done when:
-  - [ ] LUKS containers display actual aggregated child usage (not 0).
-  - [ ] Pie chart reflects correct usage values.
+  - [x] LUKS containers display actual aggregated child usage (not 0).
+  - [x] Pie chart reflects correct usage values.
 
 ### Task 29: Re-add "Mounted at:" file explorer link ✅
 - Scope: restore the clickable link to open mount point in file explorer.

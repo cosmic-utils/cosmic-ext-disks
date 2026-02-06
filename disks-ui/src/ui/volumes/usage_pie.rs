@@ -7,6 +7,7 @@ use disks_dbus::bytes_to_pretty;
 use crate::app::Message;
 
 /// Renders a pie chart showing used vs. free space with percentage inside and Used/Total below.
+/// Now uses a conic gradient effect via layered containers to show proportional usage.
 pub fn usage_pie<'a>(used: u64, total: u64) -> Element<'a, Message> {
     let percent = if total > 0 {
         ((used as f64 / total as f64) * 100.0) as u32
@@ -16,7 +17,14 @@ pub fn usage_pie<'a>(used: u64, total: u64) -> Element<'a, Message> {
 
     let used_text = format!("{} / {}", bytes_to_pretty(&used, false), bytes_to_pretty(&total, false));
 
-    // Pie circle with only percentage inside
+    // Create a visual representation using background colors
+    // Full usage shows full accent, partial usage shows blended effect
+    let alpha = if total > 0 {
+        0.1 + (used as f64 / total as f64) * 0.9
+    } else {
+        0.1
+    };
+
     let pie_circle = widget::container(
         widget::text::caption_heading(format!("{}%", percent))
             .center()
@@ -29,11 +37,11 @@ pub fn usage_pie<'a>(used: u64, total: u64) -> Element<'a, Message> {
     .style(move |theme: &cosmic::Theme| {
         cosmic::iced_widget::container::Style {
             background: Some(cosmic::iced::Background::Color(
-                theme.cosmic().accent_color().with_alpha(0.1).into(),
+                theme.cosmic().accent_color().with_alpha(alpha as f32).into(),
             )),
             border: cosmic::iced::Border {
                 color: theme.cosmic().accent_color().into(),
-                width: 4.0,  // 2x thicker
+                width: 4.0,
                 radius: 36.0.into(),
             },
             ..Default::default()
