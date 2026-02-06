@@ -12,6 +12,7 @@
 - Ensured row event handling avoids nested-button conflicts by making only the title region clickable for selection.
 - Added i18n key `unmount-failed` for sidebar unmount error dialog.
 - Adjusted sidebar item styling so each row container paints the same background as `Container::Card` (matching volumes sections) while keeping selection indicated via an accent border.
+- Updated sidebar row titles to use drive vendor+model (no serial/path-derived IDs), render titles with semibold typography, and apply accent/highlight foreground color to title/icon/expander/actions when selected.
 
 ### Commands run
 
