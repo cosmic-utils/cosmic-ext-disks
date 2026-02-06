@@ -6,6 +6,7 @@ use crate::ui::dialogs::message::{EditPartitionMessage, ResizePartitionMessage};
 use crate::ui::dialogs::state::{
     EditPartitionDialog, FormatPartitionDialog, ResizePartitionDialog, ShowDialog,
 };
+use crate::ui::error::{UiErrorContext, log_error_and_show_dialog};
 use crate::ui::volumes::helpers;
 use crate::utils::DiskSegmentKind;
 use disks_dbus::{CreatePartitionInfo, DriveModel, VolumeKind, VolumeModel, VolumeNode};
@@ -289,11 +290,10 @@ pub(super) fn edit_partition_message(
                 },
                 |result| match result {
                     Ok(drives) => Message::UpdateNav(drives, None).into(),
-                    Err(e) => Message::Dialog(Box::new(ShowDialog::Info {
-                        title: fl!("edit-partition").to_string(),
-                        body: format!("{e:#}"),
-                    }))
-                    .into(),
+                    Err(e) => {
+                        let ctx = UiErrorContext::new("edit_partition");
+                        log_error_and_show_dialog(fl!("edit-partition").to_string(), e, ctx).into()
+                    }
                 },
             );
         }
@@ -339,11 +339,11 @@ pub(super) fn resize_partition_message(
                 },
                 |result| match result {
                     Ok(drives) => Message::UpdateNav(drives, None).into(),
-                    Err(e) => Message::Dialog(Box::new(ShowDialog::Info {
-                        title: fl!("resize-partition").to_string(),
-                        body: format!("{e:#}"),
-                    }))
-                    .into(),
+                    Err(e) => {
+                        let ctx = UiErrorContext::new("resize_partition");
+                        log_error_and_show_dialog(fl!("resize-partition").to_string(), e, ctx)
+                            .into()
+                    }
                 },
             );
         }

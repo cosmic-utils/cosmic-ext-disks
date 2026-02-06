@@ -9,6 +9,7 @@ use crate::ui::dialogs::state::{
     ChangePassphraseDialog, EditEncryptionOptionsDialog, FilesystemTarget, ShowDialog,
     TakeOwnershipDialog, UnlockEncryptedDialog,
 };
+use crate::ui::error::{UiErrorContext, log_error_and_show_dialog};
 use crate::ui::volumes::helpers;
 use disks_dbus::{DriveModel, VolumeKind, VolumeNode};
 
@@ -125,6 +126,14 @@ pub(super) fn open_edit_encryption_options(
             let settings = match loaded {
                 Ok(v) => v,
                 Err(e) => {
+                    tracing::error!(
+                        ?e,
+                        operation = "get_encryption_options_settings",
+                        object_path = %volume.path,
+                        device = ?volume.device_path,
+                        drive_path = %volume.drive_path,
+                        "error surfaced in UI"
+                    );
                     error = Some(format!("{e:#}"));
                     None
                 }
@@ -217,6 +226,12 @@ pub(super) fn unlock_message(
                 .cloned();
 
             let Some(p) = part else {
+                tracing::error!(
+                    operation = "unlock_encrypted",
+                    object_path = %partition_path,
+                    partition_name = %partition_name,
+                    "unlock missing partition in model"
+                );
                 return Task::done(
                     Message::Dialog(Box::new(ShowDialog::Info {
                         title: fl!("unlock-failed"),
@@ -234,7 +249,12 @@ pub(super) fn unlock_message(
                 move |result| match result {
                     Ok(drives) => Message::UpdateNav(drives, None).into(),
                     Err(e) => {
-                        tracing::error!(%e, "unlock encrypted dialog error");
+                        tracing::error!(
+                            ?e,
+                            operation = "unlock_encrypted",
+                            object_path = %partition_path,
+                            "unlock encrypted dialog error"
+                        );
                         Message::Dialog(Box::new(ShowDialog::UnlockEncrypted(
                             UnlockEncryptedDialog {
                                 partition_path: partition_path.clone(),
@@ -286,11 +306,10 @@ pub(super) fn take_ownership_message(
                 },
                 |result| match result {
                     Ok(drives) => Message::UpdateNav(drives, None).into(),
-                    Err(e) => Message::Dialog(Box::new(ShowDialog::Info {
-                        title: fl!("take-ownership").to_string(),
-                        body: format!("{e:#}"),
-                    }))
-                    .into(),
+                    Err(e) => {
+                        let ctx = UiErrorContext::new("take_ownership");
+                        log_error_and_show_dialog(fl!("take-ownership").to_string(), e, ctx).into()
+                    }
                 },
             )
         }
@@ -329,6 +348,7 @@ pub(super) fn change_passphrase_message(
             }
 
             if state.new_passphrase.is_empty() || state.new_passphrase != state.confirm_passphrase {
+                tracing::warn!(operation = "change_passphrase", "passphrase mismatch");
                 state.error = Some(fl!("passphrase-mismatch").to_string());
                 return Task::none();
             }
@@ -345,11 +365,11 @@ pub(super) fn change_passphrase_message(
                 },
                 |result| match result {
                     Ok(drives) => Message::UpdateNav(drives, None).into(),
-                    Err(e) => Message::Dialog(Box::new(ShowDialog::Info {
-                        title: fl!("change-passphrase").to_string(),
-                        body: format!("{e:#}"),
-                    }))
-                    .into(),
+                    Err(e) => {
+                        let ctx = UiErrorContext::new("change_passphrase");
+                        log_error_and_show_dialog(fl!("change-passphrase").to_string(), e, ctx)
+                            .into()
+                    }
                 },
             )
         }
@@ -434,11 +454,10 @@ pub(super) fn edit_encryption_options_message(
                 },
                 move |result| match result {
                     Ok(drives) => Message::UpdateNav(drives, None).into(),
-                    Err(e) => Message::Dialog(Box::new(ShowDialog::Info {
-                        title: fl!("edit-encryption-options"),
-                        body: format!("{e:#}"),
-                    }))
-                    .into(),
+                    Err(e) => {
+                        let ctx = UiErrorContext::new("edit_encryption_options");
+                        log_error_and_show_dialog(fl!("edit-encryption-options"), e, ctx).into()
+                    }
                 },
             )
         }
@@ -468,12 +487,8 @@ pub(super) fn lock_container(control: &mut VolumesControl) -> Task<cosmic::Actio
             |result| match result {
                 Ok(drives) => Message::UpdateNav(drives, None).into(),
                 Err(e) => {
-                    tracing::error!(?e, "lock container failed");
-                    Message::Dialog(Box::new(ShowDialog::Info {
-                        title: fl!("lock-failed"),
-                        body: e.to_string(),
-                    }))
-                    .into()
+                    let ctx = UiErrorContext::new("lock_container");
+                    log_error_and_show_dialog(fl!("lock-failed"), e, ctx).into()
                 }
             },
         );

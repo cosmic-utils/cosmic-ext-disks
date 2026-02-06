@@ -4,6 +4,7 @@ use crate::app::Message;
 use crate::fl;
 use crate::ui::dialogs::message::EditMountOptionsMessage;
 use crate::ui::dialogs::state::{EditMountOptionsDialog, FilesystemTarget, ShowDialog};
+use crate::ui::error::{UiErrorContext, log_error_and_show_dialog};
 use disks_dbus::DriveModel;
 
 use super::super::VolumesControl;
@@ -100,6 +101,27 @@ pub(super) fn open_edit_mount_options(
             let settings = match loaded {
                 Ok(v) => v,
                 Err(e) => {
+                    match &target {
+                        FilesystemTarget::Volume(v) => {
+                            tracing::error!(
+                                ?e,
+                                operation = "get_mount_options_settings",
+                                object_path = %v.path,
+                                device = ?v.device_path,
+                                drive_path = %v.drive_path,
+                                "error surfaced in UI"
+                            );
+                        }
+                        FilesystemTarget::Node(n) => {
+                            tracing::error!(
+                                ?e,
+                                operation = "get_mount_options_settings",
+                                object_path = %n.object_path,
+                                device = ?n.device_path,
+                                "error surfaced in UI"
+                            );
+                        }
+                    }
                     error = Some(format!("{e:#}"));
                     None
                 }
@@ -354,11 +376,10 @@ pub(super) fn edit_mount_options_message(
                 },
                 move |result| match result {
                     Ok(drives) => Message::UpdateNav(drives, None).into(),
-                    Err(e) => Message::Dialog(Box::new(ShowDialog::Info {
-                        title: fl!("edit-mount-options"),
-                        body: format!("{e:#}"),
-                    }))
-                    .into(),
+                    Err(e) => {
+                        let ctx = UiErrorContext::new("edit_mount_options");
+                        log_error_and_show_dialog(fl!("edit-mount-options"), e, ctx).into()
+                    }
                 },
             )
         }

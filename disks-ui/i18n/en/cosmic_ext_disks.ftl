@@ -24,13 +24,18 @@ restore-image = Restore image
 attach = Attach
 restore-warning = This will overwrite the selected target device. This cannot be undone.
 eject = Eject
+eject-failed = Eject failed
 power-off = Power Off
+power-off-failed = Power off failed
 format-disk = Format Disk
+format-disk-failed = Format disk failed
 benchmark-disk = Benchmark Disk
 smart-data-self-tests = SMART Data & Self-Tests
 drive-settings = Drive Settings
 standby-now = Standby Now
+standby-failed = Standby failed
 wake-up-from-standby = Wake-up From Standby
+wake-up-failed = Wake-up failed
 
 # Dialog buttons
 ok = Ok
@@ -52,6 +57,7 @@ partitioning-none = None
 
 # Create partition dialog
 create-partition = Create Partition
+create-partition-failed = Create partition failed
 format-partition = Format Partition
 format-partition-description = This will format the selected volume. Size: { $size }
 volume-name = Volume Name

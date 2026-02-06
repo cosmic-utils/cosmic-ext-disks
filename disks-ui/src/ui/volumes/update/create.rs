@@ -4,6 +4,7 @@ use crate::app::Message;
 use crate::fl;
 use crate::ui::dialogs::message::CreateMessage;
 use crate::ui::dialogs::state::ShowDialog;
+use crate::ui::error::{UiErrorContext, log_error_and_show_dialog};
 use crate::ui::volumes::helpers;
 use disks_dbus::{CreatePartitionInfo, DriveModel};
 
@@ -68,10 +69,12 @@ pub(super) fn create_message(
                 // UI-side validation for encrypted partition creation.
                 if state.info.password_protected {
                     if state.info.password.is_empty() {
+                        tracing::warn!(operation = "create_partition", "password required");
                         state.error = Some(fl!("password-required").to_string());
                         return Task::none();
                     }
                     if state.info.password != state.info.confirmed_password {
+                        tracing::warn!(operation = "create_partition", "password mismatch");
                         state.error = Some(fl!("password-mismatch").to_string());
                         return Task::none();
                     }
@@ -93,11 +96,10 @@ pub(super) fn create_message(
                     },
                     |result| match result {
                         Ok(drives) => Message::UpdateNav(drives, None).into(),
-                        Err(e) => Message::Dialog(Box::new(ShowDialog::Info {
-                            title: fl!("app-title"),
-                            body: format!("{e:#}"),
-                        }))
-                        .into(),
+                        Err(e) => {
+                            let ctx = UiErrorContext::new("create_partition");
+                            log_error_and_show_dialog(fl!("create-partition-failed"), e, ctx).into()
+                        }
                     },
                 );
             }
@@ -136,11 +138,11 @@ pub(super) fn create_message(
                     },
                     |result| match result {
                         Ok(drives) => Message::UpdateNav(drives, None).into(),
-                        Err(e) => Message::Dialog(Box::new(ShowDialog::Info {
-                            title: fl!("format-partition").to_string(),
-                            body: format!("{e:#}"),
-                        }))
-                        .into(),
+                        Err(e) => {
+                            let ctx = UiErrorContext::new("format_partition");
+                            log_error_and_show_dialog(fl!("format-partition").to_string(), e, ctx)
+                                .into()
+                        }
                     },
                 );
             }
