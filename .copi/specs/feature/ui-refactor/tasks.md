@@ -483,3 +483,148 @@
   - [x] Buttons maintain equal width (50/50 split).
   - [x] Text wraps appropriately to fit within button bounds.
   - [x] Buttons remain readable and functional.
+
+---
+
+## Extended Scope Tasks — Phase 4: Bug Fixes & Refinements
+
+**Added:** 2026-02-06
+
+### Task 28: Fix LUKS usage displaying 0 instead of children's total
+- Scope: LUKS containers still showing 0 usage instead of aggregated child usage.
+- Files/areas:
+  - `disks-ui/src/ui/app/view.rs` (aggregate_children_usage function)
+- Steps:
+  - Debug why aggregate_children_usage returns 0.
+  - Verify children actually have usage data populated.
+  - Check VolumeNode structure and children iteration.
+  - Test with actual LUKS container to verify aggregation works.
+- Test plan: manual UI test with LUKS-encrypted partition; verify usage displays correctly.
+- Done when:
+  - [ ] LUKS containers display actual aggregated child usage (not 0).
+  - [ ] Pie chart reflects correct usage values.
+
+### Task 29: Re-add "Mounted at:" file explorer link
+- Scope: restore the clickable link to open mount point in file explorer.
+- Files/areas:
+  - `disks-ui/src/ui/app/view.rs` (build_volume_node_info, build_partition_info)
+- Steps:
+  - Re-add link_info() calls for mount point display.
+  - Wire up OpenPath message handler if needed.
+  - Ensure link opens file explorer at mount point.
+  - Apply to both volume node and partition info displays.
+- Test plan: manual UI test; click mount point link and verify file explorer opens.
+- Done when:
+  - [ ] Mount point displays as clickable link.
+  - [ ] Clicking link opens file explorer at mount point.
+  - [ ] Works for both volume nodes and partitions.
+
+### Task 30: Multi-partition usage pie with key
+- Scope: pie chart should show breakdown of each partition on disk with legend below.
+- Files/areas:
+  - `disks-ui/src/ui/volumes/usage_pie.rs` (new disk_usage_pie variant)
+  - `disks-ui/src/ui/volumes/disk_header.rs`
+- Steps:
+  - Create disk_usage_pie() function showing multi-segment pie chart.
+  - Each partition gets distinct color segment proportional to size.
+  - Add legend below showing: color swatch | partition name | size.
+  - Make disk version larger (e.g., 96x96 or 120x120 vs 72x72).
+  - Keep simple usage_pie() for single-volume display.
+- Test plan: manual UI test; verify pie shows all partitions with correct proportions and legend.
+- Done when:
+  - [ ] Disk header pie chart shows all partition segments.
+  - [ ] Each partition has distinct color.
+  - [ ] Legend below pie shows all partitions with names and sizes.
+  - [ ] Disk pie is larger than volume pie.
+
+### Task 31: Shorten action button text labels
+- Scope: make button labels more concise and context-appropriate.
+- Files/areas:
+  - `disks-ui/src/ui/app/view.rs` (all action_button calls)
+- Proposed shortenings:
+  - "Mount / Unmount" → "Mount" or "Unmount" (context-dependent)
+  - "Format Partition" → "Format"
+  - "Edit Partition" → "Edit"
+  - "Resize Partition" → "Resize"
+  - "Edit Mount Options" → "Mount Options"
+  - "Edit Filesystem" → "Label"
+  - "Check Filesystem" → "Check"
+  - "Repair Filesystem" → "Repair"
+  - "Take Ownership" → "Ownership"
+  - "Change Passphrase" → "Passphrase"
+  - "Edit Encryption Options" → "Encryption"
+  - "Create Partition" → "Create"
+  - "Delete" → "Delete" (already short)
+  - "Create Disk From Drive" → "Create Image"
+  - "Restore Image to Drive" → "Restore Image"
+  - "Create Disk Image From Partition" → "Create Image"
+  - "Restore Disk Image To Partition" → "Restore Image"
+- Test plan: manual UI test; verify all buttons readable and understandable.
+- Done when:
+  - [ ] All action button labels shortened per plan.
+  - [ ] Labels remain clear and understandable.
+  - [ ] Mount/Unmount shows correct state-dependent text.
+
+### Task 32: Uniform action button sizing
+- Scope: all action buttons should have same width and height.
+- Files/areas:
+  - `disks-ui/src/ui/app/view.rs` (action_button function)
+- Steps:
+  - Set consistent width for all buttons (e.g., Length::Fixed(80) or similar).
+  - Ensure icon and text layout fits within fixed width.
+  - Test with longest button label to determine minimum width.
+  - Apply to both disk and partition action buttons.
+- Test plan: manual UI test; verify all buttons same size and aligned.
+- Done when:
+  - [ ] All action buttons have uniform width.
+  - [ ] Buttons remain readable with fixed sizing.
+  - [ ] Button rows look visually aligned.
+
+### Task 33: Horizontal action button layout (icon beside text)
+- Scope: change button layout from vertical (icon above text) to horizontal (icon beside text).
+- Files/areas:
+  - `disks-ui/src/ui/app/view.rs` (action_button function)
+- Steps:
+  - Change from column layout to row layout.
+  - Place icon on left, text on right.
+  - Adjust spacing between icon and text (e.g., 4-6px).
+  - Ensure text doesn't wrap awkwardly with shorter labels.
+- Test plan: manual UI test; verify buttons look good with horizontal layout.
+- Done when:
+  - [ ] Action buttons display icon beside text (horizontal).
+  - [ ] Spacing looks appropriate.
+  - [ ] Works well with shortened labels from Task 31.
+
+### Task 34: Move drive actions to header bar, remove menubar, add About button
+- Scope: replace menubar with drive action buttons in header, add standalone About button.
+- Files/areas:
+  - `disks-ui/src/ui/app/view.rs` (header_start function)
+  - `disks-ui/src/views/menu.rs` (remove entirely or keep only About)
+- Steps:
+  - Move drive action buttons from below disk header to header_start().
+  - Remove menubar rendering from header_start().
+  - Add dedicated "About" button to header (icon: help-about-symbolic).
+  - Ensure drive actions only show when disk is selected.
+  - Position actions appropriately in header bar.
+- Test plan: manual UI test; verify header shows drive actions and About button.
+- Done when:
+  - [ ] Drive action buttons appear in header bar.
+  - [ ] Menubar completely removed.
+  - [ ] About button visible and functional.
+  - [ ] Drive actions only show when disk selected.
+
+### Task 35: Fix usage pie free space visualization
+- Scope: pie chart should show used portion as segment, not full circle.
+- Files/areas:
+  - `disks-ui/src/ui/volumes/usage_pie.rs`
+- Steps:
+  - Debug why pie shows full circle when should be partial.
+  - Implement actual arc/segment drawing instead of full circle border.
+  - Used portion should be filled/colored segment.
+  - Free space should be empty/background.
+  - May need to use canvas rendering or SVG instead of simple border.
+- Test plan: manual UI test; disk with 1GB used / 10GB total should show ~10% segment, not full circle.
+- Done when:
+  - [ ] Pie chart shows proportional segment for used space.
+  - [ ] Free space is visually distinct (empty or different color).
+  - [ ] Accurate representation of usage percentage.
