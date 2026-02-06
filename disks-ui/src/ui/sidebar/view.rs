@@ -6,6 +6,9 @@ use cosmic::widget::{self, icon};
 use cosmic::{Apply, Element};
 use disks_dbus::{DriveModel, VolumeKind, VolumeNode};
 
+/// Fixed width for expander button (icon 16px + padding 2px * 2)
+const EXPANDER_WIDTH: u16 = 20;
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum Section {
     Logical,
@@ -190,7 +193,7 @@ fn drive_row(
         }
         button.into()
     } else {
-        widget::Space::new(16, 16).into()
+        widget::Space::new(EXPANDER_WIDTH, 16).into()
     };
 
     let drive_icon_name = if drive.removable {
@@ -316,7 +319,8 @@ fn volume_row(
         actions.push(unmount_btn.into());
     }
 
-    let indent = depth * 18;
+    // Indent by expander_width * 2 per depth level for consistent alignment
+    let indent = depth * (EXPANDER_WIDTH * 2);
 
     let row = widget::Row::with_children(vec![
         expander,

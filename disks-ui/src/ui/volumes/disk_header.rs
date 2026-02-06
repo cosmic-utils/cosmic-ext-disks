@@ -60,8 +60,8 @@ pub fn disk_header<'a>(
     // Drive action buttons underneath icon and text (left-aligned, spanning both columns)
     let mut drive_actions = Vec::new();
     
-    // Eject (for removable drives)
-    if drive.removable {
+    // Eject (for removable/ejectable drives - use this instead of power off)
+    if drive.removable || drive.ejectable {
         drive_actions.push(
             widget::tooltip(
                 widget::button::icon(icon::from_name("media-eject-symbolic"))
@@ -72,9 +72,8 @@ pub fn disk_header<'a>(
             .into(),
         );
     }
-    
-    // Power Off (only if supported)
-    if drive.can_power_off {
+    // Power Off (only for non-removable drives that support it)
+    else if drive.can_power_off {
         drive_actions.push(
             widget::tooltip(
                 widget::button::icon(icon::from_name("system-shutdown-symbolic"))

@@ -690,7 +690,7 @@ fn build_partition_info<'a>(
     // Format
     action_buttons.push(
         widget::tooltip(
-            widget::button::icon(icon::from_name("edit-clear-symbolic"))
+            widget::button::icon(icon::from_name("edit-clear-all-symbolic"))
                 .on_press(Message::VolumesMessage(VolumesControlMessage::OpenFormatPartition)),
             widget::text(fl!("format")),
             widget::tooltip::Position::Bottom,
@@ -702,7 +702,7 @@ fn build_partition_info<'a>(
     if p.volume_type == disks_dbus::VolumeType::Partition {
         action_buttons.push(
             widget::tooltip(
-                widget::button::icon(icon::from_name("document-edit-symbolic"))
+                widget::button::icon(icon::from_name("edit-symbolic"))
                     .on_press(Message::VolumesMessage(VolumesControlMessage::OpenEditPartition)),
                 widget::text(fl!("edit")),
                 widget::tooltip::Position::Bottom,

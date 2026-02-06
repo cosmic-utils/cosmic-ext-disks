@@ -764,10 +764,10 @@
     - Mixed hierarchy
 - Test plan: manual UI test; verify alignment consistency across all node types.
 - Done when:
-  - [ ] Expander has fixed width.
-  - [ ] All nodes at same depth align horizontally.
-  - [ ] Indentation formula: base + (expander_width × 2 × depth).
-  - [ ] Works with all node types (partition, LUKS, free space).
+  - [x] Expander has fixed width.
+  - [x] All nodes at same depth align horizontally.
+  - [x] Indentation formula: base + (expander_width × 2 × depth).
+  - [x] Works with all node types (partition, LUKS, free space).
 
 ### Task 41: Fix GPT usable range parsing errors
 - Scope: GPT reserved space calculations failing with "Could not parse GPT usable range" warnings.
@@ -838,8 +838,8 @@
   - Verify icon displays in UI.
 - Test plan: manual UI test; verify edit button shows icon.
 - Done when:
-  - [ ] Edit partition button has visible icon.
-  - [ ] Icon matches COSMIC design language.
+  - [x] Edit partition button has visible icon.
+  - [x] Icon matches COSMIC design language.
 
 ### Task 44: Create application icon using drive tree node icon
 - Scope: application needs proper icon; use existing drive icon as temporary solution.
@@ -876,8 +876,8 @@
   - Ensure both operations have consistent visual identity.
 - Test plan: visual inspection; verify both format buttons use same icon.
 - Done when:
-  - [ ] Format partition icon matches format disk icon.
-  - [ ] Visual consistency across both operations.
+  - [x] Format partition icon matches format disk icon.
+  - [x] Visual consistency across both operations.
 
 ### Task 46: Preserve volume selection during mount/unmount/lock/unlock operations
 - Scope: selected volume resets to first item after state-changing operations.
@@ -970,7 +970,7 @@
     - Power Off: `system-shutdown-symbolic` / "Power Off"
 - Test plan: test with USB drive (eject), internal drive (power off if supported), verify correct action.
 - Done when:
-  - [ ] Removable drives show Eject button only.
-  - [ ] Non-removable drives show Power Off button (if supported).
-  - [ ] No drives show both buttons simultaneously.
-  - [ ] Tested with USB drive and internal drive.
+  - [x] Removable drives show Eject button only.
+  - [x] Non-removable drives show Power Off button (if supported).
+  - [x] No drives show both buttons simultaneously.
+  - [x] Tested with USB drive and internal drive.
