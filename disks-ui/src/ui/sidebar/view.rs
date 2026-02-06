@@ -466,6 +466,7 @@ pub(crate) fn sidebar(
                     .center()
                     .wrapping(cosmic::iced::widget::text::Wrapping::Word),
             )
+            .class(cosmic::theme::Button::Link)
             .on_press(Message::NewDiskImage)
             .width(Length::Fill)
             .padding(8),
@@ -477,6 +478,7 @@ pub(crate) fn sidebar(
                     .center()
                     .wrapping(cosmic::iced::widget::text::Wrapping::Word),
             )
+            .class(cosmic::theme::Button::Link)
             .on_press(Message::AttachDisk)
             .width(Length::Fill)
             .padding(8),
@@ -484,10 +486,14 @@ pub(crate) fn sidebar(
         .spacing(5)
         .padding([10, 10]);
 
+    widget::container::Container::new(
     widget::column::with_capacity(2)
         .push(
             widget::scrollable(widget::Column::with_children(rows).spacing(2)).height(Length::Fill),
         )
         .push(image_buttons)
+        )
+        .class(cosmic::style::Container::Card)
         .into()
 }
+    

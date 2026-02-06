@@ -53,7 +53,7 @@ pub fn format_disk<'a>(state: FormatDiskDialog) -> Element<'a, Message> {
 
 pub fn smart_data<'a>(state: SmartDataDialog) -> Element<'a, Message> {
     let mut content = iced_widget::column![]
-        .spacing(12)
+        .spacing(6)
         .width(cosmic::iced::Length::Fill);
 
     if let Some(err) = state.error.as_ref() {
