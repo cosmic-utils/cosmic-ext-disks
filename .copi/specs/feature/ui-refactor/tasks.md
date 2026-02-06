@@ -139,8 +139,8 @@
   - Test with varying window sizes to confirm ratios adapt gracefully.
 - Test plan: manual UI test on different screen sizes; verify top/bottom sections render at expected proportions.
 - Done when:
-  - [ ] Disk page renders two distinct sections with appropriate height distribution.
-  - [ ] Scrolling behavior is acceptable for both sections.
+  - [x] Disk page renders two distinct sections with appropriate height distribution.
+  - [x] Scrolling behavior is acceptable for both sections.
 
 ## Task 10: Redesign disk info header (icon, name/partitioning/serial, used/total box)
 - Scope: create a new disk header component with the specified layout.
@@ -160,9 +160,9 @@
   - Replace the current disk header in the disk page view with this new component.
 - Test plan: manual UI test; verify layout matches spec on different drives (with/without serial, varying name lengths).
 - Done when:
-  - [ ] Disk header renders with the specified layout.
-  - [ ] "Used / Total" box displays correct values.
-  - [ ] Visual styling is clean and consistent with the app theme.
+  - [x] Disk header renders with the specified layout.
+  - [x] "Used / Total" box displays correct values.
+  - [x] Visual styling is clean and consistent with the app theme.
 
 ## Task 11: Compact the volumes control (reduce height, simplify content)
 - Scope: modify the volumes control to reduce vertical space and remove extraneous elements.
@@ -183,11 +183,11 @@
   - Ensure the control still allows volume selection and updates the bottom content area.
 - Test plan: manual UI test; verify control is ~50% shorter, displays only name/size, and no checkboxes or action buttons are present.
 - Done when:
-  - [ ] Volumes control height reduced by ~50%.
-  - [ ] Only name and size displayed per volume row.
-  - [ ] "Show Reserved" checkbox removed; backing logic retained.
-  - [ ] "Volumes" header label removed.
-  - [ ] Action buttons removed from the control.
+  - [x] Volumes control height reduced by ~50%.
+  - [x] Only name and size displayed per volume row.
+  - [x] "Show Reserved" checkbox removed; backing logic retained.
+  - [x] "Volumes" header label removed.
+  - [x] Action buttons removed from the control.
 
 ## Task 12: Add color-coded usage bar below volumes control
 - Scope: implement a horizontal stacked usage bar with a legend.
@@ -211,10 +211,10 @@
     - Many small volumes: set a minimum segment width or overflow behavior.
 - Test plan: manual UI test with drives that have 0, 1, 3, and 10+ volumes; verify proportions and legend are accurate.
 - Done when:
-  - [ ] Usage bar renders below the volumes control.
-  - [ ] Segments are proportional and color-coded.
-  - [ ] Legend displays correctly and is center-aligned.
-  - [ ] Bar updates when volumes change.
+  - [x] Usage bar renders below the volumes control.
+  - [x] Segments are proportional and color-coded.
+  - [x] Legend displays correctly and is center-aligned.
+  - [x] Bar updates when volumes change.
 
 ## Task 13: Implement volume-specific view in bottom 2/3 area (with action buttons)
 - Scope: add a detail view for the selected volume, including action buttons relocated from the volumes control, with bi-directional selection synchronization.

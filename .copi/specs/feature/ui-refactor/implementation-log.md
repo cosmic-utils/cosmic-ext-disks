@@ -33,6 +33,15 @@
 - Action buttons will be relocated to volume detail view in Task 13
 - Cleaned up unused imports and dead code
 
+**Task 12: Color-coded usage bar**
+- Created `usage_bar.rs` module with horizontal stacked segment visualization
+- Each segment width proportional to volume size relative to total disk size
+- Implemented 10-color distinct palette for visual differentiation
+- Legend below bar displays: color swatch | volume name | size for each partition
+- Filters to show only actual partitions (excludes free space and reserved)
+- Integrated into main view between volumes control and volume detail view
+- Added `#[allow(dead_code)]` attributes for code that will be reused in Task 13
+
 ### Commands run
 
 - `cargo check -p cosmic-ext-disks`
@@ -45,11 +54,11 @@
 - disks-ui/src/ui/sidebar/{mod.rs,state.rs,view.rs}
 - disks-ui/src/ui/app/{message.rs,mod.rs,state.rs,view.rs}
 - disks-ui/src/ui/app/update/{mod.rs,nav.rs,drive.rs}
-- disks-ui/src/ui/volumes/{mod.rs,view.rs,disk_header.rs}
+- disks-ui/src/ui/volumes/{mod.rs,view.rs,disk_header.rs,usage_bar.rs}
+- disks-ui/src/ui/dialogs/state.rs
 - disks-ui/i18n/{en,sv}/cosmic_ext_disks.ftl
 
 ### Next steps
 
-- Task 12: Add color-coded usage bar below volumes control
 - Task 13: Implement volume-specific detail view with action buttons and bi-directional selection sync
 - Task 14: Integration and polish
