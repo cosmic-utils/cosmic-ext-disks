@@ -28,14 +28,13 @@ pub(super) fn segment_selected(
         }
 
         // Sync with sidebar: select the segment's volume node if it has one
-        if let Some(segment) = control.segments.get(index) {
-            if let Some(vol) = &segment.volume {
-                return Task::batch(vec![Task::done(cosmic::Action::App(
-                    Message::SidebarSelectChild {
-                        object_path: vol.path.to_string(),
-                    },
-                ))]);
-            }
+        if let Some(segment) = control.segments.get(index)
+            && let Some(vol) = &segment.volume {
+            return Task::batch(vec![Task::done(cosmic::Action::App(
+                Message::SidebarSelectChild {
+                    object_path: vol.path.to_string(),
+                },
+            ))]);
         }
 
         // No volume on this segment (e.g., free space), clear selection

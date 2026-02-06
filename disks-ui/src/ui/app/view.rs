@@ -12,7 +12,7 @@ use crate::views::about::about;
 use crate::views::menu::menu_view;
 use cosmic::app::context_drawer as cosmic_context_drawer;
 use cosmic::iced::Length;
-use cosmic::iced::alignment::{Horizontal, Vertical};
+use cosmic::iced::alignment::{Alignment, Horizontal, Vertical};
 use cosmic::widget::text::heading;
 use cosmic::widget::{self, Space, icon};
 use cosmic::{Apply, Element, iced_widget};
@@ -254,13 +254,13 @@ fn volume_detail_view<'a>(
         )
     });
 
-    // Build the info section
-    let info_section = if let Some(v) = selected_volume_node {
-        build_volume_node_info(v)
+    // Build the header section (mirroring disk header layout)
+    let header_section = if let Some(v) = selected_volume_node {
+        build_volume_node_header(v)
     } else if let Some(ref p) = segment.volume {
-        build_partition_info(p)
+        build_partition_header(p)
     } else {
-        build_free_space_info(segment)
+        build_free_space_header(segment)
     };
 
     // Build the action bar
@@ -272,7 +272,7 @@ fn volume_detail_view<'a>(
     );
 
     iced_widget::column![
-        info_section,
+        header_section,
         Space::new(0, 20),
         widget::Row::from_vec(action_bar).spacing(10)
     ]
@@ -280,29 +280,21 @@ fn volume_detail_view<'a>(
     .into()
 }
 
-/// Build info display for a volume node (child filesystem/LV)
-fn build_volume_node_info(v: &disks_dbus::VolumeNode) -> Element<'_, Message> {
-    let mut col = iced_widget::column![
-        heading(v.label.clone()),
-        Space::new(0, 10),
-        labelled_info(fl!("size"), bytes_to_pretty(&v.size, true)),
-    ]
-    .spacing(5);
+/// Build header display for a volume node (child filesystem/LV) - mirrors disk header layout
+fn build_volume_node_header(v: &disks_dbus::VolumeNode) -> Element<'_, Message> {
+    use crate::ui::volumes::usage_pie;
+    
+    // Pie chart showing usage (left side, replacing icon)
+    let used = v.usage.as_ref().map(|u| u.used).unwrap_or(0);
+    let pie_chart = usage_pie::usage_pie(used, v.size);
 
-    if let Some(usage) = &v.usage {
-        col = col.push(labelled_info(
-            fl!("usage"),
-            bytes_to_pretty(&usage.used, false),
-        ));
-    }
-
-    if let Some(mount_point) = v.mount_points.first() {
-        col = col.push(link_info(
-            fl!("mounted-at"),
-            mount_point,
-            Message::OpenPath(mount_point.clone()),
-        ));
-    }
+    // Name, filesystem type, mount point (center text column)
+    let name_text = widget::text(v.label.clone())
+        .size(14.0)
+        .font(cosmic::iced::font::Font {
+            weight: cosmic::iced::font::Weight::Semibold,
+            ..Default::default()
+        });
 
     let contents = if v.id_type.is_empty() {
         match v.kind {
@@ -317,18 +309,47 @@ fn build_volume_node_info(v: &disks_dbus::VolumeNode) -> Element<'_, Message> {
         v.id_type.to_uppercase()
     };
 
-    col.push(labelled_info(fl!("contents"), contents))
-        .push(labelled_info(
-            fl!("device"),
-            match v.device_path.as_ref() {
-                Some(s) => s.clone(),
-                None => fl!("unresolved"),
-            },
-        ))
+    let type_text = widget::text::caption(format!("{}: {}", fl!("contents"), contents));
+
+    let mount_text = if let Some(mount_point) = v.mount_points.first() {
+        widget::text::caption(format!("{}: {}", fl!("mounted-at"), mount_point))
+    } else {
+        widget::text::caption("Not mounted")
+    };
+
+    let text_column = iced_widget::column![name_text, type_text, mount_text]
+        .spacing(4)
+        .width(Length::Fill);
+
+    // Device info box (right side)
+    let device_str = match v.device_path.as_ref() {
+        Some(s) => s.clone(),
+        None => fl!("unresolved"),
+    };
+    
+    let info_box = iced_widget::column![
+        widget::text::caption_heading(fl!("device")),
+        widget::text::body(device_str),
+    ]
+    .spacing(4)
+    .align_x(Alignment::End)
+    .apply(widget::container)
+    .padding(10)
+    .class(cosmic::style::Container::Card);
+
+    // Row layout: pie_chart | text_column | info_box
+    iced_widget::Row::new()
+        .push(pie_chart)
+        .push(text_column)
+        .push(info_box)
+        .spacing(15)
+        .align_y(Alignment::Center)
+        .width(Length::Fill)
         .into()
 }
 
 /// Build info display for a partition
+#[allow(dead_code)]
 fn build_partition_info(p: &disks_dbus::VolumeModel) -> Element<'_, Message> {
     let mut name = p.name.clone();
     if name.is_empty() {
@@ -377,6 +398,7 @@ fn build_partition_info(p: &disks_dbus::VolumeModel) -> Element<'_, Message> {
 }
 
 /// Build info display for free space
+#[allow(dead_code)]
 fn build_free_space_info(segment: &crate::ui::volumes::Segment) -> Element<'_, Message> {
     iced_widget::column![
         heading(&segment.label),
@@ -384,6 +406,134 @@ fn build_free_space_info(segment: &crate::ui::volumes::Segment) -> Element<'_, M
     ]
     .spacing(5)
     .into()
+}
+
+/// Build header display for a partition - mirrors disk header layout
+fn build_partition_header(p: &disks_dbus::VolumeModel) -> Element<'_, Message> {
+    use crate::ui::volumes::usage_pie;
+    
+    // Pie chart showing usage (left side)
+    let used = p.usage.as_ref().map(|u| u.used).unwrap_or(0);
+    let pie_chart = usage_pie::usage_pie(used, p.size);
+
+    // Name, type, mount point (center text column)
+    let mut name = p.name.clone();
+    if name.is_empty() {
+        name = fl!("partition-number", number = p.number);
+    } else {
+        name = fl!("partition-number-with-name", number = p.number, name = name);
+    }
+
+    let name_text = widget::text(name)
+        .size(14.0)
+        .font(cosmic::iced::font::Font {
+            weight: cosmic::iced::font::Weight::Semibold,
+            ..Default::default()
+        });
+
+    let mut type_str = p.id_type.clone().to_uppercase();
+    type_str = format!("{} - {}", type_str, p.partition_type.clone());
+    let type_text = widget::text::caption(format!("{}: {}", fl!("contents"), type_str));
+
+    let mount_text = if let Some(mount_point) = p.mount_points.first() {
+        widget::text::caption(format!("{}: {}", fl!("mounted-at"), mount_point))
+    } else {
+        widget::text::caption("Not mounted")
+    };
+
+    let text_column = iced_widget::column![name_text, type_text, mount_text]
+        .spacing(4)
+        .width(Length::Fill);
+
+    // Device info box (right side)
+    let device_str = match &p.device_path {
+        Some(s) => s.clone(),
+        None => fl!("unresolved"),
+    };
+    
+    let info_box = iced_widget::column![
+        widget::text::caption_heading(fl!("device")),
+        widget::text::body(device_str),
+        widget::text::caption(format!("UUID: {}", &p.uuid)),
+    ]
+    .spacing(4)
+    .align_x(Alignment::End)
+    .apply(widget::container)
+    .padding(10)
+    .class(cosmic::style::Container::Card);
+
+    // Row layout: pie_chart | text_column | info_box
+    iced_widget::Row::new()
+        .push(pie_chart)
+        .push(text_column)
+        .push(info_box)
+        .spacing(15)
+        .align_y(Alignment::Center)
+        .width(Length::Fill)
+        .into()
+}
+
+/// Build header display for free space - mirrors disk header layout
+fn build_free_space_header(segment: &crate::ui::volumes::Segment) -> Element<'_, Message> {
+    // No pie chart for free space, use a placeholder
+    let placeholder = widget::container(
+        widget::text::caption(fl!("free-space-segment"))
+            .center()
+    )
+    .padding(4)
+    .width(Length::Fixed(72.0))
+    .height(Length::Fixed(72.0))
+    .center_x(Length::Fixed(72.0))
+    .center_y(Length::Fixed(72.0))
+    .style(move |theme: &cosmic::Theme| {
+        cosmic::iced_widget::container::Style {
+            background: Some(cosmic::iced::Background::Color(
+                theme.cosmic().background.component.base.into(),
+            )),
+            border: cosmic::iced::Border {
+                color: theme.cosmic().background.component.divider.into(),
+                width: 2.0,
+                radius: 36.0.into(),
+            },
+            ..Default::default()
+        }
+    });
+
+    // Name and size (center text column)
+    let name_text = widget::text(fl!("free-space-segment"))
+        .size(14.0)
+        .font(cosmic::iced::font::Font {
+            weight: cosmic::iced::font::Weight::Semibold,
+            ..Default::default()
+        });
+
+    let size_text = widget::text::caption(format!("{}: {}", fl!("size"), bytes_to_pretty(&segment.size, true)));
+    let offset_text = widget::text::caption(format!("Offset: {}", bytes_to_pretty(&segment.offset, false)));
+
+    let text_column = iced_widget::column![name_text, size_text, offset_text]
+        .spacing(4)
+        .width(Length::Fill);
+
+    // Info box (right side)
+    let info_box = iced_widget::column![
+        widget::text::caption_heading("Available"),
+        widget::text::body("Can create partition"),
+    ]
+    .spacing(4)
+    .align_x(Alignment::End)
+    .apply(widget::container)
+    .padding(10)
+    .class(cosmic::style::Container::Card);
+
+    // Row layout: placeholder | text_column | info_box
+    iced_widget::Row::new()
+        .push(placeholder)
+        .push(text_column)
+        .push(info_box)
+        .spacing(15)
+        .align_y(Alignment::Center)
+        .width(Length::Fill)
+        .into()
 }
 
 /// Build the action button bar based on the selected segment and volume
