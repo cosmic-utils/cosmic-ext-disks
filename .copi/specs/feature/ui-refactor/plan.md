@@ -223,3 +223,103 @@ After establishing the treeview sidebar, the next phase refines the main content
   - [x] Selecting a volume in the volumes control updates treeview selection and shows volume detail view.
   - [x] Selecting a volume sub-item in the treeview updates volumes control selection and shows volume detail view.
 - [x] No regressions in existing disk selection, navigation, or dialog behavior.
+---
+
+## Extended Scope Phase 2 — Refinements & Menu Redesign
+
+**Added:** 2026-02-06
+
+### Context
+After implementing the split view and usage visualization, several refinements and a menu reorganization are needed:
+1. **Layout refinement:** Fixed height ratios should be replaced with shrink-to-fit for the disk header.
+2. **Volume detail header redesign:** Match the disk header layout with a pie chart for usage visualization.
+3. **Usage bar compaction:** Further reduce usage bar height for a more compact layout.
+4. **Bug fixes:** Correct usage metrics calculation, treeview ordering, and LUKS container selection sync.
+5. **Menu reorganization:** Replace menubar items with inline action buttons; reorganize image operations.
+
+### Goals
+1. **Shrink-to-fit disk header:**
+   - Disk header should consume only the space needed for its content.
+   - Volume detail view should fill all remaining vertical space.
+2. **Volume detail header matching disk header:**
+   - Volume detail header should mirror disk header layout structure.
+   - Replace icon with a thin pie chart showing usage proportion.
+   - Display "Used / Total" inside the pie chart.
+3. **Compact usage bar:**
+   - Reduce usage bar height to ~1/4 of current.
+4. **Fix usage metrics:**
+   - Usage bar currently sums total partition sizes instead of actual used space.
+   - Correct to show actual disk usage.
+5. **Fix treeview ordering:**
+   - Treeview subitems should appear in disk offset order (matching volumes control).
+6. **Fix LUKS selection sync:**
+   - Selecting a LUKS container in volumes control should update treeview selection.
+7. **Inline disk operations:**
+   - Move disk operations from menubar to inline buttons below disk header.
+   - Move image operations to appropriate contexts:
+     - Disk image ops: with disk action buttons.
+     - Partition image ops: with partition action buttons.
+     - Create/Attach image: segmented button at bottom of sidebar.
+
+### Non-Goals
+- Redesign of dialogs or other views.
+- Changes to backend operation logic.
+- Full menubar removal (only disk/partition operations; app-level actions remain).
+
+### Proposed Approach
+1. **Layout sizing fix:**
+   - Change disk header container from `Length::FillPortion(1)` to `Length::Shrink`.
+   - Ensure volume detail view uses `Length::Fill`.
+2. **Volume detail header redesign:**
+   - Create a volume detail header component mirroring disk header layout.
+   - Implement pie chart widget showing used vs. free space.
+   - Display "Used / Total" text inside pie chart.
+3. **Usage bar compaction:**
+   - Reduce bar height in `usage_bar.rs` to ~1/4.
+4. **Usage metrics fix:**
+   - Investigate volume model for actual usage fields.
+   - Replace `volume.size` summation with actual used space calculation.
+   - Verify against system tools (df, etc.).
+5. **Treeview ordering fix:**
+   - Sort volume children by partition offset before rendering in sidebar.
+6. **LUKS selection sync fix:**
+   - Debug why LUKS containers don't trigger treeview selection.
+   - Ensure object_path matching works for encrypted volumes.
+7. **Menu reorganization:**
+   - Add disk action button row below disk header.
+   - Move partition image ops to volume detail action buttons.
+   - Add segmented button ("Create Image" | "Attach Image") at bottom of sidebar.
+   - Remove disk/partition operations from menubar.
+
+### User/System Flows
+- User selects disk: disk header appears, shrunk to contents; volume detail view fills remaining space.
+- Volume detail header displays with pie chart showing usage and matching disk header layout.
+- Usage bar is more compact, showing actual disk usage (not total partition sizes).
+- Treeview subitems appear in the same order as volumes control segments.
+- User selects LUKS container in volumes control: treeview node highlights.
+- User clicks disk operation buttons below disk header: operations execute without menubar.
+- User clicks "Create Image" in sidebar: new disk image dialog opens.
+
+### Risks & Mitigations
+- **Shrink-to-fit may cause layout jumpiness:**
+  - Mitigation: ensure header has minimum height; test with various disk configurations.
+- **Pie chart complexity:**
+  - Mitigation: keep pie chart simple (two segments: used/free); reuse COSMIC theme colors.
+- **Usage calculation may require backend changes:**
+  - Mitigation: investigate volume model first; if data unavailable, may need to query filesystem usage separately.
+- **Menu reorganization may confuse existing users:**
+  - Mitigation: keep button labels consistent with menu items; consider adding tooltips.
+
+### Acceptance Criteria
+- [ ] Disk header shrinks to fit contents; volume detail view fills remaining space.
+- [ ] Volume detail header matches disk header layout with pie chart replacing icon.
+- [ ] Pie chart displays usage proportion with "Used / Total" text inside.
+- [ ] Usage bar height reduced to ~1/4 of current.
+- [ ] Usage metrics display actual used space, not total partition sizes.
+- [ ] Treeview subitems appear in disk offset order (matching volumes control).
+- [ ] Selecting LUKS container in volumes control updates treeview selection.
+- [ ] Disk operation buttons appear below disk header (including disk image ops).
+- [ ] Partition image operations appear in volume detail action buttons.
+- [ ] "Create Image" / "Attach Image" segmented button at bottom of sidebar.
+- [ ] Menubar no longer contains disk/partition operations.
+- [ ] All operations functional with no regressions.
