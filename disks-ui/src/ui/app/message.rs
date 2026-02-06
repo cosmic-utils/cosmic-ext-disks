@@ -35,6 +35,7 @@ pub enum Message {
     // Sidebar (custom treeview)
     SidebarSelectDrive(String),
     SidebarSelectChild { object_path: String },
+    SidebarClearChildSelection,
     SidebarToggleExpanded(crate::ui::sidebar::SidebarNodeKey),
     SidebarDriveEject(String),
     SidebarVolumeUnmount { drive: String, object_path: String },

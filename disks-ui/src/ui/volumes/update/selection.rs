@@ -14,7 +14,9 @@ pub(super) fn segment_selected(
         let Some(last_index) = control.segments.len().checked_sub(1) else {
             control.selected_segment = 0;
             control.selected_volume = None;
-            return Task::none();
+            return Task::batch(vec![Task::done(cosmic::Action::App(
+                Message::SidebarClearChildSelection,
+            ))]);
         };
 
         let index = index.min(last_index);
@@ -24,6 +26,11 @@ pub(super) fn segment_selected(
         if let Some(segment) = control.segments.get_mut(index) {
             segment.state = true;
         }
+
+        // Sync with sidebar: clear child selection when segment is selected
+        return Task::batch(vec![Task::done(cosmic::Action::App(
+            Message::SidebarClearChildSelection,
+        ))]);
     }
 
     Task::none()
@@ -44,11 +51,16 @@ pub(super) fn select_volume(
 
         let segment_index = segment_index.min(last_index);
         control.selected_segment = segment_index;
-        control.selected_volume = Some(object_path);
+        control.selected_volume = Some(object_path.clone());
         control.segments.iter_mut().for_each(|s| s.state = false);
         if let Some(segment) = control.segments.get_mut(segment_index) {
             segment.state = true;
         }
+
+        // Sync with sidebar: select the corresponding volume in sidebar
+        return Task::batch(vec![Task::done(cosmic::Action::App(
+            Message::SidebarSelectChild { object_path },
+        ))]);
     }
 
     Task::none()

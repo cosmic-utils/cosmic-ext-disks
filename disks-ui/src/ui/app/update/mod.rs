@@ -13,7 +13,23 @@ use crate::ui::volumes::VolumesControl;
 use crate::ui::volumes::helpers as volumes_helpers;
 use cosmic::app::Task;
 use cosmic::widget::nav_bar;
-use disks_dbus::DriveModel;
+use disks_dbus::{DriveModel, VolumeNode};
+
+/// Recursively search for a volume child by object_path
+fn find_volume_child_recursive<'a>(
+    children: &'a [VolumeNode],
+    object_path: &str,
+) -> Option<&'a VolumeNode> {
+    for child in children {
+        if child.object_path.as_str() == object_path {
+            return Some(child);
+        }
+        if let Some(found) = find_volume_child_recursive(&child.children, object_path) {
+            return Some(found);
+        }
+    }
+    None
+}
 
 /// Handles messages emitted by the application and its widgets.
 pub(crate) fn update(app: &mut AppModel, message: Message) -> Task<Message> {
@@ -125,8 +141,66 @@ pub(crate) fn update(app: &mut AppModel, message: Message) -> Task<Message> {
                 return on_nav_select(app, id);
             }
         }
+        Message::SidebarClearChildSelection => {
+            app.sidebar.selected_child = None;
+        }
         Message::SidebarSelectChild { object_path } => {
-            app.sidebar.selected_child = Some(SidebarNodeKey::Volume(object_path));
+            app.sidebar.selected_child = Some(SidebarNodeKey::Volume(object_path.clone()));
+
+            // Sync with volumes control: select the corresponding volume
+            if let Some(volumes_control) = app.nav.active_data_mut::<VolumesControl>() {
+                // Search for the volume in the full volume tree
+                if let Some(vol_node) =
+                    volumes_helpers::find_volume_node(&volumes_control.model.volumes, &object_path)
+                {
+                    // Find which segment this volume belongs to
+                    let mut target_segment_idx = None;
+                    let mut target_is_child = false;
+
+                    for (segment_idx, segment) in volumes_control.segments.iter().enumerate() {
+                        if let Some(segment_vol) = &segment.volume {
+                            // Check if this is a direct match (partition)
+                            if segment_vol.path.as_str() == object_path {
+                                target_segment_idx = Some(segment_idx);
+                                target_is_child = false;
+                                break;
+                            }
+
+                            // Check if this volume is a child of this segment's partition
+                            if let Some(segment_node) = volumes_helpers::find_volume_node(
+                                &volumes_control.model.volumes,
+                                segment_vol.path.as_str(),
+                            ) && find_volume_child_recursive(
+                                &segment_node.children,
+                                &object_path,
+                            )
+                            .is_some()
+                            {
+                                target_segment_idx = Some(segment_idx);
+                                target_is_child = true;
+                                break;
+                            }
+                        }
+                    }
+
+                    // Apply the selection change
+                    if let Some(idx) = target_segment_idx {
+                        volumes_control.selected_segment = idx;
+                        volumes_control.selected_volume = if target_is_child {
+                            Some(vol_node.object_path.to_string())
+                        } else {
+                            None
+                        };
+                        volumes_control
+                            .segments
+                            .iter_mut()
+                            .for_each(|s| s.state = false);
+                        if let Some(segment) = volumes_control.segments.get_mut(idx) {
+                            segment.state = true;
+                        }
+                    }
+                }
+            }
         }
         Message::SidebarToggleExpanded(key) => {
             app.sidebar.toggle_expanded(key);
