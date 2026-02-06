@@ -107,12 +107,11 @@ fn row_container<'a>(
     widget::container(row)
         .padding([6, 8])
         .class(cosmic::style::Container::custom(move |theme| {
-            use cosmic::iced::{Background, Border, Shadow};
+            use cosmic::iced::{Border, Shadow};
 
             // Match the visual background used by `cosmic::style::Container::Card`.
             let component = &theme.cosmic().background.component;
 
-            let bg = component.base;
             let mut on = component.on;
 
             let mut border_width = 0.0;
@@ -129,7 +128,7 @@ fn row_container<'a>(
             cosmic::iced_widget::container::Style {
                 icon_color: Some(on.into()),
                 text_color: Some(on.into()),
-                background: Some(Background::Color(bg.into())),
+                background: None,
                 border: Border {
                     radius: theme.cosmic().corner_radii.radius_s.into(),
                     width: border_width,
