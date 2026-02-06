@@ -282,12 +282,26 @@ fn volume_detail_view<'a>(
     .into()
 }
 
+/// Aggregate children's used space for LUKS containers
+fn aggregate_children_usage(node: &disks_dbus::VolumeNode) -> u64 {
+    node.children
+        .iter()
+        .filter_map(|child| child.usage.as_ref())
+        .map(|u| u.used)
+        .sum()
+}
+
 /// Build info display for a volume node (child filesystem/LV) - mirrors disk header layout
 fn build_volume_node_info(v: &disks_dbus::VolumeNode) -> Element<'_, Message> {
     use crate::ui::volumes::usage_pie;
     
     // Pie chart showing usage (left side, replacing icon)
-    let used = v.usage.as_ref().map(|u| u.used).unwrap_or(0);
+    // For LUKS containers, aggregate children's usage
+    let used = if v.kind == VolumeKind::CryptoContainer && !v.children.is_empty() {
+        aggregate_children_usage(v)
+    } else {
+        v.usage.as_ref().map(|u| u.used).unwrap_or(0)
+    };
     let pie_chart = usage_pie::usage_pie(used, v.size);
 
     // Name, filesystem type, mount point (center text column)
