@@ -14,7 +14,7 @@ use std::sync::{Arc, atomic::AtomicBool};
 #[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
 pub enum ContextPage {
     #[default]
-    About,
+    Settings,
 }
 
 /// The application model stores app-specific state used to describe its interface and

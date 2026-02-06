@@ -5,13 +5,16 @@ mod smart;
 
 use super::message::Message;
 use super::state::AppModel;
+use super::APP_ID;
 use crate::app::REPOSITORY;
+use crate::config::Config;
 use crate::fl;
 use crate::ui::error::{UiErrorContext, log_error_and_show_dialog};
 use crate::ui::sidebar::SidebarNodeKey;
 use crate::ui::volumes::VolumesControl;
 use crate::ui::volumes::helpers as volumes_helpers;
 use cosmic::app::Task;
+use cosmic::cosmic_config::CosmicConfigEntry;
 use cosmic::widget::nav_bar;
 use disks_dbus::{DriveModel, VolumeNode};
 
@@ -83,6 +86,19 @@ pub(crate) fn update(app: &mut AppModel, message: Message) -> Task<Message> {
         }
         Message::UpdateConfig(config) => {
             app.config = config;
+        }
+        Message::ToggleShowReserved(show_reserved) => {
+            app.config.show_reserved = show_reserved;
+            
+            // Persist config change
+            if let Ok(helper) = cosmic::cosmic_config::Config::new(APP_ID, Config::VERSION) {
+                let _ = app.config.write_entry(&helper);
+            }
+            
+            // Update the active volumes control if one is selected
+            if let Some(volumes_control) = app.nav.active_data_mut::<VolumesControl>() {
+                volumes_control.set_show_reserved(show_reserved);
+            }
         }
         Message::LaunchUrl(url) => match open::that_detached(&url) {
             Ok(()) => {}

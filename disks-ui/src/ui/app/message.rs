@@ -54,6 +54,7 @@ pub enum Message {
     NewDiskImageDialog(NewDiskImageDialogMessage),
     AttachDiskImageDialog(AttachDiskImageDialogMessage),
     ImageOperationDialog(ImageOperationDialogMessage),
+    ToggleShowReserved(bool),
     #[allow(dead_code)]
     Surface(cosmic::surface::Action),
 }

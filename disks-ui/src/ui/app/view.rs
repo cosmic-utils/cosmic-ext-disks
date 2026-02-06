@@ -8,7 +8,7 @@ use crate::ui::dialogs::view as dialogs;
 use crate::ui::sidebar;
 use crate::ui::volumes::{VolumesControl, VolumesControlMessage, disk_header};
 use crate::utils::DiskSegmentKind;
-use crate::views::about::about;
+use crate::views::settings::settings;
 use cosmic::app::context_drawer as cosmic_context_drawer;
 use cosmic::iced::Length;
 use cosmic::iced::alignment::{Alignment, Horizontal, Vertical};
@@ -20,8 +20,8 @@ use disks_dbus::{DriveModel, VolumeKind};
 /// Elements to pack at the start of the header bar.
 pub(crate) fn header_start(_app: &AppModel) -> Vec<Element<'_, Message>> {
     vec![
-        widget::button::icon(icon::from_name("help-about-symbolic"))
-            .on_press(Message::ToggleContextPage(ContextPage::About))
+        widget::button::icon(icon::from_name("preferences-system-symbolic"))
+            .on_press(Message::ToggleContextPage(ContextPage::Settings))
             .into(),
     ]
 }
@@ -155,11 +155,11 @@ pub(crate) fn context_drawer(
     }
 
     Some(match app.context_page {
-        ContextPage::About => cosmic_context_drawer::context_drawer(
-            about(),
-            Message::ToggleContextPage(ContextPage::About),
+        ContextPage::Settings => cosmic_context_drawer::context_drawer(
+            settings(&app.config),
+            Message::ToggleContextPage(ContextPage::Settings),
         )
-        .title(fl!("about")),
+        .title(fl!("settings")),
     })
 }
 
@@ -265,6 +265,13 @@ fn volume_detail_view<'a>(
     volumes_control: &'a VolumesControl,
     segment: &'a crate::ui::volumes::Segment,
 ) -> Element<'a, Message> {
+    if segment.kind == DiskSegmentKind::Reserved {
+        return widget::container(widget::Row::from_vec(vec![]))
+            .width(Length::Fill)
+            .height(Length::Fill)
+            .into();
+    }
+
     let selected_volume_node = volumes_control.selected_volume_node();
     let selected_volume = segment.volume.as_ref().and_then(|p| {
         crate::ui::volumes::helpers::find_volume_node_for_partition(

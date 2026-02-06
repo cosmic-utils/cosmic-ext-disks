@@ -1,4 +1,5 @@
 app-title = Disks
+settings = Settings
 about = About
 
 git-description = Git commit {$hash} on {$date}

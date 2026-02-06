@@ -1,2 +1,2 @@
-pub(crate) mod about;
+pub(crate) mod settings;
 pub(crate) mod dialogs;

@@ -48,7 +48,7 @@ pub(super) fn update_nav(
         .nav
         .active_data::<VolumesControl>()
         .map(|v| v.show_reserved)
-        .unwrap_or(false);
+        .unwrap_or(app.config.show_reserved);
 
     app.nav.clear();
 
