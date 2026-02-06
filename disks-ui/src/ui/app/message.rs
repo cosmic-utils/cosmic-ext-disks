@@ -42,13 +42,18 @@ pub enum Message {
     SmartDialog(SmartDialogMessage),
     NewDiskImage,
     AttachDisk,
+    #[allow(dead_code)]
     CreateDiskFrom,
+    #[allow(dead_code)]
     RestoreImageTo,
+    #[allow(dead_code)]
     CreateDiskFromPartition,
+    #[allow(dead_code)]
     RestoreImageToPartition,
     NewDiskImageDialog(NewDiskImageDialogMessage),
     AttachDiskImageDialog(AttachDiskImageDialogMessage),
     ImageOperationDialog(ImageOperationDialogMessage),
+    #[allow(dead_code)]
     Surface(cosmic::surface::Action),
 }
 

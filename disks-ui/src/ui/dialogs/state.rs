@@ -3,6 +3,7 @@ use disks_dbus::{CreatePartitionInfo, DriveModel, PartitionTypeInfo, VolumeModel
 #[derive(Debug, Clone)]
 pub enum ShowDialog {
     DeletePartition(DeletePartitionDialog),
+    #[allow(dead_code)]
     AddPartition(CreatePartitionDialog),
     FormatPartition(FormatPartitionDialog),
     EditPartition(EditPartitionDialog),

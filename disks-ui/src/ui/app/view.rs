@@ -274,15 +274,15 @@ fn volume_detail_view<'a>(
     });
 
     // Build the info section (mirroring disk header layout)
-    let header_section = if let Some(v) = selected_volume_node {
+    
+
+    if let Some(v) = selected_volume_node {
         build_volume_node_info(v, volumes_control, segment, selected_volume)
     } else if let Some(ref p) = segment.volume {
         build_partition_info(p, selected_volume, volumes_control, segment)
     } else {
         build_free_space_info(segment)
-    };
-
-    header_section
+    }
 }
 
 /// Aggregate children's used space for LUKS containers
@@ -524,8 +524,8 @@ fn build_partition_info<'a>(
     let mut action_buttons = Vec::new();
     
     // Lock/Unlock for LUKS containers
-    if let Some(v) = volume_node {
-        if v.kind == VolumeKind::CryptoContainer {
+    if let Some(v) = volume_node
+        && v.kind == VolumeKind::CryptoContainer {
             if v.locked {
                 action_buttons.push(
                     widget::tooltip(
@@ -580,7 +580,6 @@ fn build_partition_info<'a>(
                 .into(),
             );
         }
-    }
     
     // Mount/Unmount
     if p.can_mount() {
