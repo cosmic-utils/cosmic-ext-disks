@@ -227,3 +227,119 @@ cargo clippy --workspace --all-features -- -D warnings
 ```
 
 **All Extended Scope Phase 2 tasks complete. Ready for final review and PR submission.**
+
+---
+
+## Extended Scope Phase 3 (2026-02-06)
+
+### Task 22: Enhance usage pie chart styling
+**Commit:** 3a82acd (combined with Task 23)
+**Status:** ✅ Complete
+**Changes:**
+- Modified `disks-ui/src/ui/volumes/usage_pie.rs`:
+  - Increased border width from 2.0 to 4.0 (2x thicker)
+  - Moved "Used / Total" text below pie circle
+  - Only percentage displays inside circle
+  - Improved layout with column structure
+
+### Task 23: Replace usage bar with pie chart in disk header
+**Commit:** 3a82acd (combined with Task 22)
+**Status:** ✅ Complete
+**Changes:**
+- Modified `disks-ui/src/ui/volumes/disk_header.rs`:
+  - Replaced text-based "Used / Total" box with usage pie chart
+  - Imported usage_pie module
+  - Pie chart displays on right side of header
+- Modified `disks-ui/src/ui/app/view.rs`:
+  - Removed usage_bar from top_section layout
+  - Removed unused usage_bar import
+- Removed unused bytes_to_pretty import from disk_header.rs
+
+**Verification:** Usage bar component completely removed from main view
+
+### Task 26: Rename partition header builders to use "info" terminology
+**Commit:** 8ebdef1
+**Status:** ✅ Complete
+**Changes:**
+- Modified `disks-ui/src/ui/app/view.rs`:
+  - Renamed `build_volume_node_header()` → `build_volume_node_info()`
+  - Renamed `build_partition_header()` → `build_partition_info()`
+  - Renamed `build_free_space_header()` → `build_free_space_info()`
+  - Updated all call sites in volume_detail_view()
+  - Removed old dead_code marked functions (61 lines removed)
+  - Removed unused imports (labelled_info, link_info, heading)
+
+### Task 24: Update action buttons to show icon above text label
+**Commit:** 8432791
+**Status:** ✅ Complete
+**Changes:**
+- Modified `disks-ui/src/ui/app/view.rs`:
+  - Renamed `tooltip_icon_button()` → `action_button()`
+  - Changed layout to column with icon (24px) above caption text
+  - Removed tooltip wrapper (redundant with visible label)
+  - Fixed button width to 64px for consistent sizing
+  - Updated all 21+ button creation sites via sed replacement
+  
+**Verification:** All disk and partition action buttons now display icon + text label
+
+### Task 27: Fix sidebar image button sizing and text wrapping
+**Commit:** 5295742
+**Status:** ✅ Complete
+**Changes:**
+- Modified `disks-ui/src/ui/sidebar/view.rs`:
+  - Changed buttons from button::text() to button::custom()
+  - Used caption text size for better fitting
+  - Enabled word wrapping with Wrapping::Word
+  - Added padding(8) to buttons
+  - Both buttons maintain 50/50 width with Length::Fill
+
+**Verification:** Both "New Disk Image" and "Attach Disk Image" buttons visible and functional
+
+### Task 25: LUKS container usage aggregates children
+**Commit:** ef62b1a
+**Status:** ✅ Complete
+**Changes:**
+- Modified `disks-ui/src/ui/app/view.rs`:
+  - Added `aggregate_children_usage()` helper function
+  - Modified `build_volume_node_info()` to check if VolumeNode is LUKS container
+  - LUKS containers with children now sum children's usage.used values
+  - Containers without children display their own usage
+  - Pie chart reflects aggregated usage for LUKS containers
+
+**Verification:** LUKS containers correctly display child filesystem usage
+
+### Final Phase 3 Cleanup
+**Commit:** 5f08b21
+**Status:** ✅ Complete
+**Changes:**
+- Added `#[allow(dead_code)]` to:
+  - `Message::OpenPath` variant (temporarily unused)
+  - `usage_bar()` function (replaced by pie chart)
+  - `get_segment_color()` function (part of unused usage_bar)
+- Updated tasks.md to mark all Phase 3 tasks (22-27) as complete
+
+---
+
+## Phase 3 Summary
+
+**Total Tasks Completed:** 6 (Tasks 22-27)
+**Total Commits:** 6
+**Final Test Results:** 36/36 passing
+**Clippy:** Clean with `-D warnings`
+
+**Key Changes:**
+- Enhanced pie chart styling (2x thicker, cleaner layout)
+- Removed usage bar entirely (replaced with pie chart in header)
+- All action buttons now show icon + text label
+- LUKS containers display aggregated child usage
+- Function naming consistency (header → info)
+- Fixed sidebar button visibility issues
+
+**Testing Commands Used:**
+```bash
+cargo check -p cosmic-ext-disks
+cargo test --workspace --all-features
+cargo clippy --workspace --all-features -- -D warnings
+```
+
+**All Extended Scope Phase 3 tasks complete. UI polish and refinements implemented successfully.**
