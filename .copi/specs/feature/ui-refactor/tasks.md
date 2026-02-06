@@ -277,9 +277,9 @@
   - Test with window resizing to verify header stays compact and detail view expands.
 - Test plan: manual UI test with various window sizes; verify header doesn't grow unnecessarily.
 - Done when:
-  - [ ] Disk header shrinks to fit contents.
-  - [ ] Volume detail view fills all remaining vertical space.
-  - [ ] Layout adapts correctly to window resizing.
+  - [x] Disk header shrinks to fit contents.
+  - [x] Volume detail view fills all remaining vertical space.
+  - [x] Layout adapts correctly to window resizing.
 
 ### Task 16: Redesign volume detail header to match disk header layout
 - Scope: volume detail view header should mirror disk header layout, with pie chart instead of icon.
@@ -295,9 +295,9 @@
   - Ensure consistent spacing, typography, and styling with disk header.
 - Test plan: manual UI test; verify header layout matches disk header and pie chart displays correct usage.
 - Done when:
-  - [ ] Volume detail header matches disk header layout structure.
-  - [ ] Pie chart shows usage proportion with Used/Total text inside.
-  - [ ] Consistent styling with disk header.
+  - [x] Volume detail header matches disk header layout structure.
+  - [x] Pie chart shows usage proportion with Used/Total text inside.
+  - [x] Consistent styling with disk header.
 
 ### Task 17: Reduce usage bar height to 1/4
 - Scope: make usage bar more compact.
@@ -308,8 +308,8 @@
   - Adjust legend spacing if needed to maintain readability.
 - Test plan: manual UI test; verify bar is more compact but still readable.
 - Done when:
-  - [ ] Usage bar height reduced to approximately 1/4 of current.
-  - [ ] Legend remains readable and properly spaced.
+  - [x] Usage bar height reduced to approximately 1/4 of current.
+  - [x] Legend remains readable and properly spaced.
 
 ### Task 18: Fix usage metrics calculation
 - Scope: usage bar currently reports total size instead of actual used space.
@@ -323,9 +323,9 @@
   - Verify usage bar and disk header "Used / Total" box display correct values.
 - Test plan: manual UI test with known disk usage; verify numbers match `df -h` or similar.
 - Done when:
-  - [ ] Usage bar displays actual used space, not total partition sizes.
-  - [ ] Disk header "Used / Total" box shows correct values.
-  - [ ] Numbers verified against system tools.
+  - [x] Usage bar displays actual used space, not total partition sizes.
+  - [x] Disk header "Used / Total" box shows correct values.
+  - [x] Numbers verified against system tools.
 
 ### Task 19: Fix treeview subitem ordering
 - Scope: treeview subitems should appear in the same order as on disk/volumes control.
@@ -338,8 +338,8 @@
   - Verify order matches volumes control segment order.
 - Test plan: manual UI test; verify treeview subitem order matches volumes control left-to-right.
 - Done when:
-  - [ ] Treeview subitems appear in disk offset order.
-  - [ ] Order matches volumes control segment order.
+  - [x] Treeview subitems appear in disk offset order.
+  - [x] Order matches volumes control segment order.
 
 ### Task 20: Fix LUKS container selection sync
 - Scope: selecting a LUKS container in volumes control should select corresponding treeview node.
@@ -353,8 +353,8 @@
   - Test with an encrypted partition.
 - Test plan: manual UI test with LUKS-encrypted partition; verify selection syncs both ways.
 - Done when:
-  - [ ] Selecting LUKS container in volumes control selects treeview node.
-  - [ ] Selection syncs bi-directionally for encrypted volumes.
+  - [x] Selecting LUKS container in volumes control selects treeview node.
+  - [x] Selection syncs bi-directionally for encrypted volumes.
 
 ### Task 21: Replace menubar with inline disk operation buttons
 - Scope: move disk operations from menubar to inline buttons; reorganize image operations.
@@ -375,9 +375,9 @@
   - Ensure all buttons trigger existing message handlers (no behavior changes).
 - Test plan: manual UI test; verify all operations accessible and functional.
 - Done when:
-  - [ ] Disk operation buttons appear below disk header.
-  - [ ] Disk image operations included in disk action buttons.
-  - [ ] Partition image operations included in volume detail action buttons.
-  - [ ] "Create Image" / "Attach Image" segmented button at bottom of sidebar.
-  - [ ] Menubar no longer contains disk/partition operation items.
-  - [ ] All operations functional with no regressions.
+  - [x] Disk operation buttons appear below disk header.
+  - [x] Disk image operations included in disk action buttons.
+  - [x] Partition image operations included in volume detail action buttons.
+  - [x] "Create Image" / "Attach Image" segmented button at bottom of sidebar.
+  - [x] Menubar no longer contains disk/partition operation items.
+  - [x] All operations functional with no regressions.

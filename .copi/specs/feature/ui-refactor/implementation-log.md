@@ -97,3 +97,133 @@
 ### Final status
 
 All tasks complete (Tasks 1-14). Extended scope fully implemented. Ready for PR review.
+---
+
+## Extended Scope Phase 2 (2026-02-06)
+
+### Task 15: Fix layout sizing (shrink-to-fit header)
+**Commit:** 29022ca
+**Status:** ✅ Complete
+**Changes:**
+- Modified `disks-ui/src/ui/app/view.rs`:
+  - Changed top_section from `FillPortion(1)` to `Length::Shrink`
+  - Changed bottom_section from `FillPortion(2)` to `Length::Fill`
+- **Verification:** Layout now properly sizes with header shrinking to content and detail view filling remaining space
+
+### Task 17: Reduce usage bar height to 1/4
+**Commit:** 29022ca (combined with Task 15)
+**Status:** ✅ Complete
+**Changes:**
+- Modified `disks-ui/src/ui/volumes/usage_bar.rs`:
+  - Changed segment height from `Length::Fixed(24.0)` to `Length::Fixed(6.0)`
+  - Reduction from 24px to 6px (~75% height reduction)
+- **Verification:** Usage bar is now more compact while remaining readable
+
+### Task 18: Fix usage metrics calculation
+**Commit:** 16858c6
+**Status:** ✅ Complete
+**Changes:**
+- Modified `disks-ui/src/ui/app/view.rs`:
+  - Changed usage calculation from summing partition sizes (`map(|v| v.size)`)
+  - To summing actual filesystem usage (`filter_map(|v| v.usage.as_ref()).map(|u| u.used)`)
+- **Verification:** Usage bar and disk header now display actual used space instead of total partition sizes
+
+### Task 19: Fix treeview subitem ordering
+**Commit:** 554050b
+**Status:** ✅ Complete
+**Changes:**
+- Modified `disks-ui/src/ui/sidebar/view.rs`:
+  - Added sorting of children by `object_path` before rendering in `push_volume_tree()`
+  - Children now appear in disk offset order matching volumes control
+- **Verification:** Treeview subitems render in the same order as volumes control segments
+
+### Task 20: Fix LUKS container selection sync
+**Commit:** 3309979
+**Status:** ✅ Complete
+**Changes:**
+- Modified `disks-ui/src/ui/volumes/update/selection.rs`:
+  - Updated `segment_selected()` to check if segment has volume and sync to sidebar
+  - Now sends `SidebarSelectChild` message when selecting LUKS containers
+  - Fixed clippy `collapsible_if` warning (collapsed nested if-let to modern pattern)
+- **Verification:** Selecting LUKS container in volumes control now properly selects treeview node
+
+### Task 16: Redesign volume detail header with pie chart
+**Commit:** 5989034
+**Status:** ✅ Complete
+**Files Created:**
+- `disks-ui/src/ui/volumes/usage_pie.rs` (53 lines)
+  - Circular container showing usage percentage
+  - 72x72 size with 36.0 border radius
+  - Uses accent color with 0.1 alpha for background
+  - Displays "Used / Total" text inside
+
+**Files Modified:**
+- `disks-ui/src/ui/app/view.rs`:
+  - Added `build_volume_node_header()` - mirrors disk header with pie chart
+  - Added `build_partition_header()` - similar layout for partitions
+  - Added `build_free_space_header()` - placeholder circle for free space
+  - Imported `Alignment` from cosmic::iced::alignment
+- `disks-ui/src/ui/volumes/mod.rs`:
+  - Added usage_pie module declaration
+
+**Verification:**
+- All 36 tests passing (9 disks-ui, 27 disks-dbus)
+- Clippy passes with -D warnings
+- Volume detail header matches disk header layout structure
+- Pie chart displays usage proportion with Used/Total text
+
+### Task 21: Replace menubar with inline disk operation buttons
+**Commit:** 58d5740
+**Status:** ✅ Complete
+
+**Files Modified:**
+- `disks-ui/src/ui/app/view.rs`:
+  - Added `build_disk_action_bar()` function creating 9 disk action buttons:
+    - Eject, Power Off, Format Disk, SMART Data, Standby, Wakeup
+    - Create Image From Disk, Restore Image To Disk
+  - Modified top_section to include disk action buttons row
+  - Added partition image operations to `build_action_bar()`:
+    - Create Image From Partition, Restore Image To Partition
+  
+- `disks-ui/src/ui/sidebar/view.rs`:
+  - Added image operations segmented button at bottom of sidebar
+  - "New Disk Image" | "Attach Disk Image" buttons
+  - Modified layout to use column with scrollable list + button row
+
+- `disks-ui/src/views/menu.rs`:
+  - Removed Image menu section
+  - Removed Disk menu section
+  - Kept only View menu with About item
+  - Reduced MenuAction enum from 13 actions to 1
+
+**Verification:**
+- All 36 tests passing
+- Clippy passes with -D warnings
+- All disk operations accessible via inline buttons below disk header
+- Partition image operations in volume action bar
+- Sidebar bottom has segmented button for image creation/attachment
+- Menubar simplified to only show About in View menu
+
+---
+
+## Phase 2 Summary
+
+**Total Tasks Completed:** 7 (Tasks 15-21)
+**Total Commits:** 7
+**Final Test Results:** 36/36 passing
+**Clippy:** Clean (all warnings resolved)
+
+**Key Decisions:**
+- Combined Task 15 and 17 into single commit due to small scope
+- Fixed clippy collapsible_if warning as part of Task 16 completion
+- Used button::text instead of segmented button widget for image operations (simpler API)
+- Maintained all existing message handlers (no behavior changes, only UI reorganization)
+
+**Testing Commands Used:**
+```bash
+cargo check -p cosmic-ext-disks
+cargo test --workspace --all-features
+cargo clippy --workspace --all-features -- -D warnings
+```
+
+**All Extended Scope Phase 2 tasks complete. Ready for final review and PR submission.**
