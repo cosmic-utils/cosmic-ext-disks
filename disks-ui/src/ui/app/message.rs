@@ -11,7 +11,6 @@ use disks_dbus::DriveModel;
 /// Messages emitted by the application and its widgets.
 #[derive(Debug, Clone)]
 #[allow(clippy::enum_variant_names)]
-#[allow(dead_code)] // OpenPath temporarily unused
 pub enum Message {
     OpenRepositoryUrl,
     OpenPath(String),

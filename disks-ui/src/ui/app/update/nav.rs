@@ -37,13 +37,11 @@ pub(super) fn update_nav(
         app.dialog = None;
     }
 
-    let selected = match selected {
-        Some(s) => Some(s),
-        None => app
-            .nav
+    let selected = selected.or_else(|| {
+        app.nav
             .active_data::<DriveModel>()
-            .map(|d| d.block_path.clone()),
-    };
+            .map(|d| d.block_path.clone())
+    });
 
     // Volumes-level preference; keep it stable across nav rebuilds.
     let show_reserved = app
@@ -56,63 +54,35 @@ pub(super) fn update_nav(
 
     let mut drive_entities: HashMap<String, cosmic::widget::nav_bar::Id> = HashMap::new();
 
-    let selected = match selected {
-        Some(s) => Some(s),
-        None => {
-            if selected.is_none() && !drive_models.is_empty() {
-                Some(drive_models.first().unwrap().block_path.clone())
-            } else {
-                None
-            }
-        }
-    };
+    let selected = selected.or_else(|| {
+        drive_models
+            .first()
+            .map(|d| d.block_path.clone())
+    });
 
     for drive in drive_models {
-        let icon_name = match drive.removable {
-            true => "drive-removable-media-symbolic",
-            false => "disks-symbolic",
+        let icon_name = if drive.removable {
+            "drive-removable-media-symbolic"
+        } else {
+            "disks-symbolic"
         };
 
-        match selected {
-            Some(ref s) => {
-                if drive.block_path == s.clone() {
-                    let id = app
-                        .nav
-                        .insert()
-                        .text(drive.name())
-                        .data::<VolumesControl>(VolumesControl::new(drive.clone(), show_reserved))
-                        .data::<DriveModel>(drive.clone())
-                        .icon(icon::from_name(icon_name))
-                        .activate()
-                        .id();
+        let should_activate = selected.as_ref().is_some_and(|s| &drive.block_path == s);
 
-                    drive_entities.insert(drive.block_path.clone(), id);
-                } else {
-                    let id = app
-                        .nav
-                        .insert()
-                        .text(drive.name())
-                        .data::<VolumesControl>(VolumesControl::new(drive.clone(), show_reserved))
-                        .data::<DriveModel>(drive.clone())
-                        .icon(icon::from_name(icon_name))
-                        .id();
+        let mut nav_item = app
+            .nav
+            .insert()
+            .text(drive.name())
+            .data::<VolumesControl>(VolumesControl::new(drive.clone(), show_reserved))
+            .data::<DriveModel>(drive.clone())
+            .icon(icon::from_name(icon_name));
 
-                    drive_entities.insert(drive.block_path.clone(), id);
-                }
-            }
-            None => {
-                let id = app
-                    .nav
-                    .insert()
-                    .text(drive.name())
-                    .data::<VolumesControl>(VolumesControl::new(drive.clone(), show_reserved))
-                    .data::<DriveModel>(drive.clone())
-                    .icon(icon::from_name(icon_name))
-                    .id();
-
-                drive_entities.insert(drive.block_path.clone(), id);
-            }
+        if should_activate {
+            nav_item = nav_item.activate();
         }
+
+        let id = nav_item.id();
+        drive_entities.insert(drive.block_path.clone(), id);
     }
 
     app.sidebar.set_drive_entities(drive_entities);

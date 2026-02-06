@@ -57,9 +57,6 @@ pub(super) fn create_message(
                 state.info.selected_partition_type_index = p_type;
                 state.error = None;
             }
-            CreateMessage::Continue => {
-                tracing::warn!("create message continue is not implemented; ignoring");
-            }
             CreateMessage::Cancel => return Task::done(Message::CloseDialog.into()),
             CreateMessage::Partition => {
                 if state.running {

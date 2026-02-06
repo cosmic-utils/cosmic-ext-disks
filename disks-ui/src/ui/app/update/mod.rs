@@ -72,8 +72,6 @@ pub(crate) fn update(app: &mut AppModel, message: Message) -> Task<Message> {
             return drive::format_disk(app, msg);
         }
         Message::DriveRemoved(_drive_model) => {
-            // TODO: use DeviceManager.apply_change()
-
             return Task::perform(
                 async {
                     match DriveModel::get_drives().await {

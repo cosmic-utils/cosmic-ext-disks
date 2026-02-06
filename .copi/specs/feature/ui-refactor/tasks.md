@@ -595,23 +595,23 @@
   - [x] Spacing looks appropriate.
   - [x] Works well with shortened labels from Task 31.
 
-### Task 34: Move drive actions to header bar, remove menubar, add About button ✅
-- Scope: replace menubar with drive action buttons in header, add standalone About button.
+### Task 34: Move drive actions to inline position, remove menubar, add About button ✅
+- Scope: replace menubar with drive action buttons inline with disk header, add standalone About button.
 - Files/areas:
   - `disks-ui/src/ui/app/view.rs` (header_start function)
+  - `disks-ui/src/ui/volumes/disk_header.rs` (drive action buttons)
   - `disks-ui/src/views/menu.rs` (remove entirely or keep only About)
 - Steps:
-  - Move drive action buttons from below disk header to header_start().
+  - Add drive action buttons to disk header layout (below disk info).
   - Remove menubar rendering from header_start().
   - Add dedicated "About" button to header (icon: help-about-symbolic).
-  - Ensure drive actions only show when disk is selected.
-  - Position actions appropriately in header bar.
-- Test plan: manual UI test; verify header shows drive actions and About button.
+  - Ensure drive actions inline with disk content.
+- Test plan: manual UI test; verify drive actions inline and About button in header.
 - Done when:
-  - [x] Drive action buttons appear in header bar.
+  - [x] Drive action buttons appear inline with disk header.
   - [x] Menubar completely removed.
-  - [x] About button visible and functional.
-  - [x] Drive actions only show when disk selected.
+  - [x] About button visible and functional in header bar.
+  - [x] Icon-only button style with tooltips for all buttons.
 
 ### Task 35: Fix usage pie free space visualization ✅
 - Scope: pie chart should show used portion as segment, not full circle.
@@ -628,3 +628,28 @@
   - [x] Pie chart shows proportional segment for used space.
   - [x] Free space is visually distinct (empty or different color).
   - [x] Accurate representation of usage percentage.
+
+### Task 36: Fix drive action button hover background ✅
+- Scope: drive action buttons were missing hover background that partition buttons have.
+- Files/areas:
+  - `disks-ui/src/ui/volumes/disk_header.rs`
+  - `disks-ui/src/ui/app/message.rs`
+- Steps:
+  - Identify why drive buttons don't show hover background.
+  - Add `.on_press()` message handlers to all drive action buttons.
+  - Verify message variants match Message enum:
+    - Eject → Message::Eject
+    - Power Off → Message::PowerOff
+    - Format → Message::Format
+    - SMART Data → Message::SmartData
+    - Standby → Message::StandbyNow
+    - Wake Up → Message::Wakeup
+    - Create Image → Message::NewDiskImage
+    - Restore Image → Message::AttachDisk
+  - Ensure all buttons become interactive and show hover styling.
+- Test plan: manual UI test; hover over drive action buttons and verify background appears.
+- Done when:
+  - [x] All drive action buttons have `.on_press()` handlers.
+  - [x] Message variant names corrected to match enum.
+  - [x] Hover background appears consistently.
+  - [x] Styling matches partition action buttons.

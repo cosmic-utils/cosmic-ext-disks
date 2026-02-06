@@ -132,7 +132,7 @@ pub(crate) fn nav_bar(app: &AppModel) -> Option<Element<'_, cosmic::Action<Messa
         .apply(widget::container)
         .padding(8)
         .class(cosmic::style::Container::Background)
-        // XXX both must be shrink to avoid flex layout from ignoring it
+        // Both width and height must be Shrink for flex layout to respect the max_width constraint
         .width(cosmic::iced::Length::Shrink)
         .height(cosmic::iced::Length::Shrink);
 

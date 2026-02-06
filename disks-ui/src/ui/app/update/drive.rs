@@ -27,9 +27,8 @@ pub(super) fn format_disk(app: &mut AppModel, msg: FormatDiskMessage) -> Task<Me
             state.running = true;
 
             let drive = state.drive.clone();
-            let selected = drive.block_path.clone();
+            let block_path = drive.block_path.clone();
             let drive_path = drive.path.clone();
-            let device = drive.block_path.clone();
             let erase = state.erase_index == 1;
             let format_type = match state.partitioning_index {
                 0 => "dos",
@@ -43,12 +42,12 @@ pub(super) fn format_disk(app: &mut AppModel, msg: FormatDiskMessage) -> Task<Me
                     DriveModel::get_drives().await
                 },
                 move |res| match res {
-                    Ok(drives) => Message::UpdateNav(drives, Some(selected.clone())).into(),
+                    Ok(drives) => Message::UpdateNav(drives, Some(block_path.clone())).into(),
                     Err(e) => {
                         let ctx = UiErrorContext {
                             operation: "format_disk",
                             object_path: Some(drive_path.as_str()),
-                            device: Some(device.as_str()),
+                            device: Some(block_path.as_str()),
                             drive_path: Some(drive_path.as_str()),
                         };
                         log_error_and_show_dialog(fl!("format-disk-failed"), e, ctx).into()
@@ -71,7 +70,7 @@ pub(super) fn eject(app: &mut AppModel) -> Task<Message> {
 
 pub(super) fn eject_drive(drive: DriveModel) -> Task<Message> {
     let drive_path = drive.path.clone();
-    let device = drive.block_path.clone();
+    let block_path = drive.block_path.clone();
 
     Task::perform(
         async move {
@@ -88,7 +87,7 @@ pub(super) fn eject_drive(drive: DriveModel) -> Task<Message> {
                 let ctx = UiErrorContext {
                     operation: "eject_or_remove",
                     object_path: Some(drive_path.as_str()),
-                    device: Some(device.as_str()),
+                    device: Some(block_path.as_str()),
                     drive_path: Some(drive_path.as_str()),
                 };
                 log_error_and_show_dialog(fl!("eject-failed"), e, ctx).into()
@@ -107,7 +106,7 @@ pub(super) fn power_off(app: &mut AppModel) -> Task<Message> {
 
 pub(super) fn power_off_drive(drive: DriveModel) -> Task<Message> {
     let drive_path = drive.path.clone();
-    let device = drive.block_path.clone();
+    let block_path = drive.block_path.clone();
 
     Task::perform(
         async move {
@@ -124,7 +123,7 @@ pub(super) fn power_off_drive(drive: DriveModel) -> Task<Message> {
                 let ctx = UiErrorContext {
                     operation: "power_off",
                     object_path: Some(drive_path.as_str()),
-                    device: Some(device.as_str()),
+                    device: Some(block_path.as_str()),
                     drive_path: Some(drive_path.as_str()),
                 };
                 log_error_and_show_dialog(fl!("power-off-failed"), e, ctx).into()

@@ -18,7 +18,7 @@ pub fn disk_header<'a>(
     volumes: &'a [VolumeNode],
 ) -> Element<'a, Message> {
     let partition_type = match &drive.partition_table_type {
-        Some(t) => t.clone().to_uppercase(),
+        Some(t) => t.to_uppercase(),
         None => fl!("unknown"),
     };
 
@@ -26,9 +26,9 @@ pub fn disk_header<'a>(
     let title = if drive.vendor.is_empty() && drive.model.is_empty() {
         drive.name()
     } else if drive.vendor.is_empty() {
-        drive.model.clone()
+        drive.model.to_string()
     } else if drive.model.is_empty() {
-        drive.vendor.clone()
+        drive.vendor.to_string()
     } else {
         format!("{} {}", drive.vendor, drive.model)
     };

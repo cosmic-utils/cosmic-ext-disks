@@ -78,8 +78,6 @@ pub enum CreateMessage {
     PasswordProtectedUpdate(bool),
     EraseUpdate(bool),
     PartitionTypeUpdate(usize),
-    #[allow(dead_code)]
-    Continue,
     Cancel,
     Partition,
 }

@@ -4,7 +4,7 @@ use cosmic::{
     iced::{Alignment, Background, Length, Shadow},
     iced_widget::{self, column},
     widget::{
-        self, container, icon,
+        self, container,
         text::{caption, caption_heading},
     },
 };
@@ -219,25 +219,6 @@ impl VolumesControl {
             .class(cosmic::style::Container::Card)
             .into()
     }
-}
-
-#[allow(dead_code)]
-fn tooltip_icon_button(
-    icon_name: &str,
-    tooltip: String,
-    msg: Option<Message>,
-) -> Element<'_, Message> {
-    let mut button = widget::button::custom(icon::from_name(icon_name));
-    if let Some(m) = msg {
-        button = button.on_press(m);
-    }
-
-    widget::tooltip(
-        button,
-        widget::text::body(tooltip),
-        widget::tooltip::Position::Top,
-    )
-    .into()
 }
 
 fn volume_row_compact<'a>(

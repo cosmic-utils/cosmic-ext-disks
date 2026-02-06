@@ -10,12 +10,10 @@ pub struct VolumesControl {
     pub selected_volume: Option<String>,
     pub segments: Vec<Segment>,
     pub show_reserved: bool,
-    #[allow(dead_code)]
-    pub model: DriveModel,
+    pub(crate) model: DriveModel,
 }
 
 #[derive(Clone, Debug)]
-#[allow(dead_code)]
 pub struct Segment {
     pub label: String,
     pub name: String,
@@ -79,7 +77,6 @@ impl Segment {
         }
     }
 
-    #[allow(dead_code)]
     pub fn get_create_info(&self) -> CreatePartitionInfo {
         CreatePartitionInfo {
             max_size: self.size,
