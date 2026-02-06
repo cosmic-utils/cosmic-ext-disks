@@ -1,20 +1,23 @@
 use super::message::Message;
 use super::state::{AppModel, ContextPage};
 use crate::fl;
+use crate::ui::dialogs::state::{
+    CreatePartitionDialog, DeletePartitionDialog, ShowDialog, UnlockEncryptedDialog,
+};
 use crate::ui::dialogs::view as dialogs;
 use crate::ui::sidebar;
 use crate::ui::volumes::{VolumesControl, VolumesControlMessage, disk_header, usage_bar};
-use crate::utils::{labelled_info, link_info};
+use crate::utils::{DiskSegmentKind, labelled_info, link_info};
 use crate::views::about::about;
 use crate::views::menu::menu_view;
 use cosmic::app::context_drawer as cosmic_context_drawer;
 use cosmic::iced::Length;
 use cosmic::iced::alignment::{Horizontal, Vertical};
 use cosmic::widget::text::heading;
-use cosmic::widget::{self, Space};
+use cosmic::widget::{self, Space, icon};
 use cosmic::{Apply, Element, iced_widget};
-use disks_dbus::DriveModel;
 use disks_dbus::bytes_to_pretty;
+use disks_dbus::{DriveModel, VolumeKind};
 
 /// Elements to pack at the start of the header bar.
 pub(crate) fn header_start(app: &AppModel) -> Vec<Element<'_, Message>> {
@@ -237,110 +240,360 @@ pub(crate) fn view(app: &AppModel) -> Element<'_, Message> {
     }
 }
 
-/// Renders the volume detail view for the selected volume.
+/// Renders the volume detail view for the selected volume with action buttons.
 fn volume_detail_view<'a>(
     volumes_control: &'a VolumesControl,
     segment: &'a crate::ui::volumes::Segment,
 ) -> Element<'a, Message> {
-    if let Some(v) = volumes_control.selected_volume_node() {
-        let mut col = iced_widget::column![
-            heading(v.label.clone()),
-            Space::new(0, 10),
-            labelled_info(fl!("size"), bytes_to_pretty(&v.size, true)),
-        ]
-        .spacing(5);
+    let selected_volume_node = volumes_control.selected_volume_node();
+    let selected_volume = segment.volume.as_ref().and_then(|p| {
+        crate::ui::volumes::helpers::find_volume_node_for_partition(
+            &volumes_control.model.volumes,
+            p,
+        )
+    });
 
-        if let Some(usage) = &v.usage {
-            col = col.push(labelled_info(
-                fl!("usage"),
-                bytes_to_pretty(&usage.used, false),
-            ));
-        }
-
-        if let Some(mount_point) = v.mount_points.first() {
-            col = col.push(link_info(
-                fl!("mounted-at"),
-                mount_point,
-                Message::OpenPath(mount_point.clone()),
-            ));
-        }
-
-        let contents = if v.id_type.is_empty() {
-            match v.kind {
-                disks_dbus::VolumeKind::Filesystem => fl!("filesystem"),
-                disks_dbus::VolumeKind::LvmLogicalVolume => "LVM LV".to_string(),
-                disks_dbus::VolumeKind::LvmPhysicalVolume => "LVM PV".to_string(),
-                disks_dbus::VolumeKind::CryptoContainer => "LUKS".to_string(),
-                disks_dbus::VolumeKind::Partition => "Partition".to_string(),
-                disks_dbus::VolumeKind::Block => "Device".to_string(),
-            }
-        } else {
-            v.id_type.to_uppercase()
-        };
-
-        col.push(labelled_info(fl!("contents"), contents))
-            .push(labelled_info(
-                fl!("device"),
-                match v.device_path.as_ref() {
-                    Some(s) => s.clone(),
-                    None => fl!("unresolved"),
-                },
-            ))
-            .into()
+    // Build the info section
+    let info_section = if let Some(v) = selected_volume_node {
+        build_volume_node_info(v)
+    } else if let Some(ref p) = segment.volume {
+        build_partition_info(p)
     } else {
-        match segment.volume.clone() {
-            Some(p) => {
-                let mut name = p.name.clone();
-                if name.is_empty() {
-                    name = fl!("partition-number", number = p.number);
-                } else {
-                    name = fl!("partition-number-with-name", number = p.number, name = name);
-                }
+        build_free_space_info(segment)
+    };
 
-                let mut type_str = p.id_type.clone().to_uppercase();
-                type_str = format!("{} - {}", type_str, p.partition_type.clone());
+    // Build the action bar
+    let action_bar = build_action_bar(
+        volumes_control,
+        segment,
+        selected_volume,
+        selected_volume_node,
+    );
 
-                let mut col = iced_widget::column![
-                    heading(name),
-                    Space::new(0, 10),
-                    labelled_info(fl!("size"), bytes_to_pretty(&p.size, true)),
-                ]
-                .spacing(5);
+    iced_widget::column![
+        info_section,
+        Space::new(0, 20),
+        widget::Row::from_vec(action_bar).spacing(10)
+    ]
+    .spacing(10)
+    .into()
+}
 
-                if let Some(usage) = &p.usage {
-                    col = col.push(labelled_info(
-                        fl!("usage"),
-                        bytes_to_pretty(&usage.used, false),
-                    ));
-                }
+/// Build info display for a volume node (child filesystem/LV)
+fn build_volume_node_info(v: &disks_dbus::VolumeNode) -> Element<'_, Message> {
+    let mut col = iced_widget::column![
+        heading(v.label.clone()),
+        Space::new(0, 10),
+        labelled_info(fl!("size"), bytes_to_pretty(&v.size, true)),
+    ]
+    .spacing(5);
 
-                if let Some(mount_point) = p.mount_points.first() {
-                    col = col.push(link_info(
-                        fl!("mounted-at"),
-                        mount_point,
-                        Message::OpenPath(mount_point.clone()),
-                    ));
-                }
-
-                col = col
-                    .push(labelled_info(fl!("contents"), &type_str))
-                    .push(labelled_info(
-                        fl!("device"),
-                        match p.device_path {
-                            Some(s) => s,
-                            None => fl!("unresolved"),
-                        },
-                    ))
-                    .push(labelled_info(fl!("uuid"), &p.uuid));
-
-                col.into()
-            }
-            None => iced_widget::column![
-                heading(&segment.label),
-                labelled_info("Size", bytes_to_pretty(&segment.size, true)),
-            ]
-            .spacing(5)
-            .into(),
-        }
+    if let Some(usage) = &v.usage {
+        col = col.push(labelled_info(
+            fl!("usage"),
+            bytes_to_pretty(&usage.used, false),
+        ));
     }
+
+    if let Some(mount_point) = v.mount_points.first() {
+        col = col.push(link_info(
+            fl!("mounted-at"),
+            mount_point,
+            Message::OpenPath(mount_point.clone()),
+        ));
+    }
+
+    let contents = if v.id_type.is_empty() {
+        match v.kind {
+            VolumeKind::Filesystem => fl!("filesystem"),
+            VolumeKind::LvmLogicalVolume => "LVM LV".to_string(),
+            VolumeKind::LvmPhysicalVolume => "LVM PV".to_string(),
+            VolumeKind::CryptoContainer => "LUKS".to_string(),
+            VolumeKind::Partition => "Partition".to_string(),
+            VolumeKind::Block => "Device".to_string(),
+        }
+    } else {
+        v.id_type.to_uppercase()
+    };
+
+    col.push(labelled_info(fl!("contents"), contents))
+        .push(labelled_info(
+            fl!("device"),
+            match v.device_path.as_ref() {
+                Some(s) => s.clone(),
+                None => fl!("unresolved"),
+            },
+        ))
+        .into()
+}
+
+/// Build info display for a partition
+fn build_partition_info(p: &disks_dbus::VolumeModel) -> Element<'_, Message> {
+    let mut name = p.name.clone();
+    if name.is_empty() {
+        name = fl!("partition-number", number = p.number);
+    } else {
+        name = fl!("partition-number-with-name", number = p.number, name = name);
+    }
+
+    let mut type_str = p.id_type.clone().to_uppercase();
+    type_str = format!("{} - {}", type_str, p.partition_type.clone());
+
+    let mut col = iced_widget::column![
+        heading(name),
+        Space::new(0, 10),
+        labelled_info(fl!("size"), bytes_to_pretty(&p.size, true)),
+    ]
+    .spacing(5);
+
+    if let Some(usage) = &p.usage {
+        col = col.push(labelled_info(
+            fl!("usage"),
+            bytes_to_pretty(&usage.used, false),
+        ));
+    }
+
+    if let Some(mount_point) = p.mount_points.first() {
+        col = col.push(link_info(
+            fl!("mounted-at"),
+            mount_point,
+            Message::OpenPath(mount_point.clone()),
+        ));
+    }
+
+    col = col
+        .push(labelled_info(fl!("contents"), &type_str))
+        .push(labelled_info(
+            fl!("device"),
+            match &p.device_path {
+                Some(s) => s.clone(),
+                None => fl!("unresolved"),
+            },
+        ))
+        .push(labelled_info(fl!("uuid"), &p.uuid));
+
+    col.into()
+}
+
+/// Build info display for free space
+fn build_free_space_info(segment: &crate::ui::volumes::Segment) -> Element<'_, Message> {
+    iced_widget::column![
+        heading(&segment.label),
+        labelled_info(fl!("size"), bytes_to_pretty(&segment.size, true)),
+    ]
+    .spacing(5)
+    .into()
+}
+
+/// Build the action button bar based on the selected segment and volume
+fn build_action_bar<'a>(
+    volumes_control: &'a VolumesControl,
+    segment: &'a crate::ui::volumes::Segment,
+    selected_volume: Option<&disks_dbus::VolumeNode>,
+    selected_child_volume: Option<&disks_dbus::VolumeNode>,
+) -> Vec<Element<'a, Message>> {
+    let mut action_bar: Vec<Element<Message>> = vec![];
+
+    match segment.kind {
+        DiskSegmentKind::Partition => {
+            if let Some(p) = segment.volume.as_ref() {
+                // Container actions (unlock/lock)
+                if let Some(v) = selected_volume
+                    && v.kind == VolumeKind::CryptoContainer
+                {
+                    if v.locked {
+                        action_bar.push(tooltip_icon_button(
+                            "dialog-password-symbolic",
+                            fl!("unlock-button").to_string(),
+                            Some(Message::Dialog(Box::new(ShowDialog::UnlockEncrypted(
+                                UnlockEncryptedDialog {
+                                    partition_path: p.path.to_string(),
+                                    partition_name: p.name(),
+                                    passphrase: String::new(),
+                                    error: None,
+                                    running: false,
+                                },
+                            )))),
+                        ));
+                    } else {
+                        action_bar.push(tooltip_icon_button(
+                            "changes-prevent-symbolic",
+                            fl!("lock").to_string(),
+                            Some(VolumesControlMessage::LockContainer.into()),
+                        ));
+                    }
+                }
+
+                // Mount/Unmount actions
+                if let Some(v) = selected_child_volume {
+                    if v.can_mount() {
+                        let msg = if v.is_mounted() {
+                            VolumesControlMessage::ChildUnmount(v.object_path.to_string())
+                        } else {
+                            VolumesControlMessage::ChildMount(v.object_path.to_string())
+                        };
+                        let icon_name = if v.is_mounted() {
+                            "media-playback-stop-symbolic"
+                        } else {
+                            "media-playback-start-symbolic"
+                        };
+                        action_bar.push(tooltip_icon_button(
+                            icon_name,
+                            fl!("mount-toggle").to_string(),
+                            Some(msg.into()),
+                        ));
+                    }
+                } else if p.can_mount() {
+                    let (icon_name, msg) = if p.is_mounted() {
+                        (
+                            "media-playback-stop-symbolic",
+                            VolumesControlMessage::Unmount,
+                        )
+                    } else {
+                        (
+                            "media-playback-start-symbolic",
+                            VolumesControlMessage::Mount,
+                        )
+                    };
+                    action_bar.push(tooltip_icon_button(
+                        icon_name,
+                        fl!("mount-toggle").to_string(),
+                        Some(msg.into()),
+                    ));
+                }
+
+                // Format Partition
+                action_bar.push(tooltip_icon_button(
+                    "edit-clear-symbolic",
+                    fl!("format-partition").to_string(),
+                    Some(VolumesControlMessage::OpenFormatPartition.into()),
+                ));
+
+                // Partition-only: Edit Partition + Resize
+                if selected_child_volume.is_none()
+                    && p.volume_type == disks_dbus::VolumeType::Partition
+                {
+                    action_bar.push(tooltip_icon_button(
+                        "document-edit-symbolic",
+                        fl!("edit-partition").to_string(),
+                        Some(VolumesControlMessage::OpenEditPartition.into()),
+                    ));
+
+                    let right_free_bytes = volumes_control
+                        .segments
+                        .get(volumes_control.selected_segment.saturating_add(1))
+                        .filter(|s| s.kind == DiskSegmentKind::FreeSpace)
+                        .map(|s| s.size)
+                        .unwrap_or(0);
+                    let max_size = p.size.saturating_add(right_free_bytes);
+                    let min_size = p.usage.as_ref().map(|u| u.used).unwrap_or(0).min(max_size);
+
+                    let resize_enabled = max_size.saturating_sub(min_size) >= 1024;
+                    action_bar.push(tooltip_icon_button(
+                        "transform-scale-symbolic",
+                        fl!("resize-partition").to_string(),
+                        resize_enabled.then_some(VolumesControlMessage::OpenResizePartition.into()),
+                    ));
+                }
+
+                // Filesystem actions
+                let fs_target_available = selected_child_volume
+                    .map(|n| n.can_mount())
+                    .unwrap_or_else(|| p.can_mount());
+                if fs_target_available {
+                    action_bar.push(tooltip_icon_button(
+                        "document-properties-symbolic",
+                        fl!("edit-mount-options").to_string(),
+                        Some(VolumesControlMessage::OpenEditMountOptions.into()),
+                    ));
+                    action_bar.push(tooltip_icon_button(
+                        "tag-symbolic",
+                        fl!("edit-filesystem").to_string(),
+                        Some(VolumesControlMessage::OpenEditFilesystemLabel.into()),
+                    ));
+                    action_bar.push(tooltip_icon_button(
+                        "emblem-ok-symbolic",
+                        fl!("check-filesystem").to_string(),
+                        Some(VolumesControlMessage::OpenCheckFilesystem.into()),
+                    ));
+                    action_bar.push(tooltip_icon_button(
+                        "tools-symbolic",
+                        fl!("repair-filesystem").to_string(),
+                        Some(VolumesControlMessage::OpenRepairFilesystem.into()),
+                    ));
+                    action_bar.push(tooltip_icon_button(
+                        "user-home-symbolic",
+                        fl!("take-ownership").to_string(),
+                        Some(VolumesControlMessage::OpenTakeOwnership.into()),
+                    ));
+                }
+
+                // Container encryption options
+                if selected_volume.is_some_and(|v| v.kind == VolumeKind::CryptoContainer) {
+                    action_bar.push(tooltip_icon_button(
+                        "dialog-password-symbolic",
+                        fl!("change-passphrase").to_string(),
+                        Some(VolumesControlMessage::OpenChangePassphrase.into()),
+                    ));
+                    action_bar.push(tooltip_icon_button(
+                        "document-properties-symbolic",
+                        fl!("edit-encryption-options").to_string(),
+                        Some(VolumesControlMessage::OpenEditEncryptionOptions.into()),
+                    ));
+                }
+
+                // Delete partition
+                if selected_child_volume.is_none()
+                    && p.volume_type != disks_dbus::VolumeType::Filesystem
+                {
+                    action_bar.push(widget::horizontal_space().into());
+                    action_bar.push(tooltip_icon_button(
+                        "edit-delete-symbolic",
+                        fl!("delete", name = segment.name.clone()).to_string(),
+                        Some(Message::Dialog(Box::new(ShowDialog::DeletePartition(
+                            DeletePartitionDialog {
+                                name: segment.name.clone(),
+                                running: false,
+                            },
+                        )))),
+                    ));
+                }
+            }
+        }
+        DiskSegmentKind::FreeSpace => {
+            action_bar.push(tooltip_icon_button(
+                "list-add-symbolic",
+                fl!("create-partition").to_string(),
+                Some(Message::Dialog(Box::new(ShowDialog::AddPartition(
+                    CreatePartitionDialog {
+                        info: segment.get_create_info(),
+                        running: false,
+                        error: None,
+                    },
+                )))),
+            ));
+        }
+        DiskSegmentKind::Reserved => {}
+    }
+
+    action_bar
+}
+
+/// Helper function to create an icon button with tooltip
+fn tooltip_icon_button(
+    icon_name: &str,
+    tooltip: String,
+    msg: Option<Message>,
+) -> Element<'_, Message> {
+    let mut button = widget::button::custom(icon::from_name(icon_name));
+    if let Some(m) = msg {
+        button = button.on_press(m);
+    }
+
+    widget::tooltip(
+        button,
+        widget::text::body(tooltip),
+        widget::tooltip::Position::Top,
+    )
+    .into()
 }
