@@ -1,49 +1,25 @@
 # Audit Implementation Plan — Remaining GAPs
 
 **Audit:** 2026-02-06T19-14-59Z  
-**Status:** 7 Quick Wins Complete (GAP-001, 005, 006, 009, 010, 011, 012)  
-**Remaining:** Medium-severity structural refactorings
+**Status:** 8 fixes complete (GAP-001, 002, 005, 006, 009, 010, 011, 012)  
+**Remaining:** 2 large structural refactorings (GAP-003, 004) + 2 low-priority (GAP-007, 008)
 
 ---
 
-## ✅ Completed (7 fixes)
+## ✅ Completed (8 fixes)
 
 1. **GAP-001** — Removed 17 unused i18n keys
-2. **GAP-005** — Replaced blanket dead_code suppression with targeted annotations (11 functions documented)
-3. **GAP-006** — Deleted typo method
-4. **GAP-009** — Fixed unwrap() calls in logging
-5. **GAP-010** — Removed println! debug code
-6. **GAP-011** — Documented module structure convention
-7. **GAP-012** — Fixed 7 untranslated UI strings (added 8 new i18n keys)
+2. **GAP-002** — Replaced glob re-exports with explicit exports (3 modules, 39 exports documented)
+3. **GAP-005** — Replaced blanket dead_code suppression with targeted annotations (11 functions documented)
+4. **GAP-006** — Deleted typo method
+5. **GAP-009** — Fixed unwrap() calls in logging
+6. **GAP-010** — Removed println! debug code
+7. **GAP-011** — Documented module structure convention
+8. **GAP-012** — Fixed 7 untranslated UI strings (added 8 new i18n keys)
 
 ---
 
-## ⏳ Pending (Large Refactorings)
-
-### GAP-002: Legacy Re-Export Module Pattern
-**Severity:** Medium  
-**Effort:** 2-4 hours  
-**Risk:** High (touches public API, affects all imports)
-
-**Scope:**
-1. `disks-ui/src/utils/mod.rs` — 2 glob re-exports
-2. `disks-dbus/src/lib.rs` — 7 glob re-exports  
-3. `disks-dbus/src/disks/mod.rs` — 8 glob re-exports
-
-**Dependencies:**
-- Need to identify all exported symbols from each module
-- Update ~50+ import statements across codebase
-- Risk of breaking external dependents (if any)
-
-**Recommended approach:**
-1. **Phase 1:** Make explicit exports in mod files (keep old glob exports temporarily)
-2. **Phase 2:** Update internal imports to use new paths
-3. **Phase 3:** Remove glob exports
-4. **Phase 4:** Run `cargo doc` and verify API surface is clean
-
-**Blocked by:** Need confirmation this won't break external crates depending on cosmic-ext-disks-dbus
-
----
+## ⏳ Remaining (Large Refactorings)
 
 ### GAP-003: Split volume_model.rs (944 lines → 7 files)
 **Severity:** Medium  
