@@ -86,7 +86,8 @@ impl VolumeModel {
         //any other error with the partition should be caught by the delete operation.
         let _ = self.unmount().await;
 
-        let backend = crate::disks::ops::RealDiskBackend::new(self.connection.as_ref().unwrap().clone());
+        let backend =
+            crate::disks::ops::RealDiskBackend::new(self.connection.as_ref().unwrap().clone());
         crate::disks::ops::partition_delete(&backend, self.path.clone()).await
     }
 }

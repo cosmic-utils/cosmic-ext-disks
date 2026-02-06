@@ -35,11 +35,16 @@ pub enum Message {
 
     // Sidebar (custom treeview)
     SidebarSelectDrive(String),
-    SidebarSelectChild { object_path: String },
+    SidebarSelectChild {
+        object_path: String,
+    },
     SidebarClearChildSelection,
     SidebarToggleExpanded(crate::ui::sidebar::SidebarNodeKey),
     SidebarDriveEject(String),
-    SidebarVolumeUnmount { drive: String, object_path: String },
+    SidebarVolumeUnmount {
+        drive: String,
+        object_path: String,
+    },
     SmartDialog(SmartDialogMessage),
     NewDiskImage,
     AttachDisk,
@@ -54,9 +59,19 @@ pub enum Message {
     NewDiskImageDialog(NewDiskImageDialogMessage),
     AttachDiskImageDialog(AttachDiskImageDialogMessage),
     ImageOperationDialog(ImageOperationDialogMessage),
+    OpenImagePathPicker(ImagePathPickerKind),
+    ImagePathPicked(ImagePathPickerKind, Option<String>),
     ToggleShowReserved(bool),
     #[allow(dead_code)]
     Surface(cosmic::surface::Action),
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ImagePathPickerKind {
+    NewDiskImage,
+    AttachDiskImage,
+    ImageOperationCreate,
+    ImageOperationRestore,
 }
 
 impl From<FormatDiskMessage> for Message {

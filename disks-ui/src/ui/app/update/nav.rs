@@ -54,11 +54,7 @@ pub(super) fn update_nav(
 
     let mut drive_entities: HashMap<String, cosmic::widget::nav_bar::Id> = HashMap::new();
 
-    let selected = selected.or_else(|| {
-        drive_models
-            .first()
-            .map(|d| d.block_path.clone())
-    });
+    let selected = selected.or_else(|| drive_models.first().map(|d| d.block_path.clone()));
 
     for drive in drive_models {
         let icon_name = if drive.removable {

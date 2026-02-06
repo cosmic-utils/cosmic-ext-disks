@@ -3,18 +3,20 @@ mod image;
 mod nav;
 mod smart;
 
-use super::message::Message;
-use super::state::AppModel;
 use super::APP_ID;
+use super::message::{ImagePathPickerKind, Message};
+use super::state::AppModel;
 use crate::app::REPOSITORY;
 use crate::config::Config;
 use crate::fl;
+use crate::ui::dialogs::state::ShowDialog;
 use crate::ui::error::{UiErrorContext, log_error_and_show_dialog};
 use crate::ui::sidebar::SidebarNodeKey;
 use crate::ui::volumes::VolumesControl;
 use crate::ui::volumes::helpers as volumes_helpers;
 use cosmic::app::Task;
 use cosmic::cosmic_config::CosmicConfigEntry;
+use cosmic::dialog::file_chooser;
 use cosmic::widget::nav_bar;
 use disks_dbus::{DriveModel, VolumeNode};
 
@@ -89,17 +91,91 @@ pub(crate) fn update(app: &mut AppModel, message: Message) -> Task<Message> {
         }
         Message::ToggleShowReserved(show_reserved) => {
             app.config.show_reserved = show_reserved;
-            
+
             // Persist config change
             if let Ok(helper) = cosmic::cosmic_config::Config::new(APP_ID, Config::VERSION) {
                 let _ = app.config.write_entry(&helper);
             }
-            
+
             // Update the active volumes control if one is selected
             if let Some(volumes_control) = app.nav.active_data_mut::<VolumesControl>() {
                 volumes_control.set_show_reserved(show_reserved);
             }
         }
+        Message::OpenImagePathPicker(kind) => {
+            let title = match kind {
+                ImagePathPickerKind::NewDiskImage | ImagePathPickerKind::ImageOperationCreate => {
+                    fl!("image-destination-path")
+                }
+                ImagePathPickerKind::AttachDiskImage
+                | ImagePathPickerKind::ImageOperationRestore => fl!("image-file-path"),
+            };
+
+            return Task::perform(
+                async move {
+                    let result = match kind {
+                        ImagePathPickerKind::NewDiskImage
+                        | ImagePathPickerKind::ImageOperationCreate => {
+                            let dialog = file_chooser::save::Dialog::new().title(title);
+                            match dialog.save_file().await {
+                                Ok(response) => response
+                                    .url()
+                                    .and_then(|url| url.to_file_path().ok())
+                                    .map(|path| path.to_string_lossy().to_string()),
+                                Err(file_chooser::Error::Cancelled) => None,
+                                Err(err) => {
+                                    tracing::warn!(?err, "save file dialog failed");
+                                    None
+                                }
+                            }
+                        }
+                        ImagePathPickerKind::AttachDiskImage
+                        | ImagePathPickerKind::ImageOperationRestore => {
+                            let dialog = file_chooser::open::Dialog::new().title(title);
+                            match dialog.open_file().await {
+                                Ok(response) => response
+                                    .url()
+                                    .to_file_path()
+                                    .ok()
+                                    .map(|path| path.to_string_lossy().to_string()),
+                                Err(file_chooser::Error::Cancelled) => None,
+                                Err(err) => {
+                                    tracing::warn!(?err, "open file dialog failed");
+                                    None
+                                }
+                            }
+                        }
+                    };
+
+                    Message::ImagePathPicked(kind, result)
+                },
+                |msg| msg.into(),
+            );
+        }
+        Message::ImagePathPicked(kind, path) => match kind {
+            ImagePathPickerKind::NewDiskImage => {
+                if let Some(ShowDialog::NewDiskImage(state)) = app.dialog.as_mut()
+                    && let Some(path) = path
+                {
+                    state.path = path;
+                }
+            }
+            ImagePathPickerKind::AttachDiskImage => {
+                if let Some(ShowDialog::AttachDiskImage(state)) = app.dialog.as_mut()
+                    && let Some(path) = path
+                {
+                    state.path = path;
+                }
+            }
+            ImagePathPickerKind::ImageOperationCreate
+            | ImagePathPickerKind::ImageOperationRestore => {
+                if let Some(ShowDialog::ImageOperation(state)) = app.dialog.as_mut()
+                    && let Some(path) = path
+                {
+                    state.image_path = path;
+                }
+            }
+        },
         Message::LaunchUrl(url) => match open::that_detached(&url) {
             Ok(()) => {}
             Err(err) => {
@@ -159,27 +235,27 @@ pub(crate) fn update(app: &mut AppModel, message: Message) -> Task<Message> {
         Message::UpdateNavWithChildSelection(drive_models, child_object_path) => {
             // Update drives while preserving child volume selection
             nav::update_nav(app, drive_models, None);
-            
+
             // Restore child selection if provided
             if let Some(object_path) = child_object_path {
-                app.sidebar.selected_child =
-                    Some(crate::ui::sidebar::SidebarNodeKey::Volume(object_path.clone()));
+                app.sidebar.selected_child = Some(crate::ui::sidebar::SidebarNodeKey::Volume(
+                    object_path.clone(),
+                ));
 
-                if let Some(control) = app.nav.active_data_mut::<VolumesControl>() {
-                    if let Some((segment_idx, is_child)) =
+                if let Some(control) = app.nav.active_data_mut::<VolumesControl>()
+                    && let Some((segment_idx, is_child)) =
                         find_segment_for_volume(control, &object_path)
-                    {
-                        control.selected_volume = if is_child {
-                            Some(object_path.clone())
-                        } else {
-                            None
-                        };
+                {
+                    control.selected_volume = if is_child {
+                        Some(object_path.clone())
+                    } else {
+                        None
+                    };
 
-                        control.segments.iter_mut().for_each(|s| s.state = false);
-                        control.selected_segment = segment_idx;
-                        if let Some(segment) = control.segments.get_mut(segment_idx) {
-                            segment.state = true;
-                        }
+                    control.segments.iter_mut().for_each(|s| s.state = false);
+                    control.selected_segment = segment_idx;
+                    if let Some(segment) = control.segments.get_mut(segment_idx) {
+                        segment.state = true;
                     }
                 }
             }
@@ -221,7 +297,10 @@ pub(crate) fn update(app: &mut AppModel, message: Message) -> Task<Message> {
             app.sidebar.selected_child = Some(SidebarNodeKey::Volume(object_path.clone()));
 
             // Find which drive contains this volume node
-            let drive_for_volume = app.sidebar.drives.iter()
+            let drive_for_volume = app
+                .sidebar
+                .drives
+                .iter()
                 .find(|d| volumes_helpers::find_volume_node(&d.volumes, &object_path).is_some())
                 .cloned();
 
@@ -233,7 +312,9 @@ pub(crate) fn update(app: &mut AppModel, message: Message) -> Task<Message> {
                     if let Some(id) = app.sidebar.drive_entities.get(&drive.block_path).copied() {
                         let switch_task = on_nav_select(app, id);
                         // After switching, we need to select the volume again
-                        return switch_task.chain(Task::done(cosmic::Action::App(Message::SidebarSelectChild { object_path })));
+                        return switch_task.chain(Task::done(cosmic::Action::App(
+                            Message::SidebarSelectChild { object_path },
+                        )));
                     }
                 }
             }
@@ -249,7 +330,8 @@ pub(crate) fn update(app: &mut AppModel, message: Message) -> Task<Message> {
                 return Task::none();
             };
 
-            let Some((segment_idx, is_child)) = find_segment_for_volume(volumes_control, &object_path)
+            let Some((segment_idx, is_child)) =
+                find_segment_for_volume(volumes_control, &object_path)
             else {
                 return Task::none();
             };

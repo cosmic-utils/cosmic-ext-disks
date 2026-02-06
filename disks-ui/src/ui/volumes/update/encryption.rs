@@ -250,7 +250,11 @@ pub(super) fn unlock_message(
                 move |result| match result {
                     Ok(drives) => {
                         // After unlock, select the unlocked volume (which may have new child nodes)
-                        Message::UpdateNavWithChildSelection(drives, Some(object_path_for_selection.clone())).into()
+                        Message::UpdateNavWithChildSelection(
+                            drives,
+                            Some(object_path_for_selection.clone()),
+                        )
+                        .into()
                     }
                     Err(e) => {
                         tracing::error!(
@@ -492,7 +496,11 @@ pub(super) fn lock_container(control: &mut VolumesControl) -> Task<cosmic::Actio
             move |result| match result {
                 Ok(drives) => {
                     // After lock, stay on the locked container
-                    Message::UpdateNavWithChildSelection(drives, Some(object_path_for_selection.clone())).into()
+                    Message::UpdateNavWithChildSelection(
+                        drives,
+                        Some(object_path_for_selection.clone()),
+                    )
+                    .into()
                 }
                 Err(e) => {
                     let ctx = UiErrorContext::new("lock_container");

@@ -704,7 +704,7 @@
 - Test plan: manual UI test; verify ownership and image buttons appear and function.
 - Done when:
   - [x] Take Ownership button appears for mounted partitions.
-  - [ ] Create/Restore Partition Image buttons appear for all partitions.
+  - [x] Create/Restore Partition Image buttons appear for all partitions.
   - [x] All operations functional.
 
 ### Task 39: Fix drive power management capability detection
@@ -787,10 +787,10 @@
   - Verify reserved space calculations show correctly in UI.
 - Test plan: check logs for warnings; verify reserved space segments appear correctly in UI.
 - Done when:
-  - [ ] GPT usable range parsing succeeds without warnings.
-  - [ ] Reserved space calculations accurate for GPT disks.
-  - [ ] Falls back gracefully if properties unavailable.
-  - [ ] Tested on multiple GPT disks (SATA, NVMe).
+  - [x] GPT usable range parsing succeeds without warnings.
+  - [x] Reserved space calculations accurate for GPT disks.
+  - [x] Falls back gracefully if properties unavailable.
+  - [x] Tested on multiple GPT disks (SATA, NVMe).
 
 ### Task 42: Rename About page to Settings and add "Show Reserved" toggle
 - Scope: convert About page to Settings, add user preference for showing reserved space.
@@ -820,11 +820,11 @@
   - Trigger UI refresh when setting changes.
 - Test plan: toggle setting; verify reserved space appears/disappears without restart.
 - Done when:
-  - [ ] About page renamed to Settings.
-  - [ ] Config field added with cosmic config integration.
-  - [ ] Checkbox control in Settings view.
-  - [ ] Reserved space visibility responds to toggle.
-  - [ ] Setting persists across application restarts.
+  - [x] About page renamed to Settings.
+  - [x] Config field added with cosmic config integration.
+  - [x] Checkbox control in Settings view.
+  - [x] Reserved space visibility responds to toggle.
+  - [x] Setting persists across application restarts.
 
 ### Task 43: Fix edit partition icon (unset/not showing)
 - Scope: edit partition icon is missing or not displaying in UI.
@@ -859,10 +859,10 @@
   - Document that this is temporary; custom icon needed for production.
 - Test plan: install app; verify icon shows in launcher and window decorations.
 - Done when:
-  - [ ] Application icon installed at multiple sizes.
-  - [ ] Icon appears in COSMIC launcher.
-  - [ ] Icon appears in window title bar.
-  - [ ] Documented as temporary solution.
+  - [x] Application icon installed at multiple sizes.
+  - [x] Icon appears in COSMIC launcher.
+  - [x] Icon appears in window title bar.
+  - [x] Documented as temporary solution.
 
 ### Task 45: Match format partition icon to format disk icon
 - Scope: format partition and format disk operations should use consistent iconography.
@@ -936,15 +936,42 @@
     - Invalid image file format
     - I/O errors during operation
   - Add progress reporting (if not already present).
+  - Use COSMIC-standard Open File dialogs for image save/load paths (see Task 49).
 - Test plan: create image from partition; restore image to same/different partition; verify data integrity.
 - Done when:
-  - [ ] Create Partition Image button appears on all partitions.
-  - [ ] Create operation opens file picker and saves image.
-  - [ ] Restore Partition Image button appears on all partitions.
-  - [ ] Restore operation opens file picker and restores image.
-  - [ ] Progress feedback during operations.
-  - [ ] Error handling for common failure cases.
-  - [ ] Tested with actual partition imaging workflow.
+  - [x] Create Partition Image button appears on all partitions.
+  - [x] Create operation opens file picker and saves image.
+  - [x] Restore Partition Image button appears on all partitions.
+  - [x] Restore operation opens file picker and restores image.
+  - [x] Progress feedback during operations.
+  - [x] Error handling for common failure cases.
+  - [x] Tested with actual partition imaging workflow.
+
+### Task 49: Open File dialogs for image create/save/load
+- Scope: replace manual path inputs with COSMIC-native file dialogs for image operations.
+- Files/areas:
+  - `disks-ui/src/ui/dialogs/view/image.rs` (path inputs)
+  - `disks-ui/src/ui/app/update/image/*` (dialog actions)
+  - `disks-ui/src/ui/app/message.rs` (messages for dialog results)
+  - `disks-ui/src/ui/app/update/mod.rs` (message routing)
+- Steps:
+  - Research what COSMIC desktop apps use for file dialogs:
+    - Search libcosmic for a file dialog component or helper.
+    - Check existing COSMIC apps for file picker usage patterns.
+  - Decide on standard component/API to use (avoid ad-hoc dialog implementation).
+  - Replace the text input path fields with Open File / Save File dialogs:
+    - Create image: Save dialog (path destination).
+    - Restore image: Open dialog (path source).
+    - New/Attach disk image (existing dialogs): align to same pattern.
+  - Wire dialog results into image operation state (populate path fields, validate).
+  - Ensure dialogs are non-blocking and respect cancellation.
+  - Add error handling for invalid selections and permission errors.
+- Test plan: open dialogs and select paths; verify fields populate and operations run.
+- Done when:
+  - [x] File dialogs are used for image create/save/load.
+  - [x] Uses COSMIC-standard file dialog component.
+  - [x] Paths are validated before starting operations.
+  - [x] Cancel leaves dialogs unchanged.
 
 ### Task 48: Use eject for removable drives instead of power off
 - Scope: removable drives should show eject action, not power off.

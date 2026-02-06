@@ -61,6 +61,8 @@ features = [
     "wayland",
     # GPU-accelerated rendering
     "wgpu",
+    # File dialogs via XDG desktop portal
+    "xdg-portal",
 ]
 
 

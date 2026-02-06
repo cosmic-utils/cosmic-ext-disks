@@ -5,12 +5,12 @@ use udisks2::{block::BlockProxy, drive::DriveProxy};
 use zbus::zvariant::OwnedObjectPath;
 use zbus::zvariant::Value;
 
-use crate::disks::VolumeNode;
-use crate::disks::ops::{RealDiskBackend, drive_create_partition};
 use super::is_anyhow_device_busy;
 use super::is_anyhow_not_supported;
 use super::model::DriveModel;
 use crate::CreatePartitionInfo;
+use crate::disks::VolumeNode;
+use crate::disks::ops::{RealDiskBackend, drive_create_partition};
 
 impl DriveModel {
     pub async fn eject(&self) -> Result<()> {

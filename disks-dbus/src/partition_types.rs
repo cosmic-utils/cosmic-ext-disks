@@ -106,22 +106,22 @@ struct PartitionTypeCatalog {
 static PARTITION_TYPES_DATA: std::sync::LazyLock<Vec<PartitionTypeInfo>> =
     std::sync::LazyLock::new(|| {
         let mut all_types = Vec::new();
-        
+
         // Parse GPT types
         if let Ok(gpt) = toml::from_str::<PartitionTypeCatalog>(GPT_TOML) {
             all_types.extend(gpt.types);
         }
-        
+
         // Parse DOS types
         if let Ok(dos) = toml::from_str::<PartitionTypeCatalog>(DOS_TOML) {
             all_types.extend(dos.types);
         }
-        
+
         // Parse APM types
         if let Ok(apm) = toml::from_str::<PartitionTypeCatalog>(APM_TOML) {
             all_types.extend(apm.types);
         }
-        
+
         all_types
     });
 
@@ -135,9 +135,12 @@ pub static COMMON_GPT_TYPES: std::sync::LazyLock<Vec<PartitionTypeInfo>> =
         PARTITION_TYPES_DATA
             .iter()
             .filter(|p| {
-                p.table_type == "gpt" 
-                && (p.table_subtype == "linux" || p.table_subtype == "microsoft")
-                && matches!(p.flags, PartitionTypeInfoFlags::None | PartitionTypeInfoFlags::Swap)
+                p.table_type == "gpt"
+                    && (p.table_subtype == "linux" || p.table_subtype == "microsoft")
+                    && matches!(
+                        p.flags,
+                        PartitionTypeInfoFlags::None | PartitionTypeInfoFlags::Swap
+                    )
             })
             .cloned()
             .collect()
@@ -149,9 +152,12 @@ pub static COMMON_DOS_TYPES: std::sync::LazyLock<Vec<PartitionTypeInfo>> =
         PARTITION_TYPES_DATA
             .iter()
             .filter(|p| {
-                p.table_type == "dos" 
-                && (p.table_subtype == "linux" || p.table_subtype == "microsoft")
-                && matches!(p.flags, PartitionTypeInfoFlags::None | PartitionTypeInfoFlags::Swap)
+                p.table_type == "dos"
+                    && (p.table_subtype == "linux" || p.table_subtype == "microsoft")
+                    && matches!(
+                        p.flags,
+                        PartitionTypeInfoFlags::None | PartitionTypeInfoFlags::Swap
+                    )
             })
             .cloned()
             .collect()
@@ -165,11 +171,20 @@ mod tests {
     fn partition_type_catalog_count_is_stable() {
         // We now load from TOML, so total is 242 (186 GPT + 43 DOS + 13 APM)
         assert_eq!(PARTITION_TYPES.len(), 242);
-        
-        let gpt_count = PARTITION_TYPES.iter().filter(|p| p.table_type == "gpt").count();
-        let dos_count = PARTITION_TYPES.iter().filter(|p| p.table_type == "dos").count();
-        let apm_count = PARTITION_TYPES.iter().filter(|p| p.table_type == "apm").count();
-        
+
+        let gpt_count = PARTITION_TYPES
+            .iter()
+            .filter(|p| p.table_type == "gpt")
+            .count();
+        let dos_count = PARTITION_TYPES
+            .iter()
+            .filter(|p| p.table_type == "dos")
+            .count();
+        let apm_count = PARTITION_TYPES
+            .iter()
+            .filter(|p| p.table_type == "apm")
+            .count();
+
         assert_eq!(gpt_count, 186);
         assert_eq!(dos_count, 43);
         assert_eq!(apm_count, 13);

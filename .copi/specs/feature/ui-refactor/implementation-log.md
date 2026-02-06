@@ -44,6 +44,32 @@ This feature branch successfully implements a comprehensive UI refactor for the 
 
 ---
 
+## 2026-02-06 — Task 49: COSMIC File Dialogs for Image Operations
+
+**Files Modified:**
+- `disks-ui/src/ui/dialogs/view/image.rs`
+- `disks-ui/src/ui/app/update/mod.rs`
+- `disks-ui/src/ui/app/message.rs`
+- `disks-ui/src/ui/app/update/image/dialogs.rs`
+- `disks-ui/src/ui/dialogs/message.rs`
+- `disks-ui/i18n/en/cosmic_ext_disks.ftl`
+- `disks-ui/i18n/sv/cosmic_ext_disks.ftl`
+- `Cargo.toml`
+
+**Changes:**
+- Replaced manual path text inputs with COSMIC file dialogs (open/save) for all image operations.
+- Added `ImagePathPickerKind` and picker messages to route async dialog results back into dialog state.
+- Enabled libcosmic `xdg-portal` feature to access `cosmic::dialog::file_chooser`.
+- Mapped dialog responses via URL → path conversion, with cancellation handling.
+- Removed unused `PathUpdate` dialog message variants.
+- Added localized labels for chooser button and empty selection placeholder.
+
+**Notes:**
+- File dialog API uses `file_chooser::open::Dialog` and `file_chooser::save::Dialog`.
+
+**Build Status:** ✅ Success
+
+
 ## 2026-02-06 (Final Clippy Fixes)
 
 **Code Quality Cleanup:**

@@ -7,11 +7,11 @@ use udisks2::{
 };
 use zbus::{Connection, zvariant::OwnedObjectPath};
 
+use super::model::DriveModel;
 use crate::disks::{
     BlockIndex, VolumeModel, fallback_gpt_usable_range_bytes, manager::UDisks2ManagerProxy,
     probe_gpt_usable_range_bytes,
 };
-use super::model::DriveModel;
 
 #[derive(Debug, Clone)]
 struct DriveBlockPair {
@@ -449,9 +449,9 @@ impl DriveModel {
 
         let mut drives: Vec<DriveModel> = drives.into_values().collect();
         drives.sort_by(|d1, d2| {
-            d1.removable.cmp(&d2.removable).then_with(|| {
-                d2.block_path.cmp(&d1.block_path)
-            })
+            d1.removable
+                .cmp(&d2.removable)
+                .then_with(|| d2.block_path.cmp(&d1.block_path))
         });
 
         Ok(drives)

@@ -6,8 +6,8 @@ use disks_dbus::{DriveModel, VolumeNode};
 use crate::app::Message;
 use crate::fl;
 use crate::ui::volumes::Segment;
-use crate::ui::volumes::usage_pie::{self, PieSegmentData};
 use crate::ui::volumes::helpers;
+use crate::ui::volumes::usage_pie::{self, PieSegmentData};
 use crate::utils::DiskSegmentKind;
 
 /// Renders the disk info header with icon, name/partitioning/serial, and multi-partition pie chart.
@@ -32,7 +32,7 @@ pub fn disk_header<'a>(
     } else {
         format!("{} {}", drive.vendor, drive.model)
     };
-    
+
     let name_text = widget::text(title)
         .size(14.0)
         .font(cosmic::iced::font::Font {
@@ -59,7 +59,7 @@ pub fn disk_header<'a>(
 
     // Drive action buttons underneath icon and text (left-aligned, spanning both columns)
     let mut drive_actions = Vec::new();
-    
+
     // Eject (for removable/ejectable drives - use this instead of power off)
     if drive.removable || drive.ejectable {
         drive_actions.push(
@@ -84,7 +84,7 @@ pub fn disk_header<'a>(
             .into(),
         );
     }
-    
+
     // Format (wipe disk)
     drive_actions.push(
         widget::tooltip(
@@ -95,7 +95,7 @@ pub fn disk_header<'a>(
         )
         .into(),
     );
-    
+
     // SMART Data (not for loop devices)
     if !drive.is_loop {
         drive_actions.push(
@@ -108,7 +108,7 @@ pub fn disk_header<'a>(
             .into(),
         );
     }
-    
+
     // Standby (only for drives that support power management - spinning disks)
     if drive.supports_power_management() {
         drive_actions.push(
@@ -121,20 +121,19 @@ pub fn disk_header<'a>(
             .into(),
         );
     }
-    
+
     // Wake Up (only for drives that support power management - spinning disks)
     if drive.supports_power_management() {
         drive_actions.push(
             widget::tooltip(
-                widget::button::icon(icon::from_name("alarm-symbolic"))
-                    .on_press(Message::Wakeup),
+                widget::button::icon(icon::from_name("alarm-symbolic")).on_press(Message::Wakeup),
                 widget::text(fl!("wake-up-from-standby")),
                 widget::tooltip::Position::Bottom,
             )
             .into(),
         );
     }
-    
+
     // Create Image
     drive_actions.push(
         widget::tooltip(
@@ -145,7 +144,7 @@ pub fn disk_header<'a>(
         )
         .into(),
     );
-    
+
     // Restore Image
     drive_actions.push(
         widget::tooltip(
@@ -164,10 +163,15 @@ pub fn disk_header<'a>(
         .map(|s| {
             let used = if let Some(ref volume_model) = s.volume {
                 // Look up the corresponding VolumeNode to check if it's a LUKS container
-                if let Some(volume_node) = helpers::find_volume_node_for_partition(volumes, volume_model) {
-                    if volume_node.kind == disks_dbus::VolumeKind::CryptoContainer && !volume_node.children.is_empty() {
+                if let Some(volume_node) =
+                    helpers::find_volume_node_for_partition(volumes, volume_model)
+                {
+                    if volume_node.kind == disks_dbus::VolumeKind::CryptoContainer
+                        && !volume_node.children.is_empty()
+                    {
                         // Aggregate children's usage for LUKS containers
-                        volume_node.children
+                        volume_node
+                            .children
                             .iter()
                             .filter_map(|child| child.usage.as_ref())
                             .map(|u| u.used)
@@ -192,26 +196,26 @@ pub fn disk_header<'a>(
         .collect();
     let pie_chart = usage_pie::disk_usage_pie(&pie_segments, drive.size, used, true);
 
-    // Layout: 
+    // Layout:
     // Row 1: text_column | pie_chart
     // Row 2: action_buttons | (empty space under pie)
     let top_row = text_column;
-    
+
     let action_row = widget::Row::from_vec(drive_actions)
         .spacing(4)
         .align_y(Alignment::Center);
-    
+
     let left_column = iced_widget::column![top_row, action_row]
         .spacing(8)
         .width(Length::Fill);
-    
+
     // Main row: left_column | pie_chart
     iced_widget::Row::new()
         .push(left_column)
         .push(
             widget::container(pie_chart)
                 .width(Length::Shrink)
-                .align_x(cosmic::iced::alignment::Horizontal::Right)
+                .align_x(cosmic::iced::alignment::Horizontal::Right),
         )
         .spacing(15)
         .align_y(Alignment::Start)

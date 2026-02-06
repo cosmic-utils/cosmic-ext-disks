@@ -1,7 +1,8 @@
 use super::VolumeModel;
 use super::config::{extract_prefixed_value, find_configuration_item};
-use crate::disks::MountOptionsSettings;
 use crate::dbus::bytestring as bs;
+use crate::disks::MountOptionsSettings;
+use crate::disks::ops::{RealDiskBackend, partition_mount, partition_unmount};
 use crate::udisks_block_config::UDisks2BlockConfigurationProxy;
 use crate::{
     join_options, remove_prefixed, remove_token, set_prefixed_value, set_token_present,
@@ -9,7 +10,6 @@ use crate::{
 };
 use anyhow::Result;
 use zbus::zvariant::OwnedValue;
-use crate::disks::ops::{RealDiskBackend, partition_mount, partition_unmount};
 
 impl VolumeModel {
     pub async fn mount(&self) -> Result<()> {

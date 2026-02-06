@@ -224,11 +224,10 @@ pub fn disk_usage_pie<'a>(
                 .into();
 
             let label = iced_widget::column![
-                widget::text::caption(seg.name.clone())
-                    .font(cosmic::iced::font::Font {
-                        weight: cosmic::iced::font::Weight::Bold,
-                        ..Default::default()
-                    }),
+                widget::text::caption(seg.name.clone()).font(cosmic::iced::font::Font {
+                    weight: cosmic::iced::font::Weight::Bold,
+                    ..Default::default()
+                }),
                 widget::text::caption(bytes_to_pretty(&seg.used, false)),
             ]
             .spacing(2);
@@ -245,28 +244,20 @@ pub fn disk_usage_pie<'a>(
             .spacing(2)
             .align_x(Alignment::Start);
 
-        let pie_with_text = iced_widget::column![
-            canvas_widget,
-            widget::text::caption(used_text).center(),
-        ]
-        .spacing(8)
-        .align_x(Alignment::Center);
+        let pie_with_text =
+            iced_widget::column![canvas_widget, widget::text::caption(used_text).center(),]
+                .spacing(8)
+                .align_x(Alignment::Center);
 
         // Row layout: legend | pie
-        iced_widget::row![
-            legend,
-            pie_with_text,
-        ]
-        .spacing(15)
-        .align_y(Alignment::Center)
-        .into()
+        iced_widget::row![legend, pie_with_text,]
+            .spacing(15)
+            .align_y(Alignment::Center)
+            .into()
     } else {
-        iced_widget::column![
-            canvas_widget,
-            widget::text::caption(used_text).center(),
-        ]
-        .spacing(8)
-        .align_x(Alignment::Center)
-        .into()
+        iced_widget::column![canvas_widget, widget::text::caption(used_text).center(),]
+            .spacing(8)
+            .align_x(Alignment::Center)
+            .into()
     }
 }

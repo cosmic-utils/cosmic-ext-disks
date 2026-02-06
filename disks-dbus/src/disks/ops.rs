@@ -699,6 +699,13 @@ mod tests {
         }
     }
 
+    fn gpt_index_for_fs(fs: &str) -> usize {
+        COMMON_GPT_TYPES
+            .iter()
+            .position(|p| p.filesystem_type == fs)
+            .unwrap_or(0)
+    }
+
     impl FakeBackend {
         fn set_create_result(&self, res: Result<()>) {
             *self.create_result.lock().unwrap() = res.map_err(|e| e.to_string());
@@ -794,7 +801,7 @@ mod tests {
             size: 10,
             max_size: 100,
             erase: false,
-            selected_partition_type_index: 1, // Linux Filesystem (ext4)
+            selected_partition_type_index: gpt_index_for_fs("ext4"),
             ..Default::default()
         };
 
@@ -824,7 +831,7 @@ mod tests {
             size: 10,
             max_size: 100,
             erase: false,
-            selected_partition_type_index: 1, // Linux Filesystem (ext4)
+            selected_partition_type_index: gpt_index_for_fs("ext4"),
             password_protected: true,
             password: "pw".to_string(),
             confirmed_password: "pw".to_string(),
@@ -861,7 +868,7 @@ mod tests {
             size: 10,
             max_size: 100,
             erase: false,
-            selected_partition_type_index: 5, // Microsoft Basic Data (NTFS)
+            selected_partition_type_index: gpt_index_for_fs("ntfs"),
             ..Default::default()
         };
 

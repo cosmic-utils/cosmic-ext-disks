@@ -1,9 +1,6 @@
 use disks_dbus::{PartitionTypeInfo, VolumeModel, VolumeNode};
 
-pub(crate) fn common_partition_filesystem_type(
-    table_type: &str,
-    index: usize,
-) -> Option<String> {
+pub(crate) fn common_partition_filesystem_type(table_type: &str, index: usize) -> Option<String> {
     match table_type {
         "gpt" => disks_dbus::COMMON_GPT_TYPES
             .get(index)

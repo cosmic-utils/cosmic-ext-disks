@@ -424,22 +424,27 @@ pub(crate) fn sidebar(
                 let drive_key = SidebarNodeKey::Drive(drive.block_path.clone());
                 if sidebar.is_expanded(&drive_key) {
                     // Sort volumes by offset to maintain disk order
-                    let mut sorted_volumes: Vec<&disks_dbus::VolumeNode> = drive.volumes.iter().collect();
-                    
+                    let mut sorted_volumes: Vec<&disks_dbus::VolumeNode> =
+                        drive.volumes.iter().collect();
+
                     // To get offset, we need to look up the corresponding VolumeModel in volumes_flat
                     sorted_volumes.sort_by(|a, b| {
                         // Find offset for each volume by matching object_path with volumes_flat
-                        let offset_a = drive.volumes_flat.iter()
+                        let offset_a = drive
+                            .volumes_flat
+                            .iter()
                             .find(|vm| vm.path.as_str() == a.object_path.as_str())
                             .map(|vm| vm.offset)
                             .unwrap_or(0);
-                        let offset_b = drive.volumes_flat.iter()
+                        let offset_b = drive
+                            .volumes_flat
+                            .iter()
                             .find(|vm| vm.path.as_str() == b.object_path.as_str())
                             .map(|vm| vm.offset)
                             .unwrap_or(0);
                         offset_a.cmp(&offset_b)
                     });
-                    
+
                     for v in sorted_volumes {
                         push_volume_tree(rows, sidebar, &drive.block_path, v, 1, controls_enabled);
                     }

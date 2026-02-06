@@ -1,5 +1,8 @@
 use anyhow::Result;
-use udisks2::{block::BlockProxy, drive::{DriveProxy, RotationRate}};
+use udisks2::{
+    block::BlockProxy,
+    drive::{DriveProxy, RotationRate},
+};
 use zbus::{Connection, zvariant::OwnedObjectPath};
 
 use crate::disks::{ByteRange, VolumeModel, VolumeNode};
@@ -143,7 +146,7 @@ impl DriveModel {
         if self.is_loop {
             return false;
         }
-        
+
         // Only rotating media (HDDs) support power management
         // rotation_rate: -1 = unknown, 0 = SSD/NVMe, >0 = HDD
         self.rotation_rate != 0

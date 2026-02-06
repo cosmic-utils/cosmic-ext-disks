@@ -1,9 +1,7 @@
 use super::message::Message;
 use super::state::{AppModel, ContextPage};
 use crate::fl;
-use crate::ui::dialogs::state::{
-    DeletePartitionDialog, ShowDialog,
-};
+use crate::ui::dialogs::state::{DeletePartitionDialog, ShowDialog};
 use crate::ui::dialogs::view as dialogs;
 use crate::ui::sidebar;
 use crate::ui::volumes::{VolumesControl, VolumesControlMessage, disk_header};
@@ -207,13 +205,18 @@ pub(crate) fn view(app: &AppModel) -> Element<'_, Message> {
                 .filter_map(|s| s.volume.as_ref())
                 .map(|volume_model| {
                     // Look up the corresponding VolumeNode to check if it's a LUKS container
-                    if let Some(volume_node) = crate::ui::volumes::helpers::find_volume_node_for_partition(
-                        &volumes_control.model.volumes,
-                        volume_model,
-                    ) {
-                        if volume_node.kind == disks_dbus::VolumeKind::CryptoContainer && !volume_node.children.is_empty() {
+                    if let Some(volume_node) =
+                        crate::ui::volumes::helpers::find_volume_node_for_partition(
+                            &volumes_control.model.volumes,
+                            volume_model,
+                        )
+                    {
+                        if volume_node.kind == disks_dbus::VolumeKind::CryptoContainer
+                            && !volume_node.children.is_empty()
+                        {
                             // Aggregate children's usage for LUKS containers
-                            volume_node.children
+                            volume_node
+                                .children
                                 .iter()
                                 .filter_map(|child| child.usage.as_ref())
                                 .map(|u| u.used)
@@ -231,7 +234,12 @@ pub(crate) fn view(app: &AppModel) -> Element<'_, Message> {
 
             // Top section: Disk header + volumes control
             let top_section = iced_widget::column![
-                disk_header::disk_header(drive, used, &volumes_control.segments, &volumes_control.model.volumes),
+                disk_header::disk_header(
+                    drive,
+                    used,
+                    &volumes_control.segments,
+                    &volumes_control.model.volumes
+                ),
                 Space::new(0, 10),
                 volumes_control.view(),
             ]
@@ -281,7 +289,6 @@ fn volume_detail_view<'a>(
     });
 
     // Build the info section (mirroring disk header layout)
-    
 
     if let Some(v) = selected_volume_node {
         build_volume_node_info(v, volumes_control, segment, selected_volume)
@@ -305,7 +312,7 @@ fn aggregate_children_usage(node: &disks_dbus::VolumeNode) -> u64 {
 fn build_volume_node_info<'a>(
     v: &'a disks_dbus::VolumeNode,
     _volumes_control: &'a VolumesControl,
-    _segment: &'a crate::ui::volumes::Segment,
+    segment: &'a crate::ui::volumes::Segment,
     _selected_volume: Option<&'a disks_dbus::VolumeNode>,
 ) -> Element<'a, Message> {
     use crate::ui::volumes::usage_pie;
@@ -322,10 +329,20 @@ fn build_volume_node_info<'a>(
     } else {
         v.usage.as_ref().map(|u| u.used).unwrap_or(0)
     };
-    
+
     // Create a single-segment pie for this volume
+    let pie_label = if v.label == fl!("filesystem") {
+        segment
+            .volume
+            .as_ref()
+            .map(|p| fl!("partition-number", number = p.number))
+            .unwrap_or_else(|| v.label.clone())
+    } else {
+        v.label.clone()
+    };
+
     let pie_segment = usage_pie::PieSegmentData {
-        name: v.label.clone(),
+        name: pie_label,
         used,
     };
     let pie_chart = usage_pie::disk_usage_pie(&[pie_segment], v.size, used, false);
@@ -385,14 +402,17 @@ fn build_volume_node_info<'a>(
 
     // Action buttons underneath
     let mut action_buttons = Vec::new();
-    
+
     // Mount/Unmount
     if v.can_mount() {
         if v.is_mounted() {
             action_buttons.push(
                 widget::tooltip(
-                    widget::button::icon(icon::from_name("media-playback-stop-symbolic"))
-                        .on_press(Message::VolumesMessage(VolumesControlMessage::ChildUnmount(v.object_path.to_string()))),
+                    widget::button::icon(icon::from_name("media-playback-stop-symbolic")).on_press(
+                        Message::VolumesMessage(VolumesControlMessage::ChildUnmount(
+                            v.object_path.to_string(),
+                        )),
+                    ),
                     widget::text(fl!("unmount")),
                     widget::tooltip::Position::Bottom,
                 )
@@ -402,7 +422,9 @@ fn build_volume_node_info<'a>(
             action_buttons.push(
                 widget::tooltip(
                     widget::button::icon(icon::from_name("media-playback-start-symbolic"))
-                        .on_press(Message::VolumesMessage(VolumesControlMessage::ChildMount(v.object_path.to_string()))),
+                        .on_press(Message::VolumesMessage(VolumesControlMessage::ChildMount(
+                            v.object_path.to_string(),
+                        ))),
                     widget::text(fl!("mount")),
                     widget::tooltip::Position::Bottom,
                 )
@@ -415,8 +437,9 @@ fn build_volume_node_info<'a>(
     if v.kind == VolumeKind::Filesystem && v.has_filesystem {
         action_buttons.push(
             widget::tooltip(
-                widget::button::icon(icon::from_name("edit-clear-symbolic"))
-                    .on_press(Message::VolumesMessage(VolumesControlMessage::OpenFormatPartition)),
+                widget::button::icon(icon::from_name("edit-clear-symbolic")).on_press(
+                    Message::VolumesMessage(VolumesControlMessage::OpenFormatPartition),
+                ),
                 widget::text(fl!("format")),
                 widget::tooltip::Position::Bottom,
             )
@@ -428,8 +451,9 @@ fn build_volume_node_info<'a>(
     if v.kind == VolumeKind::Filesystem && v.has_filesystem {
         action_buttons.push(
             widget::tooltip(
-                widget::button::icon(icon::from_name("tag-symbolic"))
-                    .on_press(Message::VolumesMessage(VolumesControlMessage::OpenEditFilesystemLabel)),
+                widget::button::icon(icon::from_name("tag-symbolic")).on_press(
+                    Message::VolumesMessage(VolumesControlMessage::OpenEditFilesystemLabel),
+                ),
                 widget::text(fl!("label")),
                 widget::tooltip::Position::Bottom,
             )
@@ -441,8 +465,9 @@ fn build_volume_node_info<'a>(
     if v.can_mount() && v.is_mounted() {
         action_buttons.push(
             widget::tooltip(
-                widget::button::icon(icon::from_name("dialog-question-symbolic"))
-                    .on_press(Message::VolumesMessage(VolumesControlMessage::OpenCheckFilesystem)),
+                widget::button::icon(icon::from_name("dialog-question-symbolic")).on_press(
+                    Message::VolumesMessage(VolumesControlMessage::OpenCheckFilesystem),
+                ),
                 widget::text(fl!("check-filesystem")),
                 widget::tooltip::Position::Bottom,
             )
@@ -454,8 +479,9 @@ fn build_volume_node_info<'a>(
     if v.has_filesystem {
         action_buttons.push(
             widget::tooltip(
-                widget::button::icon(icon::from_name("emblem-system-symbolic"))
-                    .on_press(Message::VolumesMessage(VolumesControlMessage::OpenRepairFilesystem)),
+                widget::button::icon(icon::from_name("emblem-system-symbolic")).on_press(
+                    Message::VolumesMessage(VolumesControlMessage::OpenRepairFilesystem),
+                ),
                 widget::text(fl!("repair")),
                 widget::tooltip::Position::Bottom,
             )
@@ -467,8 +493,9 @@ fn build_volume_node_info<'a>(
     if v.can_mount() && v.is_mounted() {
         action_buttons.push(
             widget::tooltip(
-                widget::button::icon(icon::from_name("system-users-symbolic"))
-                    .on_press(Message::VolumesMessage(VolumesControlMessage::OpenTakeOwnership)),
+                widget::button::icon(icon::from_name("system-users-symbolic")).on_press(
+                    Message::VolumesMessage(VolumesControlMessage::OpenTakeOwnership),
+                ),
                 widget::text(fl!("take-ownership")),
                 widget::tooltip::Position::Bottom,
             )
@@ -480,8 +507,9 @@ fn build_volume_node_info<'a>(
     if v.has_filesystem {
         action_buttons.push(
             widget::tooltip(
-                widget::button::icon(icon::from_name("emblem-documents-symbolic"))
-                    .on_press(Message::VolumesMessage(VolumesControlMessage::OpenEditMountOptions)),
+                widget::button::icon(icon::from_name("emblem-documents-symbolic")).on_press(
+                    Message::VolumesMessage(VolumesControlMessage::OpenEditMountOptions),
+                ),
                 widget::text(fl!("edit-mount-options")),
                 widget::tooltip::Position::Bottom,
             )
@@ -521,7 +549,7 @@ fn build_volume_node_info<'a>(
         .push(
             widget::container(pie_chart)
                 .width(Length::Shrink)
-                .align_x(cosmic::iced::alignment::Horizontal::Right)
+                .align_x(cosmic::iced::alignment::Horizontal::Right),
         )
         .spacing(15)
         .align_y(Alignment::Start)
@@ -549,12 +577,16 @@ fn build_partition_info<'a>(
     } else {
         p.usage.as_ref().map(|u| u.used).unwrap_or(0)
     };
-    
+
     // Create a single-segment pie for this partition
     let partition_name = if p.name.is_empty() {
         fl!("partition-number", number = p.number)
     } else {
-        fl!("partition-number-with-name", number = p.number, name = p.name.clone())
+        fl!(
+            "partition-number-with-name",
+            number = p.number,
+            name = p.name.clone()
+        )
     };
     let pie_segment = usage_pie::PieSegmentData {
         name: partition_name.clone(),
@@ -563,12 +595,13 @@ fn build_partition_info<'a>(
     let pie_chart = usage_pie::disk_usage_pie(&[pie_segment], p.size, used, false);
 
     // Name, type, mount point (center text column)
-    let name_text = widget::text(partition_name.clone())
-        .size(14.0)
-        .font(cosmic::iced::font::Font {
-            weight: cosmic::iced::font::Weight::Semibold,
-            ..Default::default()
-        });
+    let name_text =
+        widget::text(partition_name.clone())
+            .size(14.0)
+            .font(cosmic::iced::font::Font {
+                weight: cosmic::iced::font::Weight::Semibold,
+                ..Default::default()
+            });
 
     let mut type_str = p.id_type.clone().to_uppercase();
     type_str = format!("{} - {}", type_str, p.partition_type.clone());
@@ -627,65 +660,70 @@ fn build_partition_info<'a>(
 
     // Action buttons underneath
     let mut action_buttons = Vec::new();
-    
+
     // Lock/Unlock for LUKS containers
     if let Some(v) = volume_node
-        && v.kind == VolumeKind::CryptoContainer {
-            if v.locked {
-                action_buttons.push(
-                    widget::tooltip(
-                        widget::button::icon(icon::from_name("changes-allow-symbolic"))
-                            .on_press(Message::Dialog(Box::new(ShowDialog::UnlockEncrypted(
-                                crate::ui::dialogs::state::UnlockEncryptedDialog {
-                                    partition_path: p.path.to_string(),
-                                    partition_name: partition_name.clone(),
-                                    passphrase: String::new(),
-                                    error: None,
-                                    running: false,
-                                },
-                            )))),
-                        widget::text(fl!("unlock-button")),
-                        widget::tooltip::Position::Bottom,
-                    )
-                    .into(),
-                );
-            } else {
-                action_buttons.push(
-                    widget::tooltip(
-                        widget::button::icon(icon::from_name("changes-prevent-symbolic"))
-                            .on_press(Message::VolumesMessage(VolumesControlMessage::LockContainer)),
-                        widget::text(fl!("lock")),
-                        widget::tooltip::Position::Bottom,
-                    )
-                    .into(),
-                );
-            }
-            
-            // Change Passphrase (only for unlocked containers)
-            if !v.locked {
-                action_buttons.push(
-                    widget::tooltip(
-                        widget::button::icon(icon::from_name("document-properties-symbolic"))
-                            .on_press(Message::VolumesMessage(VolumesControlMessage::OpenChangePassphrase)),
-                        widget::text(fl!("change-passphrase")),
-                        widget::tooltip::Position::Bottom,
-                    )
-                    .into(),
-                );
-            }
-            
-            // Edit Encryption Options
+        && v.kind == VolumeKind::CryptoContainer
+    {
+        if v.locked {
             action_buttons.push(
                 widget::tooltip(
-                    widget::button::icon(icon::from_name("preferences-system-symbolic"))
-                        .on_press(Message::VolumesMessage(VolumesControlMessage::OpenEditEncryptionOptions)),
-                    widget::text(fl!("edit-encryption-options")),
+                    widget::button::icon(icon::from_name("changes-allow-symbolic")).on_press(
+                        Message::Dialog(Box::new(ShowDialog::UnlockEncrypted(
+                            crate::ui::dialogs::state::UnlockEncryptedDialog {
+                                partition_path: p.path.to_string(),
+                                partition_name: partition_name.clone(),
+                                passphrase: String::new(),
+                                error: None,
+                                running: false,
+                            },
+                        ))),
+                    ),
+                    widget::text(fl!("unlock-button")),
+                    widget::tooltip::Position::Bottom,
+                )
+                .into(),
+            );
+        } else {
+            action_buttons.push(
+                widget::tooltip(
+                    widget::button::icon(icon::from_name("changes-prevent-symbolic")).on_press(
+                        Message::VolumesMessage(VolumesControlMessage::LockContainer),
+                    ),
+                    widget::text(fl!("lock")),
                     widget::tooltip::Position::Bottom,
                 )
                 .into(),
             );
         }
-    
+
+        // Change Passphrase (only for unlocked containers)
+        if !v.locked {
+            action_buttons.push(
+                widget::tooltip(
+                    widget::button::icon(icon::from_name("document-properties-symbolic")).on_press(
+                        Message::VolumesMessage(VolumesControlMessage::OpenChangePassphrase),
+                    ),
+                    widget::text(fl!("change-passphrase")),
+                    widget::tooltip::Position::Bottom,
+                )
+                .into(),
+            );
+        }
+
+        // Edit Encryption Options
+        action_buttons.push(
+            widget::tooltip(
+                widget::button::icon(icon::from_name("preferences-system-symbolic")).on_press(
+                    Message::VolumesMessage(VolumesControlMessage::OpenEditEncryptionOptions),
+                ),
+                widget::text(fl!("edit-encryption-options")),
+                widget::tooltip::Position::Bottom,
+            )
+            .into(),
+        );
+    }
+
     // Mount/Unmount
     if p.can_mount() {
         if p.is_mounted() {
@@ -714,8 +752,9 @@ fn build_partition_info<'a>(
     // Format
     action_buttons.push(
         widget::tooltip(
-            widget::button::icon(icon::from_name("edit-clear-all-symbolic"))
-                .on_press(Message::VolumesMessage(VolumesControlMessage::OpenFormatPartition)),
+            widget::button::icon(icon::from_name("edit-clear-all-symbolic")).on_press(
+                Message::VolumesMessage(VolumesControlMessage::OpenFormatPartition),
+            ),
             widget::text(fl!("format")),
             widget::tooltip::Position::Bottom,
         )
@@ -726,8 +765,9 @@ fn build_partition_info<'a>(
     if p.volume_type == disks_dbus::VolumeType::Partition {
         action_buttons.push(
             widget::tooltip(
-                widget::button::icon(icon::from_name("edit-symbolic"))
-                    .on_press(Message::VolumesMessage(VolumesControlMessage::OpenEditPartition)),
+                widget::button::icon(icon::from_name("edit-symbolic")).on_press(
+                    Message::VolumesMessage(VolumesControlMessage::OpenEditPartition),
+                ),
                 widget::text(fl!("edit")),
                 widget::tooltip::Position::Bottom,
             )
@@ -748,72 +788,78 @@ fn build_partition_info<'a>(
         if resize_enabled {
             action_buttons.push(
                 widget::tooltip(
-                    widget::button::icon(icon::from_name("view-fullscreen-symbolic"))
-                        .on_press(Message::VolumesMessage(VolumesControlMessage::OpenResizePartition)),
+                    widget::button::icon(icon::from_name("view-fullscreen-symbolic")).on_press(
+                        Message::VolumesMessage(VolumesControlMessage::OpenResizePartition),
+                    ),
                     widget::text(fl!("resize")),
                     widget::tooltip::Position::Bottom,
                 )
                 .into(),
             );
         }
-        
+
         // Label
         action_buttons.push(
             widget::tooltip(
-                widget::button::icon(icon::from_name("tag-symbolic"))
-                    .on_press(Message::VolumesMessage(VolumesControlMessage::OpenEditFilesystemLabel)),
+                widget::button::icon(icon::from_name("tag-symbolic")).on_press(
+                    Message::VolumesMessage(VolumesControlMessage::OpenEditFilesystemLabel),
+                ),
                 widget::text(fl!("label")),
                 widget::tooltip::Position::Bottom,
             )
             .into(),
         );
     }
-    
+
     // Check Filesystem (if mounted)
     if p.can_mount() && p.is_mounted() {
         action_buttons.push(
             widget::tooltip(
-                widget::button::icon(icon::from_name("dialog-question-symbolic"))
-                    .on_press(Message::VolumesMessage(VolumesControlMessage::OpenCheckFilesystem)),
+                widget::button::icon(icon::from_name("dialog-question-symbolic")).on_press(
+                    Message::VolumesMessage(VolumesControlMessage::OpenCheckFilesystem),
+                ),
                 widget::text(fl!("check-filesystem")),
                 widget::tooltip::Position::Bottom,
             )
             .into(),
         );
     }
-    
+
     // Repair Filesystem (if filesystem type)
     if p.has_filesystem {
         action_buttons.push(
             widget::tooltip(
-                widget::button::icon(icon::from_name("emblem-system-symbolic"))
-                    .on_press(Message::VolumesMessage(VolumesControlMessage::OpenRepairFilesystem)),
+                widget::button::icon(icon::from_name("emblem-system-symbolic")).on_press(
+                    Message::VolumesMessage(VolumesControlMessage::OpenRepairFilesystem),
+                ),
                 widget::text(fl!("repair")),
                 widget::tooltip::Position::Bottom,
             )
             .into(),
         );
     }
-    
+
     // Take Ownership (if mounted)
     if p.can_mount() && p.is_mounted() {
         action_buttons.push(
             widget::tooltip(
-                widget::button::icon(icon::from_name("system-users-symbolic"))
-                    .on_press(Message::VolumesMessage(VolumesControlMessage::OpenTakeOwnership)),
+                widget::button::icon(icon::from_name("system-users-symbolic")).on_press(
+                    Message::VolumesMessage(VolumesControlMessage::OpenTakeOwnership),
+                ),
                 widget::text(fl!("take-ownership")),
                 widget::tooltip::Position::Bottom,
             )
             .into(),
         );
     }
-    
+
     // Edit Mount Options (if filesystem)
     if p.has_filesystem {
         action_buttons.push(
             widget::tooltip(
-                widget::button::icon(icon::from_name("emblem-documents-symbolic"))
-                    .on_press(Message::VolumesMessage(VolumesControlMessage::OpenEditMountOptions)),
+                widget::button::icon(icon::from_name("emblem-documents-symbolic")).on_press(
+                    Message::VolumesMessage(VolumesControlMessage::OpenEditMountOptions),
+                ),
                 widget::text(fl!("edit-mount-options")),
                 widget::tooltip::Position::Bottom,
             )
@@ -845,13 +891,14 @@ fn build_partition_info<'a>(
     if p.volume_type != disks_dbus::VolumeType::Filesystem {
         action_buttons.push(
             widget::tooltip(
-                widget::button::icon(icon::from_name("edit-delete-symbolic"))
-                    .on_press(Message::Dialog(Box::new(ShowDialog::DeletePartition(
+                widget::button::icon(icon::from_name("edit-delete-symbolic")).on_press(
+                    Message::Dialog(Box::new(ShowDialog::DeletePartition(
                         DeletePartitionDialog {
                             name: segment.name.clone(),
                             running: false,
                         },
-                    )))),
+                    ))),
+                ),
                 widget::text(fl!("delete-partition")),
                 widget::tooltip::Position::Bottom,
             )
@@ -871,7 +918,7 @@ fn build_partition_info<'a>(
         .push(
             widget::container(pie_chart)
                 .width(Length::Shrink)
-                .align_x(cosmic::iced::alignment::Horizontal::Right)
+                .align_x(cosmic::iced::alignment::Horizontal::Right),
         )
         .spacing(15)
         .align_y(Alignment::Start)
@@ -882,7 +929,7 @@ fn build_partition_info<'a>(
 /// Build info display for free space - mirrors disk header layout
 fn build_free_space_info(segment: &crate::ui::volumes::Segment) -> Element<'_, Message> {
     use crate::ui::volumes::usage_pie;
-    
+
     // Empty pie chart for free space (0% used)
     let pie_segment = usage_pie::PieSegmentData {
         name: fl!("free-space-segment"),
@@ -909,7 +956,7 @@ fn build_free_space_info(segment: &crate::ui::volumes::Segment) -> Element<'_, M
         fl!("offset"),
         bytes_to_pretty(&segment.offset, false)
     ));
-    
+
     let available_text = widget::text::caption(fl!("can-create-partition"));
 
     let text_column = iced_widget::column![name_text, size_text, offset_text, available_text]
@@ -918,14 +965,15 @@ fn build_free_space_info(segment: &crate::ui::volumes::Segment) -> Element<'_, M
 
     // Action button for creating a partition in free space
     let add_partition_button = widget::tooltip(
-        widget::button::icon(icon::from_name("list-add-symbolic"))
-            .on_press(Message::Dialog(Box::new(ShowDialog::AddPartition(
+        widget::button::icon(icon::from_name("list-add-symbolic")).on_press(Message::Dialog(
+            Box::new(ShowDialog::AddPartition(
                 crate::ui::dialogs::state::CreatePartitionDialog {
                     info: segment.get_create_info(),
                     running: false,
                     error: None,
                 },
-            )))),
+            )),
+        )),
         widget::text(fl!("create-partition")),
         widget::tooltip::Position::Bottom,
     );
@@ -942,11 +990,10 @@ fn build_free_space_info(segment: &crate::ui::volumes::Segment) -> Element<'_, M
         .push(
             widget::container(pie_chart)
                 .width(Length::Shrink)
-                .align_x(cosmic::iced::alignment::Horizontal::Right)
+                .align_x(cosmic::iced::alignment::Horizontal::Right),
         )
         .spacing(15)
         .align_y(Alignment::Start)
         .width(Length::Fill)
         .into()
 }
-

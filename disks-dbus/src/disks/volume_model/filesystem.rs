@@ -1,7 +1,7 @@
 use super::VolumeModel;
+use crate::disks::ops::{PartitionFormatArgs, RealDiskBackend, partition_format};
 use anyhow::Result;
 use udisks2::filesystem::FilesystemProxy;
-use crate::disks::ops::{PartitionFormatArgs, RealDiskBackend, partition_format};
 
 impl VolumeModel {
     pub async fn format(&self, name: String, erase: bool, partion_type: String) -> Result<()> {

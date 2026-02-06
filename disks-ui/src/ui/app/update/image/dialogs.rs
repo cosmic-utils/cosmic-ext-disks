@@ -12,9 +12,9 @@ use std::sync::{
 };
 use tokio::fs::OpenOptions;
 
+use super::ops::run_image_operation;
 use crate::ui::app::message::Message;
 use crate::ui::app::state::AppModel;
-use super::ops::run_image_operation;
 
 pub(super) fn new_disk_image(app: &mut AppModel) {
     app.dialog = Some(ShowDialog::NewDiskImage(Box::new(NewDiskImageDialog {
@@ -44,7 +44,6 @@ pub(super) fn new_disk_image_dialog(
     };
 
     match msg {
-        NewDiskImageDialogMessage::PathUpdate(v) => state.path = v,
         NewDiskImageDialogMessage::SizeUpdate(v) => state.size_bytes = v,
         NewDiskImageDialogMessage::Cancel => {
             if !state.running {
@@ -113,7 +112,6 @@ pub(super) fn attach_disk_image_dialog(
     };
 
     match msg {
-        AttachDiskImageDialogMessage::PathUpdate(v) => state.path = v,
         AttachDiskImageDialogMessage::Cancel => {
             if !state.running {
                 app.dialog = None;
@@ -195,7 +193,6 @@ pub(super) fn image_operation_dialog(
     };
 
     match msg {
-        ImageOperationDialogMessage::PathUpdate(v) => state.image_path = v,
         ImageOperationDialogMessage::CancelOperation => {
             if state.running {
                 if let Some(flag) = app.image_op_cancel.as_ref() {

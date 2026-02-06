@@ -45,11 +45,8 @@ pub fn settings<'a>(config: &Config) -> Element<'a, Message> {
     // Settings section
     let settings_title = widget::text::title4("Settings");
 
-    let show_reserved_toggle = widget::checkbox(
-        "Show Reserved Space",
-        config.show_reserved,
-    )
-    .on_toggle(Message::ToggleShowReserved);
+    let show_reserved_toggle = widget::checkbox("Show Reserved Space", config.show_reserved)
+        .on_toggle(Message::ToggleShowReserved);
 
     let settings_section = widget::column()
         .push(settings_title)

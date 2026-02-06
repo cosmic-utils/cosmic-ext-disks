@@ -3,9 +3,9 @@ use std::collections::HashMap;
 use anyhow::Result;
 use zbus::zvariant::{OwnedValue, Value};
 
-use crate::disks::{SmartInfo, SmartSelfTestKind};
 use super::is_anyhow_not_supported;
 use super::model::DriveModel;
+use crate::disks::{SmartInfo, SmartSelfTestKind};
 
 impl DriveModel {
     pub async fn smart_info(&self) -> Result<SmartInfo> {

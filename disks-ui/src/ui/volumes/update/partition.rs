@@ -44,8 +44,7 @@ pub(super) fn delete(
         return Task::none();
     };
 
-    let volume_node =
-        helpers::find_volume_node_for_partition(&control.model.volumes, &p).cloned();
+    let volume_node = helpers::find_volume_node_for_partition(&control.model.volumes, &p).cloned();
     let is_unlocked_crypto = matches!(
         volume_node.as_ref(),
         Some(v) if v.kind == VolumeKind::CryptoContainer && !v.locked

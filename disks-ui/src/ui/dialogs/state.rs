@@ -20,7 +20,10 @@ pub enum ShowDialog {
     NewDiskImage(Box<NewDiskImageDialog>),
     AttachDiskImage(Box<AttachDiskImageDialog>),
     ImageOperation(Box<ImageOperationDialog>),
-    Info { title: String, body: String },
+    Info {
+        title: String,
+        body: String,
+    },
 }
 
 #[derive(Debug, Clone)]

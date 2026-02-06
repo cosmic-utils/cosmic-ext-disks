@@ -34,6 +34,7 @@ Current navigation is built on COSMIC’s built-in nav bar widget and model:
 - Preserve the current “active drive” semantics: selecting an item should activate the corresponding `DriveModel` page and update the window title.
 - Keep behavior consistent across condensed vs non-condensed layouts.
 - For now, selecting a child node (partition/container/volume) should still show the **parent drive’s** view; dedicated child views will be added later.
+- Add COSMIC-native Open File dialogs for image create/save/load paths (research libcosmic/DE conventions before implementation).
 
 ## Non-Goals
 - Redesign of the main content area pages (volumes view, dialogs) beyond what’s needed to keep navigation integration working.
@@ -64,6 +65,9 @@ Current navigation is built on COSMIC’s built-in nav bar widget and model:
 5. Categorization:
   - Centralize mapping from `DriveModel`/device attributes into the 4 sections.
   - Keep rules extensible for future LVM/Apple support.
+6. Image operations UX:
+  - Use COSMIC-standard Open File dialogs for image save/load.
+  - Research libcosmic for existing file dialog components and mirror current COSMIC apps’ usage patterns.
 
 ## Concrete Mapping (current implementation)
 
@@ -107,6 +111,12 @@ Current navigation is built on COSMIC’s built-in nav bar widget and model:
   - Mitigation: make the sidebar derived from the same source list and keep selection in one place.
 - **Data availability for children:** building a partition/container tree may require more data than the current drive list refresh provides.
   - Mitigation: phase the implementation: start with drives + volumes, then add containers/partitions once the required models are available in UI state.
+
+## Research Notes — COSMIC file dialogs
+- libcosmic provides `cosmic::dialog::file_chooser` with `open` and `save` dialogs.
+- Use `file_chooser::open::Dialog::new().title(...).open_file().await` for Open.
+- Use `file_chooser::save::Dialog::new().title(...).save_file().await` for Save.
+- Dialogs are async and should be wired through `Task::perform` and app messages.
 
 ## Acceptance Criteria
 - [x] Sidebar renders a treeview with expand/collapse on nodes that have children.

@@ -15,10 +15,9 @@ pub use dbus::bytestring::{
 // Explicit exports from disks module (main domain models and operations)
 pub use disks::{
     ByteRange, CreatePartitionInfo, DeviceEvent, DeviceEventStream, DiskManager, DriveModel,
-    EncryptionOptionsSettings, LvmLogicalVolumeInfo, MountOptionsSettings, SmartInfo,
-    SmartSelfTestKind, VolumeKind, VolumeModel, VolumeNode, VolumeType,
+    EncryptionOptionsSettings, GPT_ALIGNMENT_BYTES, LvmLogicalVolumeInfo, MountOptionsSettings,
+    SmartInfo, SmartSelfTestKind, VolumeKind, VolumeModel, VolumeNode, VolumeType,
     fallback_gpt_usable_range_bytes, list_lvs_for_pv, loop_setup, mount_filesystem,
-    GPT_ALIGNMENT_BYTES,
 };
 
 // Explicit exports from format module (byte formatting utilities)
@@ -32,8 +31,8 @@ pub use options::{
 
 // Explicit exports from partition_types module (partition type catalogs)
 pub use partition_types::{
-    PartitionTypeInfo, PartitionTypeInfoFlags, get_all_partition_type_infos,
-    get_valid_partition_names, COMMON_DOS_TYPES, COMMON_GPT_TYPES,
+    COMMON_DOS_TYPES, COMMON_GPT_TYPES, PartitionTypeInfo, PartitionTypeInfoFlags,
+    get_all_partition_type_infos, get_valid_partition_names,
 };
 
 // Explicit exports from udisks_block_config module (UDisks2 configuration helpers)

@@ -1,12 +1,10 @@
 use super::VolumeModel;
 use super::config::find_configuration_item;
+use crate::dbus::bytestring as bs;
 use crate::disks::EncryptionOptionsSettings;
 use crate::disks::ops::{RealDiskBackend, crypto_lock, crypto_unlock};
-use crate::dbus::bytestring as bs;
 use crate::udisks_block_config::UDisks2BlockConfigurationProxy;
-use crate::{
-    join_options, remove_token, set_token_present, split_options, stable_dedup,
-};
+use crate::{join_options, remove_token, set_token_present, split_options, stable_dedup};
 use anyhow::Result;
 use udisks2::block::BlockProxy;
 use zbus::zvariant::{OwnedObjectPath, OwnedValue};
