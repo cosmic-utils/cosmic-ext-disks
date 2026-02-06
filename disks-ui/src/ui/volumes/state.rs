@@ -10,14 +10,14 @@ pub struct VolumesControl {
     pub selected_volume: Option<String>,
     pub segments: Vec<Segment>,
     pub show_reserved: bool,
-    #[allow(dead_code)]
-    pub model: DriveModel,
+    pub(crate) model: DriveModel,
 }
 
 #[derive(Clone, Debug)]
 pub struct Segment {
     pub label: String,
     pub name: String,
+    #[allow(dead_code)]
     pub partition_type: String,
     pub size: u64,
     pub offset: u64,
@@ -25,6 +25,7 @@ pub struct Segment {
     pub kind: DiskSegmentKind,
     pub width: u16,
     pub volume: Option<VolumeModel>,
+    #[allow(dead_code)]
     pub table_type: String,
 }
 
@@ -78,6 +79,7 @@ impl Segment {
         }
     }
 
+    #[allow(dead_code)]
     pub fn get_create_info(&self) -> CreatePartitionInfo {
         CreatePartitionInfo {
             max_size: self.size,
@@ -208,6 +210,41 @@ impl Segment {
                     segments.push(s);
                 }
             }
+        }
+
+        // Convert tiny free space (<10MB) to reserved space to hide alignment/reserved gaps,
+        // UNLESS the whole drive is free space OR the drive is very small (<100MB).
+        const TINY_FREE_THRESHOLD: u64 = 10 * 1024 * 1024; // 10MB
+        const SMALL_DRIVE_THRESHOLD: u64 = 100 * 1024 * 1024; // 100MB
+
+        let all_free_space = segments
+            .iter()
+            .all(|s| s.kind == DiskSegmentKind::FreeSpace);
+        let is_small_drive = drive.size < SMALL_DRIVE_THRESHOLD;
+
+        if !all_free_space && !is_small_drive {
+            for segment in segments.iter_mut() {
+                if segment.kind == DiskSegmentKind::FreeSpace && segment.size < TINY_FREE_THRESHOLD
+                {
+                    segment.kind = DiskSegmentKind::Reserved;
+                }
+            }
+        }
+
+        if segments.len() > 1 {
+            let mut merged: Vec<Segment> = Vec::with_capacity(segments.len());
+            for segment in segments.into_iter() {
+                if let Some(last) = merged.last_mut()
+                    && last.kind == DiskSegmentKind::Reserved
+                    && segment.kind == DiskSegmentKind::Reserved
+                    && last.offset.saturating_add(last.size) == segment.offset
+                {
+                    last.size = last.size.saturating_add(segment.size);
+                } else {
+                    merged.push(segment);
+                }
+            }
+            segments = merged;
         }
 
         if !show_reserved {

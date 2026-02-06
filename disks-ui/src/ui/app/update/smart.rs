@@ -2,8 +2,8 @@ use crate::ui::dialogs::message::SmartDialogMessage;
 use crate::ui::dialogs::state::{ShowDialog, SmartDataDialog};
 use cosmic::app::Task;
 
-use super::super::message::Message;
-use super::super::state::AppModel;
+use crate::ui::app::message::Message;
+use crate::ui::app::state::AppModel;
 
 pub(super) fn smart_dialog(app: &mut AppModel, msg: SmartDialogMessage) -> Task<Message> {
     let Some(ShowDialog::SmartData(state)) = app.dialog.clone() else {
@@ -31,10 +31,11 @@ pub(super) fn smart_dialog(app: &mut AppModel, msg: SmartDialogMessage) -> Task<
         }
         SmartDialogMessage::Refresh => {
             let drive = state.drive.clone();
+            let info = state.info.clone();
             app.dialog = Some(ShowDialog::SmartData(SmartDataDialog {
                 drive: drive.clone(),
                 running: true,
-                info: state.info.clone(),
+                info,
                 error: None,
             }));
 
@@ -45,10 +46,11 @@ pub(super) fn smart_dialog(app: &mut AppModel, msg: SmartDialogMessage) -> Task<
         }
         SmartDialogMessage::SelfTestShort => {
             let drive = state.drive.clone();
+            let info = state.info.clone();
             app.dialog = Some(ShowDialog::SmartData(SmartDataDialog {
                 drive: drive.clone(),
                 running: true,
-                info: state.info.clone(),
+                info,
                 error: None,
             }));
             return Task::perform(
@@ -63,10 +65,11 @@ pub(super) fn smart_dialog(app: &mut AppModel, msg: SmartDialogMessage) -> Task<
         }
         SmartDialogMessage::SelfTestExtended => {
             let drive = state.drive.clone();
+            let info = state.info.clone();
             app.dialog = Some(ShowDialog::SmartData(SmartDataDialog {
                 drive: drive.clone(),
                 running: true,
-                info: state.info.clone(),
+                info,
                 error: None,
             }));
             return Task::perform(
@@ -81,10 +84,11 @@ pub(super) fn smart_dialog(app: &mut AppModel, msg: SmartDialogMessage) -> Task<
         }
         SmartDialogMessage::AbortSelfTest => {
             let drive = state.drive.clone();
+            let info = state.info.clone();
             app.dialog = Some(ShowDialog::SmartData(SmartDataDialog {
                 drive: drive.clone(),
                 running: true,
-                info: state.info.clone(),
+                info,
                 error: None,
             }));
             return Task::perform(

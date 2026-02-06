@@ -5,8 +5,8 @@ use crate::ui::error::{UiErrorContext, log_error_and_show_dialog};
 use cosmic::app::Task;
 use disks_dbus::DriveModel;
 
-use super::super::message::Message;
-use super::super::state::AppModel;
+use crate::ui::app::message::Message;
+use crate::ui::app::state::AppModel;
 
 pub(super) fn format_disk(app: &mut AppModel, msg: FormatDiskMessage) -> Task<Message> {
     let Some(ShowDialog::FormatDisk(state)) = app.dialog.as_mut() else {
@@ -27,9 +27,8 @@ pub(super) fn format_disk(app: &mut AppModel, msg: FormatDiskMessage) -> Task<Me
             state.running = true;
 
             let drive = state.drive.clone();
-            let selected = drive.block_path.clone();
+            let block_path = drive.block_path.clone();
             let drive_path = drive.path.clone();
-            let device = drive.block_path.clone();
             let erase = state.erase_index == 1;
             let format_type = match state.partitioning_index {
                 0 => "dos",
@@ -43,12 +42,12 @@ pub(super) fn format_disk(app: &mut AppModel, msg: FormatDiskMessage) -> Task<Me
                     DriveModel::get_drives().await
                 },
                 move |res| match res {
-                    Ok(drives) => Message::UpdateNav(drives, Some(selected.clone())).into(),
+                    Ok(drives) => Message::UpdateNav(drives, Some(block_path.clone())).into(),
                     Err(e) => {
                         let ctx = UiErrorContext {
                             operation: "format_disk",
                             object_path: Some(drive_path.as_str()),
-                            device: Some(device.as_str()),
+                            device: Some(block_path.as_str()),
                             drive_path: Some(drive_path.as_str()),
                         };
                         log_error_and_show_dialog(fl!("format-disk-failed"), e, ctx).into()
@@ -66,8 +65,12 @@ pub(super) fn eject(app: &mut AppModel) -> Task<Message> {
         return Task::none();
     };
 
+    eject_drive(drive)
+}
+
+pub(super) fn eject_drive(drive: DriveModel) -> Task<Message> {
     let drive_path = drive.path.clone();
-    let device = drive.block_path.clone();
+    let block_path = drive.block_path.clone();
 
     Task::perform(
         async move {
@@ -84,7 +87,7 @@ pub(super) fn eject(app: &mut AppModel) -> Task<Message> {
                 let ctx = UiErrorContext {
                     operation: "eject_or_remove",
                     object_path: Some(drive_path.as_str()),
-                    device: Some(device.as_str()),
+                    device: Some(block_path.as_str()),
                     drive_path: Some(drive_path.as_str()),
                 };
                 log_error_and_show_dialog(fl!("eject-failed"), e, ctx).into()
@@ -98,8 +101,12 @@ pub(super) fn power_off(app: &mut AppModel) -> Task<Message> {
         return Task::none();
     };
 
+    power_off_drive(drive)
+}
+
+pub(super) fn power_off_drive(drive: DriveModel) -> Task<Message> {
     let drive_path = drive.path.clone();
-    let device = drive.block_path.clone();
+    let block_path = drive.block_path.clone();
 
     Task::perform(
         async move {
@@ -116,7 +123,7 @@ pub(super) fn power_off(app: &mut AppModel) -> Task<Message> {
                 let ctx = UiErrorContext {
                     operation: "power_off",
                     object_path: Some(drive_path.as_str()),
-                    device: Some(device.as_str()),
+                    device: Some(block_path.as_str()),
                     drive_path: Some(drive_path.as_str()),
                 };
                 log_error_and_show_dialog(fl!("power-off-failed"), e, ctx).into()
@@ -130,6 +137,10 @@ pub(super) fn format(app: &mut AppModel) {
         return;
     };
 
+    format_for(app, drive)
+}
+
+pub(super) fn format_for(app: &mut AppModel, drive: DriveModel) {
     let partitioning_index = match drive.partition_table_type.as_deref() {
         Some("dos") => 0,
         Some("gpt") => 1,
@@ -149,6 +160,10 @@ pub(super) fn smart_data(app: &mut AppModel) -> Task<Message> {
         return Task::none();
     };
 
+    smart_data_for(app, drive)
+}
+
+pub(super) fn smart_data_for(app: &mut AppModel, drive: DriveModel) -> Task<Message> {
     app.dialog = Some(ShowDialog::SmartData(SmartDataDialog {
         drive: drive.clone(),
         running: true,
@@ -170,6 +185,10 @@ pub(super) fn standby_now(app: &mut AppModel) -> Task<Message> {
         return Task::none();
     };
 
+    standby_now_drive(drive)
+}
+
+pub(super) fn standby_now_drive(drive: DriveModel) -> Task<Message> {
     let drive_path = drive.path.clone();
     let device = drive.block_path.clone();
 
@@ -199,6 +218,10 @@ pub(super) fn wakeup(app: &mut AppModel) -> Task<Message> {
         return Task::none();
     };
 
+    wakeup_drive(drive)
+}
+
+pub(super) fn wakeup_drive(drive: DriveModel) -> Task<Message> {
     let drive_path = drive.path.clone();
     let device = drive.block_path.clone();
 

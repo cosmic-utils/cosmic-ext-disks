@@ -4,16 +4,13 @@ use cosmic::{
     iced::{Alignment, Background, Length, Shadow},
     iced_widget::{self, column},
     widget::{
-        self, checkbox, container, icon,
+        self, container,
         text::{caption, caption_heading},
     },
 };
 
 use crate::app::Message;
 use crate::fl;
-use crate::ui::dialogs::state::{
-    CreatePartitionDialog, DeletePartitionDialog, ShowDialog, UnlockEncryptedDialog,
-};
 use crate::ui::volumes::helpers;
 use crate::utils::DiskSegmentKind;
 use disks_dbus::bytes_to_pretty;
@@ -29,11 +26,11 @@ impl Segment {
                     caption_heading(fl!("free-space-caption")).center(),
                     caption(bytes_to_pretty(&self.size, false)).center()
                 ]
-                .spacing(5)
+                .spacing(3)
                 .width(Length::Fill)
                 .align_x(Alignment::Center),
             )
-            .padding(5)
+            .padding(3)
             .align_x(Alignment::Center)
             .align_y(Alignment::Center)
             .into()
@@ -43,11 +40,11 @@ impl Segment {
                     caption_heading(fl!("reserved-space-caption")).center(),
                     caption(bytes_to_pretty(&self.size, false)).center()
                 ]
-                .spacing(5)
+                .spacing(3)
                 .width(Length::Fill)
                 .align_x(Alignment::Center),
             )
-            .padding(5)
+            .padding(3)
             .align_x(Alignment::Center)
             .align_y(Alignment::Center)
             .into()
@@ -55,14 +52,12 @@ impl Segment {
             container(
                 iced_widget::column![
                     caption_heading(self.name.clone()).center(),
-                    caption(self.label.clone()).center(),
-                    caption(self.partition_type.clone()).center(),
                     caption(bytes_to_pretty(&self.size, false)).center()
                 ]
-                .spacing(5)
+                .spacing(3)
                 .align_x(Alignment::Center),
             )
-            .padding(5)
+            .padding(3)
             .align_x(Alignment::Center)
             .align_y(Alignment::Center)
             .into()
@@ -72,10 +67,7 @@ impl Segment {
 
 impl VolumesControl {
     pub fn view(&self) -> Element<'_, Message> {
-        const SEGMENT_BUTTON_HEIGHT: f32 = 130.0;
-
-        let show_reserved = checkbox(fl!("show-reserved"), self.show_reserved)
-            .on_toggle(|v| VolumesControlMessage::ToggleShowReserved(v).into());
+        const SEGMENT_BUTTON_HEIGHT: f32 = 97.5;
 
         let segment_buttons: Vec<Element<Message>> = self
             .segments
@@ -197,7 +189,7 @@ impl VolumesControl {
             })
             .collect();
 
-        let selected = match self.segments.get(self.selected_segment).cloned() {
+        let _selected = match self.segments.get(self.selected_segment).cloned() {
             Some(segment) => segment,
             None => {
                 // Handle the case where selected_segment is out of range
@@ -216,216 +208,10 @@ impl VolumesControl {
                 .into();
             }
         };
-        let mut action_bar: Vec<Element<Message>> = vec![];
 
-        let selected_volume = selected
-            .volume
-            .as_ref()
-            .and_then(|p| helpers::find_volume_node_for_partition(&self.model.volumes, p));
-
-        let selected_child_volume = self.selected_volume_node();
-
-        match selected.kind {
-            DiskSegmentKind::Partition => {
-                if let Some(p) = selected.volume.as_ref() {
-                    // Container actions are based on the selected partition (segment).
-                    if let Some(v) = selected_volume
-                        && v.kind == VolumeKind::CryptoContainer
-                    {
-                        if v.locked {
-                            action_bar.push(tooltip_icon_button(
-                                "dialog-password-symbolic",
-                                fl!("unlock-button").to_string(),
-                                Some(Message::Dialog(Box::new(ShowDialog::UnlockEncrypted(
-                                    UnlockEncryptedDialog {
-                                        partition_path: p.path.to_string(),
-                                        partition_name: p.name(),
-                                        passphrase: String::new(),
-                                        error: None,
-                                        running: false,
-                                    },
-                                )))),
-                            ));
-                        } else {
-                            action_bar.push(tooltip_icon_button(
-                                "changes-prevent-symbolic",
-                                fl!("lock").to_string(),
-                                Some(VolumesControlMessage::LockContainer.into()),
-                            ));
-                        }
-                    }
-
-                    // If a child filesystem/LV is selected, mount/unmount applies to it.
-                    if let Some(v) = selected_child_volume {
-                        if v.can_mount() {
-                            let msg = if v.is_mounted() {
-                                VolumesControlMessage::ChildUnmount(v.object_path.to_string())
-                            } else {
-                                VolumesControlMessage::ChildMount(v.object_path.to_string())
-                            };
-                            let icon_name = if v.is_mounted() {
-                                "media-playback-stop-symbolic"
-                            } else {
-                                "media-playback-start-symbolic"
-                            };
-                            action_bar.push(tooltip_icon_button(
-                                icon_name,
-                                fl!("mount-toggle").to_string(),
-                                Some(msg.into()),
-                            ));
-                        }
-                    } else if p.can_mount() {
-                        let (icon_name, msg) = if p.is_mounted() {
-                            (
-                                "media-playback-stop-symbolic",
-                                VolumesControlMessage::Unmount,
-                            )
-                        } else {
-                            (
-                                "media-playback-start-symbolic",
-                                VolumesControlMessage::Mount,
-                            )
-                        };
-                        action_bar.push(tooltip_icon_button(
-                            icon_name,
-                            fl!("mount-toggle").to_string(),
-                            Some(msg.into()),
-                        ));
-                    }
-                }
-            }
-            DiskSegmentKind::FreeSpace => {
-                action_bar.push(tooltip_icon_button(
-                    "list-add-symbolic",
-                    fl!("create-partition").to_string(),
-                    Some(Message::Dialog(Box::new(ShowDialog::AddPartition(
-                        CreatePartitionDialog {
-                            info: selected.get_create_info(),
-                            running: false,
-                            error: None,
-                        },
-                    )))),
-                ));
-            }
-            DiskSegmentKind::Reserved => {}
-        }
-
-        if selected.kind == DiskSegmentKind::Partition
-            && let Some(p) = selected.volume.as_ref()
-        {
-            // Command visibility is based on the selected partition (segment), not a selected child.
-            // Child selection only affects filesystem-targeted actions (label/check).
-
-            // Always: Format Partition
-            action_bar.push(tooltip_icon_button(
-                "edit-clear-symbolic",
-                fl!("format-partition").to_string(),
-                Some(VolumesControlMessage::OpenFormatPartition.into()),
-            ));
-
-            // Partition-only: Edit Partition + Resize
-            if selected_child_volume.is_none() && p.volume_type == disks_dbus::VolumeType::Partition
-            {
-                action_bar.push(tooltip_icon_button(
-                    "document-edit-symbolic",
-                    fl!("edit-partition").to_string(),
-                    Some(VolumesControlMessage::OpenEditPartition.into()),
-                ));
-
-                let right_free_bytes = self
-                    .segments
-                    .get(self.selected_segment.saturating_add(1))
-                    .filter(|s| s.kind == DiskSegmentKind::FreeSpace)
-                    .map(|s| s.size)
-                    .unwrap_or(0);
-                let max_size = p.size.saturating_add(right_free_bytes);
-                let min_size = p.usage.as_ref().map(|u| u.used).unwrap_or(0).min(max_size);
-
-                let resize_enabled = max_size.saturating_sub(min_size) >= 1024;
-                action_bar.push(tooltip_icon_button(
-                    "transform-scale-symbolic",
-                    fl!("resize-partition").to_string(),
-                    resize_enabled.then_some(VolumesControlMessage::OpenResizePartition.into()),
-                ));
-            }
-
-            // Partition + Filesystem: Edit filesystem label + Check filesystem
-            let fs_target_available = selected_child_volume
-                .map(|n| n.can_mount())
-                .unwrap_or_else(|| p.can_mount());
-            if fs_target_available {
-                action_bar.push(tooltip_icon_button(
-                    "document-properties-symbolic",
-                    fl!("edit-mount-options").to_string(),
-                    Some(VolumesControlMessage::OpenEditMountOptions.into()),
-                ));
-                action_bar.push(tooltip_icon_button(
-                    "tag-symbolic",
-                    fl!("edit-filesystem").to_string(),
-                    Some(VolumesControlMessage::OpenEditFilesystemLabel.into()),
-                ));
-                action_bar.push(tooltip_icon_button(
-                    "emblem-ok-symbolic",
-                    fl!("check-filesystem").to_string(),
-                    Some(VolumesControlMessage::OpenCheckFilesystem.into()),
-                ));
-
-                // Filesystem operations: Repair + Take Ownership
-                action_bar.push(tooltip_icon_button(
-                    "tools-symbolic",
-                    fl!("repair-filesystem").to_string(),
-                    Some(VolumesControlMessage::OpenRepairFilesystem.into()),
-                ));
-                action_bar.push(tooltip_icon_button(
-                    "user-home-symbolic",
-                    fl!("take-ownership").to_string(),
-                    Some(VolumesControlMessage::OpenTakeOwnership.into()),
-                ));
-            }
-
-            // Container-only (VolumeType::Container): Change Passphrase
-            if selected_volume.is_some_and(|v| v.kind == VolumeKind::CryptoContainer) {
-                action_bar.push(tooltip_icon_button(
-                    "dialog-password-symbolic",
-                    fl!("change-passphrase").to_string(),
-                    Some(VolumesControlMessage::OpenChangePassphrase.into()),
-                ));
-
-                action_bar.push(tooltip_icon_button(
-                    "document-properties-symbolic",
-                    fl!("edit-encryption-options").to_string(),
-                    Some(VolumesControlMessage::OpenEditEncryptionOptions.into()),
-                ));
-            }
-
-            // Delete partition
-            if selected_child_volume.is_none()
-                && p.volume_type != disks_dbus::VolumeType::Filesystem
-            {
-                action_bar.push(widget::horizontal_space().into());
-                action_bar.push(tooltip_icon_button(
-                    "edit-delete-symbolic",
-                    fl!("delete", name = selected.name.clone()).to_string(),
-                    Some(Message::Dialog(Box::new(ShowDialog::DeletePartition(
-                        DeletePartitionDialog {
-                            name: selected.name.clone(),
-                            running: false,
-                        },
-                    )))),
-                ));
-            }
-        }
-
-        let root = column![
-            cosmic::widget::Row::from_vec(vec![show_reserved.into()])
-                .spacing(10)
-                .width(Length::Fill),
-            cosmic::widget::Row::from_vec(segment_buttons)
-                .spacing(10)
-                .width(Length::Fill),
-            widget::Row::from_vec(action_bar).width(Length::Fill)
-        ]
-        .spacing(10);
+        let root = cosmic::widget::Row::from_vec(segment_buttons)
+            .spacing(10)
+            .width(Length::Fill);
 
         container(root)
             .width(Length::Fill)
@@ -433,24 +219,6 @@ impl VolumesControl {
             .class(cosmic::style::Container::Card)
             .into()
     }
-}
-
-fn tooltip_icon_button(
-    icon_name: &str,
-    tooltip: String,
-    msg: Option<Message>,
-) -> Element<'_, Message> {
-    let mut button = widget::button::custom(icon::from_name(icon_name));
-    if let Some(m) = msg {
-        button = button.on_press(m);
-    }
-
-    widget::tooltip(
-        button,
-        widget::text::body(tooltip),
-        widget::tooltip::Position::Top,
-    )
-    .into()
 }
 
 fn volume_row_compact<'a>(

@@ -1,113 +1,104 @@
 use cosmic::Task;
+use std::future::Future;
 
 use crate::app::Message;
 use crate::ui::volumes::helpers;
 use disks_dbus::DriveModel;
 
-use super::super::VolumesControl;
+use crate::ui::volumes::VolumesControl;
+
+/// Generic helper for volume mount/unmount operations
+fn perform_volume_operation<F, Fut>(
+    operation: F,
+    operation_name: &'static str,
+    preserve_selection: Option<String>,
+) -> Task<cosmic::Action<Message>>
+where
+    F: FnOnce() -> Fut + Send + 'static,
+    Fut: Future<Output = anyhow::Result<()>> + Send,
+{
+    Task::perform(
+        async move {
+            operation().await?;
+            DriveModel::get_drives().await
+        },
+        move |result| match result {
+            Ok(drives) => {
+                // Pass the selected volume to preserve selection after reload
+                Message::UpdateNavWithChildSelection(drives, preserve_selection.clone()).into()
+            }
+            Err(e) => {
+                tracing::error!(?e, "{operation_name} failed");
+                Message::None.into()
+            }
+        },
+    )
+}
 
 pub(super) fn mount(control: &mut VolumesControl) -> Task<cosmic::Action<Message>> {
-    let segment = control.segments.get(control.selected_segment).cloned();
-    if let Some(s) = segment.clone() {
-        match s.volume {
-            Some(p) => {
-                return Task::perform(
-                    async move {
-                        match p.mount().await {
-                            Ok(_) => match DriveModel::get_drives().await {
-                                Ok(drives) => Ok(drives),
-                                Err(e) => Err(e),
-                            },
-                            Err(e) => Err(e),
-                        }
-                    },
-                    |result| match result {
-                        Ok(drives) => Message::UpdateNav(drives, None).into(),
-                        Err(e) => {
-                            tracing::error!(?e, "mount failed");
-                            Message::None.into()
-                        }
-                    },
-                );
-            }
-            None => return Task::none(),
-        }
-    }
-    Task::none()
+    let Some(volume) = control
+        .segments
+        .get(control.selected_segment)
+        .and_then(|s| s.volume.clone())
+    else {
+        return Task::none();
+    };
+
+    let object_path = volume.path.to_string();
+    perform_volume_operation(
+        || async move { volume.mount().await },
+        "mount",
+        Some(object_path),
+    )
 }
 
 pub(super) fn unmount(control: &mut VolumesControl) -> Task<cosmic::Action<Message>> {
-    let segment = control.segments.get(control.selected_segment).cloned();
-    if let Some(s) = segment.clone() {
-        match s.volume {
-            Some(p) => {
-                return Task::perform(
-                    async move {
-                        match p.unmount().await {
-                            Ok(_) => match DriveModel::get_drives().await {
-                                Ok(drives) => Ok(drives),
-                                Err(e) => Err(e),
-                            },
-                            Err(e) => Err(e),
-                        }
-                    },
-                    |result| match result {
-                        Ok(drives) => Message::UpdateNav(drives, None).into(),
-                        Err(e) => {
-                            tracing::error!(%e, "unmount failed");
-                            Message::None.into()
-                        }
-                    },
-                );
-            }
-            None => return Task::none(),
-        }
-    }
-    Task::none()
+    let Some(volume) = control
+        .segments
+        .get(control.selected_segment)
+        .and_then(|s| s.volume.clone())
+    else {
+        return Task::none();
+    };
+
+    let object_path = volume.path.to_string();
+    perform_volume_operation(
+        || async move { volume.unmount().await },
+        "unmount",
+        Some(object_path),
+    )
 }
 
 pub(super) fn child_mount(
     control: &mut VolumesControl,
     object_path: String,
 ) -> Task<cosmic::Action<Message>> {
-    let node = helpers::find_volume_node(&control.model.volumes, &object_path).cloned();
-    if let Some(v) = node {
-        return Task::perform(
-            async move {
-                v.mount().await?;
-                DriveModel::get_drives().await
-            },
-            |result| match result {
-                Ok(drives) => Message::UpdateNav(drives, None).into(),
-                Err(e) => {
-                    tracing::error!(?e, "child mount failed");
-                    Message::None.into()
-                }
-            },
-        );
-    }
-    Task::none()
+    let Some(node) = helpers::find_volume_node(&control.model.volumes, &object_path).cloned()
+    else {
+        return Task::none();
+    };
+
+    let object_path_for_selection = object_path.clone();
+    perform_volume_operation(
+        || async move { node.mount().await },
+        "child mount",
+        Some(object_path_for_selection),
+    )
 }
 
 pub(super) fn child_unmount(
     control: &mut VolumesControl,
     object_path: String,
 ) -> Task<cosmic::Action<Message>> {
-    let node = helpers::find_volume_node(&control.model.volumes, &object_path).cloned();
-    if let Some(v) = node {
-        return Task::perform(
-            async move {
-                v.unmount().await?;
-                DriveModel::get_drives().await
-            },
-            |result| match result {
-                Ok(drives) => Message::UpdateNav(drives, None).into(),
-                Err(e) => {
-                    tracing::error!(?e, "child unmount failed");
-                    Message::None.into()
-                }
-            },
-        );
-    }
-    Task::none()
+    let Some(node) = helpers::find_volume_node(&control.model.volumes, &object_path).cloned()
+    else {
+        return Task::none();
+    };
+
+    let object_path_for_selection = object_path.clone();
+    perform_volume_operation(
+        || async move { node.unmount().await },
+        "child unmount",
+        Some(object_path_for_selection),
+    )
 }

@@ -78,8 +78,6 @@ pub enum CreateMessage {
     PasswordProtectedUpdate(bool),
     EraseUpdate(bool),
     PartitionTypeUpdate(usize),
-    #[allow(dead_code)]
-    Continue,
     Cancel,
     Partition,
 }
@@ -112,7 +110,6 @@ pub enum SmartDialogMessage {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum NewDiskImageDialogMessage {
-    PathUpdate(String),
     SizeUpdate(u64),
     Create,
     Cancel,
@@ -121,7 +118,6 @@ pub enum NewDiskImageDialogMessage {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum AttachDiskImageDialogMessage {
-    PathUpdate(String),
     Attach,
     Cancel,
     Complete(Result<AttachDiskResult, String>),
@@ -135,7 +131,6 @@ pub struct AttachDiskResult {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ImageOperationDialogMessage {
-    PathUpdate(String),
     Start,
     CancelOperation,
     Complete(Result<(), String>),

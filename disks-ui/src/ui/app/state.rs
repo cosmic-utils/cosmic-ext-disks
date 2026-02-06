@@ -4,18 +4,17 @@ use crate::config::Config;
 use crate::fl;
 use crate::ui::app::message::Message;
 use crate::ui::dialogs::state::ShowDialog;
-use crate::views::menu::MenuAction;
+use crate::ui::sidebar::SidebarState;
 use cosmic::ApplicationExt;
 use cosmic::app::{Core, Task};
-use cosmic::widget::{menu, nav_bar};
-use std::collections::HashMap;
+use cosmic::widget::nav_bar;
 use std::sync::{Arc, atomic::AtomicBool};
 
 /// The context page to display in the context drawer.
 #[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
 pub enum ContextPage {
     #[default]
-    About,
+    Settings,
 }
 
 /// The application model stores app-specific state used to describe its interface and
@@ -27,8 +26,9 @@ pub struct AppModel {
     pub(crate) context_page: ContextPage,
     /// Contains items assigned to the nav bar panel.
     pub(crate) nav: nav_bar::Model,
-    /// Key bindings for the application's menu bar.
-    pub(crate) key_binds: HashMap<menu::KeyBind, MenuAction>,
+
+    /// Custom sidebar treeview state (rendered instead of the built-in nav_bar widget).
+    pub(crate) sidebar: SidebarState,
     // Configuration data that persists between application runs.
     pub(crate) config: Config,
 

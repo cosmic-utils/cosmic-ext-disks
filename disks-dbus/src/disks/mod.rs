@@ -9,15 +9,18 @@ mod smart;
 mod volume;
 mod volume_model;
 
-pub use create_partition_info::*;
-pub use drive::*;
-pub use gpt::*;
-pub use image::*;
-pub use lvm::*;
-pub use manager::*;
-pub use smart::*;
+// Explicit exports from submodules
+pub use create_partition_info::CreatePartitionInfo;
+pub use drive::DriveModel;
+pub use gpt::{
+    ByteRange, GPT_ALIGNMENT_BYTES, fallback_gpt_usable_range_bytes, probe_gpt_usable_range_bytes,
+};
+pub use image::{loop_setup, mount_filesystem};
+pub use lvm::{LvmLogicalVolumeInfo, list_lvs_for_pv};
+pub use manager::{DeviceEvent, DeviceEventStream, DiskManager};
+pub use smart::{SmartInfo, SmartSelfTestKind};
 use thiserror::Error;
-pub use volume::*;
+pub use volume::{BlockIndex, VolumeKind, VolumeNode};
 pub use volume_model::{VolumeModel, VolumeType};
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]

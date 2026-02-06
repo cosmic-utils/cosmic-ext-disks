@@ -6,4 +6,5 @@ use cosmic::cosmic_config::{self, CosmicConfigEntry, cosmic_config_derive::Cosmi
 #[version = 1]
 pub struct Config {
     demo: String,
+    pub show_reserved: bool,
 }

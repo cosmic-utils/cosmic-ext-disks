@@ -5,8 +5,10 @@
   <project_license>MPL-2.0</project_license>
   <name>Disks</name>
   <summary>An application for the COSMIC™ desktop</summary>
+  <icon type="local" width="64" height="64">com.cosmic.Disks</icon>
+  <icon type="local" width="128" height="128">com.cosmic.Disks</icon>
   <icon type="remote" width="64" height="64" scale="1">
-    https://github.com/cosmic-utils/cosmic-ext-disks/raw/main/resources/icons/hicolor/scalable/apps/icon.svg
+    https://github.com/cosmic-utils/cosmic-ext-disks/raw/main/disks-ui/resources/icons/hicolor/scalable/apps/com.cosmic.Disks.svg
   </icon>
   <url type="vcs-browser">https://github.com/cosmic-utils/cosmic-ext-disks</url>
   <launchable type="desktop-id">com.cosmic.Disks.desktop</launchable>

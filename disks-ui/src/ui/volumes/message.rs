@@ -12,7 +12,6 @@ pub enum VolumesControlMessage {
         segment_index: usize,
         object_path: String,
     },
-    ToggleShowReserved(bool),
     Mount,
     Unmount,
     ChildMount(String),

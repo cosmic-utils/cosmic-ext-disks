@@ -1,0 +1,103 @@
+[[types]]
+table_type = "apm"
+table_subtype = "apple"
+ty = "Apple_Unix_SVR2"
+name = "Apple UFS"
+flags = ""
+filesystem_type = ""
+
+[[types]]
+table_type = "apm"
+table_subtype = "apple"
+ty = "Apple_HFS"
+name = "Apple HFS/HFS"
+flags = ""
+filesystem_type = ""
+
+[[types]]
+table_type = "apm"
+table_subtype = "apple"
+ty = "Apple_partition_map"
+name = "Apple Partition Map"
+flags = ""
+filesystem_type = ""
+
+[[types]]
+table_type = "apm"
+table_subtype = "apple"
+ty = "Apple_Free"
+name = "Unused"
+flags = ""
+filesystem_type = ""
+
+[[types]]
+table_type = "apm"
+table_subtype = "apple"
+ty = "Apple_Scratch"
+name = "Empty"
+flags = ""
+filesystem_type = ""
+
+[[types]]
+table_type = "apm"
+table_subtype = "apple"
+ty = "Apple_Driver"
+name = "Driver"
+flags = ""
+filesystem_type = ""
+
+[[types]]
+table_type = "apm"
+table_subtype = "apple"
+ty = "Apple_Driver43"
+name = "Driver 4.3"
+flags = ""
+filesystem_type = ""
+
+[[types]]
+table_type = "apm"
+table_subtype = "apple"
+ty = "Apple_PRODOS"
+name = "ProDOS file system"
+flags = ""
+filesystem_type = ""
+
+[[types]]
+table_type = "apm"
+table_subtype = "microsoft"
+ty = "DOS_FAT_12"
+name = "FAT 12"
+flags = ""
+filesystem_type = ""
+
+[[types]]
+table_type = "apm"
+table_subtype = "microsoft"
+ty = "DOS_FAT_16"
+name = "FAT 16"
+flags = ""
+filesystem_type = ""
+
+[[types]]
+table_type = "apm"
+table_subtype = "microsoft"
+ty = "DOS_FAT_32"
+name = "FAT 32"
+flags = ""
+filesystem_type = ""
+
+[[types]]
+table_type = "apm"
+table_subtype = "microsoft"
+ty = "Windows_FAT_16"
+name = "FAT 16 (Windows)"
+flags = ""
+filesystem_type = ""
+
+[[types]]
+table_type = "apm"
+table_subtype = "microsoft"
+ty = "Windows_FAT_32"
+name = "FAT 32 (Windows)"
+flags = ""
+filesystem_type = ""

@@ -3,6 +3,7 @@ use disks_dbus::{CreatePartitionInfo, DriveModel, PartitionTypeInfo, VolumeModel
 #[derive(Debug, Clone)]
 pub enum ShowDialog {
     DeletePartition(DeletePartitionDialog),
+    #[allow(dead_code)]
     AddPartition(CreatePartitionDialog),
     FormatPartition(FormatPartitionDialog),
     EditPartition(EditPartitionDialog),
@@ -19,7 +20,10 @@ pub enum ShowDialog {
     NewDiskImage(Box<NewDiskImageDialog>),
     AttachDiskImage(Box<AttachDiskImageDialog>),
     ImageOperation(Box<ImageOperationDialog>),
-    Info { title: String, body: String },
+    Info {
+        title: String,
+        body: String,
+    },
 }
 
 #[derive(Debug, Clone)]

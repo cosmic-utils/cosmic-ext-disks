@@ -3,9 +3,99 @@ use std::collections::HashMap;
 use anyhow::Result;
 use zbus::zvariant::{OwnedValue, Value};
 
-use super::super::{SmartInfo, SmartSelfTestKind};
 use super::is_anyhow_not_supported;
 use super::model::DriveModel;
+use crate::disks::{SmartInfo, SmartSelfTestKind};
+
+/// Helper function to extract a readable value from OwnedValue
+fn extract_owned_value(v: &OwnedValue) -> String {
+    // Try to convert to common types directly
+    if let Ok(s) = <&str>::try_from(v) {
+        return s.to_string();
+    }
+    if let Ok(n) = <i64>::try_from(v) {
+        return n.to_string();
+    }
+    if let Ok(n) = <u64>::try_from(v) {
+        return n.to_string();
+    }
+    if let Ok(n) = <i32>::try_from(v) {
+        return n.to_string();
+    }
+    if let Ok(n) = <u32>::try_from(v) {
+        return n.to_string();
+    }
+    if let Ok(n) = <i16>::try_from(v) {
+        return n.to_string();
+    }
+    if let Ok(n) = <u16>::try_from(v) {
+        return n.to_string();
+    }
+    if let Ok(n) = <f64>::try_from(v) {
+        return n.to_string();
+    }
+    if let Ok(b) = <bool>::try_from(v) {
+        return b.to_string();
+    }
+
+    // For complex types, parse the debug string more intelligently
+    let debug_str = format!("{v:?}");
+
+    // Strip OwnedValue wrapper if present
+    let mut s = debug_str.as_str();
+    if let Some(stripped) = s.strip_prefix("OwnedValue(") {
+        if let Some(inner) = stripped.strip_suffix(")") {
+            s = inner;
+        }
+    }
+
+    // Handle specific zvariant types
+    // U8(value) -> value
+    if let Some(rest) = s.strip_prefix("U8(") {
+        if let Some(num) = rest.strip_suffix(")") {
+            return num.to_string();
+        }
+    }
+
+    // I8(value) -> value
+    if let Some(rest) = s.strip_prefix("I8(") {
+        if let Some(num) = rest.strip_suffix(")") {
+            return num.to_string();
+        }
+    }
+
+    // Array types - format as [item1, item2, ...]
+    if let Some(rest) = s.strip_prefix("Array(") {
+        if let Some(inner) = rest.strip_suffix(")") {
+            // Extract elements between "elements: [" and "], signature:"
+            if let Some(elements_start) = inner.find("elements:") {
+                let after_elements = &inner[elements_start + 9..].trim_start();
+                // Find the array content between [ and ]
+                if let Some(array_start) = after_elements.find('[') {
+                    let array_content = &after_elements[array_start + 1..];
+                    if let Some(array_end) = array_content.find(']') {
+                        let elements_str = &array_content[..array_end];
+                        // Parse nested types within the array
+                        let cleaned = elements_str
+                            .replace("U8(", "")
+                            .replace("U16(", "")
+                            .replace("U32(", "")
+                            .replace("U64(", "")
+                            .replace("I8(", "")
+                            .replace("I16(", "")
+                            .replace("I32(", "")
+                            .replace("I64(", "")
+                            .replace("F64(", "")
+                            .replace(")", "");
+                        return format!("[{}]", cleaned);
+                    }
+                }
+            }
+        }
+    }
+
+    s.to_string()
+}
 
 impl DriveModel {
     pub async fn smart_info(&self) -> Result<SmartInfo> {
@@ -79,7 +169,8 @@ impl DriveModel {
 
         let mut attributes = std::collections::BTreeMap::new();
         for (k, v) in attrs {
-            attributes.insert(k, format!("{v:?}"));
+            let value_str = extract_owned_value(&v);
+            attributes.insert(k, value_str);
         }
 
         Ok(SmartInfo {
@@ -156,7 +247,8 @@ impl DriveModel {
 
         let mut attributes = std::collections::BTreeMap::new();
         for (k, v) in attrs {
-            attributes.insert(k, format!("{v:?}"));
+            let value_str = extract_owned_value(&v);
+            attributes.insert(k, value_str);
         }
 
         Ok(SmartInfo {

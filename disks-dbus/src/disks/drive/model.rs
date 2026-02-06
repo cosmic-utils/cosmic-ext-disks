@@ -1,8 +1,11 @@
 use anyhow::Result;
-use udisks2::{block::BlockProxy, drive::DriveProxy};
+use udisks2::{
+    block::BlockProxy,
+    drive::{DriveProxy, RotationRate},
+};
 use zbus::{Connection, zvariant::OwnedObjectPath};
 
-use super::super::{ByteRange, VolumeModel, VolumeNode};
+use crate::disks::{ByteRange, VolumeModel, VolumeNode};
 
 #[derive(Debug, Clone)]
 pub struct DriveModel {
@@ -14,6 +17,7 @@ pub struct DriveModel {
     pub optical: bool,
     pub optical_blank: bool,
     pub removable: bool,
+    pub rotation_rate: i32,
     pub id: String,
     pub model: String,
     pub revision: String,
@@ -77,6 +81,14 @@ impl DriveModel {
             optical_blank: drive_proxy.optical_blank().await?,
             removable: drive_proxy.removable().await?,
             revision: drive_proxy.revision().await?,
+            rotation_rate: match drive_proxy.rotation_rate().await {
+                Ok(rate) => match rate {
+                    RotationRate::Rotating(rpm) => rpm,
+                    RotationRate::NonRotating => 0,
+                    RotationRate::Unknown => -1,
+                },
+                Err(_) => 0,
+            },
             partition_table_type: None,
             gpt_usable_range: None,
             connection: Connection::system().await?,
@@ -112,6 +124,7 @@ impl DriveModel {
             optical_blank: false,
             removable: false,
             revision: String::new(),
+            rotation_rate: 0,
             partition_table_type: None,
             gpt_usable_range: None,
             connection: Connection::system().await?,
@@ -119,6 +132,23 @@ impl DriveModel {
     }
 
     pub fn name(&self) -> String {
-        self.name.split('/').next_back().unwrap().replace('_', " ") //TODO: Handle unwrap
+        self.name
+            .split('/')
+            .next_back()
+            .unwrap_or(&self.name)
+            .replace('_', " ")
+    }
+
+    /// Check if the drive supports power management (spin down/standby).
+    /// Returns true for spinning disks (rotation_rate > 0), false for SSDs and NVMe drives.
+    pub fn supports_power_management(&self) -> bool {
+        // Loop devices don't support power management
+        if self.is_loop {
+            return false;
+        }
+
+        // Only rotating media (HDDs) support power management
+        // rotation_rate: -1 = unknown, 0 = SSD/NVMe, >0 = HDD
+        self.rotation_rate > 0
     }
 }

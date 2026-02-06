@@ -3,7 +3,7 @@ use cosmic::Task;
 use crate::app::Message;
 use crate::ui::dialogs::state::ShowDialog;
 
-use super::super::VolumesControl;
+use crate::ui::volumes::VolumesControl;
 
 pub(super) fn segment_selected(
     control: &mut VolumesControl,
@@ -14,7 +14,9 @@ pub(super) fn segment_selected(
         let Some(last_index) = control.segments.len().checked_sub(1) else {
             control.selected_segment = 0;
             control.selected_volume = None;
-            return Task::none();
+            return Task::batch(vec![Task::done(cosmic::Action::App(
+                Message::SidebarClearChildSelection,
+            ))]);
         };
 
         let index = index.min(last_index);
@@ -24,6 +26,22 @@ pub(super) fn segment_selected(
         if let Some(segment) = control.segments.get_mut(index) {
             segment.state = true;
         }
+
+        // Sync with sidebar: select the segment's volume node if it has one
+        if let Some(segment) = control.segments.get(index)
+            && let Some(vol) = &segment.volume
+        {
+            return Task::batch(vec![Task::done(cosmic::Action::App(
+                Message::SidebarSelectChild {
+                    object_path: vol.path.to_string(),
+                },
+            ))]);
+        }
+
+        // No volume on this segment (e.g., free space), clear selection
+        return Task::batch(vec![Task::done(cosmic::Action::App(
+            Message::SidebarClearChildSelection,
+        ))]);
     }
 
     Task::none()
@@ -44,20 +62,17 @@ pub(super) fn select_volume(
 
         let segment_index = segment_index.min(last_index);
         control.selected_segment = segment_index;
-        control.selected_volume = Some(object_path);
+        control.selected_volume = Some(object_path.clone());
         control.segments.iter_mut().for_each(|s| s.state = false);
         if let Some(segment) = control.segments.get_mut(segment_index) {
             segment.state = true;
         }
+
+        // Sync with sidebar: select the corresponding volume in sidebar
+        return Task::batch(vec![Task::done(cosmic::Action::App(
+            Message::SidebarSelectChild { object_path },
+        ))]);
     }
 
-    Task::none()
-}
-
-pub(super) fn toggle_show_reserved(
-    control: &mut VolumesControl,
-    show_reserved: bool,
-) -> Task<cosmic::Action<Message>> {
-    control.set_show_reserved(show_reserved);
     Task::none()
 }

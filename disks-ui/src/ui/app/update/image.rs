@@ -7,8 +7,8 @@ use crate::ui::volumes::VolumesControl;
 use cosmic::app::Task;
 use disks_dbus::DriveModel;
 
-use super::super::message::Message;
-use super::super::state::AppModel;
+use crate::ui::app::message::Message;
+use crate::ui::app::state::AppModel;
 
 pub(super) fn new_disk_image(app: &mut AppModel) {
     dialogs::new_disk_image(app);

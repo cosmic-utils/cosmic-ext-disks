@@ -1,26 +1,24 @@
 app-title = Disks
+settings = Settings
 about = About
-view = View
-welcome = Welcome to COSMIC! ✨
-page-id = Page { $num }
+
 git-description = Git commit {$hash} on {$date}
 
 # Menu items
-menu-image = Image
-menu-disk = Disk
-menu-view = View
 new-disk-image = New Disk Image
 attach-disk-image = Attach Disk Image
 create-disk-from-drive = Create Disk From Drive
+create-image = Create Image
 restore-image-to-drive = Restore Image to Drive
+restore-image = Restore Image
 create-disk-from-partition = Create Disk Image From Partition
 restore-image-to-partition = Restore Disk Image To Partition
 image-file-path = Image file path
 image-destination-path = Destination file path
 image-source-path = Source image path
 image-size = Image size
-create-image = Create image
-restore-image = Restore image
+choose-path = Choose...
+no-file-selected = No file selected
 attach = Attach
 restore-warning = This will overwrite the selected target device. This cannot be undone.
 eject = Eject
@@ -29,13 +27,12 @@ power-off = Power Off
 power-off-failed = Power off failed
 format-disk = Format Disk
 format-disk-failed = Format disk failed
-benchmark-disk = Benchmark Disk
 smart-data-self-tests = SMART Data & Self-Tests
-drive-settings = Drive Settings
 standby-now = Standby Now
 standby-failed = Standby failed
 wake-up-from-standby = Wake-up From Standby
 wake-up-failed = Wake-up failed
+unmount-failed = Unmount failed
 
 # Dialog buttons
 ok = Ok
@@ -59,6 +56,7 @@ partitioning-none = None
 create-partition = Create Partition
 create-partition-failed = Create partition failed
 format-partition = Format Partition
+format = Format
 format-partition-description = This will format the selected volume. Size: { $size }
 volume-name = Volume Name
 partition-name = Partition Name
@@ -94,9 +92,11 @@ uuid = UUID
 model = Model
 serial = Serial
 partitioning = Partitioning
+backing-file = Backing File
 
 # Confirmation dialog
 delete = Delete { $name }
+delete-partition = Delete
 delete-confirmation = Are you sure you wish to delete { $name }?
 delete-failed = Delete failed
 
@@ -106,9 +106,6 @@ reserved-space-segment = Reserved
 filesystem = Filesystem
 free-space-caption = Free space
 reserved-space-caption = Reserved space
-
-# Volumes view
-show-reserved = Show reserved
 
 # Encrypted / LUKS
 unlock-button = Unlock
@@ -126,22 +123,27 @@ lock-failed = Lock failed
 unlock-missing-partition = Could not find { $name } in the current device list.
 
 # Volume commands
-mount-toggle = Mount / Unmount
+mount = Mount
+unmount = Unmount
 edit-mount-options = Edit Mount Options…
 edit-encryption-options = Edit Encryption Options…
 edit-partition = Edit Partition
+edit = Edit
 edit-partition-no-types = No partition types available for this partition table.
 flag-legacy-bios-bootable = Legacy BIOS Bootable
 flag-system-partition = System Partition
 flag-hide-from-firmware = Hide from firmware
 resize-partition = Resize Partition
+resize = Resize
 resize-partition-range = Allowed range: { $min } to { $max }
 new-size = New Size
 edit-filesystem = Edit Filesystem
+label = Label
 filesystem-label = Filesystem Label
 check-filesystem = Check Filesystem
 check-filesystem-warning = Checking a filesystem can take a long time. Continue?
 repair-filesystem = Repair Filesystem
+repair = Repair
 repair-filesystem-warning = Repairing a filesystem can take a long time and may risk data loss. Continue?
 take-ownership = Take Ownership
 take-ownership-warning = This will change ownership of files to your user. This can take a long time and cannot be easily undone.
@@ -174,3 +176,15 @@ smart-selftest = Self-test
 smart-selftest-short = Short self-test
 smart-selftest-extended = Extended self-test
 smart-selftest-abort = Abort self-test
+
+# Volume types
+lvm-logical-volume = LVM LV
+lvm-physical-volume = LVM PV
+luks-container = LUKS
+partition-type = Partition
+block-device = Device
+
+# Status
+not-mounted = Not mounted
+can-create-partition = Can create partition
+offset = Offset

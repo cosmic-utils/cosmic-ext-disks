@@ -8,7 +8,7 @@ use crate::ui::error::{UiErrorContext, log_error_and_show_dialog};
 use crate::ui::volumes::helpers;
 use disks_dbus::{CreatePartitionInfo, DriveModel};
 
-use super::super::VolumesControl;
+use crate::ui::volumes::VolumesControl;
 
 pub(super) fn create_message(
     control: &mut VolumesControl,
@@ -56,9 +56,6 @@ pub(super) fn create_message(
             CreateMessage::PartitionTypeUpdate(p_type) => {
                 state.info.selected_partition_type_index = p_type;
                 state.error = None;
-            }
-            CreateMessage::Continue => {
-                tracing::warn!("create message continue is not implemented; ignoring");
             }
             CreateMessage::Cancel => return Task::done(Message::CloseDialog.into()),
             CreateMessage::Partition => {
@@ -128,8 +125,7 @@ pub(super) fn create_message(
                             info.table_type.as_str(),
                             info.selected_partition_type_index,
                         )
-                        .ok_or_else(|| anyhow::anyhow!("Invalid filesystem selection"))?
-                        .to_string();
+                        .ok_or_else(|| anyhow::anyhow!("Invalid filesystem selection"))?;
 
                         volume
                             .format(info.name.clone(), info.erase, fs_type)

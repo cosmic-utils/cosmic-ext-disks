@@ -1,16 +1,13 @@
 use disks_dbus::{PartitionTypeInfo, VolumeModel, VolumeNode};
 
-pub(crate) fn common_partition_filesystem_type(
-    table_type: &str,
-    index: usize,
-) -> Option<&'static str> {
+pub(crate) fn common_partition_filesystem_type(table_type: &str, index: usize) -> Option<String> {
     match table_type {
         "gpt" => disks_dbus::COMMON_GPT_TYPES
             .get(index)
-            .map(|p: &PartitionTypeInfo| p.filesystem_type),
+            .map(|p: &PartitionTypeInfo| p.filesystem_type.clone()),
         "dos" => disks_dbus::COMMON_DOS_TYPES
             .get(index)
-            .map(|p: &PartitionTypeInfo| p.filesystem_type),
+            .map(|p: &PartitionTypeInfo| p.filesystem_type.clone()),
         _ => None,
     }
 }

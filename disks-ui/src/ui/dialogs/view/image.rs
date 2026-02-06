@@ -1,5 +1,6 @@
 use crate::app::Message;
 use crate::fl;
+use crate::ui::app::message::ImagePathPickerKind;
 use crate::ui::dialogs::message::{
     AttachDiskImageDialogMessage, ImageOperationDialogMessage, NewDiskImageDialogMessage,
 };
@@ -8,9 +9,11 @@ use crate::ui::dialogs::state::{
 };
 use crate::utils::labelled_spinner;
 use cosmic::{
-    Element, iced_widget,
+    Element,
+    iced::{Alignment, Length},
+    iced_widget,
     widget::text::caption,
-    widget::{button, dialog, text_input},
+    widget::{button, dialog},
 };
 use disks_dbus::bytes_to_pretty;
 
@@ -18,10 +21,24 @@ pub fn new_disk_image<'a>(state: NewDiskImageDialog) -> Element<'a, Message> {
     let size_pretty = bytes_to_pretty(&state.size_bytes, false);
     let step = disks_dbus::get_step(&state.size_bytes);
 
+    let path_label = if state.path.trim().is_empty() {
+        fl!("no-file-selected")
+    } else {
+        state.path.clone()
+    };
+
+    let path_row = iced_widget::row![
+        caption(path_label).width(Length::Fill),
+        button::standard(fl!("choose-path")).on_press(Message::OpenImagePathPicker(
+            ImagePathPickerKind::NewDiskImage
+        ))
+    ]
+    .align_y(Alignment::Center)
+    .spacing(12);
+
     let mut content = iced_widget::column![
-        text_input(fl!("image-destination-path"), state.path.clone())
-            .label(fl!("image-destination-path"))
-            .on_input(|v| NewDiskImageDialogMessage::PathUpdate(v).into()),
+        caption(fl!("image-destination-path")),
+        path_row,
         labelled_spinner(
             fl!("image-size"),
             size_pretty,
@@ -59,12 +76,22 @@ pub fn new_disk_image<'a>(state: NewDiskImageDialog) -> Element<'a, Message> {
 }
 
 pub fn attach_disk_image<'a>(state: AttachDiskImageDialog) -> Element<'a, Message> {
-    let mut content = iced_widget::column![
-        text_input(fl!("image-file-path"), state.path.clone())
-            .label(fl!("image-file-path"))
-            .on_input(|v| AttachDiskImageDialogMessage::PathUpdate(v).into()),
+    let path_label = if state.path.trim().is_empty() {
+        fl!("no-file-selected")
+    } else {
+        state.path.clone()
+    };
+
+    let path_row = iced_widget::row![
+        caption(path_label).width(Length::Fill),
+        button::standard(fl!("choose-path")).on_press(Message::OpenImagePathPicker(
+            ImagePathPickerKind::AttachDiskImage
+        ))
     ]
+    .align_y(Alignment::Center)
     .spacing(12);
+
+    let mut content = iced_widget::column![caption(fl!("image-file-path")), path_row,].spacing(12);
 
     if let Some(err) = state.error.as_ref() {
         content = content.push(caption(err.clone()));
@@ -147,11 +174,29 @@ pub fn image_operation<'a>(state: ImageOperationDialog) -> Element<'a, Message> 
         content = content.push(caption(fl!("restore-warning")));
     }
 
-    content = content.push(
-        text_input(path_label.clone(), state.image_path.clone())
-            .label(path_label)
-            .on_input(|v| ImageOperationDialogMessage::PathUpdate(v).into()),
-    );
+    let path_text = if state.image_path.trim().is_empty() {
+        fl!("no-file-selected")
+    } else {
+        state.image_path.clone()
+    };
+
+    let picker_kind = match state.kind {
+        ImageOperationKind::CreateFromDrive | ImageOperationKind::CreateFromPartition => {
+            ImagePathPickerKind::ImageOperationCreate
+        }
+        ImageOperationKind::RestoreToDrive | ImageOperationKind::RestoreToPartition => {
+            ImagePathPickerKind::ImageOperationRestore
+        }
+    };
+
+    let path_row = iced_widget::row![
+        caption(path_text).width(Length::Fill),
+        button::standard(fl!("choose-path")).on_press(Message::OpenImagePathPicker(picker_kind))
+    ]
+    .align_y(Alignment::Center)
+    .spacing(12);
+
+    content = content.push(caption(path_label)).push(path_row);
 
     if let Some(err) = state.error.as_ref() {
         content = content.push(caption(err.clone()));

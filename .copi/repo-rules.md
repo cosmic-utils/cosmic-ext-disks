@@ -34,6 +34,10 @@ This document is **authoritative** for agents working in this repository.
 - **Commit messages:** Conventional Commits.
   - **Version bumps:** Do not infer bumps from commit messages; bump via tags/releases.
 - **Secrets policy:** Secrets only via CI secret stores / local environment; never commit real secrets.
+- **Module organization:**
+  - **Small modules (≤3 files):** Use sibling files declared in parent (e.g., `parent/mod.rs` declares `mod child;`, child lives in `parent/child.rs`)
+  - **Large module hierarchies (4+ files):** Use folder with `mod.rs` pattern (e.g., `disks/drive/mod.rs` with siblings `actions.rs`, `discovery.rs`, etc.)
+  - **Rationale:** Keeps simple modules flat and readable; uses folders only when hierarchy aids organization.
 
 ### E) Documentation expectations
 
