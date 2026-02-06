@@ -2,9 +2,7 @@ use std::collections::HashMap;
 
 use anyhow::Result;
 use futures::future::BoxFuture;
-use udisks2::{
-    block::BlockProxy, filesystem::FilesystemProxy, partitiontable::PartitionTableProxy,
-};
+use udisks2::block::BlockProxy;
 use zbus::zvariant::Value;
 use zbus::{Connection, Proxy, zvariant::OwnedObjectPath};
 
@@ -83,16 +81,59 @@ impl RealDiskBackend {
     }
 }
 
+async fn device_for_display(connection: &Connection, path: &OwnedObjectPath) -> Option<String> {
+    let Ok(builder) = BlockProxy::builder(connection).path(path) else {
+        return None;
+    };
+
+    let Ok(block_proxy) = builder.build().await else {
+        return None;
+    };
+
+    let decode = |bytes: &[u8]| {
+        let raw = bytes.split(|b| *b == 0).next().unwrap_or(bytes);
+        let s = String::from_utf8_lossy(raw).to_string();
+        if s.trim().is_empty() { None } else { Some(s) }
+    };
+
+    if let Ok(preferred) = block_proxy.preferred_device().await
+        && let Some(device) = decode(&preferred)
+    {
+        return Some(device);
+    }
+
+    block_proxy.device().await.ok().and_then(|dev| decode(&dev))
+}
+
+fn anyhow_from_method_error(
+    operation: &str,
+    object_path: &OwnedObjectPath,
+    device_for_display: Option<&str>,
+    err: &zbus::Error,
+) -> Option<anyhow::Error> {
+    let zbus::Error::MethodError(name, msg, _info) = err else {
+        return None;
+    };
+
+    let device = device_for_display.unwrap_or("<unknown device>");
+    let msg = msg.as_deref().unwrap_or("");
+
+    Some(anyhow::anyhow!(
+        "UDisks2 {operation} failed for {device} (object_path={object_path}): {}{}{}",
+        name.as_str(),
+        if msg.is_empty() { "" } else { ": " },
+        msg
+    ))
+}
+
 impl DiskBackend for RealDiskBackend {
     fn create_partition_and_format(
         &self,
         args: CreatePartitionAndFormatArgs,
     ) -> BoxFuture<'_, Result<()>> {
         Box::pin(async move {
-            let proxy = PartitionTableProxy::builder(&self.connection)
-                .path(args.table_block_path.clone())?
-                .build()
-                .await?;
+            let table_path: OwnedObjectPath = args.table_block_path.as_str().try_into()?;
+            let device_for_display = device_for_display(&self.connection, &table_path).await;
 
             let mut create_options = HashMap::new();
             if let Some(kind) = args.create_partition_kind.as_deref() {
@@ -123,41 +164,112 @@ impl DiskBackend for RealDiskBackend {
                 );
             }
 
-            proxy
-                .create_partition_and_format(
-                    args.offset,
-                    args.size,
-                    args.partition_type.as_str(),
-                    args.create_name.as_str(),
-                    create_options,
-                    args.filesystem_type.as_str(),
-                    format_options,
-                )
-                .await?;
+            // NOTE: Use a raw zbus proxy so we preserve MethodError name/message.
+            let proxy = Proxy::new(
+                &self.connection,
+                "org.freedesktop.UDisks2",
+                &table_path,
+                "org.freedesktop.UDisks2.PartitionTable",
+            )
+            .await?;
 
-            Ok(())
+            let res: std::result::Result<OwnedObjectPath, zbus::Error> = proxy
+                .call(
+                    "CreatePartitionAndFormat",
+                    &(
+                        args.offset,
+                        args.size,
+                        args.partition_type.as_str(),
+                        args.create_name.as_str(),
+                        create_options,
+                        args.filesystem_type.as_str(),
+                        format_options,
+                    ),
+                )
+                .await;
+
+            match res {
+                Ok(_created_path) => Ok(()),
+                Err(err) => {
+                    if let Some(e) = anyhow_from_method_error(
+                        "PartitionTable.CreatePartitionAndFormat",
+                        &table_path,
+                        device_for_display.as_deref(),
+                        &err,
+                    ) {
+                        return Err(e);
+                    }
+                    Err(err.into())
+                }
+            }
         })
     }
 
     fn fs_mount(&self, path: OwnedObjectPath) -> BoxFuture<'_, Result<()>> {
         Box::pin(async move {
-            let proxy = FilesystemProxy::builder(&self.connection)
-                .path(&path)?
-                .build()
-                .await?;
-            proxy.mount(HashMap::new()).await?;
-            Ok(())
+            // NOTE: Use a raw zbus proxy so we preserve MethodError name/message.
+            let device_for_display = device_for_display(&self.connection, &path).await;
+
+            let proxy = Proxy::new(
+                &self.connection,
+                "org.freedesktop.UDisks2",
+                &path,
+                "org.freedesktop.UDisks2.Filesystem",
+            )
+            .await?;
+
+            let options_empty: HashMap<&str, Value<'_>> = HashMap::new();
+            let res: std::result::Result<String, zbus::Error> =
+                proxy.call("Mount", &(options_empty)).await;
+
+            match res {
+                Ok(_mount_point) => Ok(()),
+                Err(err) => {
+                    if let Some(e) = anyhow_from_method_error(
+                        "Filesystem.Mount",
+                        &path,
+                        device_for_display.as_deref(),
+                        &err,
+                    ) {
+                        return Err(e);
+                    }
+                    Err(err.into())
+                }
+            }
         })
     }
 
     fn fs_unmount(&self, path: OwnedObjectPath) -> BoxFuture<'_, Result<()>> {
         Box::pin(async move {
-            let proxy = FilesystemProxy::builder(&self.connection)
-                .path(&path)?
-                .build()
-                .await?;
-            proxy.unmount(HashMap::new()).await?;
-            Ok(())
+            // NOTE: Use a raw zbus proxy so we preserve MethodError name/message.
+            let device_for_display = device_for_display(&self.connection, &path).await;
+
+            let proxy = Proxy::new(
+                &self.connection,
+                "org.freedesktop.UDisks2",
+                &path,
+                "org.freedesktop.UDisks2.Filesystem",
+            )
+            .await?;
+
+            let options_empty: HashMap<&str, Value<'_>> = HashMap::new();
+            let res: std::result::Result<(), zbus::Error> =
+                proxy.call("Unmount", &(options_empty)).await;
+
+            match res {
+                Ok(()) => Ok(()),
+                Err(err) => {
+                    if let Some(e) = anyhow_from_method_error(
+                        "Filesystem.Unmount",
+                        &path,
+                        device_for_display.as_deref(),
+                        &err,
+                    ) {
+                        return Err(e);
+                    }
+                    Err(err.into())
+                }
+            }
         })
     }
 
@@ -167,23 +279,70 @@ impl DiskBackend for RealDiskBackend {
         passphrase: String,
     ) -> BoxFuture<'_, Result<OwnedObjectPath>> {
         Box::pin(async move {
-            let proxy = udisks2::encrypted::EncryptedProxy::builder(&self.connection)
-                .path(&path)?
-                .build()
-                .await?;
-            let cleartext = proxy.unlock(&passphrase, HashMap::new()).await?;
-            Ok(cleartext)
+            // NOTE: Use a raw zbus proxy so we preserve MethodError name/message.
+            // Never log or include passphrases in error strings.
+            let device_for_display = device_for_display(&self.connection, &path).await;
+
+            let proxy = Proxy::new(
+                &self.connection,
+                "org.freedesktop.UDisks2",
+                &path,
+                "org.freedesktop.UDisks2.Encrypted",
+            )
+            .await?;
+
+            let options_empty: HashMap<&str, Value<'_>> = HashMap::new();
+            let res: std::result::Result<OwnedObjectPath, zbus::Error> =
+                proxy.call("Unlock", &(&passphrase, options_empty)).await;
+
+            match res {
+                Ok(cleartext) => Ok(cleartext),
+                Err(err) => {
+                    if let Some(e) = anyhow_from_method_error(
+                        "Encrypted.Unlock",
+                        &path,
+                        device_for_display.as_deref(),
+                        &err,
+                    ) {
+                        return Err(e);
+                    }
+                    Err(err.into())
+                }
+            }
         })
     }
 
     fn crypto_lock(&self, path: OwnedObjectPath) -> BoxFuture<'_, Result<()>> {
         Box::pin(async move {
-            let proxy = udisks2::encrypted::EncryptedProxy::builder(&self.connection)
-                .path(&path)?
-                .build()
-                .await?;
-            proxy.lock(HashMap::new()).await?;
-            Ok(())
+            // NOTE: Use a raw zbus proxy so we preserve MethodError name/message.
+            let device_for_display = device_for_display(&self.connection, &path).await;
+
+            let proxy = Proxy::new(
+                &self.connection,
+                "org.freedesktop.UDisks2",
+                &path,
+                "org.freedesktop.UDisks2.Encrypted",
+            )
+            .await?;
+
+            let options_empty: HashMap<&str, Value<'_>> = HashMap::new();
+            let res: std::result::Result<(), zbus::Error> =
+                proxy.call("Lock", &(options_empty)).await;
+
+            match res {
+                Ok(()) => Ok(()),
+                Err(err) => {
+                    if let Some(e) = anyhow_from_method_error(
+                        "Encrypted.Lock",
+                        &path,
+                        device_for_display.as_deref(),
+                        &err,
+                    ) {
+                        return Err(e);
+                    }
+                    Err(err.into())
+                }
+            }
         })
     }
 
@@ -206,49 +365,19 @@ impl DiskBackend for RealDiskBackend {
             )
             .await?;
 
-            let device_for_display =
-                if let Ok(builder) = BlockProxy::builder(&self.connection).path(&path) {
-                    if let Ok(block_proxy) = builder.build().await {
-                        let decode = |bytes: &[u8]| {
-                            let raw = bytes.split(|b| *b == 0).next().unwrap_or(bytes);
-                            let s = String::from_utf8_lossy(raw).to_string();
-                            if s.trim().is_empty() { None } else { Some(s) }
-                        };
-
-                        if let Ok(preferred) = block_proxy.preferred_device().await {
-                            if let Some(s) = decode(&preferred) {
-                                Some(s)
-                            } else if let Ok(dev) = block_proxy.device().await {
-                                decode(&dev)
-                            } else {
-                                None
-                            }
-                        } else if let Ok(dev) = block_proxy.device().await {
-                            decode(&dev)
-                        } else {
-                            None
-                        }
-                    } else {
-                        None
-                    }
-                } else {
-                    None
-                };
+            let device_for_display = device_for_display(&self.connection, &path).await;
 
             match proxy.call_method("Delete", &(options_empty)).await {
                 Ok(_) => Ok(()),
                 Err(err) => {
-                    if let zbus::Error::MethodError(name, msg, _info) = &err {
-                        let device = device_for_display.as_deref().unwrap_or("<unknown device>");
-                        let msg = msg.as_deref().unwrap_or("");
-                        anyhow::bail!(
-                            "UDisks2 Partition.Delete failed for {device} (object_path={path}): {}{}{}",
-                            name.as_str(),
-                            if msg.is_empty() { "" } else { ": " },
-                            msg
-                        );
+                    if let Some(e) = anyhow_from_method_error(
+                        "Partition.Delete",
+                        &path,
+                        device_for_display.as_deref(),
+                        &err,
+                    ) {
+                        return Err(e);
                     }
-
                     Err(err.into())
                 }
             }
@@ -257,10 +386,7 @@ impl DiskBackend for RealDiskBackend {
 
     fn block_format(&self, args: PartitionFormatArgs) -> BoxFuture<'_, Result<()>> {
         Box::pin(async move {
-            let proxy = BlockProxy::builder(&self.connection)
-                .path(&args.block_path)?
-                .build()
-                .await?;
+            let device_for_display = device_for_display(&self.connection, &args.block_path).await;
 
             let mut format_options = HashMap::new();
             if args.erase {
@@ -272,10 +398,33 @@ impl DiskBackend for RealDiskBackend {
                 format_options.insert("label", zbus::zvariant::Value::from(label));
             }
 
-            proxy
-                .format(args.filesystem_type.as_str(), format_options)
-                .await?;
-            Ok(())
+            // NOTE: Use a raw zbus proxy so we preserve MethodError name/message.
+            let proxy = Proxy::new(
+                &self.connection,
+                "org.freedesktop.UDisks2",
+                &args.block_path,
+                "org.freedesktop.UDisks2.Block",
+            )
+            .await?;
+
+            let res: std::result::Result<(), zbus::Error> = proxy
+                .call("Format", &(args.filesystem_type.as_str(), format_options))
+                .await;
+
+            match res {
+                Ok(()) => Ok(()),
+                Err(err) => {
+                    if let Some(e) = anyhow_from_method_error(
+                        "Block.Format",
+                        &args.block_path,
+                        device_for_display.as_deref(),
+                        &err,
+                    ) {
+                        return Err(e);
+                    }
+                    Err(err.into())
+                }
+            }
         })
     }
 }

@@ -1,6 +1,7 @@
 use crate::fl;
 use crate::ui::dialogs::message::FormatDiskMessage;
 use crate::ui::dialogs::state::{FormatDiskDialog, ShowDialog, SmartDataDialog};
+use crate::ui::error::{UiErrorContext, log_error_and_show_dialog};
 use cosmic::app::Task;
 use disks_dbus::DriveModel;
 
@@ -27,6 +28,8 @@ pub(super) fn format_disk(app: &mut AppModel, msg: FormatDiskMessage) -> Task<Me
 
             let drive = state.drive.clone();
             let selected = drive.block_path.clone();
+            let drive_path = drive.path.clone();
+            let device = drive.block_path.clone();
             let erase = state.erase_index == 1;
             let format_type = match state.partitioning_index {
                 0 => "dos",
@@ -41,11 +44,15 @@ pub(super) fn format_disk(app: &mut AppModel, msg: FormatDiskMessage) -> Task<Me
                 },
                 move |res| match res {
                     Ok(drives) => Message::UpdateNav(drives, Some(selected.clone())).into(),
-                    Err(e) => Message::Dialog(Box::new(ShowDialog::Info {
-                        title: fl!("app-title"),
-                        body: format!("{e:#}"),
-                    }))
-                    .into(),
+                    Err(e) => {
+                        let ctx = UiErrorContext {
+                            operation: "format_disk",
+                            object_path: Some(drive_path.as_str()),
+                            device: Some(device.as_str()),
+                            drive_path: Some(drive_path.as_str()),
+                        };
+                        log_error_and_show_dialog(fl!("format-disk-failed"), e, ctx).into()
+                    }
                 },
             );
         }
@@ -59,22 +66,29 @@ pub(super) fn eject(app: &mut AppModel) -> Task<Message> {
         return Task::none();
     };
 
+    let drive_path = drive.path.clone();
+    let device = drive.block_path.clone();
+
     Task::perform(
         async move {
             let res = drive.remove().await;
             let drives = DriveModel::get_drives().await.ok();
             (res, drives)
         },
-        |(res, drives)| match res {
+        move |(res, drives)| match res {
             Ok(()) => match drives {
                 Some(drives) => Message::UpdateNav(drives, None).into(),
                 None => Message::None.into(),
             },
-            Err(e) => Message::Dialog(Box::new(ShowDialog::Info {
-                title: fl!("app-title"),
-                body: e.to_string(),
-            }))
-            .into(),
+            Err(e) => {
+                let ctx = UiErrorContext {
+                    operation: "eject_or_remove",
+                    object_path: Some(drive_path.as_str()),
+                    device: Some(device.as_str()),
+                    drive_path: Some(drive_path.as_str()),
+                };
+                log_error_and_show_dialog(fl!("eject-failed"), e, ctx).into()
+            }
         },
     )
 }
@@ -84,22 +98,29 @@ pub(super) fn power_off(app: &mut AppModel) -> Task<Message> {
         return Task::none();
     };
 
+    let drive_path = drive.path.clone();
+    let device = drive.block_path.clone();
+
     Task::perform(
         async move {
             let res = drive.power_off().await;
             let drives = DriveModel::get_drives().await.ok();
             (res, drives)
         },
-        |(res, drives)| match res {
+        move |(res, drives)| match res {
             Ok(()) => match drives {
                 Some(drives) => Message::UpdateNav(drives, None).into(),
                 None => Message::None.into(),
             },
-            Err(e) => Message::Dialog(Box::new(ShowDialog::Info {
-                title: fl!("app-title"),
-                body: e.to_string(),
-            }))
-            .into(),
+            Err(e) => {
+                let ctx = UiErrorContext {
+                    operation: "power_off",
+                    object_path: Some(drive_path.as_str()),
+                    device: Some(device.as_str()),
+                    drive_path: Some(drive_path.as_str()),
+                };
+                log_error_and_show_dialog(fl!("power-off-failed"), e, ctx).into()
+            }
         },
     )
 }
@@ -149,17 +170,26 @@ pub(super) fn standby_now(app: &mut AppModel) -> Task<Message> {
         return Task::none();
     };
 
+    let drive_path = drive.path.clone();
+    let device = drive.block_path.clone();
+
     Task::perform(
-        async move { drive.standby_now().await.map_err(|e| e.to_string()) },
-        |res| {
-            Message::Dialog(Box::new(ShowDialog::Info {
+        async move { drive.standby_now().await },
+        move |res| match res {
+            Ok(()) => Message::Dialog(Box::new(ShowDialog::Info {
                 title: fl!("app-title"),
-                body: match res {
-                    Ok(()) => "Standby requested.".to_string(),
-                    Err(e) => e,
-                },
+                body: "Standby requested.".to_string(),
             }))
-            .into()
+            .into(),
+            Err(e) => {
+                let ctx = UiErrorContext {
+                    operation: "standby_now",
+                    object_path: Some(drive_path.as_str()),
+                    device: Some(device.as_str()),
+                    drive_path: Some(drive_path.as_str()),
+                };
+                log_error_and_show_dialog(fl!("standby-failed"), e, ctx).into()
+            }
         },
     )
 }
@@ -169,17 +199,23 @@ pub(super) fn wakeup(app: &mut AppModel) -> Task<Message> {
         return Task::none();
     };
 
-    Task::perform(
-        async move { drive.wakeup().await.map_err(|e| e.to_string()) },
-        |res| {
-            Message::Dialog(Box::new(ShowDialog::Info {
-                title: fl!("app-title"),
-                body: match res {
-                    Ok(()) => "Wake-up requested.".to_string(),
-                    Err(e) => e,
-                },
-            }))
-            .into()
-        },
-    )
+    let drive_path = drive.path.clone();
+    let device = drive.block_path.clone();
+
+    Task::perform(async move { drive.wakeup().await }, move |res| match res {
+        Ok(()) => Message::Dialog(Box::new(ShowDialog::Info {
+            title: fl!("app-title"),
+            body: "Wake-up requested.".to_string(),
+        }))
+        .into(),
+        Err(e) => {
+            let ctx = UiErrorContext {
+                operation: "wakeup",
+                object_path: Some(drive_path.as_str()),
+                device: Some(device.as_str()),
+                drive_path: Some(drive_path.as_str()),
+            };
+            log_error_and_show_dialog(fl!("wake-up-failed"), e, ctx).into()
+        }
+    })
 }

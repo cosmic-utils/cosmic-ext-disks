@@ -10,6 +10,22 @@ A Disk utility application for the Cosmic Desktop.
 You will need the following packages/services:
  - `udisks2` (system service; required for device enumeration and events)
 
+### Logging
+
+Logs are written to stdout/stderr and to daily log files.
+
+- Default log directory:
+    - `$XDG_STATE_HOME/cosmic-ext-disks/logs/` (if `XDG_STATE_HOME` is set)
+    - otherwise `~/.local/state/cosmic-ext-disks/logs/`
+- Rotation: daily
+- Retention: best-effort cleanup of logs older than 7 days
+
+Environment variables:
+
+- `RUST_LOG`: controls log verbosity (example: `RUST_LOG=debug`)
+- `COSMIC_EXT_DISKS_LOG_DIR`: override the log directory
+- `COSMIC_EXT_DISKS_LOG_FILE`: override log directory + filename prefix
+
 For partition type support:
  - `ntfs-3g`
  - `exfatprogs`

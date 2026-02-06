@@ -24,13 +24,18 @@ restore-image = Återställ avbild
 attach = Bifoga
 restore-warning = Detta kommer att skriva över den valda målenheten. Detta kan inte ångras.
 eject = Mata ut
+eject-failed = Mata ut misslyckades
 power-off = Stäng av
+power-off-failed = Stäng av misslyckades
 format-disk = Formatera disk
+format-disk-failed = Formatera disk misslyckades
 benchmark-disk = Jämför disk
 smart-data-self-tests = SMART data & självtester
 drive-settings = Disk inställningar
 standby-now = Vänteläge nu
+standby-failed = Vänteläge misslyckades
 wake-up-from-standby = Vakna upp från vänteläge
+wake-up-failed = Uppvakning misslyckades
 
 # Dialogknappar
 ok = Ok
@@ -52,6 +57,7 @@ partitioning-none = Ingen
 
 # Skapa partition dialogrutan
 create-partition = Skapa partition
+create-partition-failed = Skapa partition misslyckades
 format-partition = Formatera partition
 format-partition-description = Detta kommer att formatera den valda volymen. Storlek: { $size }
 volume-name = Volymnamn

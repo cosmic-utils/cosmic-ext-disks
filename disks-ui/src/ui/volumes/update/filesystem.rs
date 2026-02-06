@@ -6,6 +6,7 @@ use crate::ui::dialogs::message::EditFilesystemLabelMessage;
 use crate::ui::dialogs::state::{
     ConfirmActionDialog, EditFilesystemLabelDialog, FilesystemTarget, ShowDialog,
 };
+use crate::ui::error::{UiErrorContext, log_error_and_show_dialog};
 use disks_dbus::DriveModel;
 
 use super::super::{VolumesControl, VolumesControlMessage};
@@ -81,11 +82,10 @@ pub(super) fn edit_filesystem_label_message(
                 },
                 |result| match result {
                     Ok(drives) => Message::UpdateNav(drives, None).into(),
-                    Err(e) => Message::Dialog(Box::new(ShowDialog::Info {
-                        title: fl!("edit-filesystem").to_string(),
-                        body: format!("{e:#}"),
-                    }))
-                    .into(),
+                    Err(e) => {
+                        let ctx = UiErrorContext::new("edit_filesystem_label");
+                        log_error_and_show_dialog(fl!("edit-filesystem").to_string(), e, ctx).into()
+                    }
                 },
             );
         }
@@ -155,11 +155,10 @@ pub(super) fn check_filesystem_confirm(
         },
         |result| match result {
             Ok(drives) => Message::UpdateNav(drives, None).into(),
-            Err(e) => Message::Dialog(Box::new(ShowDialog::Info {
-                title: fl!("check-filesystem").to_string(),
-                body: format!("{e:#}"),
-            }))
-            .into(),
+            Err(e) => {
+                let ctx = UiErrorContext::new("check_filesystem");
+                log_error_and_show_dialog(fl!("check-filesystem").to_string(), e, ctx).into()
+            }
         },
     )
 }
@@ -227,11 +226,10 @@ pub(super) fn repair_filesystem_confirm(
         },
         |result| match result {
             Ok(drives) => Message::UpdateNav(drives, None).into(),
-            Err(e) => Message::Dialog(Box::new(ShowDialog::Info {
-                title: fl!("repair-filesystem").to_string(),
-                body: format!("{e:#}"),
-            }))
-            .into(),
+            Err(e) => {
+                let ctx = UiErrorContext::new("repair_filesystem");
+                log_error_and_show_dialog(fl!("repair-filesystem").to_string(), e, ctx).into()
+            }
         },
     )
 }
