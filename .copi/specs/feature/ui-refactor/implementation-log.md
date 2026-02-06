@@ -11,7 +11,7 @@
 - Removed the sidebar kebab menu (popover) due to UX concerns; Disk actions remain available via the top menu.
 - Ensured row event handling avoids nested-button conflicts by making only the title region clickable for selection.
 - Added i18n key `unmount-failed` for sidebar unmount error dialog.
-- Adjusted sidebar background styling to match volumes section styling by wrapping the whole sidebar in a `Container::Card` and making row containers transparent (selection indicated via border).
+- Adjusted sidebar item styling so each row container paints the same background as `Container::Card` (matching volumes sections) while keeping selection indicated via an accent border.
 
 ### Commands run
 
