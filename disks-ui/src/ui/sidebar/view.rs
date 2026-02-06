@@ -193,7 +193,7 @@ fn drive_row(
         }
         button.into()
     } else {
-        widget::Space::new(EXPANDER_WIDTH, 16).into()
+        widget::Space::new(EXPANDER_WIDTH, EXPANDER_WIDTH).into()
     };
 
     let drive_icon_name = if drive.removable {
@@ -270,7 +270,7 @@ fn volume_row(
         }
         button.into()
     } else {
-        widget::Space::new(16, 16).into()
+        widget::Space::new(EXPANDER_WIDTH, EXPANDER_WIDTH).into()
     };
 
     let title_text = if node.label.trim().is_empty() {
