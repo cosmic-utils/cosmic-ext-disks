@@ -675,3 +675,75 @@ cargo build 2>&1 | tail -20
   - USB HDD: should show Standby/Wake buttons (if rotation_rate detected)
 
 ---
+
+## 2026-02-06 — Tasks 40, 43, 45, 48: UI Polish Fixes
+
+### Task 40: Fix Treeview Node Alignment
+**Files Modified:**
+- `disks-ui/src/ui/sidebar/view.rs`
+
+**Changes:**
+- Added `EXPANDER_WIDTH` constant set to 20px (icon 16px + padding 2px each side)
+- Changed expander space widget from `Space::new(16, 16)` to `Space::new(EXPANDER_WIDTH, 16)`
+- Updated indentation formula from `depth * 18` to `depth * (EXPANDER_WIDTH * 2)`
+- Ensures nodes with and without expanders align at same hierarchy depth
+
+**Rationale:**
+- Nodes without expanders (regular partitions) weren't reserving proper space
+- Inconsistent magic number (18) didn't match actual expander width (20)
+- New formula: base + (40px × depth) provides consistent visual hierarchy
+
+**Build Status:** ✅ Success
+
+---
+
+### Task 43: Fix Edit Partition Icon
+**Files Modified:**
+- `disks-ui/src/ui/app/view.rs`
+
+**Changes:**
+- Changed edit partition button icon from `document-edit-symbolic` to `edit-symbolic`
+
+**Rationale:**
+- `document-edit-symbolic` may not be available in COSMIC icon theme
+- `edit-symbolic` is more commonly available and semantically appropriate
+
+**Build Status:** ✅ Success
+
+---
+
+### Task 45: Match Format Partition Icon to Format Disk Icon
+**Files Modified:**
+- `disks-ui/src/ui/app/view.rs`
+
+**Changes:**
+- Changed format partition button icon from `edit-clear-symbolic` to `edit-clear-all-symbolic`
+- Now matches format disk button icon for visual consistency
+
+**Rationale:**
+- Both operations are destructive format/wipe operations
+- Consistent iconography helps users recognize related functionality
+
+**Build Status:** ✅ Success
+
+---
+
+### Task 48: Use Eject for Removable Drives Instead of Power Off
+**Files Modified:**
+- `disks-ui/src/ui/volumes/disk_header.rs`
+
+**Changes:**
+- Changed button logic from two independent `if` statements to `if/else` chain
+- Eject button shows for: `drive.removable || drive.ejectable`
+- Power Off button shows for: non-removable drives with `drive.can_power_off`
+- Buttons are now mutually exclusive (no drive shows both)
+
+**Rationale:**
+- "Eject" is the standard term for safely removing external media (USB, SD cards)
+- "Power Off" is for shutting down internal drives (rare capability)
+- Mixing these terms for removable drives created confusion
+- USB drives with `can_power_off=true` were incorrectly showing both buttons
+
+**Build Status:** ✅ Success
+
+---

@@ -319,15 +319,17 @@ fn volume_row(
         actions.push(unmount_btn.into());
     }
 
-    // Indent by expander_width * 2 per depth level for consistent alignment
-    let indent = depth * (EXPANDER_WIDTH * 2);
+    // Indent accounts for expander width + spacing between elements
+    // Each level indents by one expander width (20px) + row spacing (8px)
+    const ROW_SPACING: u16 = 8;
+    let indent = depth * (EXPANDER_WIDTH + ROW_SPACING);
 
     let row = widget::Row::with_children(vec![
         expander,
         select_button.into(),
         widget::Row::with_children(actions).spacing(4).into(),
     ])
-    .spacing(8)
+    .spacing(ROW_SPACING)
     .align_y(cosmic::iced::Alignment::Center)
     .width(Length::Fill);
 
