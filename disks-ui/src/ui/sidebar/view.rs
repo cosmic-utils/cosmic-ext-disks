@@ -487,13 +487,13 @@ pub(crate) fn sidebar(
         .padding([10, 10]);
 
     widget::container::Container::new(
-    widget::column::with_capacity(2)
-        .push(
-            widget::scrollable(widget::Column::with_children(rows).spacing(2)).height(Length::Fill),
-        )
-        .push(image_buttons)
-        )
-        .class(cosmic::style::Container::Card)
-        .into()
+        widget::column::with_capacity(2)
+            .push(
+                widget::scrollable(widget::Column::with_children(rows).spacing(2))
+                    .height(Length::Fill),
+            )
+            .push(image_buttons),
+    )
+    .class(cosmic::style::Container::Card)
+    .into()
 }
-    

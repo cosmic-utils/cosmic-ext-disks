@@ -40,7 +40,7 @@ fn extract_owned_value(v: &OwnedValue) -> String {
 
     // For complex types, parse the debug string more intelligently
     let debug_str = format!("{v:?}");
-    
+
     // Strip OwnedValue wrapper if present
     let mut s = debug_str.as_str();
     if let Some(stripped) = s.strip_prefix("OwnedValue(") {
@@ -48,7 +48,7 @@ fn extract_owned_value(v: &OwnedValue) -> String {
             s = inner;
         }
     }
-    
+
     // Handle specific zvariant types
     // U8(value) -> value
     if let Some(rest) = s.strip_prefix("U8(") {
@@ -56,14 +56,14 @@ fn extract_owned_value(v: &OwnedValue) -> String {
             return num.to_string();
         }
     }
-    
+
     // I8(value) -> value
     if let Some(rest) = s.strip_prefix("I8(") {
         if let Some(num) = rest.strip_suffix(")") {
             return num.to_string();
         }
     }
-    
+
     // Array types - format as [item1, item2, ...]
     if let Some(rest) = s.strip_prefix("Array(") {
         if let Some(inner) = rest.strip_suffix(")") {
@@ -93,7 +93,7 @@ fn extract_owned_value(v: &OwnedValue) -> String {
             }
         }
     }
-    
+
     s.to_string()
 }
 
