@@ -467,3 +467,19 @@
   - [ ] All "header" function names changed to "info".
   - [ ] All call sites updated.
   - [ ] Code compiles without errors.
+
+### Task 27: Fix sidebar image button sizing and text wrapping
+- Scope: ensure both "New Disk Image" and "Attach Disk Image" buttons are visible with equal width.
+- Files/areas:
+  - `disks-ui/src/ui/sidebar/view.rs`
+- Steps:
+  - Reduce text size for sidebar bottom buttons to ensure both fit.
+  - Enable text wrapping so button labels wrap to multiple lines if needed.
+  - Ensure both buttons maintain 50/50 horizontal sizing.
+  - Verify both buttons remain visible and clickable.
+- Test plan: manual UI test; verify both buttons visible at various sidebar widths.
+- Done when:
+  - [ ] Both "New Disk Image" and "Attach Disk Image" buttons visible.
+  - [ ] Buttons maintain equal width (50/50 split).
+  - [ ] Text wraps appropriately to fit within button bounds.
+  - [ ] Buttons remain readable and functional.
