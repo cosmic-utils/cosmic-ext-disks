@@ -360,7 +360,11 @@ fn push_volume_tree(
     let expanded = sidebar.is_expanded(&key);
 
     if expanded {
-        for child in &node.children {
+        // Sort children by object_path to maintain disk offset order
+        let mut sorted_children: Vec<&VolumeNode> = node.children.iter().collect();
+        sorted_children.sort_by(|a, b| a.object_path.as_str().cmp(b.object_path.as_str()));
+
+        for child in sorted_children {
             push_volume_tree(
                 out,
                 sidebar,
