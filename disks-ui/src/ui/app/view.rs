@@ -489,8 +489,25 @@ fn build_volume_node_info<'a>(
         );
     }
 
-    // TODO: Add Create/Restore Partition Image operations
-    // These require access to device path and proper message handlers
+    action_buttons.push(
+        widget::tooltip(
+            widget::button::icon(icon::from_name("document-save-as-symbolic"))
+                .on_press(Message::CreateDiskFromPartition),
+            widget::text(fl!("create-image")),
+            widget::tooltip::Position::Bottom,
+        )
+        .into(),
+    );
+
+    action_buttons.push(
+        widget::tooltip(
+            widget::button::icon(icon::from_name("document-revert-symbolic"))
+                .on_press(Message::RestoreImageToPartition),
+            widget::text(fl!("restore-image")),
+            widget::tooltip::Position::Bottom,
+        )
+        .into(),
+    );
 
     let info_and_actions = iced_widget::column![
         text_column,
@@ -803,6 +820,26 @@ fn build_partition_info<'a>(
             .into(),
         );
     }
+
+    action_buttons.push(
+        widget::tooltip(
+            widget::button::icon(icon::from_name("document-save-as-symbolic"))
+                .on_press(Message::CreateDiskFromPartition),
+            widget::text(fl!("create-image")),
+            widget::tooltip::Position::Bottom,
+        )
+        .into(),
+    );
+
+    action_buttons.push(
+        widget::tooltip(
+            widget::button::icon(icon::from_name("document-revert-symbolic"))
+                .on_press(Message::RestoreImageToPartition),
+            widget::text(fl!("restore-image")),
+            widget::tooltip::Position::Bottom,
+        )
+        .into(),
+    );
 
     // Delete (only for actual partitions, not filesystems)
     if p.volume_type != disks_dbus::VolumeType::Filesystem {

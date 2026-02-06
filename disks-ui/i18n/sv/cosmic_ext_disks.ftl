@@ -1,4 +1,5 @@
 app-title = Diskar
+settings = Inställningar
 about = Om
 
 git-description = Git commit {$hash} på {$date}
