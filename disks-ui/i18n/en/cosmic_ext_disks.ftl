@@ -36,6 +36,7 @@ standby-now = Standby Now
 standby-failed = Standby failed
 wake-up-from-standby = Wake-up From Standby
 wake-up-failed = Wake-up failed
+unmount-failed = Unmount failed
 
 # Dialog buttons
 ok = Ok

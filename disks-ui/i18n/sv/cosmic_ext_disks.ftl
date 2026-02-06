@@ -36,6 +36,7 @@ standby-now = Vänteläge nu
 standby-failed = Vänteläge misslyckades
 wake-up-from-standby = Vakna upp från vänteläge
 wake-up-failed = Uppvakning misslyckades
+unmount-failed = Avmontering misslyckades
 
 # Dialogknappar
 ok = Ok

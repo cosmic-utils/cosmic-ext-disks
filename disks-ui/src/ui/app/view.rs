@@ -2,6 +2,7 @@ use super::message::Message;
 use super::state::{AppModel, ContextPage};
 use crate::fl;
 use crate::ui::dialogs::view as dialogs;
+use crate::ui::sidebar;
 use crate::ui::volumes::{VolumesControl, VolumesControlMessage};
 use crate::utils::{labelled_info, link_info};
 use crate::views::about::about;
@@ -119,16 +120,12 @@ pub(crate) fn nav_bar(app: &AppModel) -> Option<Element<'_, cosmic::Action<Messa
         return None;
     }
 
-    let nav_model = nav_model(app)?;
-
-    let mut nav = widget::nav_bar(nav_model, |id| {
-        cosmic::Action::Cosmic(cosmic::app::Action::NavBar(id))
-    })
-    .on_context(|id| cosmic::Action::Cosmic(cosmic::app::Action::NavBarContext(id)))
-    .into_container()
-    // XXX both must be shrink to avoid flex layout from ignoring it
-    .width(cosmic::iced::Length::Shrink)
-    .height(cosmic::iced::Length::Shrink);
+    let mut nav = sidebar::view::sidebar(&app.nav, &app.sidebar)
+        .map(Into::into)
+        .apply(widget::container)
+        // XXX both must be shrink to avoid flex layout from ignoring it
+        .width(cosmic::iced::Length::Shrink)
+        .height(cosmic::iced::Length::Shrink);
 
     if !app.core.is_condensed() {
         nav = nav.max_width(280);

@@ -66,6 +66,10 @@ pub(super) fn eject(app: &mut AppModel) -> Task<Message> {
         return Task::none();
     };
 
+    eject_drive(drive)
+}
+
+pub(super) fn eject_drive(drive: DriveModel) -> Task<Message> {
     let drive_path = drive.path.clone();
     let device = drive.block_path.clone();
 
@@ -98,6 +102,10 @@ pub(super) fn power_off(app: &mut AppModel) -> Task<Message> {
         return Task::none();
     };
 
+    power_off_drive(drive)
+}
+
+pub(super) fn power_off_drive(drive: DriveModel) -> Task<Message> {
     let drive_path = drive.path.clone();
     let device = drive.block_path.clone();
 
@@ -130,6 +138,10 @@ pub(super) fn format(app: &mut AppModel) {
         return;
     };
 
+    format_for(app, drive)
+}
+
+pub(super) fn format_for(app: &mut AppModel, drive: DriveModel) {
     let partitioning_index = match drive.partition_table_type.as_deref() {
         Some("dos") => 0,
         Some("gpt") => 1,
@@ -149,6 +161,10 @@ pub(super) fn smart_data(app: &mut AppModel) -> Task<Message> {
         return Task::none();
     };
 
+    smart_data_for(app, drive)
+}
+
+pub(super) fn smart_data_for(app: &mut AppModel, drive: DriveModel) -> Task<Message> {
     app.dialog = Some(ShowDialog::SmartData(SmartDataDialog {
         drive: drive.clone(),
         running: true,
@@ -170,6 +186,10 @@ pub(super) fn standby_now(app: &mut AppModel) -> Task<Message> {
         return Task::none();
     };
 
+    standby_now_drive(drive)
+}
+
+pub(super) fn standby_now_drive(drive: DriveModel) -> Task<Message> {
     let drive_path = drive.path.clone();
     let device = drive.block_path.clone();
 
@@ -199,6 +219,10 @@ pub(super) fn wakeup(app: &mut AppModel) -> Task<Message> {
         return Task::none();
     };
 
+    wakeup_drive(drive)
+}
+
+pub(super) fn wakeup_drive(drive: DriveModel) -> Task<Message> {
     let drive_path = drive.path.clone();
     let device = drive.block_path.clone();
 

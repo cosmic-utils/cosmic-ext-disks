@@ -6,7 +6,11 @@ mod smart;
 use super::message::Message;
 use super::state::AppModel;
 use crate::app::REPOSITORY;
+use crate::fl;
+use crate::ui::error::{UiErrorContext, log_error_and_show_dialog};
+use crate::ui::sidebar::SidebarNodeKey;
 use crate::ui::volumes::VolumesControl;
+use crate::ui::volumes::helpers as volumes_helpers;
 use cosmic::app::Task;
 use cosmic::widget::nav_bar;
 use disks_dbus::DriveModel;
@@ -112,6 +116,91 @@ pub(crate) fn update(app: &mut AppModel, message: Message) -> Task<Message> {
         }
         Message::Wakeup => {
             return drive::wakeup(app);
+        }
+
+        // Sidebar (custom treeview)
+        Message::SidebarSelectDrive(block_path) => {
+            app.sidebar.selected_child = None;
+            if let Some(id) = app.sidebar.drive_entities.get(&block_path).copied() {
+                return on_nav_select(app, id);
+            }
+        }
+        Message::SidebarSelectChild { object_path } => {
+            app.sidebar.selected_child = Some(SidebarNodeKey::Volume(object_path));
+        }
+        Message::SidebarToggleExpanded(key) => {
+            app.sidebar.toggle_expanded(key);
+        }
+        Message::SidebarOpenMenu(key) => {
+            app.sidebar.open_menu(key);
+        }
+        Message::SidebarCloseMenu => {
+            app.sidebar.close_menu();
+        }
+        Message::SidebarDriveEject(block_path) => {
+            app.sidebar.close_menu();
+            if let Some(drive) = app.sidebar.find_drive(&block_path) {
+                return drive::eject_drive(drive);
+            }
+        }
+        Message::SidebarDriveAction { drive, action } => {
+            app.sidebar.close_menu();
+            let Some(model) = app.sidebar.find_drive(&drive) else {
+                return Task::none();
+            };
+
+            return match action {
+                crate::ui::app::message::SidebarDriveAction::Eject => drive::eject_drive(model),
+                crate::ui::app::message::SidebarDriveAction::PowerOff => {
+                    drive::power_off_drive(model)
+                }
+                crate::ui::app::message::SidebarDriveAction::Format => {
+                    drive::format_for(app, model);
+                    Task::none()
+                }
+                crate::ui::app::message::SidebarDriveAction::SmartData => {
+                    drive::smart_data_for(app, model)
+                }
+                crate::ui::app::message::SidebarDriveAction::StandbyNow => {
+                    drive::standby_now_drive(model)
+                }
+                crate::ui::app::message::SidebarDriveAction::Wakeup => drive::wakeup_drive(model),
+            };
+        }
+        Message::SidebarVolumeUnmount { drive, object_path } => {
+            app.sidebar.close_menu();
+
+            let Some(drive_model) = app.sidebar.find_drive(&drive) else {
+                return Task::none();
+            };
+
+            let Some(node) =
+                volumes_helpers::find_volume_node(&drive_model.volumes, &object_path).cloned()
+            else {
+                return Task::none();
+            };
+
+            let drive_path = drive_model.path.clone();
+            let device = drive_model.block_path.clone();
+
+            return Task::perform(
+                async move {
+                    node.unmount().await?;
+                    DriveModel::get_drives().await
+                },
+                move |res| match res {
+                    Ok(drives) => Message::UpdateNav(drives, None).into(),
+                    Err(e) => {
+                        let ctx = UiErrorContext {
+                            operation: "sidebar_volume_unmount",
+                            object_path: Some(object_path.as_str()),
+                            device: Some(device.as_str()),
+                            drive_path: Some(drive_path.as_str()),
+                        };
+                        log_error_and_show_dialog(fl!("unmount-failed"), e, ctx).into()
+                    }
+                },
+            );
         }
         Message::SmartDialog(msg) => {
             return smart::smart_dialog(app, msg);

@@ -8,6 +8,7 @@ pub(crate) use message::Message;
 pub(crate) use state::{AppModel, ContextPage};
 
 use crate::config::Config;
+use crate::ui::sidebar::SidebarState;
 use cosmic::app::{Core, Task};
 use cosmic::cosmic_config::{self, CosmicConfigEntry};
 use cosmic::widget::{menu, nav_bar};
@@ -46,6 +47,7 @@ impl Application for AppModel {
             core,
             context_page: ContextPage::default(),
             nav: nav_bar::Model::default(),
+            sidebar: SidebarState::default(),
             dialog: None,
             key_binds: HashMap::<menu::KeyBind, crate::views::menu::MenuAction>::new(),
             image_op_cancel: None,

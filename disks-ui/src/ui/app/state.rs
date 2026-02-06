@@ -4,6 +4,7 @@ use crate::config::Config;
 use crate::fl;
 use crate::ui::app::message::Message;
 use crate::ui::dialogs::state::ShowDialog;
+use crate::ui::sidebar::SidebarState;
 use crate::views::menu::MenuAction;
 use cosmic::ApplicationExt;
 use cosmic::app::{Core, Task};
@@ -27,6 +28,9 @@ pub struct AppModel {
     pub(crate) context_page: ContextPage,
     /// Contains items assigned to the nav bar panel.
     pub(crate) nav: nav_bar::Model,
+
+    /// Custom sidebar treeview state (rendered instead of the built-in nav_bar widget).
+    pub(crate) sidebar: SidebarState,
     /// Key bindings for the application's menu bar.
     pub(crate) key_binds: HashMap<menu::KeyBind, MenuAction>,
     // Configuration data that persists between application runs.

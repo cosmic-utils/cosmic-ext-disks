@@ -2,6 +2,7 @@ use crate::ui::dialogs::state::ShowDialog;
 use crate::ui::volumes::VolumesControl;
 use cosmic::widget::icon;
 use disks_dbus::DriveModel;
+use std::collections::HashMap;
 
 use super::super::state::AppModel;
 
@@ -10,6 +11,9 @@ pub(super) fn update_nav(
     drive_models: Vec<DriveModel>,
     selected: Option<String>,
 ) {
+    // Cache drive models for the custom sidebar tree.
+    app.sidebar.set_drives(drive_models.clone());
+
     // Some actions (unlock/format/create/delete) trigger a refresh; close the dialog if
     // it is in a running state so it doesn't linger after success.
     let should_close = match app.dialog.as_ref() {
@@ -50,6 +54,8 @@ pub(super) fn update_nav(
 
     app.nav.clear();
 
+    let mut drive_entities: HashMap<String, cosmic::widget::nav_bar::Id> = HashMap::new();
+
     let selected = match selected {
         Some(s) => Some(s),
         None => {
@@ -70,30 +76,44 @@ pub(super) fn update_nav(
         match selected {
             Some(ref s) => {
                 if drive.block_path == s.clone() {
-                    app.nav
+                    let id = app
+                        .nav
                         .insert()
                         .text(drive.name())
                         .data::<VolumesControl>(VolumesControl::new(drive.clone(), show_reserved))
-                        .data::<DriveModel>(drive)
+                        .data::<DriveModel>(drive.clone())
                         .icon(icon::from_name(icon_name))
-                        .activate();
+                        .activate()
+                        .id();
+
+                    drive_entities.insert(drive.block_path.clone(), id);
                 } else {
-                    app.nav
+                    let id = app
+                        .nav
                         .insert()
                         .text(drive.name())
                         .data::<VolumesControl>(VolumesControl::new(drive.clone(), show_reserved))
-                        .data::<DriveModel>(drive)
-                        .icon(icon::from_name(icon_name));
+                        .data::<DriveModel>(drive.clone())
+                        .icon(icon::from_name(icon_name))
+                        .id();
+
+                    drive_entities.insert(drive.block_path.clone(), id);
                 }
             }
             None => {
-                app.nav
+                let id = app
+                    .nav
                     .insert()
                     .text(drive.name())
                     .data::<VolumesControl>(VolumesControl::new(drive.clone(), show_reserved))
-                    .data::<DriveModel>(drive)
-                    .icon(icon::from_name(icon_name));
+                    .data::<DriveModel>(drive.clone())
+                    .icon(icon::from_name(icon_name))
+                    .id();
+
+                drive_entities.insert(drive.block_path.clone(), id);
             }
         }
     }
+
+    app.sidebar.set_drive_entities(drive_entities);
 }
