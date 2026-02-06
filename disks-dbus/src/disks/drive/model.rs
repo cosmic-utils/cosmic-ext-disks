@@ -149,6 +149,6 @@ impl DriveModel {
 
         // Only rotating media (HDDs) support power management
         // rotation_rate: -1 = unknown, 0 = SSD/NVMe, >0 = HDD
-        self.rotation_rate != 0
+        self.rotation_rate > 0
     }
 }
