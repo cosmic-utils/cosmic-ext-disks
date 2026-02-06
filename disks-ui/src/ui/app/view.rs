@@ -7,13 +7,12 @@ use crate::ui::dialogs::state::{
 use crate::ui::dialogs::view as dialogs;
 use crate::ui::sidebar;
 use crate::ui::volumes::{VolumesControl, VolumesControlMessage, disk_header};
-use crate::utils::{DiskSegmentKind, labelled_info, link_info};
+use crate::utils::DiskSegmentKind;
 use crate::views::about::about;
 use crate::views::menu::menu_view;
 use cosmic::app::context_drawer as cosmic_context_drawer;
 use cosmic::iced::Length;
 use cosmic::iced::alignment::{Alignment, Horizontal, Vertical};
-use cosmic::widget::text::heading;
 use cosmic::widget::{self, Space, icon};
 use cosmic::{Apply, Element, iced_widget};
 use disks_dbus::bytes_to_pretty;
@@ -257,13 +256,13 @@ fn volume_detail_view<'a>(
         )
     });
 
-    // Build the header section (mirroring disk header layout)
+    // Build the info section (mirroring disk header layout)
     let header_section = if let Some(v) = selected_volume_node {
-        build_volume_node_header(v)
+        build_volume_node_info(v)
     } else if let Some(ref p) = segment.volume {
-        build_partition_header(p)
+        build_partition_info(p)
     } else {
-        build_free_space_header(segment)
+        build_free_space_info(segment)
     };
 
     // Build the action bar
@@ -283,8 +282,8 @@ fn volume_detail_view<'a>(
     .into()
 }
 
-/// Build header display for a volume node (child filesystem/LV) - mirrors disk header layout
-fn build_volume_node_header(v: &disks_dbus::VolumeNode) -> Element<'_, Message> {
+/// Build info display for a volume node (child filesystem/LV) - mirrors disk header layout
+fn build_volume_node_info(v: &disks_dbus::VolumeNode) -> Element<'_, Message> {
     use crate::ui::volumes::usage_pie;
     
     // Pie chart showing usage (left side, replacing icon)
@@ -351,68 +350,8 @@ fn build_volume_node_header(v: &disks_dbus::VolumeNode) -> Element<'_, Message> 
         .into()
 }
 
-/// Build info display for a partition
-#[allow(dead_code)]
+/// Build info display for a partition - mirrors disk header layout
 fn build_partition_info(p: &disks_dbus::VolumeModel) -> Element<'_, Message> {
-    let mut name = p.name.clone();
-    if name.is_empty() {
-        name = fl!("partition-number", number = p.number);
-    } else {
-        name = fl!("partition-number-with-name", number = p.number, name = name);
-    }
-
-    let mut type_str = p.id_type.clone().to_uppercase();
-    type_str = format!("{} - {}", type_str, p.partition_type.clone());
-
-    let mut col = iced_widget::column![
-        heading(name),
-        Space::new(0, 10),
-        labelled_info(fl!("size"), bytes_to_pretty(&p.size, true)),
-    ]
-    .spacing(5);
-
-    if let Some(usage) = &p.usage {
-        col = col.push(labelled_info(
-            fl!("usage"),
-            bytes_to_pretty(&usage.used, false),
-        ));
-    }
-
-    if let Some(mount_point) = p.mount_points.first() {
-        col = col.push(link_info(
-            fl!("mounted-at"),
-            mount_point,
-            Message::OpenPath(mount_point.clone()),
-        ));
-    }
-
-    col = col
-        .push(labelled_info(fl!("contents"), &type_str))
-        .push(labelled_info(
-            fl!("device"),
-            match &p.device_path {
-                Some(s) => s.clone(),
-                None => fl!("unresolved"),
-            },
-        ))
-        .push(labelled_info(fl!("uuid"), &p.uuid));
-
-    col.into()
-}
-
-/// Build info display for free space
-#[allow(dead_code)]
-fn build_free_space_info(segment: &crate::ui::volumes::Segment) -> Element<'_, Message> {
-    iced_widget::column![
-        heading(&segment.label),
-        labelled_info(fl!("size"), bytes_to_pretty(&segment.size, true)),
-    ]
-    .spacing(5)
-    .into()
-}
-
-/// Build header display for a partition - mirrors disk header layout
-fn build_partition_header(p: &disks_dbus::VolumeModel) -> Element<'_, Message> {
     use crate::ui::volumes::usage_pie;
     
     // Pie chart showing usage (left side)
@@ -476,8 +415,8 @@ fn build_partition_header(p: &disks_dbus::VolumeModel) -> Element<'_, Message> {
         .into()
 }
 
-/// Build header display for free space - mirrors disk header layout
-fn build_free_space_header(segment: &crate::ui::volumes::Segment) -> Element<'_, Message> {
+/// Build info display for free space - mirrors disk header layout
+fn build_free_space_info(segment: &crate::ui::volumes::Segment) -> Element<'_, Message> {
     // No pie chart for free space, use a placeholder
     let placeholder = widget::container(
         widget::text::caption(fl!("free-space-segment"))
