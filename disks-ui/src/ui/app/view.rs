@@ -199,12 +199,13 @@ pub(crate) fn view(app: &AppModel) -> Element<'_, Message> {
                     .into();
             };
 
-            // Calculate used space for the disk
+            // Calculate actual used space on the disk (sum of filesystem usage)
             let used: u64 = volumes_control
                 .segments
                 .iter()
                 .filter_map(|s| s.volume.as_ref())
-                .map(|v| v.size)
+                .filter_map(|v| v.usage.as_ref())
+                .map(|u| u.used)
                 .sum();
 
             // Top section: Disk header + volumes control + usage bar (1/3 of height)
