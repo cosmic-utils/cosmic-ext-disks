@@ -91,7 +91,7 @@
   - Make the menu contextual (hide/disable non-applicable actions).
 - Test plan: manual: open menu, click each item, verify behavior matches the top menu.
 - Done when:
-  - [x] Kebab menu exposes Disk actions and triggers them.
+  - [ ] (Dropped) Kebab menu is removed; Disk actions remain in the top menu.
 
 ## Task 7: Add children under drives (containers/volumes/partitions)
 - Scope: populate the tree beneath a drive with the best-available hierarchy.

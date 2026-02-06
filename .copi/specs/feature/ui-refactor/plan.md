@@ -9,7 +9,7 @@ We want to refactor/replace the left sidepanel navigation to support a **treevie
 - Row layout: `Expander | Icon | Title | Trailing action buttons` (no multiline text)
 - Trailing actions:
   - Primary action button: **Eject** (for removable drives) or **Unmount** (for mounted volumes)
-  - Secondary action button: **vertical 3-dots** (kebab) opening a popup menu containing all relevant actions currently available under the top-level **Disk** menu
+  - No kebab/menu button (removed due to UX concerns)
 - Optional section headers / grouping: Logical (future: LVM + Apple support) / Internal / External / Images
 
 ### Investigation (current code)
@@ -52,11 +52,8 @@ Current navigation is built on COSMIC’s built-in nav bar widget and model:
     - Title is single-line (truncate/ellipsize if needed)
     - Trailing actions:
      - Primary: Eject (removable drives) or Unmount (mounted volumes)
-     - Secondary: kebab (vertical 3 dots) opens a popup menu containing Disk actions
-3. Popup menu behavior (Disk actions parity):
-  - The kebab menu should expose the same actions as the existing “Disk” top-level menu.
-  - Initial set (from current menu wiring): Eject, Power Off, Format Disk, SMART Data / Self Tests, Standby Now, Wake Up.
-  - The menu should be contextual: hide/disable actions that don’t apply to the selected drive/node.
+3. Disk actions parity:
+  - Disk-menu actions remain available via the existing top-level “Disk” menu.
 4. Selection + routing:
   - Clicking the node row selects/navigates.
   - Selecting a **drive** navigates to that drive as it does today.
@@ -90,8 +87,8 @@ Current navigation is built on COSMIC’s built-in nav bar widget and model:
 
 | Node | Primary action | Kebab menu |
 |---|---|---|
-| Drive | Eject/remove when `is_loop || removable || ejectable` | Disk-menu actions targeting that drive |
-| VolumeNode | Unmount when mounted | Disk-menu actions targeting the parent drive |
+| Drive | Eject/remove when `is_loop || removable || ejectable` | N/A |
+| VolumeNode | Unmount when mounted | N/A |
 
 ## User/System Flows
 - Startup: drives loaded → sidebar sections populated → first eligible drive selected.
@@ -115,7 +112,7 @@ Current navigation is built on COSMIC’s built-in nav bar widget and model:
 - [ ] Sidebar renders a treeview with expand/collapse on nodes that have children.
 - [ ] Sidebar rows render as `Expander | Icon | Title | Trailing actions` with single-line title.
 - [ ] Sidebar rows include an inline Eject/Unmount action button that triggers without changing selection.
-- [ ] Sidebar rows include a kebab button that opens a popup menu containing Disk-menu-equivalent actions.
+- [ ] Disk-menu-equivalent actions remain available via the existing top-level Disk menu.
 - [ ] Sidebar shows section headers and groups items under: Logical / Internal / External / Images.
 - [ ] Selecting a drive still activates the correct page and updates window title.
 - [ ] Selecting a child node (partition/container/volume) does not change the main view yet (still shows the parent drive view).

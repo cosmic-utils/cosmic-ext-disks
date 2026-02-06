@@ -8,7 +8,7 @@
 - Implemented per-row actions:
   - Drive eject/remove button.
   - Volume unmount button.
-  - Kebab popover menu mirroring Disk menu actions (Eject, Power Off, Format Disk, SMART, Standby, Wake Up).
+- Removed the sidebar kebab menu (popover) due to UX concerns; Disk actions remain available via the top menu.
 - Ensured row event handling avoids nested-button conflicts by making only the title region clickable for selection.
 - Added i18n key `unmount-failed` for sidebar unmount error dialog.
 
