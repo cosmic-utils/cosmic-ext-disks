@@ -6,4 +6,3 @@ pub const APP_ICON: &[u8] = include_bytes!("../resources/icons/hicolor/scalable/
 pub use crate::ui::app::state::AppModel;
 
 pub use crate::ui::app::message::Message;
-pub use crate::ui::app::state::ContextPage;

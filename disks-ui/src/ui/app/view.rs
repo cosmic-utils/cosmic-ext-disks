@@ -9,7 +9,6 @@ use crate::ui::sidebar;
 use crate::ui::volumes::{VolumesControl, VolumesControlMessage, disk_header};
 use crate::utils::{DiskSegmentKind, link_info};
 use crate::views::about::about;
-use crate::views::menu::menu_view;
 use cosmic::app::context_drawer as cosmic_context_drawer;
 use cosmic::iced::Length;
 use cosmic::iced::alignment::{Alignment, Horizontal, Vertical};
@@ -20,7 +19,66 @@ use disks_dbus::{DriveModel, VolumeKind};
 
 /// Elements to pack at the start of the header bar.
 pub(crate) fn header_start(app: &AppModel) -> Vec<Element<'_, Message>> {
-    menu_view(&app.core, &app.key_binds)
+    let mut elements = Vec::new();
+    
+    // Add About button
+    elements.push(
+        widget::button::icon(icon::from_name("help-about-symbolic"))
+            .on_press(Message::ToggleContextPage(ContextPage::About))
+            .into()
+    );
+    
+    // Add drive actions if a drive is selected
+    if let Some(_drive) = app.nav.active_data::<DriveModel>() {
+        elements.push(widget::horizontal_space().width(Length::Fixed(16.0)).into());
+        
+        // Drive-specific actions
+        elements.push(action_button(
+            "media-eject-symbolic",
+            fl!("eject").to_string(),
+            Some(Message::Eject),
+        ));
+        elements.push(action_button(
+            "system-shutdown-symbolic",
+            fl!("power-off").to_string(),
+            Some(Message::PowerOff),
+        ));
+        elements.push(action_button(
+            "edit-clear-symbolic",
+            fl!("format").to_string(),
+            Some(Message::Format),
+        ));
+        elements.push(action_button(
+            "speedometer-symbolic",
+            fl!("smart-data-self-tests").to_string(),
+            Some(Message::SmartData),
+        ));
+        elements.push(action_button(
+            "media-playback-pause-symbolic",
+            fl!("standby-now").to_string(),
+            Some(Message::StandbyNow),
+        ));
+        elements.push(action_button(
+            "system-run-symbolic",
+            fl!("wake-up-from-standby").to_string(),
+            Some(Message::Wakeup),
+        ));
+        
+        elements.push(widget::horizontal_space().width(Length::Fixed(16.0)).into());
+        
+        elements.push(action_button(
+            "media-floppy-symbolic",
+            fl!("create-image").to_string(),
+            Some(Message::CreateDiskFrom),
+        ));
+        elements.push(action_button(
+            "document-revert-symbolic",
+            fl!("restore-image").to_string(),
+            Some(Message::RestoreImageTo),
+        ));
+    }
+    
+    elements
 }
 
 pub(crate) fn dialog(app: &AppModel) -> Option<Element<'_, Message>> {

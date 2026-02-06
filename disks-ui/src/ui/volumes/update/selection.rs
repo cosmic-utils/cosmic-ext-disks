@@ -76,10 +76,4 @@ pub(super) fn select_volume(
     Task::none()
 }
 
-pub(super) fn toggle_show_reserved(
-    control: &mut VolumesControl,
-    show_reserved: bool,
-) -> Task<cosmic::Action<Message>> {
-    control.set_show_reserved(show_reserved);
-    Task::none()
-}
+

@@ -11,10 +11,9 @@ use crate::config::Config;
 use crate::ui::sidebar::SidebarState;
 use cosmic::app::{Core, Task};
 use cosmic::cosmic_config::{self, CosmicConfigEntry};
-use cosmic::widget::{menu, nav_bar};
+use cosmic::widget::nav_bar;
 use cosmic::{Application, Element};
 use disks_dbus::DriveModel;
-use std::collections::HashMap;
 
 pub(crate) const APP_ID: &str = "com.cosmos.Disks";
 
@@ -49,7 +48,6 @@ impl Application for AppModel {
             nav: nav_bar::Model::default(),
             sidebar: SidebarState::default(),
             dialog: None,
-            key_binds: HashMap::<menu::KeyBind, crate::views::menu::MenuAction>::new(),
             image_op_cancel: None,
             // Optional configuration file for an application.
             config: cosmic_config::Config::new(Self::APP_ID, Config::VERSION)

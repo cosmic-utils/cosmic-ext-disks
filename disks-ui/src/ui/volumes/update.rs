@@ -27,9 +27,6 @@ impl VolumesControl {
                 segment_index,
                 object_path,
             } => selection::select_volume(self, segment_index, object_path, dialog),
-            VolumesControlMessage::ToggleShowReserved(show_reserved) => {
-                selection::toggle_show_reserved(self, show_reserved)
-            }
             VolumesControlMessage::Mount => mount::mount(self),
             VolumesControlMessage::Unmount => mount::unmount(self),
             VolumesControlMessage::ChildMount(object_path) => mount::child_mount(self, object_path),

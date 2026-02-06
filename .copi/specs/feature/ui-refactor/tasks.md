@@ -613,7 +613,7 @@
   - [ ] About button visible and functional.
   - [ ] Drive actions only show when disk selected.
 
-### Task 35: Fix usage pie free space visualization
+### Task 35: Fix usage pie free space visualization ✅
 - Scope: pie chart should show used portion as segment, not full circle.
 - Files/areas:
   - `disks-ui/src/ui/volumes/usage_pie.rs`
@@ -625,6 +625,6 @@
   - May need to use canvas rendering or SVG instead of simple border.
 - Test plan: manual UI test; disk with 1GB used / 10GB total should show ~10% segment, not full circle.
 - Done when:
-  - [ ] Pie chart shows proportional segment for used space.
-  - [ ] Free space is visually distinct (empty or different color).
-  - [ ] Accurate representation of usage percentage.
+  - [x] Pie chart shows proportional segment for used space.
+  - [x] Free space is visually distinct (empty or different color).
+  - [x] Accurate representation of usage percentage.
