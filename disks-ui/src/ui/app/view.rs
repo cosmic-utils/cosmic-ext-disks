@@ -208,10 +208,15 @@ pub(crate) fn view(app: &AppModel) -> Element<'_, Message> {
                 .map(|u| u.used)
                 .sum();
 
-            // Top section: Disk header + volumes control + usage bar (1/3 of height)
+            // Disk action buttons row
+            let disk_actions = build_disk_action_bar(drive);
+
+            // Top section: Disk header + disk actions + volumes control + usage bar (1/3 of height)
             let top_section = iced_widget::column![
                 disk_header::disk_header(drive, used),
-                Space::new(0, 20),
+                Space::new(0, 10),
+                widget::Row::from_vec(disk_actions).spacing(10),
+                Space::new(0, 10),
                 volumes_control.view(),
                 Space::new(0, 10),
                 usage_bar::usage_bar(&volumes_control.segments, drive.size)
@@ -536,6 +541,53 @@ fn build_free_space_header(segment: &crate::ui::volumes::Segment) -> Element<'_,
         .into()
 }
 
+/// Build the disk-level action button bar (below disk header)
+fn build_disk_action_bar(_drive: &DriveModel) -> Vec<Element<'_, Message>> {
+    vec![
+        tooltip_icon_button(
+            "media-eject-symbolic",
+            fl!("eject").to_string(),
+            Some(Message::Eject),
+        ),
+        tooltip_icon_button(
+            "system-shutdown-symbolic",
+            fl!("power-off").to_string(),
+            Some(Message::PowerOff),
+        ),
+        tooltip_icon_button(
+            "edit-clear-symbolic",
+            fl!("format-disk").to_string(),
+            Some(Message::Format),
+        ),
+        tooltip_icon_button(
+            "speedometer-symbolic",
+            fl!("smart-data-self-tests").to_string(),
+            Some(Message::SmartData),
+        ),
+        tooltip_icon_button(
+            "media-playback-pause-symbolic",
+            fl!("standby-now").to_string(),
+            Some(Message::StandbyNow),
+        ),
+        tooltip_icon_button(
+            "system-run-symbolic",
+            fl!("wake-up-from-standby").to_string(),
+            Some(Message::Wakeup),
+        ),
+        widget::horizontal_space().into(),
+        tooltip_icon_button(
+            "media-floppy-symbolic",
+            fl!("create-disk-from-drive").to_string(),
+            Some(Message::CreateDiskFrom),
+        ),
+        tooltip_icon_button(
+            "document-revert-symbolic",
+            fl!("restore-image-to-drive").to_string(),
+            Some(Message::RestoreImageTo),
+        ),
+    ]
+}
+
 /// Build the action button bar based on the selected segment and volume
 fn build_action_bar<'a>(
     volumes_control: &'a VolumesControl,
@@ -692,6 +744,19 @@ fn build_action_bar<'a>(
                         Some(VolumesControlMessage::OpenEditEncryptionOptions.into()),
                     ));
                 }
+
+                // Partition image operations
+                action_bar.push(widget::horizontal_space().into());
+                action_bar.push(tooltip_icon_button(
+                    "media-floppy-symbolic",
+                    fl!("create-disk-from-partition").to_string(),
+                    Some(Message::CreateDiskFromPartition),
+                ));
+                action_bar.push(tooltip_icon_button(
+                    "document-revert-symbolic",
+                    fl!("restore-image-to-partition").to_string(),
+                    Some(Message::RestoreImageToPartition),
+                ));
 
                 // Delete partition
                 if selected_child_volume.is_none()

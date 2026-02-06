@@ -429,7 +429,26 @@ pub(crate) fn sidebar(
     add_section(&mut rows, Section::External, external);
     add_section(&mut rows, Section::Images, images);
 
-    widget::scrollable(widget::Column::with_children(rows).spacing(2))
-        .height(Length::Fill)
+    // Image operations segmented button at bottom
+    let image_buttons = widget::row::with_capacity(2)
+        .push(
+            widget::button::text(crate::fl!("new-disk-image"))
+                .on_press(Message::NewDiskImage)
+                .width(Length::Fill),
+        )
+        .push(
+            widget::button::text(crate::fl!("attach-disk-image"))
+                .on_press(Message::AttachDisk)
+                .width(Length::Fill),
+        )
+        .spacing(5)
+        .padding([10, 10]);
+
+    widget::column::with_capacity(2)
+        .push(
+            widget::scrollable(widget::Column::with_children(rows).spacing(2))
+                .height(Length::Fill),
+        )
+        .push(image_buttons)
         .into()
 }
