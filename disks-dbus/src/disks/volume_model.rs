@@ -272,8 +272,6 @@ impl VolumeModel {
             _ => partition.type_().await?,
         };
 
-        println!("{type_str}");
-
         Ok(type_str)
     }
 
@@ -863,13 +861,6 @@ impl VolumeModel {
         }
 
         Ok(())
-    }
-
-    // Backwards-compat (typo in API): keep the old name but make it explicit.
-    pub async fn edit_encrytion_options(&self) -> Result<()> {
-        Err(anyhow::anyhow!(
-            "edit_encrytion_options() is deprecated; use edit_encryption_options(...)"
-        ))
     }
 
     //TODO: implement. creates a *.img of self.

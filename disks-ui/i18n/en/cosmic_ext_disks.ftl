@@ -1,14 +1,9 @@
 app-title = Disks
 about = About
-view = View
-welcome = Welcome to COSMIC! ✨
-page-id = Page { $num }
+
 git-description = Git commit {$hash} on {$date}
 
 # Menu items
-menu-image = Image
-menu-disk = Disk
-menu-view = View
 new-disk-image = New Disk Image
 attach-disk-image = Attach Disk Image
 create-disk-from-drive = Create Disk From Drive
@@ -31,9 +26,7 @@ power-off = Power Off
 power-off-failed = Power off failed
 format-disk = Format Disk
 format-disk-failed = Format disk failed
-benchmark-disk = Benchmark Disk
 smart-data-self-tests = SMART Data & Self-Tests
-drive-settings = Drive Settings
 standby-now = Standby Now
 standby-failed = Standby failed
 wake-up-from-standby = Wake-up From Standby
@@ -60,7 +53,6 @@ partitioning-none = None
 
 # Create partition dialog
 create-partition = Create Partition
-create = Create
 create-partition-failed = Create partition failed
 format-partition = Format Partition
 format = Format
@@ -100,7 +92,6 @@ model = Model
 serial = Serial
 partitioning = Partitioning
 backing-file = Backing File
-disk-usage = Disk Usage
 
 # Confirmation dialog
 delete = Delete { $name }
@@ -114,9 +105,6 @@ reserved-space-segment = Reserved
 filesystem = Filesystem
 free-space-caption = Free space
 reserved-space-caption = Reserved space
-
-# Volumes view
-show-reserved = Show reserved
 
 # Encrypted / LUKS
 unlock-button = Unlock
@@ -134,13 +122,10 @@ lock-failed = Lock failed
 unlock-missing-partition = Could not find { $name } in the current device list.
 
 # Volume commands
-mount-toggle = Mount / Unmount
 mount = Mount
 unmount = Unmount
 edit-mount-options = Edit Mount Options…
-mount-options = Mount Options
 edit-encryption-options = Edit Encryption Options…
-encryption = Encryption
 edit-partition = Edit Partition
 edit = Edit
 edit-partition-no-types = No partition types available for this partition table.
@@ -155,13 +140,11 @@ edit-filesystem = Edit Filesystem
 label = Label
 filesystem-label = Filesystem Label
 check-filesystem = Check Filesystem
-check = Check
 check-filesystem-warning = Checking a filesystem can take a long time. Continue?
 repair-filesystem = Repair Filesystem
 repair = Repair
 repair-filesystem-warning = Repairing a filesystem can take a long time and may risk data loss. Continue?
 take-ownership = Take Ownership
-ownership = Ownership
 take-ownership-warning = This will change ownership of files to your user. This can take a long time and cannot be easily undone.
 take-ownership-recursive = Apply recursively
 
@@ -192,3 +175,15 @@ smart-selftest = Self-test
 smart-selftest-short = Short self-test
 smart-selftest-extended = Extended self-test
 smart-selftest-abort = Abort self-test
+
+# Volume types
+lvm-logical-volume = LVM LV
+lvm-physical-volume = LVM PV
+luks-container = LUKS
+partition-type = Partition
+block-device = Device
+
+# Status
+not-mounted = Not mounted
+can-create-partition = Can create partition
+offset = Offset

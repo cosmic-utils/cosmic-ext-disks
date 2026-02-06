@@ -334,11 +334,11 @@ fn build_volume_node_info<'a>(
     let contents = if v.id_type.is_empty() {
         match v.kind {
             VolumeKind::Filesystem => fl!("filesystem"),
-            VolumeKind::LvmLogicalVolume => "LVM LV".to_string(),
-            VolumeKind::LvmPhysicalVolume => "LVM PV".to_string(),
-            VolumeKind::CryptoContainer => "LUKS".to_string(),
-            VolumeKind::Partition => "Partition".to_string(),
-            VolumeKind::Block => "Device".to_string(),
+            VolumeKind::LvmLogicalVolume => fl!("lvm-logical-volume"),
+            VolumeKind::LvmPhysicalVolume => fl!("lvm-physical-volume"),
+            VolumeKind::CryptoContainer => fl!("luks-container"),
+            VolumeKind::Partition => fl!("partition-type"),
+            VolumeKind::Block => fl!("block-device"),
         }
     } else {
         v.id_type.to_uppercase()
@@ -368,7 +368,7 @@ fn build_volume_node_info<'a>(
             .align_y(Alignment::Center)
             .into()
         } else {
-            widget::text::caption("Not mounted").into()
+            widget::text::caption(fl!("not-mounted")).into()
         };
 
         iced_widget::column![name_text, type_text, device_text, mount_text]
@@ -475,7 +475,7 @@ fn build_partition_info<'a>(
     };
     let device_text = widget::text::caption(format!("{}: {}", fl!("device"), device_str));
 
-    let uuid_text = widget::text::caption(format!("UUID: {}", &p.uuid));
+    let uuid_text = widget::text::caption(format!("{}: {}", fl!("uuid"), &p.uuid));
 
     // Only show mount info if it's not a LUKS container (containers don't mount, their children do)
     let text_column = if let Some(v) = volume_node {
@@ -494,7 +494,7 @@ fn build_partition_info<'a>(
                 .align_y(Alignment::Center)
                 .into()
             } else {
-                widget::text::caption("Not mounted").into()
+                widget::text::caption(fl!("not-mounted")).into()
             };
 
             iced_widget::column![name_text, type_text, device_text, uuid_text, mount_text]
@@ -512,7 +512,7 @@ fn build_partition_info<'a>(
             .align_y(Alignment::Center)
             .into()
         } else {
-            widget::text::caption("Not mounted").into()
+            widget::text::caption(fl!("not-mounted")).into()
         };
 
         iced_widget::column![name_text, type_text, device_text, uuid_text, mount_text]
@@ -780,11 +780,12 @@ fn build_free_space_info(segment: &crate::ui::volumes::Segment) -> Element<'_, M
         bytes_to_pretty(&segment.size, true)
     ));
     let offset_text = widget::text::caption(format!(
-        "Offset: {}",
+        "{}: {}",
+        fl!("offset"),
         bytes_to_pretty(&segment.offset, false)
     ));
     
-    let available_text = widget::text::caption("Can create partition");
+    let available_text = widget::text::caption(fl!("can-create-partition"));
 
     let text_column = iced_widget::column![name_text, size_text, offset_text, available_text]
         .spacing(4)

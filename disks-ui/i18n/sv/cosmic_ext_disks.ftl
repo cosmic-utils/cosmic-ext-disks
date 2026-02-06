@@ -1,14 +1,9 @@
 app-title = Diskar
 about = Om
-view = Visa
-welcome = Välkommen till COSMIC! ✨
-page-id = Sida { $num }
+
 git-description = Git commit {$hash} på {$date}
 
 # Menyalternativ
-menu-image = Avbild
-menu-disk = Disk
-menu-view = Visa
 new-disk-image = Ny diskavbild
 attach-disk-image = Bifoga skivavbildning
 create-disk-from-drive = Skapa disk från enhet
@@ -29,9 +24,7 @@ power-off = Stäng av
 power-off-failed = Stäng av misslyckades
 format-disk = Formatera disk
 format-disk-failed = Formatera disk misslyckades
-benchmark-disk = Jämför disk
 smart-data-self-tests = SMART data & självtester
-drive-settings = Disk inställningar
 standby-now = Vänteläge nu
 standby-failed = Vänteläge misslyckades
 wake-up-from-standby = Vakna upp från vänteläge
@@ -96,7 +89,6 @@ model = Modell
 serial = Serienummer
 partitioning = Partitionering
 backing-file = Bakgrundsfil
-disk-usage = Diskanvändning
 
 # Bekräftelsedialogruta
 delete = Radera { $name }
@@ -110,9 +102,6 @@ reserved-space-segment = Reserverat
 filesystem = Filsystem
 free-space-caption = Ledigt utrymme
 reserved-space-caption = Reserverat utrymme
-
-# Volymer vy
-show-reserved = Visa reserverat
 
 # Encrypted / LUKS
 unlock-button = Lås upp
@@ -130,7 +119,6 @@ lock-failed = Låsning misslyckades
 unlock-missing-partition = Kunde inte hitta { $name } i den aktuella enhetslistan.
 
 # Volume commands
-mount-toggle = Montera / avmontera
 edit-mount-options = Redigera monteringsalternativ…
 edit-encryption-options = Redigera krypteringsalternativ…
 edit-partition = Redigera partition
@@ -178,3 +166,15 @@ smart-selftest = Självtest
 smart-selftest-short = Kort självtest
 smart-selftest-extended = Utökat självtest
 smart-selftest-abort = Avbryt självtest
+
+# Volymtyper
+lvm-logical-volume = LVM LV
+lvm-physical-volume = LVM PV
+luks-container = LUKS
+partition-type = Partition
+block-device = Enhet
+
+# Status
+not-mounted = Inte monterad
+can-create-partition = Kan skapa partition
+offset = Offset

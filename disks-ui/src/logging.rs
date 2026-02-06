@@ -20,15 +20,15 @@ pub(crate) fn init() {
     let env_filter = EnvFilter::try_from_default_env().unwrap_or_else(|_| {
         // Default verbosity: keep our crates at INFO, but quiet very chatty GPU logging.
         EnvFilter::new("info")
-            .add_directive("cosmic_ext_disks=info".parse().unwrap())
-            .add_directive("cosmic_ext_disks_dbus=info".parse().unwrap())
-            .add_directive("wgpu=warn".parse().unwrap())
-            .add_directive("wgpu_core=warn".parse().unwrap())
-            .add_directive("wgpu_hal=warn".parse().unwrap())
-            .add_directive("naga=warn".parse().unwrap())
-            .add_directive("iced_winit=warn".parse().unwrap())
-            .add_directive("iced_wgpu=warn".parse().unwrap())
-            .add_directive("i18n_embed=warn".parse().unwrap())
+            .add_directive("cosmic_ext_disks=info".parse().expect("Invalid log directive: cosmic_ext_disks=info"))
+            .add_directive("cosmic_ext_disks_dbus=info".parse().expect("Invalid log directive: cosmic_ext_disks_dbus=info"))
+            .add_directive("wgpu=warn".parse().expect("Invalid log directive: wgpu=warn"))
+            .add_directive("wgpu_core=warn".parse().expect("Invalid log directive: wgpu_core=warn"))
+            .add_directive("wgpu_hal=warn".parse().expect("Invalid log directive: wgpu_hal=warn"))
+            .add_directive("naga=warn".parse().expect("Invalid log directive: naga=warn"))
+            .add_directive("iced_winit=warn".parse().expect("Invalid log directive: iced_winit=warn"))
+            .add_directive("iced_wgpu=warn".parse().expect("Invalid log directive: iced_wgpu=warn"))
+            .add_directive("i18n_embed=warn".parse().expect("Invalid log directive: i18n_embed=warn"))
     });
 
     let stdout_layer = tracing_subscriber::fmt::layer()
