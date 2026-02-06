@@ -56,16 +56,48 @@ fn expander_icon(expanded: bool) -> &'static str {
     }
 }
 
-fn transparent_button_class() -> cosmic::theme::Button {
+fn drive_title(drive: &DriveModel) -> String {
+    if let Some(path) = drive.backing_file.as_deref()
+        && !path.trim().is_empty()
+        && let Some(name) = path.rsplit('/').next()
+        && !name.trim().is_empty()
+    {
+        return name.to_string();
+    }
+
+    let vendor = drive.vendor.trim();
+    let model = drive.model.trim();
+
+    if vendor.is_empty() && model.is_empty() {
+        return drive.name();
+    }
+
+    if vendor.is_empty() {
+        return model.to_string();
+    }
+
+    if model.is_empty() {
+        return vendor.to_string();
+    }
+
+    if model.to_lowercase().starts_with(&vendor.to_lowercase()) {
+        model.to_string()
+    } else {
+        format!("{vendor} {model}")
+    }
+}
+
+fn transparent_button_class(selected: bool) -> cosmic::theme::Button {
     cosmic::theme::Button::Custom {
-        active: Box::new(|_b, theme| transparent_button_style(false, theme)),
-        disabled: Box::new(|theme| transparent_button_style(true, theme)),
-        hovered: Box::new(|_b, theme| transparent_button_style(false, theme)),
-        pressed: Box::new(|_b, theme| transparent_button_style(false, theme)),
+        active: Box::new(move |_b, theme| transparent_button_style(selected, false, theme)),
+        disabled: Box::new(move |theme| transparent_button_style(selected, true, theme)),
+        hovered: Box::new(move |_b, theme| transparent_button_style(selected, false, theme)),
+        pressed: Box::new(move |_b, theme| transparent_button_style(selected, false, theme)),
     }
 }
 
 fn transparent_button_style(
+    selected: bool,
     disabled: bool,
     theme: &cosmic::theme::Theme,
 ) -> cosmic::widget::button::Style {
@@ -74,7 +106,9 @@ fn transparent_button_style(
     let component = &theme.cosmic().background.component;
 
     let mut on = component.on;
-    if disabled {
+    if !disabled && selected {
+        on = theme.cosmic().accent_color();
+    } else if disabled {
         on = on.with_alpha(0.35);
     }
 
@@ -121,6 +155,7 @@ fn row_container<'a>(
                 // Keep the card background, but visually de-emphasize content.
                 on = component.on.with_alpha(0.35);
             } else if selected {
+                on = theme.cosmic().accent_color();
                 border_width = 1.0;
                 border_color = theme.cosmic().accent_color();
             }
@@ -155,7 +190,7 @@ fn drive_row(
     let expander = if has_children {
         let mut button =
             widget::button::custom(icon::from_name(expander_icon(expanded)).size(16)).padding(2);
-        button = button.class(transparent_button_class());
+        button = button.class(transparent_button_class(selected));
         if controls_enabled {
             button = button.on_press(Message::SidebarToggleExpanded(key.clone()));
         }
@@ -170,10 +205,14 @@ fn drive_row(
         "disks-symbolic"
     };
 
+    let title = drive_title(drive);
+
     let mut select_button = widget::button::custom(
         widget::Row::with_children(vec![
             icon::from_name(drive_icon_name).size(16).into(),
-            widget::text(drive.name()).into(),
+            widget::text::body(title)
+                .font(cosmic::font::semibold())
+                .into(),
         ])
         .spacing(8)
         .align_y(cosmic::iced::Alignment::Center)
@@ -181,7 +220,7 @@ fn drive_row(
     )
     .padding(0)
     .width(Length::Fill)
-    .class(transparent_button_class());
+    .class(transparent_button_class(selected));
     if controls_enabled {
         select_button =
             select_button.on_press(Message::SidebarSelectDrive(drive.block_path.clone()));
@@ -193,7 +232,7 @@ fn drive_row(
     if drive.is_loop || drive.removable || drive.ejectable {
         let mut eject_btn =
             widget::button::custom(icon::from_name("media-eject-symbolic").size(16)).padding(4);
-        eject_btn = eject_btn.class(transparent_button_class());
+        eject_btn = eject_btn.class(transparent_button_class(selected));
         if controls_enabled {
             eject_btn = eject_btn.on_press(Message::SidebarDriveEject(drive.block_path.clone()));
         }
@@ -228,7 +267,7 @@ fn volume_row(
     let expander = if has_children {
         let mut button =
             widget::button::custom(icon::from_name(expander_icon(expanded)).size(16)).padding(2);
-        button = button.class(transparent_button_class());
+        button = button.class(transparent_button_class(selected));
         if controls_enabled {
             button = button.on_press(Message::SidebarToggleExpanded(key.clone()));
         }
@@ -253,7 +292,9 @@ fn volume_row(
     let mut select_button = widget::button::custom(
         widget::Row::with_children(vec![
             icon::from_name(volume_icon(&node.kind)).size(16).into(),
-            widget::text(title_text).into(),
+            widget::text::body(title_text)
+                .font(cosmic::font::semibold())
+                .into(),
         ])
         .spacing(8)
         .align_y(cosmic::iced::Alignment::Center)
@@ -261,7 +302,7 @@ fn volume_row(
     )
     .padding(0)
     .width(Length::Fill)
-    .class(transparent_button_class());
+    .class(transparent_button_class(selected));
     if controls_enabled {
         select_button = select_button.on_press(select_msg.clone());
     }
@@ -271,7 +312,7 @@ fn volume_row(
     if node.is_mounted() {
         let mut unmount_btn =
             widget::button::custom(icon::from_name("media-eject-symbolic").size(16)).padding(4);
-        unmount_btn = unmount_btn.class(transparent_button_class());
+        unmount_btn = unmount_btn.class(transparent_button_class(selected));
         if controls_enabled {
             unmount_btn = unmount_btn.on_press(Message::SidebarVolumeUnmount {
                 drive: drive_block_path.to_string(),
