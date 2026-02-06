@@ -381,3 +381,89 @@
   - [x] "Create Image" / "Attach Image" segmented button at bottom of sidebar.
   - [x] Menubar no longer contains disk/partition operation items.
   - [x] All operations functional with no regressions.
+
+---
+
+## Extended Scope Tasks — Phase 3: Polish & Refinements
+
+**Added:** 2026-02-06
+
+### Task 22: Enhance usage pie chart styling
+- Scope: make pie chart thicker, show only percentage inside, move Used/Total text below.
+- Files/areas:
+  - `disks-ui/src/ui/volumes/usage_pie.rs`
+- Steps:
+  - Increase pie chart border width from current to 2x thicker.
+  - Display only percentage (e.g., "65%") centered inside the pie circle.
+  - Move "Used / Total" text to display directly underneath the pie chart.
+  - Ensure text remains readable and properly aligned.
+- Test plan: manual UI test; verify pie chart appearance is improved.
+- Done when:
+  - [ ] Pie chart border is 2x thicker than current.
+  - [ ] Only percentage text displays inside the pie circle.
+  - [ ] "Used / Total" text displays below the pie chart.
+  - [ ] Styling is consistent and readable.
+
+### Task 23: Replace usage bar with pie chart in disk header
+- Scope: disk header should use pie chart instead of text-based usage display; remove usage bar entirely.
+- Files/areas:
+  - `disks-ui/src/ui/volumes/disk_header.rs`
+  - `disks-ui/src/ui/app/view.rs` (remove usage_bar from layout)
+- Steps:
+  - Modify disk_header to use usage_pie instead of text box for usage display.
+  - Replace right-aligned "Used / Total" info box with pie chart.
+  - Remove usage_bar from the main view layout (between volumes control and detail view).
+  - Ensure pie chart in disk header displays drive usage correctly.
+- Test plan: manual UI test; verify disk header shows pie chart and usage bar is removed.
+- Done when:
+  - [ ] Disk header displays usage pie chart on the right side.
+  - [ ] Usage bar component removed from main view layout.
+  - [ ] Pie chart correctly shows disk-level usage.
+
+### Task 24: Update action buttons to show icon above text label
+- Scope: action buttons should display icon above text label instead of icon-only with tooltip.
+- Files/areas:
+  - `disks-ui/src/ui/app/view.rs` (tooltip_icon_button and all button creation)
+- Steps:
+  - Modify button rendering to use column layout: icon on top, text label below.
+  - Remove tooltip wrapper (text label makes tooltip redundant).
+  - Apply to all action buttons: disk actions, partition actions, volume actions.
+  - Ensure consistent spacing and alignment across all buttons.
+- Test plan: manual UI test; verify all action buttons show icon + label and are readable.
+- Done when:
+  - [ ] All action buttons display icon above text label.
+  - [ ] Tooltips removed (label makes them redundant).
+  - [ ] Consistent styling across disk and partition action buttons.
+  - [ ] Text labels are readable and properly truncated if needed.
+
+### Task 25: LUKS container usage should aggregate children
+- Scope: LUKS containers should display sum of children's used space instead of container size.
+- Files/areas:
+  - `disks-dbus/src/disks/volume_model.rs` (or wherever VolumeNode usage is computed)
+  - `disks-ui/src/ui/app/view.rs` (usage calculation for LUKS nodes)
+- Steps:
+  - Identify where LUKS container usage is calculated/displayed.
+  - For LUKS containers with children, sum up children's `usage.used` values.
+  - Display aggregated usage in pie chart and header for LUKS containers.
+  - Ensure containers without children still display their own usage correctly.
+- Test plan: manual UI test with encrypted partition; verify LUKS container shows child filesystem usage.
+- Done when:
+  - [ ] LUKS containers display sum of children's used space.
+  - [ ] Pie chart for LUKS container reflects child usage aggregation.
+  - [ ] Containers without children still display correctly.
+
+### Task 26: Rename partition header builders to use "info" terminology
+- Scope: refactor function names from "header" to "info" for volume/partition detail functions.
+- Files/areas:
+  - `disks-ui/src/ui/app/view.rs`
+- Steps:
+  - Rename `build_volume_node_header()` → `build_volume_node_info()`
+  - Rename `build_partition_header()` → `build_partition_info()`
+  - Rename `build_free_space_header()` → `build_free_space_info()`
+  - Update all call sites to use new names.
+  - Update any related comments/documentation.
+- Test plan: cargo check; verify all references updated correctly.
+- Done when:
+  - [ ] All "header" function names changed to "info".
+  - [ ] All call sites updated.
+  - [ ] Code compiles without errors.
