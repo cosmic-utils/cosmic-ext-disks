@@ -50,12 +50,12 @@ impl DriveModel {
 
     pub async fn open_for_backup(&self) -> Result<std::os::fd::OwnedFd> {
         let block_object_path: OwnedObjectPath = self.block_path.as_str().try_into()?;
-        crate::open_for_backup(block_object_path).await
+        super::super::image::open_for_backup(block_object_path).await
     }
 
     pub async fn open_for_restore(&self) -> Result<std::os::fd::OwnedFd> {
         let block_object_path: OwnedObjectPath = self.block_path.as_str().try_into()?;
-        crate::open_for_restore(block_object_path).await
+        super::super::image::open_for_restore(block_object_path).await
     }
 
     pub async fn standby_now(&self) -> Result<()> {

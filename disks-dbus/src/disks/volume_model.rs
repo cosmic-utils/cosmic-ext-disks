@@ -292,11 +292,11 @@ impl VolumeModel {
     }
 
     pub async fn open_for_backup(&self) -> Result<std::os::fd::OwnedFd> {
-        crate::open_for_backup(self.path.clone()).await
+        super::image::open_for_backup(self.path.clone()).await
     }
 
     pub async fn open_for_restore(&self) -> Result<std::os::fd::OwnedFd> {
-        crate::open_for_restore(self.path.clone()).await
+        super::image::open_for_restore(self.path.clone()).await
     }
 
     pub async fn mount(&self) -> Result<()> {

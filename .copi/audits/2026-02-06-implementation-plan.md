@@ -1,36 +1,20 @@
 # Audit Implementation Plan — Remaining GAPs
 
 **Audit:** 2026-02-06T19-14-59Z  
-**Status:** Quick Wins Complete (GAP-001, 006, 009, 010, 011, 012)  
+**Status:** 7 Quick Wins Complete (GAP-001, 005, 006, 009, 010, 011, 012)  
 **Remaining:** Medium-severity structural refactorings
 
 ---
 
-## ✅ Completed (6 fixes)
+## ✅ Completed (7 fixes)
 
 1. **GAP-001** — Removed 17 unused i18n keys
-2. **GAP-006** — Deleted typo method
-3. **GAP-009** — Fixed unwrap() calls in logging
-4. **GAP-010** — Removed println! debug code
-5. **GAP-011** — Documented module structure convention
-6. **GAP-012** — Fixed 7 untranslated UI strings (added 8 new i18n keys)
-
----
-
-## 🔄 In Progress
-
-### GAP-005: Dead Code Attribute (Partial)
-**Status:** Partially complete  
-**What's done:**
-- Removed `#![allow(dead_code)]` from `disks-ui/src/utils/ui.rs`
-- Identified 11 unused functions
-
-**What remains:**
-- Add individual `#[allow(dead_code)]` annotations to functions planned for future use
-- OR delete genuinely unused functions
-- Add comments explaining why kept
-
-**Blocked by:** Decision needed on which functions are planned features vs truly dead
+2. **GAP-005** — Replaced blanket dead_code suppression with targeted annotations (11 functions documented)
+3. **GAP-006** — Deleted typo method
+4. **GAP-009** — Fixed unwrap() calls in logging
+5. **GAP-010** — Removed println! debug code
+6. **GAP-011** — Documented module structure convention
+7. **GAP-012** — Fixed 7 untranslated UI strings (added 8 new i18n keys)
 
 ---
 
