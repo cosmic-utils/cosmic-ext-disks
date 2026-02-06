@@ -1,6 +1,7 @@
 use crate::app::Message;
 use crate::fl;
 use crate::ui::sidebar::state::{SidebarNodeKey, SidebarState};
+use cosmic::cosmic_theme::palette::WithAlpha;
 use cosmic::iced::Length;
 use cosmic::widget::{self, icon};
 use cosmic::{Apply, Element};
@@ -145,15 +146,50 @@ fn kebab_menu(drive_block_path: &str) -> Element<'static, Message> {
 
 fn row_container<'a>(
     row: impl Into<Element<'a, Message>>,
-    _selected: bool,
+    selected: bool,
+    enabled: bool,
 ) -> Element<'a, Message> {
-    widget::container(row).padding([6, 8]).into()
+    widget::container(row)
+        .padding([6, 8])
+        .class(cosmic::style::Container::custom(move |theme| {
+            use cosmic::iced::{Background, Border, Shadow};
+
+            let component = &theme.current_container().component;
+
+            let mut bg = component.base;
+            let mut on = component.on;
+
+            let mut border_width = 0.0;
+            let mut border_color = component.base;
+
+            if !enabled {
+                bg = component.base.with_alpha(0.08);
+                on = component.on.with_alpha(0.35);
+            } else if selected {
+                border_width = 1.0;
+                border_color = theme.cosmic().accent_color();
+            }
+
+            cosmic::iced_widget::container::Style {
+                icon_color: Some(on.into()),
+                text_color: Some(on.into()),
+                background: Some(Background::Color(bg.into())),
+                border: Border {
+                    radius: theme.cosmic().corner_radii.radius_s.into(),
+                    width: border_width,
+                    color: border_color.into(),
+                },
+                shadow: Shadow::default(),
+            }
+        }))
+        .into()
 }
 
 fn drive_row(
     sidebar: &SidebarState,
     drive: &DriveModel,
     active_drive: Option<&str>,
+    controls_enabled: bool,
 ) -> Element<'static, Message> {
     let key = SidebarNodeKey::Drive(drive.block_path.clone());
     let selected = active_drive.is_some_and(|a| a == drive.block_path);
@@ -162,10 +198,12 @@ fn drive_row(
     let has_children = !drive.volumes.is_empty();
 
     let expander = if has_children {
-        widget::button::custom(icon::from_name(expander_icon(expanded)).size(16))
-            .padding(2)
-            .on_press(Message::SidebarToggleExpanded(key.clone()))
-            .into()
+        let mut button =
+            widget::button::custom(icon::from_name(expander_icon(expanded)).size(16)).padding(2);
+        if controls_enabled {
+            button = button.on_press(Message::SidebarToggleExpanded(key.clone()));
+        }
+        button.into()
     } else {
         widget::Space::new(16, 16).into()
     };
@@ -176,42 +214,42 @@ fn drive_row(
         "disks-symbolic"
     };
 
-    let title_button = widget::button::custom(widget::text(drive.name()))
+    let mut title_button = widget::button::custom(widget::text(drive.name()))
         .padding(0)
-        .width(Length::Fill)
-        .on_press(Message::SidebarSelectDrive(drive.block_path.clone()));
+        .width(Length::Fill);
+    if controls_enabled {
+        title_button = title_button.on_press(Message::SidebarSelectDrive(drive.block_path.clone()));
+    }
 
     let mut actions: Vec<Element<'static, Message>> = Vec::new();
 
     // Primary action: eject/remove for removable drives and loop-backed images.
     if drive.is_loop || drive.removable || drive.ejectable {
-        actions.push(
-            widget::button::custom(icon::from_name("media-eject-symbolic").size(16))
-                .padding(4)
-                .on_press(Message::SidebarDriveEject(drive.block_path.clone()))
-                .into(),
-        );
+        let mut eject_btn =
+            widget::button::custom(icon::from_name("media-eject-symbolic").size(16)).padding(4);
+        if controls_enabled {
+            eject_btn = eject_btn.on_press(Message::SidebarDriveEject(drive.block_path.clone()));
+        }
+        actions.push(eject_btn.into());
     }
 
     // Kebab menu.
     let menu_key = SidebarNodeKey::Drive(drive.block_path.clone());
     let open = sidebar.open_menu_for.as_ref() == Some(&menu_key);
 
-    let kebab_button = widget::button::custom(icon::from_name("open-menu-symbolic").size(16))
-        .padding(4)
-        .on_press(Message::SidebarOpenMenu(menu_key.clone()));
+    let mut kebab_button =
+        widget::button::custom(icon::from_name("open-menu-symbolic").size(16)).padding(4);
+    if controls_enabled {
+        kebab_button = kebab_button.on_press(Message::SidebarOpenMenu(menu_key.clone()));
+    }
 
     let kebab = if open {
         widget::popover(kebab_button)
             .position(cosmic::widget::popover::Position::Bottom)
-            .on_close(Message::SidebarCloseMenu)
             .popup(kebab_menu(&drive.block_path))
             .into()
     } else {
-        widget::popover(kebab_button)
-            .position(cosmic::widget::popover::Position::Bottom)
-            .on_close(Message::SidebarCloseMenu)
-            .into()
+        kebab_button.into()
     };
 
     actions.push(kebab);
@@ -226,7 +264,7 @@ fn drive_row(
     .align_y(cosmic::iced::Alignment::Center)
     .width(Length::Fill);
 
-    row_container(row, selected)
+    row_container(row, selected, controls_enabled)
 }
 
 fn volume_row(
@@ -234,6 +272,7 @@ fn volume_row(
     drive_block_path: &str,
     node: &VolumeNode,
     depth: u16,
+    controls_enabled: bool,
 ) -> Element<'static, Message> {
     let key = SidebarNodeKey::Volume(node.object_path.to_string());
     let selected = sidebar.selected_child.as_ref() == Some(&key);
@@ -242,10 +281,12 @@ fn volume_row(
     let has_children = !node.children.is_empty();
 
     let expander = if has_children {
-        widget::button::custom(icon::from_name(expander_icon(expanded)).size(16))
-            .padding(2)
-            .on_press(Message::SidebarToggleExpanded(key.clone()))
-            .into()
+        let mut button =
+            widget::button::custom(icon::from_name(expander_icon(expanded)).size(16)).padding(2);
+        if controls_enabled {
+            button = button.on_press(Message::SidebarToggleExpanded(key.clone()));
+        }
+        button.into()
     } else {
         widget::Space::new(16, 16).into()
     };
@@ -259,46 +300,46 @@ fn volume_row(
         node.label.clone()
     };
 
-    let title_button = widget::button::custom(widget::text(title_text))
+    let mut title_button = widget::button::custom(widget::text(title_text))
         .padding(0)
-        .width(Length::Fill)
-        .on_press(Message::SidebarSelectChild {
+        .width(Length::Fill);
+    if controls_enabled {
+        title_button = title_button.on_press(Message::SidebarSelectChild {
             object_path: node.object_path.to_string(),
         });
+    }
 
     let mut actions: Vec<Element<'static, Message>> = Vec::new();
 
     if node.is_mounted() {
-        actions.push(
-            widget::button::custom(icon::from_name("media-eject-symbolic").size(16))
-                .padding(4)
-                .on_press(Message::SidebarVolumeUnmount {
-                    drive: drive_block_path.to_string(),
-                    object_path: node.object_path.to_string(),
-                })
-                .into(),
-        );
+        let mut unmount_btn =
+            widget::button::custom(icon::from_name("media-eject-symbolic").size(16)).padding(4);
+        if controls_enabled {
+            unmount_btn = unmount_btn.on_press(Message::SidebarVolumeUnmount {
+                drive: drive_block_path.to_string(),
+                object_path: node.object_path.to_string(),
+            });
+        }
+        actions.push(unmount_btn.into());
     }
 
     // Kebab menu (Disk actions), targeting the parent drive.
     let menu_key = SidebarNodeKey::Volume(node.object_path.to_string());
     let open = sidebar.open_menu_for.as_ref() == Some(&menu_key);
 
-    let kebab_button = widget::button::custom(icon::from_name("open-menu-symbolic").size(16))
-        .padding(4)
-        .on_press(Message::SidebarOpenMenu(menu_key.clone()));
+    let mut kebab_button =
+        widget::button::custom(icon::from_name("open-menu-symbolic").size(16)).padding(4);
+    if controls_enabled {
+        kebab_button = kebab_button.on_press(Message::SidebarOpenMenu(menu_key.clone()));
+    }
 
     let kebab = if open {
         widget::popover(kebab_button)
             .position(cosmic::widget::popover::Position::Bottom)
-            .on_close(Message::SidebarCloseMenu)
             .popup(kebab_menu(drive_block_path))
             .into()
     } else {
-        widget::popover(kebab_button)
-            .position(cosmic::widget::popover::Position::Bottom)
-            .on_close(Message::SidebarCloseMenu)
-            .into()
+        kebab_button.into()
     };
 
     actions.push(kebab);
@@ -316,7 +357,7 @@ fn volume_row(
     .align_y(cosmic::iced::Alignment::Center)
     .width(Length::Fill);
 
-    row_container(row, selected)
+    row_container(row, selected, controls_enabled)
 }
 
 fn push_volume_tree(
@@ -325,15 +366,29 @@ fn push_volume_tree(
     drive_block_path: &str,
     node: &VolumeNode,
     depth: u16,
+    controls_enabled: bool,
 ) {
-    out.push(volume_row(sidebar, drive_block_path, node, depth));
+    out.push(volume_row(
+        sidebar,
+        drive_block_path,
+        node,
+        depth,
+        controls_enabled,
+    ));
 
     let key = SidebarNodeKey::Volume(node.object_path.to_string());
     let expanded = sidebar.is_expanded(&key);
 
     if expanded {
         for child in &node.children {
-            push_volume_tree(out, sidebar, drive_block_path, child, depth + 1);
+            push_volume_tree(
+                out,
+                sidebar,
+                drive_block_path,
+                child,
+                depth + 1,
+                controls_enabled,
+            );
         }
     }
 }
@@ -341,6 +396,7 @@ fn push_volume_tree(
 pub(crate) fn sidebar(
     app_nav: &cosmic::widget::nav_bar::Model,
     sidebar: &SidebarState,
+    controls_enabled: bool,
 ) -> Element<'static, Message> {
     let active_drive = sidebar.active_drive_block_path(app_nav);
 
@@ -368,12 +424,17 @@ pub(crate) fn sidebar(
             rows.push(section_header(section.label()));
 
             for drive in drives {
-                rows.push(drive_row(sidebar, drive, active_drive.as_deref()));
+                rows.push(drive_row(
+                    sidebar,
+                    drive,
+                    active_drive.as_deref(),
+                    controls_enabled,
+                ));
 
                 let drive_key = SidebarNodeKey::Drive(drive.block_path.clone());
                 if sidebar.is_expanded(&drive_key) {
                     for v in &drive.volumes {
-                        push_volume_tree(rows, sidebar, &drive.block_path, v, 1);
+                        push_volume_tree(rows, sidebar, &drive.block_path, v, 1, controls_enabled);
                     }
                 }
             }

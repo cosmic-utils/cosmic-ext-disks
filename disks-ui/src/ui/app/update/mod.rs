@@ -129,13 +129,15 @@ pub(crate) fn update(app: &mut AppModel, message: Message) -> Task<Message> {
             app.sidebar.selected_child = Some(SidebarNodeKey::Volume(object_path));
         }
         Message::SidebarToggleExpanded(key) => {
+            app.sidebar.close_menu();
             app.sidebar.toggle_expanded(key);
         }
         Message::SidebarOpenMenu(key) => {
-            app.sidebar.open_menu(key);
-        }
-        Message::SidebarCloseMenu => {
-            app.sidebar.close_menu();
+            if app.sidebar.open_menu_for.as_ref() == Some(&key) {
+                app.sidebar.close_menu();
+            } else {
+                app.sidebar.open_menu(key);
+            }
         }
         Message::SidebarDriveEject(block_path) => {
             app.sidebar.close_menu();

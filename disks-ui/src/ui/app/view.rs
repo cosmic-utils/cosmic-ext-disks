@@ -120,7 +120,9 @@ pub(crate) fn nav_bar(app: &AppModel) -> Option<Element<'_, cosmic::Action<Messa
         return None;
     }
 
-    let mut nav = sidebar::view::sidebar(&app.nav, &app.sidebar)
+    let controls_enabled = app.dialog.is_none();
+
+    let mut nav = sidebar::view::sidebar(&app.nav, &app.sidebar, controls_enabled)
         .map(Into::into)
         .apply(widget::container)
         // XXX both must be shrink to avoid flex layout from ignoring it

@@ -49,7 +49,6 @@ pub enum Message {
     },
     SidebarToggleExpanded(crate::ui::sidebar::SidebarNodeKey),
     SidebarOpenMenu(crate::ui::sidebar::SidebarNodeKey),
-    SidebarCloseMenu,
     SidebarDriveEject(String),
     SidebarDriveAction {
         drive: String,
