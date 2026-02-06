@@ -6,7 +6,7 @@ use disks_dbus::bytes_to_pretty;
 
 use crate::app::Message;
 
-/// Renders a thin pie chart showing used vs. free space with Used/Total text inside.
+/// Renders a pie chart showing used vs. free space with percentage inside and Used/Total below.
 pub fn usage_pie<'a>(used: u64, total: u64) -> Element<'a, Message> {
     let percent = if total > 0 {
         ((used as f64 / total as f64) * 100.0) as u32
@@ -14,21 +14,12 @@ pub fn usage_pie<'a>(used: u64, total: u64) -> Element<'a, Message> {
         0
     };
 
-    // Colors for used (accent) and free (muted)
     let used_text = format!("{} / {}", bytes_to_pretty(&used, false), bytes_to_pretty(&total, false));
 
-    // For now, use a simple column with the text
-    // TODO: Implement actual pie chart rendering using canvas or SVG
-    widget::container(
-        iced_widget::column![
-            widget::text::caption_heading(format!("{}%", percent))
-                .center(),
-            widget::text::caption(used_text)
-                .center(),
-        ]
-        .spacing(2)
-        .align_x(Alignment::Center)
-        .width(Length::Fixed(64.0))
+    // Pie circle with only percentage inside
+    let pie_circle = widget::container(
+        widget::text::caption_heading(format!("{}%", percent))
+            .center()
     )
     .padding(4)
     .width(Length::Fixed(72.0))
@@ -42,11 +33,20 @@ pub fn usage_pie<'a>(used: u64, total: u64) -> Element<'a, Message> {
             )),
             border: cosmic::iced::Border {
                 color: theme.cosmic().accent_color().into(),
-                width: 2.0,
+                width: 4.0,  // 2x thicker
                 radius: 36.0.into(),
             },
             ..Default::default()
         }
-    })
+    });
+
+    // Column: pie circle above, Used/Total text below
+    iced_widget::column![
+        pie_circle,
+        widget::text::caption(used_text)
+            .center()
+    ]
+    .spacing(4)
+    .align_x(Alignment::Center)
     .into()
 }

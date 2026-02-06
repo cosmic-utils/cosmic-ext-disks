@@ -1,12 +1,13 @@
 use cosmic::iced::{Alignment, Length};
 use cosmic::widget::{self, icon};
 use cosmic::{Apply, Element, iced_widget};
-use disks_dbus::{DriveModel, bytes_to_pretty};
+use disks_dbus::DriveModel;
 
 use crate::app::Message;
+use crate::ui::volumes::usage_pie;
 use crate::fl;
 
-/// Renders the disk info header with icon, name/partitioning/serial, and used/total box.
+/// Renders the disk info header with icon, name/partitioning/serial, and usage pie chart.
 pub fn disk_header(drive: &DriveModel, used: u64) -> Element<'_, Message> {
     let partition_type = match &drive.partition_table_type {
         Some(t) => t.clone().to_uppercase(),
@@ -50,25 +51,14 @@ pub fn disk_header(drive: &DriveModel, used: u64) -> Element<'_, Message> {
         .spacing(4)
         .width(Length::Fill);
 
-    // Used / Total box (right-aligned)
-    let used_str = bytes_to_pretty(&used, false);
-    let total_str = bytes_to_pretty(&drive.size, false);
+    // Usage pie chart (right-aligned)
+    let pie_chart = usage_pie::usage_pie(used, drive.size);
 
-    let size_box = iced_widget::column![
-        widget::text::caption_heading(fl!("disk-usage")),
-        widget::text::body(format!("{} / {}", used_str, total_str))
-    ]
-    .spacing(4)
-    .align_x(Alignment::End)
-    .apply(widget::container)
-    .padding(10)
-    .class(cosmic::style::Container::Card);
-
-    // Row layout: icon | text_column | size_box
+    // Row layout: icon | text_column | pie_chart
     iced_widget::Row::new()
         .push(drive_icon)
         .push(text_column)
-        .push(size_box)
+        .push(pie_chart)
         .spacing(15)
         .align_y(Alignment::Center)
         .width(Length::Fill)

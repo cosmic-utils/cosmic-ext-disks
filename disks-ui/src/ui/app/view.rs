@@ -6,7 +6,7 @@ use crate::ui::dialogs::state::{
 };
 use crate::ui::dialogs::view as dialogs;
 use crate::ui::sidebar;
-use crate::ui::volumes::{VolumesControl, VolumesControlMessage, disk_header, usage_bar};
+use crate::ui::volumes::{VolumesControl, VolumesControlMessage, disk_header};
 use crate::utils::{DiskSegmentKind, labelled_info, link_info};
 use crate::views::about::about;
 use crate::views::menu::menu_view;
@@ -211,15 +211,13 @@ pub(crate) fn view(app: &AppModel) -> Element<'_, Message> {
             // Disk action buttons row
             let disk_actions = build_disk_action_bar(drive);
 
-            // Top section: Disk header + disk actions + volumes control + usage bar (1/3 of height)
+            // Top section: Disk header + disk actions + volumes control
             let top_section = iced_widget::column![
                 disk_header::disk_header(drive, used),
                 Space::new(0, 10),
                 widget::Row::from_vec(disk_actions).spacing(10),
                 Space::new(0, 10),
                 volumes_control.view(),
-                Space::new(0, 10),
-                usage_bar::usage_bar(&volumes_control.segments, drive.size)
             ]
             .spacing(10)
             .width(Length::Fill);
