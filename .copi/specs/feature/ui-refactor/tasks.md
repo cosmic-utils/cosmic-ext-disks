@@ -736,8 +736,241 @@
   - [x] Conversion from RotationRate enum: -1=Unknown, 0=NonRotating/SSD, >0=HDD RPM
 - Test plan: manual UI test on different drive types; verify buttons only appear for drives that support the operation.
 - Done when:
-  - [ ] New power management capability detection implemented.
-  - [ ] Standby/Wake buttons only appear for drives with spinning disks or SATA SSDs.
-  - [ ] NVMe drives do not show Standby/Wake buttons.
-  - [ ] Power Off button logic unchanged (still uses `can_power_off`).
+  - [x] New power management capability detection implemented.
+  - [x] Standby/Wake buttons only appear for drives with spinning disks or SATA SSDs.
+  - [x] NVMe drives do not show Standby/Wake buttons.
+  - [x] Power Off button logic unchanged (still uses `can_power_off`).
   - [ ] Tested on multiple drive types.
+
+---
+
+## Extended Scope Tasks — Phase 6: Additional UI Polish
+
+**Added:** 2026-02-06
+
+### Task 40: Fix treeview node alignment for expanders
+- Scope: nodes with and without expanders are not horizontally aligned in sidebar.
+- Files/areas:
+  - `disks-ui/src/ui/sidebar/view.rs` (push_volume_tree function)
+- Steps:
+  - Set fixed width for expander control (e.g., 24px).
+  - Always indent by expander width × 2 for child nodes:
+    - Nodes with expander: expander + (width × 1) indent
+    - Nodes without expander: (width × 2) indent
+  - Ensures all nodes at same depth align horizontally regardless of expander presence.
+  - Test with drives containing:
+    - Partitions (no expander)
+    - LUKS containers (has expander)
+    - Mixed hierarchy
+- Test plan: manual UI test; verify alignment consistency across all node types.
+- Done when:
+  - [ ] Expander has fixed width.
+  - [ ] All nodes at same depth align horizontally.
+  - [ ] Indentation formula: base + (expander_width × 2 × depth).
+  - [ ] Works with all node types (partition, LUKS, free space).
+
+### Task 41: Fix GPT usable range parsing errors
+- Scope: GPT reserved space calculations failing with "Could not parse GPT usable range" warnings.
+- Files/areas:
+  - `disks-dbus/src/disks/drive/discovery.rs` (GPT usable range parsing)
+  - `disks-dbus/src/disks/drive/mod.rs` or `gpt.rs` (GPT header parsing logic)
+- Steps:
+  - Investigate errors in logs:
+    - "Could not parse GPT usable range for /org/freedesktop/UDisks2/block_devices/sda"
+    - "Could not parse GPT usable range for /org/freedesktop/UDisks2/block_devices/nvme0n1"
+    - Currently falling back to conservative 1MiB bands
+  - Review UDisks2 PartitionTable interface properties:
+    - Check what property provides GPT FirstUsableLBA/LastUsableLBA
+    - May need to read from Drive interface or Block device properties
+  - Fix parsing logic to correctly extract usable range.
+  - Add error handling for edge cases (missing properties, invalid values).
+  - Verify reserved space calculations show correctly in UI.
+- Test plan: check logs for warnings; verify reserved space segments appear correctly in UI.
+- Done when:
+  - [ ] GPT usable range parsing succeeds without warnings.
+  - [ ] Reserved space calculations accurate for GPT disks.
+  - [ ] Falls back gracefully if properties unavailable.
+  - [ ] Tested on multiple GPT disks (SATA, NVMe).
+
+### Task 42: Rename About page to Settings and add "Show Reserved" toggle
+- Scope: convert About page to Settings, add user preference for showing reserved space.
+- Files/areas:
+  - `disks-ui/src/views/about.rs` → rename to `settings.rs`
+  - `disks-ui/src/views/mod.rs` (update module name)
+  - `disks-ui/src/config.rs` (add show_reserved field using cosmic config)
+  - `disks-ui/src/utils/segments.rs` (conditional reserved space logic)
+- Steps:
+  - Research COSMIC config system:
+    - Use cosmic::config for automatic (de)serialization
+    - Example: cosmic::config::Config trait
+  - Rename About view to Settings:
+    - Move `about.rs` to `settings.rs`
+    - Update all imports and references
+    - Keep existing About section, add Settings section
+  - Add config field:
+    - `pub show_reserved: bool` in Config struct
+    - Default: false (hide reserved by default)
+  - Add checkbox control:
+    - "Show Reserved Space" toggle in Settings view
+    - Bind to config.show_reserved
+    - Auto-save on change (cosmic config handles persistence)
+  - Update segment calculation:
+    - Check config.show_reserved before adding reserved segments
+    - If false, merge reserved space into adjacent free space
+  - Trigger UI refresh when setting changes.
+- Test plan: toggle setting; verify reserved space appears/disappears without restart.
+- Done when:
+  - [ ] About page renamed to Settings.
+  - [ ] Config field added with cosmic config integration.
+  - [ ] Checkbox control in Settings view.
+  - [ ] Reserved space visibility responds to toggle.
+  - [ ] Setting persists across application restarts.
+
+### Task 43: Fix edit partition icon (unset/not showing)
+- Scope: edit partition icon is missing or not displaying in UI.
+- Files/areas:
+  - `disks-ui/src/ui/app/view.rs` (build_partition_info or build_volume_node_info)
+- Steps:
+  - Locate edit partition button definition.
+  - Check current icon name (likely broken or non-existent).
+  - Replace with valid icon from COSMIC icon theme:
+    - Suggested: `document-edit-symbolic` or `edit-symbolic`
+  - Verify icon displays in UI.
+- Test plan: manual UI test; verify edit button shows icon.
+- Done when:
+  - [ ] Edit partition button has visible icon.
+  - [ ] Icon matches COSMIC design language.
+
+### Task 44: Create application icon using drive tree node icon
+- Scope: application needs proper icon; use existing drive icon as temporary solution.
+- Files/areas:
+  - `disks-ui/resources/icons/hicolor/` (icon installation directory)
+  - `disks-ui/resources/app.desktop` (icon reference)
+  - `disks-ui/resources/app.metainfo.xml` (icon metadata)
+- Steps:
+  - Identify current drive tree node icon being used in sidebar.
+  - Copy/export that icon as application icon:
+    - Multiple sizes: 16x16, 32x32, 48x48, 64x64, 128x128, 256x256
+    - Format: PNG or SVG
+  - Place in `resources/icons/hicolor/{size}/apps/` structure.
+  - Update app.desktop Icon= field to match filename.
+  - Update app.metainfo.xml with icon references.
+  - Rebuild and test icon appears in application launcher.
+  - Document that this is temporary; custom icon needed for production.
+- Test plan: install app; verify icon shows in launcher and window decorations.
+- Done when:
+  - [ ] Application icon installed at multiple sizes.
+  - [ ] Icon appears in COSMIC launcher.
+  - [ ] Icon appears in window title bar.
+  - [ ] Documented as temporary solution.
+
+### Task 45: Match format partition icon to format disk icon
+- Scope: format partition and format disk operations should use consistent iconography.
+- Files/areas:
+  - `disks-ui/src/ui/app/view.rs` (format partition button)
+  - `disks-ui/src/ui/volumes/disk_header.rs` (format disk button - if exists)
+- Steps:
+  - Identify format disk icon currently in use.
+  - Update format partition button to use same icon.
+  - Suggested icons: `edit-clear-symbolic` or `document-revert-symbolic`
+  - Ensure both operations have consistent visual identity.
+- Test plan: visual inspection; verify both format buttons use same icon.
+- Done when:
+  - [ ] Format partition icon matches format disk icon.
+  - [ ] Visual consistency across both operations.
+
+### Task 46: Preserve volume selection during mount/unmount/lock/unlock operations
+- Scope: selected volume resets to first item after state-changing operations.
+- Files/areas:
+  - `disks-ui/src/ui/app/update/mod.rs` (mount/unmount/lock/unlock message handlers)
+  - `disks-ui/src/ui/app/mod.rs` (state management)
+- Steps:
+  - Identify where selection state is stored:
+    - Likely in `App` struct or nav_bar model
+    - Track selected drive path and volume object_path
+  - Review mount/unmount/lock/unlock handlers:
+    - Check if they trigger full drive reload
+    - Determine if selection is explicitly cleared or implicitly lost
+  - Preserve selection strategy:
+    - Save selected volume object_path before operation
+    - After operation completes and drive reloads:
+      - Find volume with same object_path in new tree
+      - Restore selection to that volume
+      - If volume not found (e.g., deleted), select parent or first item
+  - Handle edge cases:
+    - Volume deleted during operation
+    - Volume object_path changed (e.g., LUKS unlock creates new child)
+    - Drive removed during operation
+- Test plan: mount/unmount/lock/unlock various volumes; verify selection stays on operated volume.
+- Done when:
+  - [ ] Selection preserved after mount operation.
+  - [ ] Selection preserved after unmount operation.
+  - [ ] Selection preserved after lock operation.
+  - [ ] Selection preserved after unlock operation (selects unlocked child if created).
+  - [ ] Graceful fallback if volume disappears.
+
+### Task 47: Add Create/Restore Partition Image buttons
+- Scope: complete implementation of partition image operations.
+- Files/areas:
+  - `disks-ui/src/ui/app/view.rs` (partition/volume action buttons)
+  - `disks-ui/src/views/dialogs.rs` (new dialogs for image operations)
+  - `disks-dbus/src/disks/image.rs` (backend implementation - already exists)
+- Steps:
+  - Add "Create Partition Image" button:
+    - Icon: `document-save-as-symbolic`
+    - Shows for all partitions and volumes
+    - Opens file picker dialog to select save location
+    - Progress dialog during image creation
+  - Add "Restore Partition Image" button:
+    - Icon: `document-revert-symbolic`
+    - Shows for all partitions and volumes
+    - Opens file picker to select image file
+    - Confirmation dialog (will overwrite partition data)
+    - Progress dialog during restore
+  - Wire to existing backend:
+    - `disks_dbus::disks::image` module already has infrastructure
+    - Connect UI messages to backend operations
+  - Handle errors:
+    - Insufficient disk space
+    - Permission errors
+    - Invalid image file format
+    - I/O errors during operation
+  - Add progress reporting (if not already present).
+- Test plan: create image from partition; restore image to same/different partition; verify data integrity.
+- Done when:
+  - [ ] Create Partition Image button appears on all partitions.
+  - [ ] Create operation opens file picker and saves image.
+  - [ ] Restore Partition Image button appears on all partitions.
+  - [ ] Restore operation opens file picker and restores image.
+  - [ ] Progress feedback during operations.
+  - [ ] Error handling for common failure cases.
+  - [ ] Tested with actual partition imaging workflow.
+
+### Task 48: Use eject for removable drives instead of power off
+- Scope: removable drives should show eject action, not power off.
+- Files/areas:
+  - `disks-ui/src/ui/volumes/disk_header.rs` (drive action buttons)
+- Steps:
+  - Review current power off button logic:
+    - Uses `can_power_off` check
+    - May also check `removable` flag
+  - Change button logic for removable drives:
+    - If `drive.removable` or `drive.ejectable`: show Eject button only
+    - If non-removable and `can_power_off`: show Power Off button
+    - Do not show both for same drive
+  - Eject is universal safe-removal for:
+    - USB drives
+    - SD cards
+    - External drives
+    - Optical media
+  - Power Off is for:
+    - Internal drives that support safe removal (rare)
+  - Update button icon/label:
+    - Eject: `media-eject-symbolic` / "Eject"
+    - Power Off: `system-shutdown-symbolic` / "Power Off"
+- Test plan: test with USB drive (eject), internal drive (power off if supported), verify correct action.
+- Done when:
+  - [ ] Removable drives show Eject button only.
+  - [ ] Non-removable drives show Power Off button (if supported).
+  - [ ] No drives show both buttons simultaneously.
+  - [ ] Tested with USB drive and internal drive.

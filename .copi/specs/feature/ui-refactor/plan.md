@@ -360,3 +360,134 @@ Standard partition types (like ext4 filesystems) are missing the following actio
 - Or query UDisks2 for actual power management capabilities
 
 **Impact:** Users see non-functional Standby/Wake buttons on NVMe drives, or don't see them on drives that do support power management.
+
+**Status:** ✅ Resolved in Task 39
+
+---
+
+## Remaining Issues — Phase 6
+
+**Added:** 2026-02-06
+
+### Treeview node alignment inconsistency
+Nodes with and without expanders are not horizontally aligned in the sidebar treeview. Nodes without expanders (regular partitions) appear misaligned compared to nodes with expanders (LUKS containers).
+
+**Issue:** The expander control doesn't have a fixed width, and nodes without expanders don't reserve space for one. This creates visual misalignment at the same hierarchy depth.
+
+**Proposed Fix:** 
+- Set fixed width for expander control (e.g., 24px)
+- Always indent by expander_width × 2 for child nodes:
+  - Nodes with expander: expander widget + (width × 1) additional indent
+  - Nodes without expander: (width × 2) empty indent
+- Formula: `indent = base + (expander_width × 2 × depth)`
+
+**Impact:** Poor visual hierarchy and difficult to scan tree structure.
+
+**Status:** 📋 Planned in Task 40
+
+### GPT reserved space calculation failures
+GPT usable range parsing is failing for multiple drives, falling back to conservative 1MiB bands:
+
+```
+WARN: Could not parse GPT usable range for /org/freedesktop/UDisks2/block_devices/sda; falling back to conservative 1MiB bands
+WARN: Could not parse GPT usable range for /org/freedesktop/UDisks2/block_devices/nvme0n1; falling back to conservative 1MiB bands
+```
+
+**Issue:** The code is unable to read FirstUsableLBA/LastUsableLBA from the UDisks2 PartitionTable interface. This may be due to:
+- Incorrect property name or interface query
+- Properties not exposed by UDisks2
+- Need to read GPT header directly from block device
+
+**Impact:** Reserved space segments show as free space, misleading users about available disk space. Conservative fallback may not accurately represent actual GPT layout.
+
+**Status:** 📋 Planned in Task 41
+
+### No Settings page for user preferences
+The application only has an "About" page with version information. User preferences (like "Show Reserved Space") need a dedicated Settings page.
+
+**Issue:** COSMIC provides a built-in config serialization manager (`cosmic::config`), but the app doesn't use it. The "Show Reserved" checkbox was previously in the volumes control but was removed. Users need a way to configure this preference.
+
+**Proposed Implementation:**
+- Rename "About" page to "Settings"
+- Keep About section, add Settings section above it
+- Add "Show Reserved Space" checkbox (default: false)
+- Use `cosmic::config::Config` trait for automatic persistence
+- Update segment calculations to respect this setting
+
+**Impact:** Users cannot control whether reserved space is shown, reducing flexibility.
+
+**Status:** 📋 Planned in Task 42
+
+### Edit partition icon not showing
+The edit partition button's icon is either unset or using an invalid icon name, resulting in no visible icon.
+
+**Issue:** Icon name may be incorrect or missing from COSMIC icon theme.
+
+**Proposed Fix:** Use `document-edit-symbolic` or `edit-symbolic`.
+
+**Impact:** Button is less discoverable without visual icon.
+
+**Status:** 📋 Planned in Task 43
+
+### Missing application icon
+The application doesn't have a proper icon set up in the installation/desktop entry.
+
+**Issue:** No application icon configured in `resources/app.desktop` and `resources/icons/hicolor/`.
+
+**Proposed Fix (Temporary):** Use the same icon currently used for drive tree nodes in the sidebar as the application icon until a proper custom icon is designed.
+
+**Impact:** Application is harder to identify in launcher and taskbar.
+
+**Status:** 📋 Planned in Task 44
+
+### Inconsistent format icons
+The format partition icon doesn't match the format disk icon, creating visual inconsistency.
+
+**Issue:** Different operations with similar purposes should use consistent iconography.
+
+**Proposed Fix:** Ensure both use the same icon (e.g., `edit-clear-symbolic`).
+
+**Impact:** Minor UX inconsistency; users may not recognize operations as related.
+
+**Status:** 📋 Planned in Task 45
+
+### Volume selection resets after state changes
+When mounting, unmounting, locking, or unlocking a volume, the selection resets to the first item in the list instead of staying on the operated volume.
+
+**Issue:** State-changing operations trigger a full drive reload, and the selection state is either cleared or not preserved across the reload.
+
+**Proposed Fix:**
+- Save selected volume's object_path before operation
+- After drive reload, find and reselect the same volume
+- Handle edge cases (volume deleted, object_path changed, etc.)
+
+**Impact:** Poor UX; user loses context after common operations.
+
+**Status:** 📋 Planned in Task 46
+
+### Missing Create/Restore Partition Image buttons
+Despite backend infrastructure existing in `disks_dbus::disks::image`, the UI buttons for creating and restoring partition images are still missing.
+
+**Issue:** Image operations were noted as TODO in Task 38 but require significant implementation work:
+- File picker dialogs for save/load
+- Progress reporting during image operations
+- Error handling for various failure cases
+- Confirmation dialogs for destructive restore operation
+
+**Impact:** Users cannot create backup images of partitions or restore from images, a key feature for disk management.
+
+**Status:** 📋 Planned in Task 47
+
+### Removable drives show Power Off instead of Eject
+Removable drives (USB, SD cards, external drives) show a "Power Off" button when they should show a universal "Eject" button.
+
+**Issue:** The button logic doesn't distinguish between removable and non-removable drives. "Eject" is the standard action for safely removing external media, while "Power Off" is for shutting down internal drives (rare capability).
+
+**Proposed Fix:**
+- If `drive.removable` or `drive.ejectable`: show Eject button only
+- If non-removable and `drive.can_power_off`: show Power Off button
+- Never show both buttons for the same drive
+
+**Impact:** Confusing terminology for removable drives; "Power Off" suggests shutting down the device rather than safe removal.
+
+**Status:** 📋 Planned in Task 48
