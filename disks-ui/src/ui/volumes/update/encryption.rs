@@ -13,7 +13,7 @@ use crate::ui::error::{UiErrorContext, log_error_and_show_dialog};
 use crate::ui::volumes::helpers;
 use disks_dbus::{DriveModel, VolumeKind, VolumeNode};
 
-use super::super::VolumesControl;
+use crate::ui::volumes::VolumesControl;
 
 pub(super) fn open_take_ownership(
     control: &mut VolumesControl,

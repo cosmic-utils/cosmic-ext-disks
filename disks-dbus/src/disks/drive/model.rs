@@ -2,7 +2,7 @@ use anyhow::Result;
 use udisks2::{block::BlockProxy, drive::DriveProxy};
 use zbus::{Connection, zvariant::OwnedObjectPath};
 
-use super::super::{ByteRange, VolumeModel, VolumeNode};
+use crate::disks::{ByteRange, VolumeModel, VolumeNode};
 
 #[derive(Debug, Clone)]
 pub struct DriveModel {

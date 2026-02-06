@@ -9,7 +9,7 @@ use crate::ui::dialogs::state::{
 use crate::ui::error::{UiErrorContext, log_error_and_show_dialog};
 use disks_dbus::DriveModel;
 
-use super::super::{VolumesControl, VolumesControlMessage};
+use crate::ui::volumes::{VolumesControl, VolumesControlMessage};
 
 pub(super) fn open_edit_filesystem_label(
     control: &mut VolumesControl,

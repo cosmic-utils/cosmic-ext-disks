@@ -2,8 +2,8 @@ use crate::ui::dialogs::message::SmartDialogMessage;
 use crate::ui::dialogs::state::{ShowDialog, SmartDataDialog};
 use cosmic::app::Task;
 
-use super::super::message::Message;
-use super::super::state::AppModel;
+use crate::ui::app::message::Message;
+use crate::ui::app::state::AppModel;
 
 pub(super) fn smart_dialog(app: &mut AppModel, msg: SmartDialogMessage) -> Task<Message> {
     let Some(ShowDialog::SmartData(state)) = app.dialog.clone() else {

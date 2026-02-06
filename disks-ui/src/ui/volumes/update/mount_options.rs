@@ -7,7 +7,7 @@ use crate::ui::dialogs::state::{EditMountOptionsDialog, FilesystemTarget, ShowDi
 use crate::ui::error::{UiErrorContext, log_error_and_show_dialog};
 use disks_dbus::DriveModel;
 
-use super::super::VolumesControl;
+use crate::ui::volumes::VolumesControl;
 
 pub(super) fn open_edit_mount_options(
     control: &mut VolumesControl,

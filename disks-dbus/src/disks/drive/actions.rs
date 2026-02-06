@@ -5,8 +5,8 @@ use udisks2::{block::BlockProxy, drive::DriveProxy};
 use zbus::zvariant::OwnedObjectPath;
 use zbus::zvariant::Value;
 
-use super::super::VolumeNode;
-use super::super::ops::{RealDiskBackend, drive_create_partition};
+use crate::disks::VolumeNode;
+use crate::disks::ops::{RealDiskBackend, drive_create_partition};
 use super::is_anyhow_device_busy;
 use super::is_anyhow_not_supported;
 use super::model::DriveModel;
@@ -50,12 +50,12 @@ impl DriveModel {
 
     pub async fn open_for_backup(&self) -> Result<std::os::fd::OwnedFd> {
         let block_object_path: OwnedObjectPath = self.block_path.as_str().try_into()?;
-        super::super::image::open_for_backup(block_object_path).await
+        crate::disks::image::open_for_backup(block_object_path).await
     }
 
     pub async fn open_for_restore(&self) -> Result<std::os::fd::OwnedFd> {
         let block_object_path: OwnedObjectPath = self.block_path.as_str().try_into()?;
-        super::super::image::open_for_restore(block_object_path).await
+        crate::disks::image::open_for_restore(block_object_path).await
     }
 
     pub async fn standby_now(&self) -> Result<()> {

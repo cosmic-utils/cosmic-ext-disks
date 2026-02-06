@@ -8,7 +8,7 @@ use crate::ui::error::{UiErrorContext, log_error_and_show_dialog};
 use crate::ui::volumes::helpers;
 use disks_dbus::{CreatePartitionInfo, DriveModel};
 
-use super::super::VolumesControl;
+use crate::ui::volumes::VolumesControl;
 
 pub(super) fn create_message(
     control: &mut VolumesControl,

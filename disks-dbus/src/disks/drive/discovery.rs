@@ -7,7 +7,7 @@ use udisks2::{
 };
 use zbus::{Connection, zvariant::OwnedObjectPath};
 
-use super::super::{
+use crate::disks::{
     BlockIndex, VolumeModel, fallback_gpt_usable_range_bytes, manager::UDisks2ManagerProxy,
     probe_gpt_usable_range_bytes,
 };

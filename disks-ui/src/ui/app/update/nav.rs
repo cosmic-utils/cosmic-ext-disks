@@ -4,7 +4,7 @@ use cosmic::widget::icon;
 use disks_dbus::DriveModel;
 use std::collections::HashMap;
 
-use super::super::state::AppModel;
+use crate::ui::app::state::AppModel;
 
 pub(super) fn update_nav(
     app: &mut AppModel,

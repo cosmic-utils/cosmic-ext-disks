@@ -5,8 +5,8 @@ use crate::ui::error::{UiErrorContext, log_error_and_show_dialog};
 use cosmic::app::Task;
 use disks_dbus::DriveModel;
 
-use super::super::message::Message;
-use super::super::state::AppModel;
+use crate::ui::app::message::Message;
+use crate::ui::app::state::AppModel;
 
 pub(super) fn format_disk(app: &mut AppModel, msg: FormatDiskMessage) -> Task<Message> {
     let Some(ShowDialog::FormatDisk(state)) = app.dialog.as_mut() else {

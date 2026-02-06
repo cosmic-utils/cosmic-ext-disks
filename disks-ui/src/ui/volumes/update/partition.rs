@@ -11,7 +11,7 @@ use crate::ui::volumes::helpers;
 use crate::utils::DiskSegmentKind;
 use disks_dbus::{CreatePartitionInfo, DriveModel, VolumeKind, VolumeModel, VolumeNode};
 
-use super::super::VolumesControl;
+use crate::ui::volumes::VolumesControl;
 
 pub(super) fn delete(
     control: &mut VolumesControl,

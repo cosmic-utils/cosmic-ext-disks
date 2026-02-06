@@ -2,7 +2,7 @@ use anyhow::Result;
 use udisks2::encrypted::EncryptedProxy;
 use zbus::Connection;
 
-use super::super::{BlockIndex, VolumeKind, VolumeNode};
+use crate::disks::{BlockIndex, VolumeKind, VolumeNode};
 use super::model::DriveModel;
 
 impl DriveModel {

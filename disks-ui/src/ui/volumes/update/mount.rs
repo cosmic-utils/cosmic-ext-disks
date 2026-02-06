@@ -5,7 +5,7 @@ use crate::app::Message;
 use crate::ui::volumes::helpers;
 use disks_dbus::DriveModel;
 
-use super::super::VolumesControl;
+use crate::ui::volumes::VolumesControl;
 
 /// Generic helper for volume mount/unmount operations
 fn perform_volume_operation<F, Fut>(

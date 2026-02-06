@@ -3,7 +3,7 @@ use cosmic::Task;
 use crate::app::Message;
 use crate::ui::dialogs::state::ShowDialog;
 
-use super::super::VolumesControl;
+use crate::ui::volumes::VolumesControl;
 
 pub(super) fn segment_selected(
     control: &mut VolumesControl,

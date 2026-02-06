@@ -12,8 +12,8 @@ use std::sync::{
 };
 use tokio::fs::OpenOptions;
 
-use super::super::super::message::Message;
-use super::super::super::state::AppModel;
+use crate::ui::app::message::Message;
+use crate::ui::app::state::AppModel;
 use super::ops::run_image_operation;
 
 pub(super) fn new_disk_image(app: &mut AppModel) {
