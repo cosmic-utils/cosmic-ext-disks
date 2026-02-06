@@ -52,7 +52,6 @@ impl PartitionTypeInfo {
         flags: PartitionTypeInfoFlags,
         filesystem_type: &'static str,
     ) -> Self {
-        //TODO: wrap name with gettext call
         Self {
             table_type,
             table_subtype,

@@ -641,7 +641,6 @@ impl VolumeModel {
         }))
     }
 
-    //TODO: implement. See how edit mount options -> User session defaults works in gnome-disks.
     pub async fn default_mount_options(&self) -> Result<()> {
         if self.connection.is_none() {
             return Err(DiskError::NotConnected(self.name.clone()).into());
@@ -662,7 +661,6 @@ impl VolumeModel {
         Ok(())
     }
 
-    //TODO: implement. Look at gnome-disks -> partition -> edit mount options. Likely make all params optional.
     #[allow(clippy::too_many_arguments)]
     pub async fn edit_mount_options(
         &self,
@@ -863,7 +861,6 @@ impl VolumeModel {
         Ok(())
     }
 
-    //TODO: implement. creates a *.img of self.
     pub async fn create_image(&self, _output_path: String) -> Result<()> {
         if self.connection.is_none() {
             return Err(DiskError::NotConnected(self.name.clone()).into());

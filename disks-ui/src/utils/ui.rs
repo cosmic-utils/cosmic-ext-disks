@@ -26,7 +26,7 @@ pub fn input_spinner<'a, Message: 'static + Clone>(
             .on_input(move |v| {
                 match pretty_to_bytes(&v) {
                     Ok(v) => (text_edit)((v as f64).clamp(min, max)),
-                    Err(_) => (text_edit)(value), //TODO: Validation
+                    Err(_) => (text_edit)(value),
                 }
             }),
         button::text("+").on_press((on_edit)(value + step)),

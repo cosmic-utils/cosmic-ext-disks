@@ -119,6 +119,10 @@ impl DriveModel {
     }
 
     pub fn name(&self) -> String {
-        self.name.split('/').next_back().unwrap().replace('_', " ") //TODO: Handle unwrap
+        self.name
+            .split('/')
+            .next_back()
+            .unwrap_or(&self.name)
+            .replace('_', " ")
     }
 }

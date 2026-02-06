@@ -25,7 +25,7 @@ pub fn bytes_to_pretty(bytes: &u64, add_bytes: bool) -> String {
     };
 
     if add_bytes {
-        let bytes_str = bytes.to_formatted_string(&Locale::en); //TODO: Accept locale as a parameter.
+        let bytes_str = bytes.to_formatted_string(&Locale::en);
         format!("{:.2} {} ({} bytes)", val, unit, bytes_str)
     } else {
         format!("{:.2} {}", val, unit)
