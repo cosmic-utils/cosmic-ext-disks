@@ -236,11 +236,11 @@
   - Test with different volume types (partition, container, logical volume, etc.).
 - Test plan: manual UI test; select volumes from both treeview and volumes control; verify selection syncs and detail view updates correctly.
 - Done when:
-  - [ ] Bottom 2/3 section displays selected volume details.
-  - [ ] Action buttons relocated from volumes control and functional.
-  - [ ] Placeholder shown when no volume is selected.
-  - [ ] Selection in volumes control updates treeview selection.
-  - [ ] Selection in treeview updates volumes control selection.
+  - [x] Bottom 2/3 section displays selected volume details.
+  - [x] Action buttons relocated from volumes control and functional.
+  - [x] Placeholder shown when no volume is selected.
+  - [x] Selection in volumes control updates treeview selection.
+  - [x] Selection in treeview updates volumes control selection.
 
 ## Task 14: Integration & polish (split view + usage bar + compact control)
 - Scope: ensure all components work together seamlessly and address any visual/layout issues.
@@ -258,6 +258,6 @@
   - Run `cargo test --workspace --all-features` and manual smoke tests.
 - Test plan: comprehensive manual UI testing across different drives and window sizes.
 - Done when:
-  - [ ] All extended scope acceptance criteria are met.
-  - [ ] No regressions in existing features.
-  - [ ] Visual polish is complete.
+  - [x] All extended scope acceptance criteria are met.
+  - [x] No regressions in existing features.
+  - [x] Visual polish is complete.

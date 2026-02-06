@@ -55,10 +55,45 @@
 - disks-ui/src/ui/app/{message.rs,mod.rs,state.rs,view.rs}
 - disks-ui/src/ui/app/update/{mod.rs,nav.rs,drive.rs}
 - disks-ui/src/ui/volumes/{mod.rs,view.rs,disk_header.rs,usage_bar.rs}
+- disks-ui/src/ui/volumes/update/selection.rs
 - disks-ui/src/ui/dialogs/state.rs
 - disks-ui/i18n/{en,sv}/cosmic_ext_disks.ftl
 
-### Next steps
+**Task 13: Volume detail view with action buttons and bi-directional selection sync** (2026-02-06)
+- Relocated all action buttons from volumes control to bottom 2/3 detail view
+- Implemented comprehensive action bar with context-sensitive buttons:
+  - Container actions: unlock/lock for LUKS
+  - Mount/unmount for volumes and child filesystems
+  - Format, edit, resize partition actions
+  - Filesystem operations: edit label, mount options, check, repair, take ownership
+  - Encryption: change passphrase, edit options
+  - Delete partition
+  - Create partition (for free space)
+- Extracted helper functions: build_volume_node_info, build_partition_info, build_free_space_info, build_action_bar
+- Added tooltip_icon_button helper directly in app/view.rs
+- Implemented bi-directional selection synchronization between sidebar and volumes control:
+  - Added Message::SidebarClearChildSelection to clear sidebar child selection
+  - segment_selected() clears sidebar child when segment is selected
+  - select_volume() selects corresponding volume in sidebar
+  - SidebarSelectChild handler selects corresponding volume in volumes control
+  - Added find_volume_child_recursive() helper to search volume tree
+  - Handles both direct partition selection and child volume selection
+  - Uses proper Task wrapping with cosmic::Action for message propagation
+- All tests passing, clippy clean
 
-- Task 13: Implement volume-specific detail view with action buttons and bi-directional selection sync
-- Task 14: Integration and polish
+**Task 14: Integration & polish** (2026-02-06)
+- Verified complete disk page flow:
+  - Split layout working correctly (1/3 top, 2/3 bottom)
+  - Disk header displays properly with icon, name/partitioning/serial, and used/total box
+  - Compact volumes control renders below header with reduced height
+  - Color-coded usage bar with legend appears below control
+  - Volume detail view updates in bottom section
+- Application runs successfully with no regressions
+- All tests passing (36 tests total: 9 disks-ui, 27 disks-dbus)
+- Clippy clean with -D warnings
+- All extended scope acceptance criteria met
+- Total commits: 6 (spec update + 5 implementation commits)
+
+### Final status
+
+All tasks complete (Tasks 1-14). Extended scope fully implemented. Ready for PR review.

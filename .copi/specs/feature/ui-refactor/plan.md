@@ -207,19 +207,19 @@ After establishing the treeview sidebar, the next phase refines the main content
   - Mitigation: ensure the new location is intuitive and consistent with volume selection.
 
 ### Acceptance Criteria
-- [ ] Disk page layout splits into two sections: top 1/3 for disk header, bottom 2/3 for volume content.
-- [ ] Disk info header renders: large icon | (name, partitioning, serial) | used/total box.
-- [ ] Volumes control:
-  - [ ] Reduced to ~50% vertical height.
-  - [ ] Shows only name & size per volume row.
-  - [ ] "Show Reserved" checkbox removed (logic retained in state).
-  - [ ] "Volumes" label/header removed.
-  - [ ] Action buttons removed (deferred to volume-specific view).
-- [ ] Color-coded usage bar renders below the volumes control:
-  - [ ] Horizontal stacked segments proportional to volume usage.
-  - [ ] Each volume has a distinct color.
-  - [ ] Center-aligned legend shows volume name and usage.
-- [ ] Volume selection synchronizes bi-directionally:
-  - [ ] Selecting a volume in the volumes control updates treeview selection and shows volume detail view.
-  - [ ] Selecting a volume sub-item in the treeview updates volumes control selection and shows volume detail view.
-- [ ] No regressions in existing disk selection, navigation, or dialog behavior.
+- [x] Disk page layout splits into two sections: top 1/3 for disk header, bottom 2/3 for volume content.
+- [x] Disk info header renders: large icon | (name, partitioning, serial) | used/total box.
+- [x] Volumes control:
+  - [x] Reduced to ~50% vertical height.
+  - [x] Shows only name & size per volume row.
+  - [x] "Show Reserved" checkbox removed (logic retained in state).
+  - [x] "Volumes" label/header removed.
+  - [x] Action buttons removed (deferred to volume-specific view).
+- [x] Color-coded usage bar renders below the volumes control:
+  - [x] Horizontal stacked segments proportional to volume usage.
+  - [x] Each volume has a distinct color.
+  - [x] Center-aligned legend shows volume name and usage.
+- [x] Volume selection synchronizes bi-directionally:
+  - [x] Selecting a volume in the volumes control updates treeview selection and shows volume detail view.
+  - [x] Selecting a volume sub-item in the treeview updates volumes control selection and shows volume detail view.
+- [x] No regressions in existing disk selection, navigation, or dialog behavior.
