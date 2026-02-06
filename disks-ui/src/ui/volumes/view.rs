@@ -221,6 +221,7 @@ impl VolumesControl {
     }
 }
 
+#[allow(dead_code)]
 fn tooltip_icon_button(
     icon_name: &str,
     tooltip: String,

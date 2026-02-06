@@ -6,6 +6,7 @@ use crate::ui::dialogs::message::{
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[allow(dead_code)]
 pub enum VolumesControlMessage {
     SegmentSelected(usize),
     SelectVolume {

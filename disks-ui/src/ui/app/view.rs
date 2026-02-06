@@ -3,7 +3,7 @@ use super::state::{AppModel, ContextPage};
 use crate::fl;
 use crate::ui::dialogs::view as dialogs;
 use crate::ui::sidebar;
-use crate::ui::volumes::{VolumesControl, VolumesControlMessage, disk_header};
+use crate::ui::volumes::{VolumesControl, VolumesControlMessage, disk_header, usage_bar};
 use crate::utils::{labelled_info, link_info};
 use crate::views::about::about;
 use crate::views::menu::menu_view;
@@ -204,11 +204,13 @@ pub(crate) fn view(app: &AppModel) -> Element<'_, Message> {
                 .map(|v| v.size)
                 .sum();
 
-            // Top section: Disk header + volumes control (1/3 of height)
+            // Top section: Disk header + volumes control + usage bar (1/3 of height)
             let top_section = iced_widget::column![
                 disk_header::disk_header(drive, used),
                 Space::new(0, 20),
-                volumes_control.view()
+                volumes_control.view(),
+                Space::new(0, 10),
+                usage_bar::usage_bar(&volumes_control.segments, drive.size)
             ]
             .spacing(10)
             .width(Length::Fill);

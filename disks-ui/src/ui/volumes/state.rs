@@ -15,6 +15,7 @@ pub struct VolumesControl {
 }
 
 #[derive(Clone, Debug)]
+#[allow(dead_code)]
 pub struct Segment {
     pub label: String,
     pub name: String,
@@ -78,6 +79,7 @@ impl Segment {
         }
     }
 
+    #[allow(dead_code)]
     pub fn get_create_info(&self) -> CreatePartitionInfo {
         CreatePartitionInfo {
             max_size: self.size,
