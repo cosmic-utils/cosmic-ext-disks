@@ -117,3 +117,109 @@ Current navigation is built on COSMIC’s built-in nav bar widget and model:
 - [ ] Selecting a drive still activates the correct page and updates window title.
 - [ ] Selecting a child node (partition/container/volume) does not change the main view yet (still shows the parent drive view).
 - [ ] No regressions in condensed vs non-condensed layouts (manual QA).
+
+---
+
+## Extended Scope — Disk Page Split View & Volumes Control Redesign
+
+**Added:** 2026-02-06
+
+### Context
+After establishing the treeview sidebar, the next phase refines the main content area when a disk is selected. Currently, the entire view is consumed by the volumes control. This extended scope introduces:
+1. A **split view** for disk pages: top 1/3 for disk-level info, bottom 2/3 for volume/container content.
+2. A **redesigned disk info header** with improved layout and styling.
+3. A **compact volumes control** that reduces vertical space and removes extraneous elements.
+4. A **color-coded usage bar** below the volumes control showing stacked usage per volume with a legend.
+
+### Goals
+1. **Split disk page layout:**
+   - Disk-level information (header) takes the top 1/3 of the content view.
+   - Volume/container/partition content takes the bottom 2/3.
+2. **Disk info header redesign:**
+   - Layout (left to right):
+     - Large icon
+     - Name only (no serial), partitioning scheme beneath, serial beneath, all left-aligned
+     - Right-aligned box displaying Used / Total size
+   - Below this header: the volumes control.
+3. **Volumes control compaction:**
+   - Reduce vertical height by ~50%.
+   - Show only name & size per volume section.
+   - Remove the "Show Reserved" checkbox (keep backing logic for future settings dialog).
+   - Move action buttons from the volumes control into the volume-specific view (bottom 2/3 area).
+   - Remove the "Volumes" header label above the control.
+4. **Color-coded usage bar:**
+   - Add a horizontally stacked usage bar under the volumes control.
+   - Each segment represents a volume's usage (like a multi-segment progress bar).
+   - Center-aligned legend beneath the bar showing volume name and usage amount.
+
+### Non-Goals
+- Redesign of dialogs or other views beyond the disk page.
+- Backend changes to usage calculation logic.
+- Full settings dialog implementation (only reserve logic for "Show Reserved").
+
+### Proposed Approach
+1. **Split layout implementation:**
+   - Refactor `disks-ui/src/views/volumes.rs` (or equivalent disk page view) to render two sections:
+     - Top section: disk header component (~1/3 height).
+     - Bottom section: placeholder for volume-specific content view (~2/3 height).
+   - Use a `Column` with appropriate spacing and fixed/flex ratios.
+2. **Disk info header redesign:**
+   - Create a dedicated header component:
+     - Row layout: `icon | (name, partitioning, serial) | used/total box`.
+     - Icon: large size (e.g., 64px or appropriate for header).
+     - Text block: left-aligned; name bold, partitioning and serial in secondary text style.
+     - Size box: right-aligned, distinct background/border, shows "Used / Total".
+   - Replace the current header rendering in the disk page view.
+3. **Volumes control compaction:**
+   - Modify `disks-ui/src/ui/volumes/` components:
+     - Reduce per-volume row height (target ~50% of current).
+     - Display only name and size per row (remove other metadata).
+     - Remove "Show Reserved" checkbox UI; retain the backing filter logic in state.
+     - Remove "Volumes" label/header.
+     - Remove action buttons from the control itself (defer to volume-specific view).
+   - Ensure the control still provides segment selection for the usage bar and volume-specific view.
+4. **Color-coded usage bar:**
+   - Implement a new widget under the volumes control:
+     - Render as a horizontal row of colored segments, each proportional to volume usage.
+     - Assign distinct colors per volume (use a palette or hash-based scheme).
+     - Below the bar: render a legend (center-aligned) showing each volume's name and usage.
+   - Wire the bar to the same volume data used by the volumes control.
+   - Ensure the bar updates when volumes change or are resized.
+
+### User/System Flows
+- User selects a disk in sidebar: disk page opens with the new split layout.
+- Top 1/3 shows disk header: large icon, name/partitioning/serial, and used/total box.
+- Below that: compact volumes control (no header, no checkboxes, no action buttons).
+- Below the control: color-coded usage bar with legend.
+- User clicks a volume in the control OR in the treeview sidebar: 
+  - Bottom 2/3 view updates to show that volume's details (with action buttons).
+  - Selection state synchronizes in both places (volumes control highlights the volume, treeview highlights the sub-item).
+- User resizes or modifies volumes: usage bar updates to reflect new layout.
+
+### Risks & Mitigations
+- **Fixed height ratios may not work on small screens:**
+  - Mitigation: use flex ratios that adapt; ensure both sections have minimum heights and scrollability where needed.
+- **Usage bar complexity with many small volumes:**
+  - Mitigation: set a minimum segment width; if too many volumes, consider a scrollable legend or overflow behavior.
+- **Removing "Show Reserved" checkbox may confuse users:**
+  - Mitigation: document the change; plan for a settings dialog in a future iteration.
+- **Action button relocation may disrupt muscle memory:**
+  - Mitigation: ensure the new location is intuitive and consistent with volume selection.
+
+### Acceptance Criteria
+- [ ] Disk page layout splits into two sections: top 1/3 for disk header, bottom 2/3 for volume content.
+- [ ] Disk info header renders: large icon | (name, partitioning, serial) | used/total box.
+- [ ] Volumes control:
+  - [ ] Reduced to ~50% vertical height.
+  - [ ] Shows only name & size per volume row.
+  - [ ] "Show Reserved" checkbox removed (logic retained in state).
+  - [ ] "Volumes" label/header removed.
+  - [ ] Action buttons removed (deferred to volume-specific view).
+- [ ] Color-coded usage bar renders below the volumes control:
+  - [ ] Horizontal stacked segments proportional to volume usage.
+  - [ ] Each volume has a distinct color.
+  - [ ] Center-aligned legend shows volume name and usage.
+- [ ] Volume selection synchronizes bi-directionally:
+  - [ ] Selecting a volume in the volumes control updates treeview selection and shows volume detail view.
+  - [ ] Selecting a volume sub-item in the treeview updates volumes control selection and shows volume detail view.
+- [ ] No regressions in existing disk selection, navigation, or dialog behavior.
