@@ -68,6 +68,31 @@ Current navigation is built on COSMIC’s built-in nav bar widget and model:
   - Centralize mapping from `DriveModel`/device attributes into the 4 sections.
   - Keep rules extensible for future LVM/Apple support.
 
+## Concrete Mapping (current implementation)
+
+### Sections
+
+| Section | Rule |
+|---|---|
+| Images | `DriveModel.is_loop == true` OR `DriveModel.backing_file.is_some()` |
+| External | `DriveModel.removable == true` |
+| Internal | default |
+| Logical | reserved for future (currently empty) |
+
+### Node kinds
+
+| Node kind | Data source | Children |
+|---|---|---|
+| Drive | `DriveModel` | `DriveModel.volumes` (tree of `VolumeNode`) |
+| Volume/Container/Partition | `VolumeNode` | `VolumeNode.children` |
+
+### Row actions
+
+| Node | Primary action | Kebab menu |
+|---|---|---|
+| Drive | Eject/remove when `is_loop || removable || ejectable` | Disk-menu actions targeting that drive |
+| VolumeNode | Unmount when mounted | Disk-menu actions targeting the parent drive |
+
 ## User/System Flows
 - Startup: drives loaded → sidebar sections populated → first eligible drive selected.
 - User selects drive: main view updates to that drive’s volumes; title updates.

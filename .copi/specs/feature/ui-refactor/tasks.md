@@ -12,7 +12,7 @@
     - Volume: Unmount (if mounted) + kebab (Disk menu actions may still target the parent drive)
 - Test plan: manual inspection on a machine with at least one internal and one removable drive.
 - Done when:
-  - [ ] Spec includes a short, concrete mapping table for sections and node kinds.
+  - [x] Spec includes a short, concrete mapping table for sections and node kinds.
 
 ## Task 2: Add a sidebar tree view module (static prototype)
 - Scope: create a UI component that renders section headers + a treeview row layout.
@@ -30,7 +30,7 @@
   - Wire it into `view::nav_bar()` behind a temporary switch.
 - Test plan: `cargo build -p cosmic-ext-disks`.
 - Done when:
-  - [ ] Sidebar renders with static sample tree data and correct row layout.
+  - [x] Sidebar renders with static sample tree data and correct row layout.
 
 ## Task 3: Build the top-level tree from DriveModel list
 - Scope: populate the sidebar from the same drive list used by `Message::UpdateNav`.
@@ -43,7 +43,7 @@
   - Ensure stable keys (likely `DriveModel.block_path`).
 - Test plan: run app and confirm drives appear under the expected sections.
 - Done when:
-  - [ ] Sidebar shows the real top-level drives/images grouped by section.
+  - [x] Sidebar shows the real top-level drives/images grouped by section.
 
 ## Task 4: Implement expand/collapse + selection semantics
 - Scope: tree interactions without breaking existing navigation behavior.
@@ -58,8 +58,8 @@
   - Preserve the existing “don’t switch while dialog is open” behavior.
 - Test plan: manual: expand/collapse + select; confirm title updates and volumes view changes.
 - Done when:
-  - [ ] Selection behaves like current nav selection.
-  - [ ] Expansion state persists across refreshes where possible.
+  - [x] Selection behaves like current nav selection.
+  - [x] Expansion state persists across refreshes where possible.
 
 ## Task 5: Add row primary action button (Eject/Unmount)
 - Scope: implement the dedicated trailing action button per row.
@@ -75,7 +75,7 @@
   - Ensure button press does not change selection.
 - Test plan: manual test with a removable drive and a mounted volume.
 - Done when:
-  - [ ] Eject/Unmount triggers the correct command.
+  - [x] Eject/Unmount triggers the correct command.
 
 ## Task 6: Add kebab popup menu mirroring “Disk” menu actions
 - Scope: kebab opens a contextual popup menu with Disk actions.
@@ -91,7 +91,7 @@
   - Make the menu contextual (hide/disable non-applicable actions).
 - Test plan: manual: open menu, click each item, verify behavior matches the top menu.
 - Done when:
-  - [ ] Kebab menu exposes Disk actions and triggers them.
+  - [x] Kebab menu exposes Disk actions and triggers them.
 
 ## Task 7: Add children under drives (containers/volumes/partitions)
 - Scope: populate the tree beneath a drive with the best-available hierarchy.
@@ -105,8 +105,8 @@
   - Ensure selecting a child node does **not** change the main view yet (still shows the parent drive view). We only need selection state for later UI.
 - Test plan: manual on a drive with partitions; verify tree nodes match what the main view shows.
 - Done when:
-  - [ ] Children appear under a drive and are selectable.
-  - [ ] Clicking a child node keeps showing the drive view.
+  - [x] Children appear under a drive and are selectable.
+  - [x] Clicking a child node keeps showing the drive view.
 
 ## Task 8: Remove dependency on built-in nav bar widget (cleanup)
 - Scope: stop rendering `widget::nav_bar(...)` and consolidate to the custom sidebar.
@@ -119,4 +119,4 @@
   - Update docs/spec with final architecture.
 - Test plan: `cargo test --workspace --all-features` + manual UI smoke test.
 - Done when:
-  - [ ] No remaining usage of built-in nav bar rendering.
+  - [x] No remaining usage of built-in nav bar rendering.
