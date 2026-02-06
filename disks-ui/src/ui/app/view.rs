@@ -65,8 +65,8 @@ pub(crate) fn dialog(app: &AppModel) -> Option<Element<'_, Message>> {
 
             crate::ui::dialogs::state::ShowDialog::ConfirmAction(state) => {
                 Some(dialogs::confirmation(
-                    state.title.clone(),
-                    state.body.clone(),
+                    &state.title,
+                    &state.body,
                     state.ok_message.clone(),
                     Some(Message::CloseDialog),
                     state.running,
@@ -109,11 +109,9 @@ pub(crate) fn dialog(app: &AppModel) -> Option<Element<'_, Message>> {
                 Some(dialogs::image_operation(state.as_ref().clone()))
             }
 
-            crate::ui::dialogs::state::ShowDialog::Info { title, body } => Some(dialogs::info(
-                title.clone(),
-                body.clone(),
-                Message::CloseDialog,
-            )),
+            crate::ui::dialogs::state::ShowDialog::Info { title, body } => {
+                Some(dialogs::info(title, body, Message::CloseDialog))
+            }
         },
         None => None,
     }

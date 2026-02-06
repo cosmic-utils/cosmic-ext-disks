@@ -1,5 +1,33 @@
 # feature/ui-refactor — Implementation Log
 
+## 2026-02-06 (Phase 6 & 7 - Additional Audit Fixes)
+
+**Additional Clone Reduction (GAP-001 continued):**
+- **partition.rs**: Eliminated double-clone in delete logic (`segment.clone()` after `.cloned()`)
+- **partition.rs**: Simplified nested match/Option unwrapping with `let-else` pattern
+- **view.rs**: Reduced dialog state clones by using references where possible (ConfirmAction, Info dialogs)
+- Additional clones eliminated: ~8 instances
+- **Total clone reduction: ~23 instances (46% of audit target)**
+
+**Nesting Depth Reduction (GAP-007):**
+- **update/mod.rs**: Extracted `find_segment_for_volume` helper function (45 lines)
+- **update/mod.rs**: Simplified `SidebarSelectChild` handler from 6 levels to 3 levels of nesting
+- Reduced complex nested if-let-for loop to guard clauses + helper function
+- Improved readability and maintainability of sidebar volume selection logic
+
+**Files Modified (Phase 6 & 7):**
+```
+disks-ui/src/ui/app/update/mod.rs       (+45 helper, -10 complexity)
+disks-ui/src/ui/app/view.rs             (-4 clones in dialogs)
+disks-ui/src/ui/volumes/update/partition.rs (-12 lines, removed double-clone)
+```
+
+**Build Status:**
+- `cargo check`: ✅ Pass (0 errors, 4 warnings)
+- Warnings: unused fields/methods (expected)
+
+---
+
 ## 2026-02-06 (Phase 5 - Code Quality Audit Fixes)
 
 **Audit Implementation: Applied GAP-001 through GAP-010 fixes ✅**

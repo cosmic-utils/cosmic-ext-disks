@@ -31,6 +31,37 @@ fn find_volume_child_recursive<'a>(
     None
 }
 
+/// Find the segment index and whether the volume is a child for a given object path
+fn find_segment_for_volume(
+    volumes_control: &VolumesControl,
+    object_path: &str,
+) -> Option<(usize, bool)> {
+    for (segment_idx, segment) in volumes_control.segments.iter().enumerate() {
+        let Some(segment_vol) = &segment.volume else {
+            continue;
+        };
+
+        // Direct match (partition itself)
+        if segment_vol.path.as_str() == object_path {
+            return Some((segment_idx, false));
+        }
+
+        // Check if volume is a child of this segment's partition
+        let Some(segment_node) = volumes_helpers::find_volume_node(
+            &volumes_control.model.volumes,
+            segment_vol.path.as_str(),
+        ) else {
+            continue;
+        };
+
+        if find_volume_child_recursive(&segment_node.children, object_path).is_some() {
+            return Some((segment_idx, true));
+        }
+    }
+
+    None
+}
+
 /// Handles messages emitted by the application and its widgets.
 pub(crate) fn update(app: &mut AppModel, message: Message) -> Task<Message> {
     match message {
@@ -146,58 +177,36 @@ pub(crate) fn update(app: &mut AppModel, message: Message) -> Task<Message> {
             app.sidebar.selected_child = Some(SidebarNodeKey::Volume(object_path.clone()));
 
             // Sync with volumes control: select the corresponding volume
-            if let Some(volumes_control) = app.nav.active_data_mut::<VolumesControl>() {
-                // Search for the volume in the full volume tree
-                if let Some(vol_node) =
-                    volumes_helpers::find_volume_node(&volumes_control.model.volumes, &object_path)
-                {
-                    // Find which segment this volume belongs to
-                    let mut target_segment_idx = None;
-                    let mut target_is_child = false;
+            let Some(volumes_control) = app.nav.active_data_mut::<VolumesControl>() else {
+                return Task::none();
+            };
 
-                    for (segment_idx, segment) in volumes_control.segments.iter().enumerate() {
-                        if let Some(segment_vol) = &segment.volume {
-                            // Check if this is a direct match (partition)
-                            if segment_vol.path.as_str() == object_path {
-                                target_segment_idx = Some(segment_idx);
-                                target_is_child = false;
-                                break;
-                            }
+            let Some(vol_node) =
+                volumes_helpers::find_volume_node(&volumes_control.model.volumes, &object_path)
+            else {
+                return Task::none();
+            };
 
-                            // Check if this volume is a child of this segment's partition
-                            if let Some(segment_node) = volumes_helpers::find_volume_node(
-                                &volumes_control.model.volumes,
-                                segment_vol.path.as_str(),
-                            ) && find_volume_child_recursive(
-                                &segment_node.children,
-                                &object_path,
-                            )
-                            .is_some()
-                            {
-                                target_segment_idx = Some(segment_idx);
-                                target_is_child = true;
-                                break;
-                            }
-                        }
-                    }
+            let Some((segment_idx, is_child)) = find_segment_for_volume(volumes_control, &object_path)
+            else {
+                return Task::none();
+            };
 
-                    // Apply the selection change
-                    if let Some(idx) = target_segment_idx {
-                        volumes_control.selected_segment = idx;
-                        volumes_control.selected_volume = if target_is_child {
-                            Some(vol_node.object_path.to_string())
-                        } else {
-                            None
-                        };
-                        volumes_control
-                            .segments
-                            .iter_mut()
-                            .for_each(|s| s.state = false);
-                        if let Some(segment) = volumes_control.segments.get_mut(idx) {
-                            segment.state = true;
-                        }
-                    }
-                }
+            // Apply the selection change
+            volumes_control.selected_segment = segment_idx;
+            volumes_control.selected_volume = if is_child {
+                Some(vol_node.object_path.to_string())
+            } else {
+                None
+            };
+
+            // Update segment state
+            volumes_control
+                .segments
+                .iter_mut()
+                .for_each(|s| s.state = false);
+            if let Some(segment) = volumes_control.segments.get_mut(segment_idx) {
+                segment.state = true;
             }
         }
         Message::SidebarToggleExpanded(key) => {

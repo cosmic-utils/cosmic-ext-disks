@@ -36,56 +36,55 @@ pub(super) fn delete(
 
     delete_state.running = true;
 
-    let segment = control.segments.get(control.selected_segment).cloned();
-    match segment.clone() {
-        Some(s) => match s.volume {
-            Some(p) => {
-                let volume_node =
-                    helpers::find_volume_node_for_partition(&control.model.volumes, &p).cloned();
-                let is_unlocked_crypto = matches!(
-                    volume_node.as_ref(),
-                    Some(v) if v.kind == VolumeKind::CryptoContainer && !v.locked
-                );
-                let mounted_children: Vec<VolumeNode> = if is_unlocked_crypto {
-                    volume_node
-                        .as_ref()
-                        .map(helpers::collect_mounted_descendants_leaf_first)
-                        .unwrap_or_default()
-                } else {
-                    Vec::new()
-                };
+    let Some(segment) = control.segments.get(control.selected_segment).cloned() else {
+        return Task::none();
+    };
 
-                Task::perform(
-                    async move {
-                        if is_unlocked_crypto {
-                            // UDisks2 typically refuses to lock while the cleartext/child FS is mounted.
-                            // Unmount any mounted descendants first, then lock the container.
-                            for v in mounted_children {
-                                v.unmount().await?;
-                            }
-                            p.lock().await?;
-                        }
+    let Some(p) = segment.volume else {
+        return Task::none();
+    };
 
-                        p.delete().await?;
-                        DriveModel::get_drives().await
-                    },
-                    |result| match result {
-                        Ok(drives) => Message::UpdateNav(drives, None).into(),
-                        Err(e) => {
-                            tracing::error!(?e, "delete failed");
-                            Message::Dialog(Box::new(ShowDialog::Info {
-                                title: fl!("delete-failed"),
-                                body: format!("{e:#}"),
-                            }))
-                            .into()
-                        }
-                    },
-                )
+    let volume_node =
+        helpers::find_volume_node_for_partition(&control.model.volumes, &p).cloned();
+    let is_unlocked_crypto = matches!(
+        volume_node.as_ref(),
+        Some(v) if v.kind == VolumeKind::CryptoContainer && !v.locked
+    );
+    let mounted_children: Vec<VolumeNode> = if is_unlocked_crypto {
+        volume_node
+            .as_ref()
+            .map(helpers::collect_mounted_descendants_leaf_first)
+            .unwrap_or_default()
+    } else {
+        Vec::new()
+    };
+
+    Task::perform(
+        async move {
+            if is_unlocked_crypto {
+                // UDisks2 typically refuses to lock while the cleartext/child FS is mounted.
+                // Unmount any mounted descendants first, then lock the container.
+                for v in mounted_children {
+                    v.unmount().await?;
+                }
+                p.lock().await?;
             }
-            None => Task::none(),
+
+            p.delete().await?;
+            DriveModel::get_drives().await
         },
-        None => Task::none(),
-    }
+        |result| match result {
+            Ok(drives) => Message::UpdateNav(drives, None).into(),
+            Err(e) => {
+                tracing::error!(?e, "delete failed");
+                Message::Dialog(Box::new(ShowDialog::Info {
+                    title: fl!("delete-failed"),
+                    body: format!("{e:#}"),
+                }))
+                .into()
+            }
+        },
+    )
 }
 
 pub(super) fn open_format_partition(
