@@ -481,43 +481,43 @@ fn build_free_space_info(segment: &crate::ui::volumes::Segment) -> Element<'_, M
 /// Build the disk-level action button bar (below disk header)
 fn build_disk_action_bar(_drive: &DriveModel) -> Vec<Element<'_, Message>> {
     vec![
-        tooltip_icon_button(
+        action_button(
             "media-eject-symbolic",
             fl!("eject").to_string(),
             Some(Message::Eject),
         ),
-        tooltip_icon_button(
+        action_button(
             "system-shutdown-symbolic",
             fl!("power-off").to_string(),
             Some(Message::PowerOff),
         ),
-        tooltip_icon_button(
+        action_button(
             "edit-clear-symbolic",
             fl!("format-disk").to_string(),
             Some(Message::Format),
         ),
-        tooltip_icon_button(
+        action_button(
             "speedometer-symbolic",
             fl!("smart-data-self-tests").to_string(),
             Some(Message::SmartData),
         ),
-        tooltip_icon_button(
+        action_button(
             "media-playback-pause-symbolic",
             fl!("standby-now").to_string(),
             Some(Message::StandbyNow),
         ),
-        tooltip_icon_button(
+        action_button(
             "system-run-symbolic",
             fl!("wake-up-from-standby").to_string(),
             Some(Message::Wakeup),
         ),
         widget::horizontal_space().into(),
-        tooltip_icon_button(
+        action_button(
             "media-floppy-symbolic",
             fl!("create-disk-from-drive").to_string(),
             Some(Message::CreateDiskFrom),
         ),
-        tooltip_icon_button(
+        action_button(
             "document-revert-symbolic",
             fl!("restore-image-to-drive").to_string(),
             Some(Message::RestoreImageTo),
@@ -542,7 +542,7 @@ fn build_action_bar<'a>(
                     && v.kind == VolumeKind::CryptoContainer
                 {
                     if v.locked {
-                        action_bar.push(tooltip_icon_button(
+                        action_bar.push(action_button(
                             "dialog-password-symbolic",
                             fl!("unlock-button").to_string(),
                             Some(Message::Dialog(Box::new(ShowDialog::UnlockEncrypted(
@@ -556,7 +556,7 @@ fn build_action_bar<'a>(
                             )))),
                         ));
                     } else {
-                        action_bar.push(tooltip_icon_button(
+                        action_bar.push(action_button(
                             "changes-prevent-symbolic",
                             fl!("lock").to_string(),
                             Some(VolumesControlMessage::LockContainer.into()),
@@ -577,7 +577,7 @@ fn build_action_bar<'a>(
                         } else {
                             "media-playback-start-symbolic"
                         };
-                        action_bar.push(tooltip_icon_button(
+                        action_bar.push(action_button(
                             icon_name,
                             fl!("mount-toggle").to_string(),
                             Some(msg.into()),
@@ -595,7 +595,7 @@ fn build_action_bar<'a>(
                             VolumesControlMessage::Mount,
                         )
                     };
-                    action_bar.push(tooltip_icon_button(
+                    action_bar.push(action_button(
                         icon_name,
                         fl!("mount-toggle").to_string(),
                         Some(msg.into()),
@@ -603,7 +603,7 @@ fn build_action_bar<'a>(
                 }
 
                 // Format Partition
-                action_bar.push(tooltip_icon_button(
+                action_bar.push(action_button(
                     "edit-clear-symbolic",
                     fl!("format-partition").to_string(),
                     Some(VolumesControlMessage::OpenFormatPartition.into()),
@@ -613,7 +613,7 @@ fn build_action_bar<'a>(
                 if selected_child_volume.is_none()
                     && p.volume_type == disks_dbus::VolumeType::Partition
                 {
-                    action_bar.push(tooltip_icon_button(
+                    action_bar.push(action_button(
                         "document-edit-symbolic",
                         fl!("edit-partition").to_string(),
                         Some(VolumesControlMessage::OpenEditPartition.into()),
@@ -629,7 +629,7 @@ fn build_action_bar<'a>(
                     let min_size = p.usage.as_ref().map(|u| u.used).unwrap_or(0).min(max_size);
 
                     let resize_enabled = max_size.saturating_sub(min_size) >= 1024;
-                    action_bar.push(tooltip_icon_button(
+                    action_bar.push(action_button(
                         "transform-scale-symbolic",
                         fl!("resize-partition").to_string(),
                         resize_enabled.then_some(VolumesControlMessage::OpenResizePartition.into()),
@@ -641,27 +641,27 @@ fn build_action_bar<'a>(
                     .map(|n| n.can_mount())
                     .unwrap_or_else(|| p.can_mount());
                 if fs_target_available {
-                    action_bar.push(tooltip_icon_button(
+                    action_bar.push(action_button(
                         "document-properties-symbolic",
                         fl!("edit-mount-options").to_string(),
                         Some(VolumesControlMessage::OpenEditMountOptions.into()),
                     ));
-                    action_bar.push(tooltip_icon_button(
+                    action_bar.push(action_button(
                         "tag-symbolic",
                         fl!("edit-filesystem").to_string(),
                         Some(VolumesControlMessage::OpenEditFilesystemLabel.into()),
                     ));
-                    action_bar.push(tooltip_icon_button(
+                    action_bar.push(action_button(
                         "emblem-ok-symbolic",
                         fl!("check-filesystem").to_string(),
                         Some(VolumesControlMessage::OpenCheckFilesystem.into()),
                     ));
-                    action_bar.push(tooltip_icon_button(
+                    action_bar.push(action_button(
                         "tools-symbolic",
                         fl!("repair-filesystem").to_string(),
                         Some(VolumesControlMessage::OpenRepairFilesystem.into()),
                     ));
-                    action_bar.push(tooltip_icon_button(
+                    action_bar.push(action_button(
                         "user-home-symbolic",
                         fl!("take-ownership").to_string(),
                         Some(VolumesControlMessage::OpenTakeOwnership.into()),
@@ -670,12 +670,12 @@ fn build_action_bar<'a>(
 
                 // Container encryption options
                 if selected_volume.is_some_and(|v| v.kind == VolumeKind::CryptoContainer) {
-                    action_bar.push(tooltip_icon_button(
+                    action_bar.push(action_button(
                         "dialog-password-symbolic",
                         fl!("change-passphrase").to_string(),
                         Some(VolumesControlMessage::OpenChangePassphrase.into()),
                     ));
-                    action_bar.push(tooltip_icon_button(
+                    action_bar.push(action_button(
                         "document-properties-symbolic",
                         fl!("edit-encryption-options").to_string(),
                         Some(VolumesControlMessage::OpenEditEncryptionOptions.into()),
@@ -684,12 +684,12 @@ fn build_action_bar<'a>(
 
                 // Partition image operations
                 action_bar.push(widget::horizontal_space().into());
-                action_bar.push(tooltip_icon_button(
+                action_bar.push(action_button(
                     "media-floppy-symbolic",
                     fl!("create-disk-from-partition").to_string(),
                     Some(Message::CreateDiskFromPartition),
                 ));
-                action_bar.push(tooltip_icon_button(
+                action_bar.push(action_button(
                     "document-revert-symbolic",
                     fl!("restore-image-to-partition").to_string(),
                     Some(Message::RestoreImageToPartition),
@@ -700,7 +700,7 @@ fn build_action_bar<'a>(
                     && p.volume_type != disks_dbus::VolumeType::Filesystem
                 {
                     action_bar.push(widget::horizontal_space().into());
-                    action_bar.push(tooltip_icon_button(
+                    action_bar.push(action_button(
                         "edit-delete-symbolic",
                         fl!("delete", name = segment.name.clone()).to_string(),
                         Some(Message::Dialog(Box::new(ShowDialog::DeletePartition(
@@ -714,7 +714,7 @@ fn build_action_bar<'a>(
             }
         }
         DiskSegmentKind::FreeSpace => {
-            action_bar.push(tooltip_icon_button(
+            action_bar.push(action_button(
                 "list-add-symbolic",
                 fl!("create-partition").to_string(),
                 Some(Message::Dialog(Box::new(ShowDialog::AddPartition(
@@ -732,21 +732,28 @@ fn build_action_bar<'a>(
     action_bar
 }
 
-/// Helper function to create an icon button with tooltip
-fn tooltip_icon_button(
+/// Helper function to create an action button with icon above text label
+fn action_button(
     icon_name: &str,
-    tooltip: String,
+    label: String,
     msg: Option<Message>,
 ) -> Element<'_, Message> {
-    let mut button = widget::button::custom(icon::from_name(icon_name));
+    let content = iced_widget::column![
+        icon::from_name(icon_name).size(24),
+        widget::text::caption(label)
+            .center()
+            .width(Length::Fixed(64.0))
+    ]
+    .spacing(4)
+    .align_x(Alignment::Center)
+    .width(Length::Fixed(64.0));
+
+    let mut button = widget::button::custom(content)
+        .padding(8);
+    
     if let Some(m) = msg {
         button = button.on_press(m);
     }
 
-    widget::tooltip(
-        button,
-        widget::text::body(tooltip),
-        widget::tooltip::Position::Top,
-    )
-    .into()
+    button.into()
 }
