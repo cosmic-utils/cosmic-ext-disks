@@ -100,6 +100,7 @@ disk-usage = Diskanvändning
 
 # Bekräftelsedialogruta
 delete = Radera { $name }
+delete-partition = Radera
 delete-confirmation = Är du säker på att du vill radera { $name }?
 delete-failed = Radering misslyckades
 

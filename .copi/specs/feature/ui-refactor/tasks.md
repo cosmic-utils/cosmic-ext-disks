@@ -519,7 +519,7 @@
   - [x] Clicking link opens file explorer at mount point.
   - [x] Works for both volume nodes and partitions.
 
-### Task 30: Multi-partition usage pie with key
+### Task 30: Multi-partition usage pie with key ✅
 - Scope: pie chart should show breakdown of each partition on disk with legend below.
 - Files/areas:
   - `disks-ui/src/ui/volumes/usage_pie.rs` (new disk_usage_pie variant)
@@ -532,10 +532,10 @@
   - Keep simple usage_pie() for single-volume display.
 - Test plan: manual UI test; verify pie shows all partitions with correct proportions and legend.
 - Done when:
-  - [ ] Disk header pie chart shows all partition segments.
-  - [ ] Each partition has distinct color.
-  - [ ] Legend below pie shows all partitions with names and sizes.
-  - [ ] Disk pie is larger than volume pie.
+  - [x] Disk header pie chart shows all partition segments.
+  - [x] Each partition has distinct color.
+  - [x] Legend below pie shows all partitions with names and sizes.
+  - [x] Disk pie is larger than volume pie.
 
 ### Task 31: Shorten action button text labels ✅
 - Scope: make button labels more concise and context-appropriate.
@@ -595,7 +595,7 @@
   - [x] Spacing looks appropriate.
   - [x] Works well with shortened labels from Task 31.
 
-### Task 34: Move drive actions to header bar, remove menubar, add About button
+### Task 34: Move drive actions to header bar, remove menubar, add About button ✅
 - Scope: replace menubar with drive action buttons in header, add standalone About button.
 - Files/areas:
   - `disks-ui/src/ui/app/view.rs` (header_start function)
@@ -608,10 +608,10 @@
   - Position actions appropriately in header bar.
 - Test plan: manual UI test; verify header shows drive actions and About button.
 - Done when:
-  - [ ] Drive action buttons appear in header bar.
-  - [ ] Menubar completely removed.
-  - [ ] About button visible and functional.
-  - [ ] Drive actions only show when disk selected.
+  - [x] Drive action buttons appear in header bar.
+  - [x] Menubar completely removed.
+  - [x] About button visible and functional.
+  - [x] Drive actions only show when disk selected.
 
 ### Task 35: Fix usage pie free space visualization ✅
 - Scope: pie chart should show used portion as segment, not full circle.

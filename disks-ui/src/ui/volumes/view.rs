@@ -67,7 +67,7 @@ impl Segment {
 
 impl VolumesControl {
     pub fn view(&self) -> Element<'_, Message> {
-        const SEGMENT_BUTTON_HEIGHT: f32 = 65.0;
+        const SEGMENT_BUTTON_HEIGHT: f32 = 97.5;
 
         let segment_buttons: Vec<Element<Message>> = self
             .segments

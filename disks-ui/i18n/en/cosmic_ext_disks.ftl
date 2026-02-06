@@ -104,6 +104,7 @@ disk-usage = Disk Usage
 
 # Confirmation dialog
 delete = Delete { $name }
+delete-partition = Delete
 delete-confirmation = Are you sure you wish to delete { $name }?
 delete-failed = Delete failed
 

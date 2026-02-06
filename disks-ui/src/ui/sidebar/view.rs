@@ -436,30 +436,29 @@ pub(crate) fn sidebar(
                 widget::text::caption(crate::fl!("new-disk-image"))
                     .width(Length::Fill)
                     .center()
-                    .wrapping(cosmic::iced::widget::text::Wrapping::Word)
+                    .wrapping(cosmic::iced::widget::text::Wrapping::Word),
             )
-                .on_press(Message::NewDiskImage)
-                .width(Length::Fill)
-                .padding(8),
+            .on_press(Message::NewDiskImage)
+            .width(Length::Fill)
+            .padding(8),
         )
         .push(
             widget::button::custom(
                 widget::text::caption(crate::fl!("attach-disk-image"))
                     .width(Length::Fill)
                     .center()
-                    .wrapping(cosmic::iced::widget::text::Wrapping::Word)
+                    .wrapping(cosmic::iced::widget::text::Wrapping::Word),
             )
-                .on_press(Message::AttachDisk)
-                .width(Length::Fill)
-                .padding(8),
+            .on_press(Message::AttachDisk)
+            .width(Length::Fill)
+            .padding(8),
         )
         .spacing(5)
         .padding([10, 10]);
 
     widget::column::with_capacity(2)
         .push(
-            widget::scrollable(widget::Column::with_children(rows).spacing(2))
-                .height(Length::Fill),
+            widget::scrollable(widget::Column::with_children(rows).spacing(2)).height(Length::Fill),
         )
         .push(image_buttons)
         .into()
