@@ -56,6 +56,42 @@ fn expander_icon(expanded: bool) -> &'static str {
     }
 }
 
+fn transparent_button_class() -> cosmic::theme::Button {
+    cosmic::theme::Button::Custom {
+        active: Box::new(|_b, theme| transparent_button_style(false, theme)),
+        disabled: Box::new(|theme| transparent_button_style(true, theme)),
+        hovered: Box::new(|_b, theme| transparent_button_style(false, theme)),
+        pressed: Box::new(|_b, theme| transparent_button_style(false, theme)),
+    }
+}
+
+fn transparent_button_style(
+    disabled: bool,
+    theme: &cosmic::theme::Theme,
+) -> cosmic::widget::button::Style {
+    use cosmic::cosmic_theme::palette::WithAlpha;
+
+    let component = &theme.cosmic().background.component;
+
+    let mut on = component.on;
+    if disabled {
+        on = on.with_alpha(0.35);
+    }
+
+    cosmic::widget::button::Style {
+        shadow_offset: Default::default(),
+        background: None,
+        overlay: None,
+        border_radius: (theme.cosmic().corner_radii.radius_xs).into(),
+        border_width: 0.0,
+        border_color: component.base.with_alpha(0.0).into(),
+        outline_width: 0.0,
+        outline_color: component.base.with_alpha(0.0).into(),
+        icon_color: Some(on.into()),
+        text_color: Some(on.into()),
+    }
+}
+
 fn section_header(label: String) -> Element<'static, Message> {
     widget::text::caption_heading(label)
         .apply(widget::container)
@@ -120,6 +156,7 @@ fn drive_row(
     let expander = if has_children {
         let mut button =
             widget::button::custom(icon::from_name(expander_icon(expanded)).size(16)).padding(2);
+        button = button.class(transparent_button_class());
         if controls_enabled {
             button = button.on_press(Message::SidebarToggleExpanded(key.clone()));
         }
@@ -134,11 +171,21 @@ fn drive_row(
         "disks-symbolic"
     };
 
-    let mut title_button = widget::button::custom(widget::text(drive.name()))
-        .padding(0)
-        .width(Length::Fill);
+    let mut select_button = widget::button::custom(
+        widget::Row::with_children(vec![
+            icon::from_name(drive_icon_name).size(16).into(),
+            widget::text(drive.name()).into(),
+        ])
+        .spacing(8)
+        .align_y(cosmic::iced::Alignment::Center)
+        .width(Length::Fill),
+    )
+    .padding(0)
+    .width(Length::Fill)
+    .class(transparent_button_class());
     if controls_enabled {
-        title_button = title_button.on_press(Message::SidebarSelectDrive(drive.block_path.clone()));
+        select_button =
+            select_button.on_press(Message::SidebarSelectDrive(drive.block_path.clone()));
     }
 
     let mut actions: Vec<Element<'static, Message>> = Vec::new();
@@ -147,6 +194,7 @@ fn drive_row(
     if drive.is_loop || drive.removable || drive.ejectable {
         let mut eject_btn =
             widget::button::custom(icon::from_name("media-eject-symbolic").size(16)).padding(4);
+        eject_btn = eject_btn.class(transparent_button_class());
         if controls_enabled {
             eject_btn = eject_btn.on_press(Message::SidebarDriveEject(drive.block_path.clone()));
         }
@@ -155,8 +203,7 @@ fn drive_row(
 
     let row = widget::Row::with_children(vec![
         expander,
-        icon::from_name(drive_icon_name).size(16).into(),
-        title_button.into(),
+        select_button.into(),
         widget::Row::with_children(actions).spacing(4).into(),
     ])
     .spacing(8)
@@ -182,6 +229,7 @@ fn volume_row(
     let expander = if has_children {
         let mut button =
             widget::button::custom(icon::from_name(expander_icon(expanded)).size(16)).padding(2);
+        button = button.class(transparent_button_class());
         if controls_enabled {
             button = button.on_press(Message::SidebarToggleExpanded(key.clone()));
         }
@@ -199,13 +247,24 @@ fn volume_row(
         node.label.clone()
     };
 
-    let mut title_button = widget::button::custom(widget::text(title_text))
-        .padding(0)
-        .width(Length::Fill);
+    let select_msg = Message::SidebarSelectChild {
+        object_path: node.object_path.to_string(),
+    };
+
+    let mut select_button = widget::button::custom(
+        widget::Row::with_children(vec![
+            icon::from_name(volume_icon(&node.kind)).size(16).into(),
+            widget::text(title_text).into(),
+        ])
+        .spacing(8)
+        .align_y(cosmic::iced::Alignment::Center)
+        .width(Length::Fill),
+    )
+    .padding(0)
+    .width(Length::Fill)
+    .class(transparent_button_class());
     if controls_enabled {
-        title_button = title_button.on_press(Message::SidebarSelectChild {
-            object_path: node.object_path.to_string(),
-        });
+        select_button = select_button.on_press(select_msg.clone());
     }
 
     let mut actions: Vec<Element<'static, Message>> = Vec::new();
@@ -213,6 +272,7 @@ fn volume_row(
     if node.is_mounted() {
         let mut unmount_btn =
             widget::button::custom(icon::from_name("media-eject-symbolic").size(16)).padding(4);
+        unmount_btn = unmount_btn.class(transparent_button_class());
         if controls_enabled {
             unmount_btn = unmount_btn.on_press(Message::SidebarVolumeUnmount {
                 drive: drive_block_path.to_string(),
@@ -224,16 +284,26 @@ fn volume_row(
 
     let indent = depth * 18;
 
-    let row = widget::Row::with_children(vec![
-        widget::Space::new(indent, 0).into(),
-        expander,
-        icon::from_name(volume_icon(&node.kind)).size(16).into(),
-        title_button.into(),
-        widget::Row::with_children(actions).spacing(4).into(),
-    ])
-    .spacing(8)
-    .align_y(cosmic::iced::Alignment::Center)
-    .width(Length::Fill);
+    let mut children: Vec<Element<'static, Message>> = Vec::new();
+
+    if indent > 0 {
+        let mut indent_btn = widget::button::custom(widget::Space::new(indent, 0))
+            .padding(0)
+            .class(transparent_button_class());
+        if controls_enabled {
+            indent_btn = indent_btn.on_press(select_msg);
+        }
+        children.push(indent_btn.into());
+    }
+
+    children.push(expander);
+    children.push(select_button.into());
+    children.push(widget::Row::with_children(actions).spacing(4).into());
+
+    let row = widget::Row::with_children(children)
+        .spacing(8)
+        .align_y(cosmic::iced::Alignment::Center)
+        .width(Length::Fill);
 
     row_container(row, selected, controls_enabled)
 }
