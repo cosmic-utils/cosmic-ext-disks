@@ -71,18 +71,16 @@ fn row_container<'a>(
     widget::container(row)
         .padding([6, 8])
         .class(cosmic::style::Container::custom(move |theme| {
-            use cosmic::iced::{Background, Border, Shadow};
+            use cosmic::iced::{Border, Shadow};
 
             let component = &theme.current_container().component;
 
-            let mut bg = component.base;
             let mut on = component.on;
 
             let mut border_width = 0.0;
-            let mut border_color = component.base;
+            let mut border_color = component.base.with_alpha(0.0);
 
             if !enabled {
-                bg = component.base.with_alpha(0.08);
                 on = component.on.with_alpha(0.35);
             } else if selected {
                 border_width = 1.0;
@@ -92,7 +90,7 @@ fn row_container<'a>(
             cosmic::iced_widget::container::Style {
                 icon_color: Some(on.into()),
                 text_color: Some(on.into()),
-                background: Some(Background::Color(bg.into())),
+                background: None,
                 border: Border {
                     radius: theme.cosmic().corner_radii.radius_s.into(),
                     width: border_width,
