@@ -12,7 +12,9 @@ menu-view = View
 new-disk-image = New Disk Image
 attach-disk-image = Attach Disk Image
 create-disk-from-drive = Create Disk From Drive
+create-image = Create Image
 restore-image-to-drive = Restore Image to Drive
+restore-image = Restore Image
 create-disk-from-partition = Create Disk Image From Partition
 restore-image-to-partition = Restore Disk Image To Partition
 image-file-path = Image file path
@@ -58,8 +60,10 @@ partitioning-none = None
 
 # Create partition dialog
 create-partition = Create Partition
+create = Create
 create-partition-failed = Create partition failed
 format-partition = Format Partition
+format = Format
 format-partition-description = This will format the selected volume. Size: { $size }
 volume-name = Volume Name
 partition-name = Partition Name
@@ -130,23 +134,33 @@ unlock-missing-partition = Could not find { $name } in the current device list.
 
 # Volume commands
 mount-toggle = Mount / Unmount
+mount = Mount
+unmount = Unmount
 edit-mount-options = Edit Mount Options…
+mount-options = Mount Options
 edit-encryption-options = Edit Encryption Options…
+encryption = Encryption
 edit-partition = Edit Partition
+edit = Edit
 edit-partition-no-types = No partition types available for this partition table.
 flag-legacy-bios-bootable = Legacy BIOS Bootable
 flag-system-partition = System Partition
 flag-hide-from-firmware = Hide from firmware
 resize-partition = Resize Partition
+resize = Resize
 resize-partition-range = Allowed range: { $min } to { $max }
 new-size = New Size
 edit-filesystem = Edit Filesystem
+label = Label
 filesystem-label = Filesystem Label
 check-filesystem = Check Filesystem
+check = Check
 check-filesystem-warning = Checking a filesystem can take a long time. Continue?
 repair-filesystem = Repair Filesystem
+repair = Repair
 repair-filesystem-warning = Repairing a filesystem can take a long time and may risk data loss. Continue?
 take-ownership = Take Ownership
+ownership = Ownership
 take-ownership-warning = This will change ownership of files to your user. This can take a long time and cannot be easily undone.
 take-ownership-recursive = Apply recursively
 

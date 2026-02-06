@@ -7,7 +7,7 @@ use crate::ui::dialogs::state::{
 use crate::ui::dialogs::view as dialogs;
 use crate::ui::sidebar;
 use crate::ui::volumes::{VolumesControl, VolumesControlMessage, disk_header};
-use crate::utils::DiskSegmentKind;
+use crate::utils::{DiskSegmentKind, link_info};
 use crate::views::about::about;
 use crate::views::menu::menu_view;
 use cosmic::app::context_drawer as cosmic_context_drawer;
@@ -328,9 +328,13 @@ fn build_volume_node_info(v: &disks_dbus::VolumeNode) -> Element<'_, Message> {
     let type_text = widget::text::caption(format!("{}: {}", fl!("contents"), contents));
 
     let mount_text = if let Some(mount_point) = v.mount_points.first() {
-        widget::text::caption(format!("{}: {}", fl!("mounted-at"), mount_point))
+        link_info(
+            fl!("mounted-at"),
+            mount_point.clone(),
+            Message::OpenPath(mount_point.clone()),
+        )
     } else {
-        widget::text::caption("Not mounted")
+        widget::text::caption("Not mounted").into()
     };
 
     let text_column = iced_widget::column![name_text, type_text, mount_text]
@@ -391,10 +395,14 @@ fn build_partition_info(p: &disks_dbus::VolumeModel) -> Element<'_, Message> {
     type_str = format!("{} - {}", type_str, p.partition_type.clone());
     let type_text = widget::text::caption(format!("{}: {}", fl!("contents"), type_str));
 
-    let mount_text = if let Some(mount_point) = p.mount_points.first() {
-        widget::text::caption(format!("{}: {}", fl!("mounted-at"), mount_point))
+    let mount_text: Element<Message> = if let Some(mount_point) = p.mount_points.first() {
+        link_info(
+            fl!("mounted-at"),
+            mount_point,
+            Message::OpenPath(mount_point.to_string()),
+        )
     } else {
-        widget::text::caption("Not mounted")
+        widget::text::caption("Not mounted").into()
     };
 
     let text_column = iced_widget::column![name_text, type_text, mount_text]
@@ -507,7 +515,7 @@ fn build_disk_action_bar(_drive: &DriveModel) -> Vec<Element<'_, Message>> {
         ),
         action_button(
             "edit-clear-symbolic",
-            fl!("format-disk").to_string(),
+            fl!("format").to_string(),
             Some(Message::Format),
         ),
         action_button(
@@ -528,12 +536,12 @@ fn build_disk_action_bar(_drive: &DriveModel) -> Vec<Element<'_, Message>> {
         widget::horizontal_space().into(),
         action_button(
             "media-floppy-symbolic",
-            fl!("create-disk-from-drive").to_string(),
+            fl!("create-image").to_string(),
             Some(Message::CreateDiskFrom),
         ),
         action_button(
             "document-revert-symbolic",
-            fl!("restore-image-to-drive").to_string(),
+            fl!("restore-image").to_string(),
             Some(Message::RestoreImageTo),
         ),
     ]
@@ -591,9 +599,14 @@ fn build_action_bar<'a>(
                         } else {
                             "media-playback-start-symbolic"
                         };
+                        let label = if v.is_mounted() {
+                            fl!("unmount")
+                        } else {
+                            fl!("mount")
+                        };
                         action_bar.push(action_button(
                             icon_name,
-                            fl!("mount-toggle").to_string(),
+                            label.to_string(),
                             Some(msg.into()),
                         ));
                     }
@@ -609,9 +622,14 @@ fn build_action_bar<'a>(
                             VolumesControlMessage::Mount,
                         )
                     };
+                    let label = if p.is_mounted() {
+                        fl!("unmount")
+                    } else {
+                        fl!("mount")
+                    };
                     action_bar.push(action_button(
                         icon_name,
-                        fl!("mount-toggle").to_string(),
+                        label.to_string(),
                         Some(msg.into()),
                     ));
                 }
@@ -619,7 +637,7 @@ fn build_action_bar<'a>(
                 // Format Partition
                 action_bar.push(action_button(
                     "edit-clear-symbolic",
-                    fl!("format-partition").to_string(),
+                    fl!("format").to_string(),
                     Some(VolumesControlMessage::OpenFormatPartition.into()),
                 ));
 
@@ -629,7 +647,7 @@ fn build_action_bar<'a>(
                 {
                     action_bar.push(action_button(
                         "document-edit-symbolic",
-                        fl!("edit-partition").to_string(),
+                        fl!("edit").to_string(),
                         Some(VolumesControlMessage::OpenEditPartition.into()),
                     ));
 
@@ -645,7 +663,7 @@ fn build_action_bar<'a>(
                     let resize_enabled = max_size.saturating_sub(min_size) >= 1024;
                     action_bar.push(action_button(
                         "transform-scale-symbolic",
-                        fl!("resize-partition").to_string(),
+                        fl!("resize").to_string(),
                         resize_enabled.then_some(VolumesControlMessage::OpenResizePartition.into()),
                     ));
                 }
@@ -657,27 +675,27 @@ fn build_action_bar<'a>(
                 if fs_target_available {
                     action_bar.push(action_button(
                         "document-properties-symbolic",
-                        fl!("edit-mount-options").to_string(),
+                        fl!("mount-options").to_string(),
                         Some(VolumesControlMessage::OpenEditMountOptions.into()),
                     ));
                     action_bar.push(action_button(
                         "tag-symbolic",
-                        fl!("edit-filesystem").to_string(),
+                        fl!("label").to_string(),
                         Some(VolumesControlMessage::OpenEditFilesystemLabel.into()),
                     ));
                     action_bar.push(action_button(
                         "emblem-ok-symbolic",
-                        fl!("check-filesystem").to_string(),
+                        fl!("check").to_string(),
                         Some(VolumesControlMessage::OpenCheckFilesystem.into()),
                     ));
                     action_bar.push(action_button(
                         "tools-symbolic",
-                        fl!("repair-filesystem").to_string(),
+                        fl!("repair").to_string(),
                         Some(VolumesControlMessage::OpenRepairFilesystem.into()),
                     ));
                     action_bar.push(action_button(
                         "user-home-symbolic",
-                        fl!("take-ownership").to_string(),
+                        fl!("ownership").to_string(),
                         Some(VolumesControlMessage::OpenTakeOwnership.into()),
                     ));
                 }
@@ -686,12 +704,12 @@ fn build_action_bar<'a>(
                 if selected_volume.is_some_and(|v| v.kind == VolumeKind::CryptoContainer) {
                     action_bar.push(action_button(
                         "dialog-password-symbolic",
-                        fl!("change-passphrase").to_string(),
+                        fl!("passphrase").to_string(),
                         Some(VolumesControlMessage::OpenChangePassphrase.into()),
                     ));
                     action_bar.push(action_button(
                         "document-properties-symbolic",
-                        fl!("edit-encryption-options").to_string(),
+                        fl!("encryption").to_string(),
                         Some(VolumesControlMessage::OpenEditEncryptionOptions.into()),
                     ));
                 }
@@ -700,12 +718,12 @@ fn build_action_bar<'a>(
                 action_bar.push(widget::horizontal_space().into());
                 action_bar.push(action_button(
                     "media-floppy-symbolic",
-                    fl!("create-disk-from-partition").to_string(),
+                    fl!("create-image").to_string(),
                     Some(Message::CreateDiskFromPartition),
                 ));
                 action_bar.push(action_button(
                     "document-revert-symbolic",
-                    fl!("restore-image-to-partition").to_string(),
+                    fl!("restore-image").to_string(),
                     Some(Message::RestoreImageToPartition),
                 ));
 
@@ -730,7 +748,7 @@ fn build_action_bar<'a>(
         DiskSegmentKind::FreeSpace => {
             action_bar.push(action_button(
                 "list-add-symbolic",
-                fl!("create-partition").to_string(),
+                fl!("create").to_string(),
                 Some(Message::Dialog(Box::new(ShowDialog::AddPartition(
                     CreatePartitionDialog {
                         info: segment.get_create_info(),
@@ -746,24 +764,24 @@ fn build_action_bar<'a>(
     action_bar
 }
 
-/// Helper function to create an action button with icon above text label
+/// Helper function to create an action button with icon beside text label
 fn action_button(
     icon_name: &str,
     label: String,
     msg: Option<Message>,
 ) -> Element<'_, Message> {
-    let content = iced_widget::column![
-        icon::from_name(icon_name).size(24),
+    let content = iced_widget::row![
+        icon::from_name(icon_name).size(16),
         widget::text::caption(label)
-            .center()
-            .width(Length::Fixed(64.0))
+            .width(Length::Fill)
     ]
-    .spacing(4)
-    .align_x(Alignment::Center)
-    .width(Length::Fixed(64.0));
+    .spacing(6)
+    .align_y(Alignment::Center)
+    .width(Length::Fixed(96.0));
 
     let mut button = widget::button::custom(content)
-        .padding(8);
+        .padding([4, 8])
+        .width(Length::Fixed(96.0));
     
     if let Some(m) = msg {
         button = button.on_press(m);
