@@ -284,28 +284,26 @@ fn volume_row(
 
     let indent = depth * 18;
 
-    let mut children: Vec<Element<'static, Message>> = Vec::new();
+    let row = widget::Row::with_children(vec![
+        expander,
+        select_button.into(),
+        widget::Row::with_children(actions).spacing(4).into(),
+    ])
+    .spacing(8)
+    .align_y(cosmic::iced::Alignment::Center)
+    .width(Length::Fill);
+
+    let item = row_container(row, selected, controls_enabled);
 
     if indent > 0 {
-        let mut indent_btn = widget::button::custom(widget::Space::new(indent, 0))
-            .padding(0)
-            .class(transparent_button_class());
-        if controls_enabled {
-            indent_btn = indent_btn.on_press(select_msg);
-        }
-        children.push(indent_btn.into());
+        widget::Row::with_children(vec![widget::Space::new(indent, 0).into(), item])
+            .spacing(0)
+            .align_y(cosmic::iced::Alignment::Center)
+            .width(Length::Fill)
+            .into()
+    } else {
+        item
     }
-
-    children.push(expander);
-    children.push(select_button.into());
-    children.push(widget::Row::with_children(actions).spacing(4).into());
-
-    let row = widget::Row::with_children(children)
-        .spacing(8)
-        .align_y(cosmic::iced::Alignment::Center)
-        .width(Length::Fill);
-
-    row_container(row, selected, controls_enabled)
 }
 
 fn push_volume_tree(
