@@ -39,7 +39,7 @@ For partition type support:
 4. LVM Support
 
 
-![Screenshot of cosmos-disks](https://github.com/stoorps/cosmos-apps/blob/main/screenshots/cosmos-disks.png)
+![Screenshot of cosmos-disks](https://github.com/stoorps/cosmos-apps/blob/main/screenshots/cosmic-ext-disks.png)
 
 
 ### Notes on use of AI
