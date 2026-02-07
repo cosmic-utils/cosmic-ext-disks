@@ -4,7 +4,7 @@
 > By using this software, you fully accept all responsibility for any data loss or corruption caused whilst using this software.
 
 > [!WARNING]
-> This software is currently in early beta, and has not been tested against many drive type, partition type, or ?> drive scheme combinations yet. 
+> This software is currently in early beta, and has not been tested against many drive type, partition type, and partition scheme combinations yet. 
 ---
 A Disk utility application for the Cosmic Desktop.
 
