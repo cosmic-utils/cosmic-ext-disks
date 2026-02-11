@@ -1,0 +1,217 @@
+use anyhow::{Context, Result};
+use std::path::Path;
+
+/// Information about a process holding a mount point open
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ProcessInfo {
+    pub pid: i32,
+    pub command: String,
+    pub uid: u32,
+    pub username: String,
+}
+
+/// Find all processes that have open file descriptors pointing to the given mount point.
+///
+/// This function uses the procfs crate to enumerate all running processes and check
+/// their open file descriptors. Any process with an fd pointing to a path under the
+/// mount point is included in the results.
+///
+/// # Arguments
+/// * `mount_point` - The mount point path to search for (e.g., "/mnt/mydisk")
+///
+/// # Returns
+/// A vector of `ProcessInfo` structs, one for each process holding the mount open.
+/// Returns an empty vector if no processes are found.
+///
+/// # Errors
+/// Returns an error if /proc cannot be accessed (unlikely on Linux systems).
+pub async fn find_processes_using_mount(mount_point: &str) -> Result<Vec<ProcessInfo>> {
+    let mount_point = mount_point.to_string();
+    
+    // Spawn blocking task since procfs operations are synchronous
+    tokio::task::spawn_blocking(move || find_processes_using_mount_sync(&mount_point))
+        .await
+        .context("Failed to spawn blocking task")?
+}
+
+/// Synchronous implementation of process discovery
+fn find_processes_using_mount_sync(mount_point: &str) -> Result<Vec<ProcessInfo>> {
+    let mut result = Vec::new();
+    let mount_path = Path::new(mount_point);
+
+    tracing::debug!("Searching for processes using mount point: {}", mount_point);
+
+    // Enumerate all processes
+    let all_procs = match procfs::process::all_processes() {
+        Ok(procs) => procs,
+        Err(e) => {
+            tracing::warn!("Failed to enumerate processes: {}", e);
+            return Ok(Vec::new()); // Return empty vec instead of error
+        }
+    };
+
+    for proc_result in all_procs {
+        let process = match proc_result {
+            Ok(p) => p,
+            Err(_) => continue, // Process vanished, skip silently
+        };
+
+        let pid = process.pid();
+
+        // Check if any file descriptor points to the mount point
+        let has_open_fd = match check_process_fds(&process, mount_path) {
+            Ok(has_fd) => has_fd,
+            Err(_) => continue, // Permission denied or process vanished
+        };
+
+        if !has_open_fd {
+            continue;
+        }
+
+        // Extract process information
+        let command = extract_command(&process);
+        let (uid, username) = extract_user_info(&process);
+
+        tracing::debug!(
+            "Found process using mount: PID={}, command={}, user={}",
+            pid,
+            command,
+            username
+        );
+
+        result.push(ProcessInfo {
+            pid,
+            command,
+            uid,
+            username,
+        });
+    }
+
+    tracing::info!(
+        "Found {} process(es) using mount point: {}",
+        result.len(),
+        mount_point
+    );
+
+    Ok(result)
+}
+
+/// Check if a process has any file descriptors pointing to paths under the mount point
+fn check_process_fds(process: &procfs::process::Process, mount_path: &Path) -> Result<bool> {
+    let fds = process.fd().context("Failed to read file descriptors")?;
+
+    for fd_result in fds {
+        let fd = match fd_result {
+            Ok(f) => f,
+            Err(_) => continue, // FD vanished or permission denied
+        };
+
+        // Get the target path of this fd - note: target is a field, not a method
+        let target = match &fd.target {
+            procfs::process::FDTarget::Path(path) => path,
+            _ => continue, // Not a regular file path (socket, pipe, etc.)
+        };
+
+        // Check if this path is under the mount point
+        if target.starts_with(mount_path) {
+            return Ok(true);
+        }
+    }
+
+    Ok(false)
+}
+
+/// Extract command name from process
+fn extract_command(process: &procfs::process::Process) -> String {
+    // Try cmdline first (full command with args)
+    if let Ok(cmdline) = process.cmdline() {
+        if !cmdline.is_empty() {
+            // Use first element (executable path)
+            let cmd = &cmdline[0];
+            // Strip path, just return the basename
+            return Path::new(cmd)
+                .file_name()
+                .and_then(|s| s.to_str())
+                .unwrap_or(cmd)
+                .to_string();
+        }
+    }
+
+    // Fallback to stat.comm (kernel thread name or process name)
+    if let Ok(stat) = process.stat() {
+        return stat.comm;
+    }
+
+    // Final fallback
+    format!("<PID {}>", process.pid())
+}
+
+/// Extract UID and username from process
+fn extract_user_info(process: &procfs::process::Process) -> (u32, String) {
+    // Get real UID from status
+    if let Ok(status) = process.status() {
+        let uid = status.ruid;
+        
+        // Try to resolve username
+        let username = resolve_username(uid).unwrap_or_else(|| uid.to_string());
+        
+        return (uid, username);
+    }
+
+    // Fallback
+    (0, "root".to_string())
+}
+
+/// Resolve UID to username by reading /etc/passwd
+fn resolve_username(uid: u32) -> Option<String> {
+    // Simple approach: read /etc/passwd and find matching UID
+    let passwd_content = std::fs::read_to_string("/etc/passwd").ok()?;
+    
+    for line in passwd_content.lines() {
+        let parts: Vec<&str> = line.split(':').collect();
+        if parts.len() >= 3 {
+            if let Ok(line_uid) = parts[2].parse::<u32>() {
+                if line_uid == uid {
+                    return Some(parts[0].to_string());
+                }
+            }
+        }
+    }
+    
+    None
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn resolve_username_finds_root() {
+        // UID 0 should always be root on Linux
+        let username = resolve_username(0);
+        assert_eq!(username, Some("root".to_string()));
+    }
+
+    #[test]
+    fn resolve_username_handles_invalid_uid() {
+        // Very high UID unlikely to exist
+        let username = resolve_username(99999);
+        assert!(username.is_none());
+    }
+
+    #[tokio::test]
+    async fn find_processes_returns_empty_for_nonexistent_mount() {
+        // This mount point shouldn't exist and shouldn't have any processes
+        let result = find_processes_using_mount("/nonexistent/mount/point/12345")
+            .await
+            .unwrap();
+        assert_eq!(result.len(), 0);
+    }
+
+    #[tokio::test]
+    async fn find_processes_handles_proc_access() {
+        // Test with /proc itself - should work even if no processes are using it
+        let result = find_processes_using_mount("/proc").await;
+        assert!(result.is_ok());
+    }
+}

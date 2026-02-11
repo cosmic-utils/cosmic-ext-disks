@@ -5,6 +5,7 @@ mod image;
 mod lvm;
 mod manager;
 mod ops;
+mod process_finder;
 mod smart;
 mod volume;
 mod volume_model;
@@ -18,6 +19,7 @@ pub use gpt::{
 pub use image::{loop_setup, mount_filesystem};
 pub use lvm::{LvmLogicalVolumeInfo, list_lvs_for_pv};
 pub use manager::{DeviceEvent, DeviceEventStream, DiskManager};
+pub use process_finder::{ProcessInfo, find_processes_using_mount};
 pub use smart::{SmartInfo, SmartSelfTestKind};
 use thiserror::Error;
 pub use volume::{BlockIndex, VolumeKind, VolumeNode};

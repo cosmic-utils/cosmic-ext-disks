@@ -973,7 +973,7 @@ mod tests {
 
     #[test]
     fn check_resource_busy_detects_busy_patterns() {
-        let path: OwnedObjectPath = "/org/freedesktop/UDisks2/block_devices/sda1"
+        let _path: OwnedObjectPath = "/org/freedesktop/UDisks2/block_devices/sda1"
             .try_into()
             .unwrap();
 
