@@ -67,7 +67,7 @@ pub fn create_partition<'a>(state: CreatePartitionDialog) -> Element<'a, Message
             Some(create_clone.selected_partition_type_index),
             |v| CreateMessage::PartitionTypeUpdate(v).into(),
         ),
-        checkbox(fl!("password-protected"), create.password_protected)
+        checkbox(fl!("password-protected-luks"), create.password_protected)
             .on_toggle(|v| CreateMessage::PasswordProtectedUpdate(v).into()),
     ];
 
