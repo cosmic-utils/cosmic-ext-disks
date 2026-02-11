@@ -574,7 +574,7 @@ fn retry_unmount(volumes: &VolumesControl, object_path: String) -> Task<Message>
             .device_path
             .clone()
             .unwrap_or_else(|| node.object_path.to_string());
-        let mount_point = node.mount_points.first().cloned().unwrap_or_default();
+        let mount_point = node.mount_points.first().cloned();
         let object_path_for_retry = object_path.clone();
         let object_path_for_selection = object_path.clone();
 
@@ -596,24 +596,33 @@ fn retry_unmount(volumes: &VolumesControl, object_path: String) -> Task<Message>
                         if let Some(disk_err) = e.downcast_ref::<DiskError>()
                             && matches!(disk_err, DiskError::ResourceBusy { .. })
                         {
-                            // Still busy - find processes again and re-show dialog
-                            match disks_dbus::find_processes_using_mount(&mount_point).await {
-                                Ok(processes) => {
-                                    tracing::warn!(
-                                        mount_point = %mount_point,
-                                        process_count = processes.len(),
-                                        "Unmount still busy after retry"
-                                    );
-                                    return Err(Some((
-                                        device,
-                                        mount_point,
-                                        processes,
-                                        object_path_for_retry,
-                                    )));
+                            // Check if we have a mount point - can't find processes without it
+                            if let Some(mp) = mount_point {
+                                if !mp.trim().is_empty() {
+                                    // Still busy - find processes again and re-show dialog
+                                    match disks_dbus::find_processes_using_mount(&mp).await {
+                                        Ok(processes) => {
+                                            tracing::warn!(
+                                                mount_point = %mp,
+                                                process_count = processes.len(),
+                                                "Unmount still busy after retry"
+                                            );
+                                            return Err(Some((
+                                                device,
+                                                mp,
+                                                processes,
+                                                object_path_for_retry,
+                                            )));
+                                        }
+                                        Err(find_err) => {
+                                            tracing::warn!(?find_err, "Failed to find processes on retry");
+                                        }
+                                    }
+                                } else {
+                                    tracing::warn!("Mount point is empty on retry, cannot find processes");
                                 }
-                                Err(find_err) => {
-                                    tracing::warn!(?find_err, "Failed to find processes on retry");
-                                }
+                            } else {
+                                tracing::warn!("No mount point available on retry, cannot find processes");
                             }
                         }
                         // Generic error

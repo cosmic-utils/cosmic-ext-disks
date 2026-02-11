@@ -158,10 +158,9 @@ pub fn unmount_busy<'a>(state: UnmountBusyDialog) -> Element<'a, Message> {
     let has_processes = !processes.is_empty();
 
     // Build the dialog body
-    let mut content = iced_widget::column![iced_widget::text(format!(
-        "The following processes are accessing {}",
-        mount_point
-    )),]
+    let mut content = iced_widget::column![iced_widget::text(
+        fl!("unmount-busy-message-template", mount = mount_point.as_str())
+    ),]
     .spacing(12);
 
     if has_processes {
@@ -209,7 +208,7 @@ pub fn unmount_busy<'a>(state: UnmountBusyDialog) -> Element<'a, Message> {
 
     // Build dialog with appropriate buttons
     let mut dlg = dialog::dialog()
-        .title(format!("{} is Busy", device))
+        .title(fl!("unmount-busy-title-template", device = device.as_str()))
         .control(content);
 
     // Cancel button (always available)

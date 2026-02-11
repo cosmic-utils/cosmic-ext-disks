@@ -107,6 +107,14 @@ async fn device_for_display(connection: &Connection, path: &OwnedObjectPath) -> 
 
 /// Check if a zbus error indicates the device/mount is busy (EBUSY/target is busy).
 /// Returns Some with device and mount_point if detected, None otherwise.
+/// Check if an error message string contains resource busy patterns
+fn is_resource_busy_message(msg: &str) -> bool {
+    let msg_lower = msg.to_lowercase();
+    msg_lower.contains("target is busy")
+        || msg_lower.contains("device is busy")
+        || msg_lower.contains("resource busy")
+}
+
 fn check_resource_busy_error(
     device_for_display: Option<&str>,
     object_path: &OwnedObjectPath,
@@ -117,13 +125,10 @@ fn check_resource_busy_error(
     };
 
     let msg_str = msg.as_deref().unwrap_or("");
-    let msg_lower = msg_str.to_ascii_lowercase();
 
     // UDisks2 typically returns errors like "target is busy" or "device is busy" for EBUSY
-    if msg_lower.contains("target is busy")
-        || msg_lower.contains("device is busy")
-        || msg_lower.contains("resource busy")
-    {
+
+    if is_resource_busy_message(msg_str) {
         let device = device_for_display.unwrap_or("<unknown device>").to_string();
         // Mount point would need to be queried separately; for now use object_path as fallback
         let mount_point = format!("<object: {}>", object_path);
@@ -977,45 +982,59 @@ mod tests {
     }
 
     #[test]
-    fn check_resource_busy_detects_busy_patterns() {
-        let _path: OwnedObjectPath = "/org/freedesktop/UDisks2/block_devices/sda1"
-            .try_into()
-            .unwrap();
-
-        // Since we can't easily construct zbus::Error::MethodError in tests,
-        // we'll test the busy detection logic independently.
-        // The actual integration is tested in the backend itself.
-
-        // Test that our error patterns would match
-        let test_messages = vec![
+    fn test_is_resource_busy_message() {
+        // Test messages that should match
+        let busy_messages = vec![
             "target is busy",
             "device is busy",
-            "Target Is Busy", // case-insensitive
+            "Target Is Busy",      // case-insensitive
             "RESOURCE BUSY",
             "Error: target is busy (unmount failed)",
+            "GDBus.Error: device is busy",
         ];
 
-        for msg in test_messages {
+        for msg in busy_messages {
             assert!(
-                msg.to_lowercase().contains("target is busy")
-                    || msg.to_lowercase().contains("device is busy")
-                    || msg.to_lowercase().contains("resource busy"),
-                "Pattern should match for: {}",
+                is_resource_busy_message(msg),
+                "Should match busy pattern for: {}",
                 msg
             );
         }
 
-        // Test non-matching messages
-        let non_busy_messages = vec!["permission denied", "not mounted", "some other error"];
+        // Test messages that should NOT match
+        let non_busy_messages = vec![
+            "permission denied",
+            "not mounted",
+            "some other error",
+            "device not found",
+        ];
 
         for msg in non_busy_messages {
             assert!(
-                !msg.to_lowercase().contains("target is busy")
-                    && !msg.to_lowercase().contains("device is busy")
-                    && !msg.to_lowercase().contains("resource busy"),
-                "Pattern should NOT match for: {}",
+                !is_resource_busy_message(msg),
+                "Should NOT match busy pattern for: {}",
                 msg
             );
         }
+    }
+
+    #[test]
+    fn test_check_resource_busy_error() {
+        let test_path: OwnedObjectPath = "/org/freedesktop/UDisks2/block_devices/sda1"
+            .try_into()
+            .unwrap();
+
+        // Test with a non-MethodError - should return None
+        let failure_error = zbus::Error::Failure("some failure".to_string());
+        let result = check_resource_busy_error(Some("/dev/sda1"), &test_path, &failure_error);
+        assert!(
+            result.is_none(),
+            "Should return None for non-MethodError types"
+        );
+
+        // Note: Testing with actual MethodError is difficult because constructing
+        // zbus::Message requires D-Bus context. The core pattern matching logic
+        // is tested in test_is_resource_busy_message(), and the integration with
+        // actual D-Bus errors is tested through runtime usage.
     }
 }

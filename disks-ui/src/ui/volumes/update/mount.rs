@@ -53,6 +53,19 @@ pub(super) fn mount(control: &mut VolumesControl) -> Task<cosmic::Action<Message
     )
 }
 
+// Helper enum to distinguish busy errors from generic errors
+#[derive(Debug)]
+enum UnmountResult {
+    Success(Vec<disks_dbus::DriveModel>),
+    Busy {
+        device: String,
+        mount_point: String,
+        processes: Vec<disks_dbus::ProcessInfo>,
+        object_path: String,
+    },
+    GenericError,
+}
+
 pub(super) fn unmount(control: &mut VolumesControl) -> Task<cosmic::Action<Message>> {
     let Some(volume) = control
         .segments
@@ -66,7 +79,7 @@ pub(super) fn unmount(control: &mut VolumesControl) -> Task<cosmic::Action<Messa
         .device_path
         .clone()
         .unwrap_or_else(|| volume.path.to_string());
-    let mount_point = volume.mount_points.first().cloned().unwrap_or_default();
+    let mount_point = volume.mount_points.first().cloned();
     let object_path = volume.path.to_string();
     let object_path_for_retry = object_path.clone();
 
@@ -76,15 +89,10 @@ pub(super) fn unmount(control: &mut VolumesControl) -> Task<cosmic::Action<Messa
                 Ok(()) => {
                     // Success - reload drives
                     match DriveModel::get_drives().await {
-                        Ok(drives) => Ok(drives),
+                        Ok(drives) => UnmountResult::Success(drives),
                         Err(e) => {
                             tracing::error!(?e, "Failed to reload drives");
-                            Err(UnmountBusyError {
-                                device: String::new(),
-                                mount_point: String::new(),
-                                processes: Vec::new(),
-                                object_path: String::new(),
-                            })
+                            UnmountResult::GenericError
                         }
                     }
                 }
@@ -93,61 +101,61 @@ pub(super) fn unmount(control: &mut VolumesControl) -> Task<cosmic::Action<Messa
                     if let Some(disk_err) = e.downcast_ref::<DiskError>()
                         && matches!(disk_err, DiskError::ResourceBusy { .. })
                     {
-                        // Find processes using the mount point
-                        match disks_dbus::find_processes_using_mount(&mount_point).await {
-                            Ok(processes) => {
-                                return Err(UnmountBusyError {
-                                    device,
-                                    mount_point,
-                                    processes,
-                                    object_path: object_path_for_retry,
-                                });
+                        // Check if we have a mount point - can't find processes without it
+                        if let Some(mp) = mount_point {
+                            if !mp.trim().is_empty() {
+                                // Find processes using the mount point
+                                match disks_dbus::find_processes_using_mount(&mp).await {
+                                    Ok(processes) => {
+                                        return UnmountResult::Busy {
+                                            device,
+                                            mount_point: mp,
+                                            processes,
+                                            object_path: object_path_for_retry,
+                                        };
+                                    }
+                                    Err(find_err) => {
+                                        tracing::warn!(?find_err, "Failed to find processes using mount");
+                                    }
+                                }
+                            } else {
+                                tracing::warn!("Mount point is empty, cannot find processes");
                             }
-                            Err(find_err) => {
-                                tracing::warn!(?find_err, "Failed to find processes using mount");
-                            }
+                        } else {
+                            tracing::warn!("No mount point available, cannot find processes");
                         }
                     }
                     // Generic error - log and continue
                     tracing::error!(?e, "unmount failed");
-                    Err(UnmountBusyError {
-                        device: String::new(),
-                        mount_point: String::new(),
-                        processes: Vec::new(),
-                        object_path: String::new(),
-                    })
+                    UnmountResult::GenericError
                 }
             }
         },
         move |result| match result {
-            Ok(drives) => {
+            UnmountResult::Success(drives) => {
                 Message::UpdateNavWithChildSelection(drives, Some(object_path.clone())).into()
             }
-            Err(busy_err) if !busy_err.device.is_empty() => {
+            UnmountResult::Busy {
+                device,
+                mount_point,
+                processes,
+                object_path,
+            } => {
                 // Show busy dialog
                 Message::Dialog(Box::new(ShowDialog::UnmountBusy(UnmountBusyDialog {
-                    device: busy_err.device,
-                    mount_point: busy_err.mount_point,
-                    processes: busy_err.processes,
-                    object_path: busy_err.object_path,
+                    device,
+                    mount_point,
+                    processes,
+                    object_path,
                 })))
                 .into()
             }
-            Err(_) => {
+            UnmountResult::GenericError => {
                 // Generic error already logged
                 Message::None.into()
             }
         },
     )
-}
-
-// Helper struct to pass busy error data through the async boundary
-#[derive(Debug)]
-struct UnmountBusyError {
-    device: String,
-    mount_point: String,
-    processes: Vec<disks_dbus::ProcessInfo>,
-    object_path: String,
 }
 
 pub(super) fn child_mount(
@@ -180,7 +188,7 @@ pub(super) fn child_unmount(
         .device_path
         .clone()
         .unwrap_or_else(|| node.object_path.to_string());
-    let mount_point = node.mount_points.first().cloned().unwrap_or_default();
+    let mount_point = node.mount_points.first().cloned();
     let object_path_for_selection = object_path.clone();
     let object_path_for_retry = object_path.clone();
 
@@ -190,15 +198,10 @@ pub(super) fn child_unmount(
                 Ok(()) => {
                     // Success - reload drives
                     match DriveModel::get_drives().await {
-                        Ok(drives) => Ok(drives),
+                        Ok(drives) => UnmountResult::Success(drives),
                         Err(e) => {
                             tracing::error!(?e, "Failed to reload drives");
-                            Err(UnmountBusyError {
-                                device: String::new(),
-                                mount_point: String::new(),
-                                processes: Vec::new(),
-                                object_path: String::new(),
-                            })
+                            UnmountResult::GenericError
                         }
                     }
                 }
@@ -207,49 +210,58 @@ pub(super) fn child_unmount(
                     if let Some(disk_err) = e.downcast_ref::<DiskError>()
                         && matches!(disk_err, DiskError::ResourceBusy { .. })
                     {
-                        // Find processes using the mount point
-                        match disks_dbus::find_processes_using_mount(&mount_point).await {
-                            Ok(processes) => {
-                                return Err(UnmountBusyError {
-                                    device,
-                                    mount_point,
-                                    processes,
-                                    object_path: object_path_for_retry,
-                                });
+                        // Check if we have a mount point - can't find processes without it
+                        if let Some(mp) = mount_point {
+                            if !mp.trim().is_empty() {
+                                // Find processes using the mount point
+                                match disks_dbus::find_processes_using_mount(&mp).await {
+                                    Ok(processes) => {
+                                        return UnmountResult::Busy {
+                                            device,
+                                            mount_point: mp,
+                                            processes,
+                                            object_path: object_path_for_retry,
+                                        };
+                                    }
+                                    Err(find_err) => {
+                                        tracing::warn!(?find_err, "Failed to find processes using mount");
+                                    }
+                                }
+                            } else {
+                                tracing::warn!("Mount point is empty, cannot find processes");
                             }
-                            Err(find_err) => {
-                                tracing::warn!(?find_err, "Failed to find processes using mount");
-                            }
+                        } else {
+                            tracing::warn!("No mount point available, cannot find processes");
                         }
                     }
                     // Generic error - log and continue
                     tracing::error!(?e, "child unmount failed");
-                    Err(UnmountBusyError {
-                        device: String::new(),
-                        mount_point: String::new(),
-                        processes: Vec::new(),
-                        object_path: String::new(),
-                    })
+                    UnmountResult::GenericError
                 }
             }
         },
         move |result| match result {
-            Ok(drives) => Message::UpdateNavWithChildSelection(
+            UnmountResult::Success(drives) => Message::UpdateNavWithChildSelection(
                 drives,
                 Some(object_path_for_selection.clone()),
             )
             .into(),
-            Err(busy_err) if !busy_err.device.is_empty() => {
+            UnmountResult::Busy {
+                device,
+                mount_point,
+                processes,
+                object_path,
+            } => {
                 // Show busy dialog
                 Message::Dialog(Box::new(ShowDialog::UnmountBusy(UnmountBusyDialog {
-                    device: busy_err.device,
-                    mount_point: busy_err.mount_point,
-                    processes: busy_err.processes,
-                    object_path: busy_err.object_path,
+                    device,
+                    mount_point,
+                    processes,
+                    object_path,
                 })))
                 .into()
             }
-            Err(_) => {
+            UnmountResult::GenericError => {
                 // Generic error already logged
                 Message::None.into()
             }

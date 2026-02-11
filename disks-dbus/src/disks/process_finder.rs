@@ -1,6 +1,7 @@
 use anyhow::{Context, Result};
 use nix::sys::signal::{Signal, kill};
 use nix::unistd::Pid;
+use std::collections::HashMap;
 use std::path::Path;
 
 /// Information about a process holding a mount point open
@@ -46,10 +47,28 @@ pub async fn find_processes_using_mount(mount_point: &str) -> Result<Vec<Process
 
 /// Synchronous implementation of process discovery
 fn find_processes_using_mount_sync(mount_point: &str) -> Result<Vec<ProcessInfo>> {
-    let mut result = Vec::new();
-    let mount_path = Path::new(mount_point);
+    // Input validation
+    let trimmed = mount_point.trim();
+    if trimmed.is_empty() {
+        tracing::warn!("Empty mount point provided, returning no processes");
+        return Ok(Vec::new());
+    }
+    
+    if !trimmed.starts_with('/') {
+        tracing::warn!(
+            mount_point = %mount_point,
+            "Mount point is not an absolute path, returning no processes"
+        );
+        return Ok(Vec::new());
+    }
 
-    tracing::debug!("Searching for processes using mount point: {}", mount_point);
+    let mut result = Vec::new();
+    let mount_path = Path::new(trimmed);
+
+    tracing::debug!("Searching for processes using mount point: {}", trimmed);
+
+    // Build UID map once for efficient username lookups
+    let uid_map = build_uid_map();
 
     // Enumerate all processes
     let all_procs = match procfs::process::all_processes() {
@@ -80,7 +99,7 @@ fn find_processes_using_mount_sync(mount_point: &str) -> Result<Vec<ProcessInfo>
 
         // Extract process information
         let command = extract_command(&process);
-        let (uid, username) = extract_user_info(&process);
+        let (uid, username) = extract_user_info(&process, &uid_map);
 
         tracing::debug!(
             "Found process using mount: PID={}, command={}, user={}",
@@ -236,13 +255,16 @@ fn extract_command(process: &procfs::process::Process) -> String {
 }
 
 /// Extract UID and username from process
-fn extract_user_info(process: &procfs::process::Process) -> (u32, String) {
+fn extract_user_info(process: &procfs::process::Process, uid_map: &HashMap<u32, String>) -> (u32, String) {
     // Get real UID from status
     if let Ok(status) = process.status() {
         let uid = status.ruid;
 
-        // Try to resolve username
-        let username = resolve_username(uid).unwrap_or_else(|| uid.to_string());
+        // Look up username in the prebuilt map
+        let username = uid_map
+            .get(&uid)
+            .cloned()
+            .unwrap_or_else(|| uid.to_string());
 
         return (uid, username);
     }
@@ -252,6 +274,9 @@ fn extract_user_info(process: &procfs::process::Process) -> (u32, String) {
 }
 
 /// Resolve UID to username by reading /etc/passwd
+/// Note: This function reads /etc/passwd each time. For bulk lookups,
+/// use build_uid_map() instead for better performance.
+#[allow(dead_code)]
 fn resolve_username(uid: u32) -> Option<String> {
     // Simple approach: read /etc/passwd and find matching UID
     let passwd_content = std::fs::read_to_string("/etc/passwd").ok()?;
@@ -267,6 +292,30 @@ fn resolve_username(uid: u32) -> Option<String> {
     }
 
     None
+}
+
+/// Build a UID to username map from /etc/passwd
+/// This is more efficient than calling resolve_username repeatedly
+fn build_uid_map() -> HashMap<u32, String> {
+    let mut map = HashMap::new();
+    
+    match std::fs::read_to_string("/etc/passwd") {
+        Ok(passwd_content) => {
+            for line in passwd_content.lines() {
+                let parts: Vec<&str> = line.split(':').collect();
+                if parts.len() >= 3
+                    && let Ok(uid) = parts[2].parse::<u32>()
+                {
+                    map.insert(uid, parts[0].to_string());
+                }
+            }
+        }
+        Err(e) => {
+            tracing::warn!("Failed to read /etc/passwd for UID map: {}", e);
+        }
+    }
+    
+    map
 }
 
 #[cfg(test)]
