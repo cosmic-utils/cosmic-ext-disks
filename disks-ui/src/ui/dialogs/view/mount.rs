@@ -158,20 +158,26 @@ pub fn unmount_busy<'a>(state: UnmountBusyDialog) -> Element<'a, Message> {
     let has_processes = !processes.is_empty();
 
     // Build the dialog body
-    let mut content = iced_widget::column![caption(format!(
-        "{}: {}",
-        fl!("unmount-busy-message"),
-        mount_point
-    )),]
+    let mut content = iced_widget::column![
+        caption(fl!("unmount-busy-message")),
+        caption(format!("{}: {}", fl!("unmount-busy-mount-point"), mount_point)),
+    ]
     .spacing(12);
 
     if has_processes {
-        // Add process list section
-        content = content.push(caption_heading(fl!("unmount-busy-processes")));
-
-        // Create process list rows
+        // Create process list with headers
         let mut process_list = iced_widget::column![].spacing(4);
 
+        // Add header row
+        let header_row = iced_widget::row![
+            caption_heading(fl!("unmount-busy-header-pid")).width(60),
+            caption_heading(fl!("unmount-busy-header-command")).width(200),
+            caption_heading(fl!("unmount-busy-header-user")).width(100),
+        ]
+        .spacing(12);
+        process_list = process_list.push(header_row);
+
+        // Add process data rows
         for proc in processes.iter() {
             let process_row = iced_widget::row![
                 iced_widget::text(format!("{}", proc.pid)).width(60),
