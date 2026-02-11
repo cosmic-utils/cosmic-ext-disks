@@ -181,3 +181,31 @@ block-device = Enhet
 not-mounted = Inte monterad
 can-create-partition = Kan skapa partition
 offset = Offset
+
+# Partitionsdialog etiketter
+overwrite-data-slow = Skriv över data (långsamt)
+password-protected-luks = Lösenordsskyddad (LUKS)
+
+# Filsystemtypnamn
+fs-name-ext4 = ext4
+fs-name-ext3 = ext3
+fs-name-xfs = XFS
+fs-name-btrfs = Btrfs
+fs-name-f2fs = F2FS
+fs-name-udf = UDF
+fs-name-ntfs = NTFS
+fs-name-vfat = FAT32
+fs-name-exfat = exFAT
+fs-name-swap = Växlingsutrymme
+
+# Beskrivningar av filsystemtyper
+fs-desc-ext4 = Modernt Linux-filsystem (standard)
+fs-desc-ext3 = Äldre Linux-filsystem
+fs-desc-xfs = Högpresterande journalföring
+fs-desc-btrfs = Copy-on-write med ögonblicksbilder
+fs-desc-f2fs = Flash-optimerat filsystem
+fs-desc-udf = Universal Disk Format
+fs-desc-ntfs = Windows-filsystem
+fs-desc-vfat = Universell kompatibilitet
+fs-desc-exfat = Stora filer, multiplattform
+fs-desc-swap = Virtuellt minne
