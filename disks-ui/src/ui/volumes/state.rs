@@ -81,11 +81,17 @@ impl Segment {
 
     #[allow(dead_code)]
     pub fn get_create_info(&self) -> CreatePartitionInfo {
+        // Auto-select appropriate unit and format size text
+        let unit = crate::utils::SizeUnit::auto_select(self.size);
+        let size_value = unit.from_bytes(self.size);
+        
         CreatePartitionInfo {
             max_size: self.size,
             offset: self.offset,
             size: self.size,
             table_type: self.table_type.clone(),
+            size_text: format!("{:.2}", size_value),
+            size_unit_index: unit.to_index(),
             ..Default::default()
         }
     }

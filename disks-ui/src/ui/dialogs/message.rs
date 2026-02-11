@@ -72,6 +72,8 @@ pub enum EditEncryptionOptionsMessage {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum CreateMessage {
     SizeUpdate(u64),
+    SizeTextUpdate(String),
+    SizeUnitUpdate(usize),
     NameUpdate(String),
     PasswordUpdate(String),
     ConfirmedPasswordUpdate(String),

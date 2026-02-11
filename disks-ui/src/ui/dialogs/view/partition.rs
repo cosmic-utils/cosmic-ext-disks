@@ -8,7 +8,7 @@ use crate::ui::dialogs::state::{
     ResizePartitionDialog,
 };
 use crate::utils::labelled_spinner;
-use crate::utils::{get_fs_tool_status, detect_fs_tools};
+use crate::utils::{get_fs_tool_status, detect_fs_tools, SizeUnit};
 use cosmic::{
     Element, iced_widget,
     widget::text::caption,
@@ -17,23 +17,9 @@ use cosmic::{
 use disks_dbus::{PartitionTypeInfo, bytes_to_pretty, COMMON_GPT_TYPES, COMMON_DOS_TYPES};
 
 pub fn create_partition<'a>(state: CreatePartitionDialog) -> Element<'a, Message> {
-    let CreatePartitionDialog {
-        info: create,
-        running,
-        error,
-    } = state;
-
-    let len = create.max_size as f64;
-
-    let size = create.size as f64;
-    let free = len - size;
-    let free_bytes = free as u64;
-
-    let size_pretty = bytes_to_pretty(&create.size, false);
-    let free_pretty = bytes_to_pretty(&free_bytes, false);
-    let step = disks_dbus::get_step(&create.size);
-
-    let create_clone = create.clone();
+    let running = state.running;
+    let error =state.error;
+    let create = &state.info;
 
     // Get partition type details for radio list
     let partition_types: &[PartitionTypeInfo] = match create.table_type.as_str() {
@@ -47,32 +33,34 @@ pub fn create_partition<'a>(state: CreatePartitionDialog) -> Element<'a, Message
     // Only show partition name field for table types that support it (not DOS/MBR)
     if create.table_type != "dos" {
         content = content.push(
-            text_input(fl!("volume-name"), create_clone.name.clone())
+            text_input(fl!("volume-name"), create.name.clone())
                 .label(fl!("volume-name"))
                 .on_input(|t| CreateMessage::NameUpdate(t).into())
         );
     }
     
-    content = content.push(slider(0.0..=len, size, |v| CreateMessage::SizeUpdate(v as u64).into()));
-    content = content.push(labelled_spinner(
-        fl!("partition-size"),
-        size_pretty,
-        size,
-        step,
-        0.,
-        len,
-        |v| { CreateMessage::SizeUpdate(v as u64).into() },
-    ));
-    content = content.push(labelled_spinner(
-        fl!("free-space"),
-        free_pretty,
-        free,
-        step,
-        0.,
-        len,
-        move |v| { CreateMessage::SizeUpdate((len - v) as u64).into() },
-    ));
-    content = content.push(checkbox(fl!("overwrite-data-slow"), create_clone.erase)
+    // Size input with unit selector
+    let size_input = text_input("", create.size_text.clone())
+        .label(fl!("partition-size"))
+        .on_input(|t| CreateMessage::SizeTextUpdate(t).into());
+    
+    let unit_selector = dropdown(
+        SizeUnit::all_labels(),
+        Some(create.size_unit_index),
+        |idx| CreateMessage::SizeUnitUpdate(idx).into()
+    );
+    
+    let size_row = iced_widget::row![size_input, unit_selector]
+        .spacing(8);
+    
+    content = content.push(size_row);
+    
+    // Show remaining space
+    let free_bytes = create.max_size.saturating_sub(create.size);
+    let free_pretty = bytes_to_pretty(&free_bytes, false);
+    content = content.push(caption(format!("{}: {}", fl!("free-space"), free_pretty)));
+    
+    content = content.push(checkbox(fl!("overwrite-data-slow"), create.erase)
         .on_toggle(|v| CreateMessage::EraseUpdate(v).into()));
     
     // Get filesystem tool availability status
@@ -119,7 +107,7 @@ pub fn create_partition<'a>(state: CreatePartitionDialog) -> Element<'a, Message
                 radio(
                     text(label),
                     idx,
-                    if create_clone.selected_partition_type_index == idx { Some(idx) } else { None },
+                    if create.selected_partition_type_index == idx { Some(idx) } else { None },
                     |v| CreateMessage::PartitionTypeUpdate(v).into(),
                 ),
                 text(tooltip_text),
@@ -129,7 +117,7 @@ pub fn create_partition<'a>(state: CreatePartitionDialog) -> Element<'a, Message
             radio(
                 text(label),
                 idx,
-                if create_clone.selected_partition_type_index == idx { Some(idx) } else { None },
+                if create.selected_partition_type_index == idx { Some(idx) } else { None },
                 |v| CreateMessage::PartitionTypeUpdate(v).into(),
             ).into()
         };
@@ -142,13 +130,13 @@ pub fn create_partition<'a>(state: CreatePartitionDialog) -> Element<'a, Message
 
     if create.password_protected {
         content = content.push(
-            text_input::secure_input("", create_clone.password, None, true)
+            text_input::secure_input("", create.password.clone(), None, true)
                 .label(fl!("password"))
                 .on_input(|v| CreateMessage::PasswordUpdate(v).into()),
         );
 
         content = content.push(
-            text_input::secure_input("", create_clone.confirmed_password, None, true)
+            text_input::secure_input("", create.confirmed_password.clone(), None, true)
                 .label(fl!("confirm"))
                 .on_input(|v| CreateMessage::ConfirmedPasswordUpdate(v).into()),
         );

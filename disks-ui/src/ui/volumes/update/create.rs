@@ -6,6 +6,7 @@ use crate::ui::dialogs::message::CreateMessage;
 use crate::ui::dialogs::state::ShowDialog;
 use crate::ui::error::{UiErrorContext, log_error_and_show_dialog};
 use crate::ui::volumes::helpers;
+use crate::utils::SizeUnit;
 use disks_dbus::{CreatePartitionInfo, DriveModel};
 
 use crate::ui::volumes::VolumesControl;
@@ -31,6 +32,30 @@ pub(super) fn create_message(
         ShowDialog::AddPartition(state) => match create_message {
             CreateMessage::SizeUpdate(size) => {
                 state.info.size = size;
+                state.error = None;
+            }
+            CreateMessage::SizeTextUpdate(text) => {
+                state.info.size_text = text.clone();
+                // Parse and update size in bytes
+                if let Ok(value) = text.trim().parse::<f64>() {
+                    let unit = SizeUnit::from_index(state.info.size_unit_index);
+                    state.info.size = unit.to_bytes(value).min(state.info.max_size);
+                }
+                state.error = None;
+            }
+            CreateMessage::SizeUnitUpdate(unit_index) => {
+                let old_unit = SizeUnit::from_index(state.info.size_unit_index);
+                let new_unit = SizeUnit::from_index(unit_index);
+                
+                // Parse current text value
+                if let Ok(old_value) = state.info.size_text.trim().parse::<f64>() {
+                    // Convert to bytes using old unit, then to new unit
+                    let bytes = old_unit.to_bytes(old_value);
+                    let new_value = new_unit.from_bytes(bytes);
+                    state.info.size_text = format!("{:.2}", new_value);
+                }
+                
+                state.info.size_unit_index = unit_index;
                 state.error = None;
             }
             CreateMessage::NameUpdate(name) => {
