@@ -36,40 +36,45 @@ pub fn create_partition<'a>(state: CreatePartitionDialog) -> Element<'a, Message
 
     let valid_partition_types = get_valid_partition_names(create.table_type.clone());
 
-    let mut content = iced_widget::column![
-        text_input(fl!("volume-name"), create_clone.name)
-            .label(fl!("volume-name"))
-            .on_input(|t| CreateMessage::NameUpdate(t).into()),
-        slider(0.0..=len, size, |v| CreateMessage::SizeUpdate(v as u64)
-            .into()),
-        labelled_spinner(
-            fl!("partition-size"),
-            size_pretty,
-            size,
-            step,
-            0.,
-            len,
-            |v| { CreateMessage::SizeUpdate(v as u64).into() },
-        ),
-        labelled_spinner(
-            fl!("free-space"),
-            free_pretty,
-            free,
-            step,
-            0.,
-            len,
-            move |v| { CreateMessage::SizeUpdate((len - v) as u64).into() },
-        ),
-        checkbox(fl!("overwrite-data-slow"), create_clone.erase)
-            .on_toggle(|v| CreateMessage::EraseUpdate(v).into()),
-        dropdown(
-            valid_partition_types,
-            Some(create_clone.selected_partition_type_index),
-            |v| CreateMessage::PartitionTypeUpdate(v).into(),
-        ),
-        checkbox(fl!("password-protected-luks"), create.password_protected)
-            .on_toggle(|v| CreateMessage::PasswordProtectedUpdate(v).into()),
-    ];
+    let mut content = iced_widget::column![];
+    
+    // Only show partition name field for table types that support it (not DOS/MBR)
+    if create.table_type != "dos" {
+        content = content.push(
+            text_input(fl!("volume-name"), create_clone.name.clone())
+                .label(fl!("volume-name"))
+                .on_input(|t| CreateMessage::NameUpdate(t).into())
+        );
+    }
+    
+    content = content.push(slider(0.0..=len, size, |v| CreateMessage::SizeUpdate(v as u64).into()));
+    content = content.push(labelled_spinner(
+        fl!("partition-size"),
+        size_pretty,
+        size,
+        step,
+        0.,
+        len,
+        |v| { CreateMessage::SizeUpdate(v as u64).into() },
+    ));
+    content = content.push(labelled_spinner(
+        fl!("free-space"),
+        free_pretty,
+        free,
+        step,
+        0.,
+        len,
+        move |v| { CreateMessage::SizeUpdate((len - v) as u64).into() },
+    ));
+    content = content.push(checkbox(fl!("overwrite-data-slow"), create_clone.erase)
+        .on_toggle(|v| CreateMessage::EraseUpdate(v).into()));
+    content = content.push(dropdown(
+        valid_partition_types,
+        Some(create_clone.selected_partition_type_index),
+        |v| CreateMessage::PartitionTypeUpdate(v).into(),
+    ));
+    content = content.push(checkbox(fl!("password-protected-luks"), create.password_protected)
+        .on_toggle(|v| CreateMessage::PasswordProtectedUpdate(v).into()));
 
     if create.password_protected {
         content = content.push(
@@ -119,18 +124,26 @@ pub fn format_partition<'a>(state: FormatPartitionDialog) -> Element<'a, Message
 
     let mut content = iced_widget::column![
         caption(fl!("format-partition-description", size = size_pretty)),
-        text_input(fl!("volume-name"), create.name.clone())
-            .label(fl!("volume-name"))
-            .on_input(|t| CreateMessage::NameUpdate(t).into()),
-        checkbox(fl!("overwrite-data-slow"), create.erase)
-            .on_toggle(|v| CreateMessage::EraseUpdate(v).into()),
-        dropdown(
-            valid_partition_types,
-            Some(create.selected_partition_type_index),
-            |v| CreateMessage::PartitionTypeUpdate(v).into(),
-        ),
-    ]
-    .spacing(12);
+    ];
+    
+    // Only show partition name field for table types that support it (not DOS/MBR)
+    if create.table_type != "dos" {
+        content = content.push(
+            text_input(fl!("volume-name"), create.name.clone())
+                .label(fl!("volume-name"))
+                .on_input(|t| CreateMessage::NameUpdate(t).into())
+        );
+    }
+    
+    content = content.push(checkbox(fl!("overwrite-data-slow"), create.erase)
+        .on_toggle(|v| CreateMessage::EraseUpdate(v).into()));
+    content = content.push(dropdown(
+        valid_partition_types,
+        Some(create.selected_partition_type_index),
+        |v| CreateMessage::PartitionTypeUpdate(v).into(),
+    ));
+    
+    content = content.spacing(12);
 
     if running {
         content = content.push(caption(fl!("working")));
