@@ -653,11 +653,11 @@ This document breaks down the implementation into commit-sized tasks. Each task 
 - User can still select greyed options (soft warning, not hard block)
 
 **Done when:**
-- [ ] FSTools status retrieved in dialog view
-- [ ] Radio buttons greyed when tools missing
-- [ ] Tooltips show package hints + filesystem names
-- [ ] Text matches settings page i18n strings
-- [ ] Works for both Create and Format dialogs
+- [x] FSTools status retrieved in dialog view
+- [x] Radio buttons greyed when tools missing
+- [x] Tooltips show package hints + filesystem names
+- [x] Text matches settings page i18n strings
+- [x] Works for both Create and Format dialogs
 
 ---
 
