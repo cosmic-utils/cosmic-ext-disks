@@ -8,10 +8,11 @@ use crate::ui::dialogs::state::{
     ResizePartitionDialog,
 };
 use crate::utils::labelled_spinner;
+use crate::utils::{get_fs_tool_status, detect_fs_tools};
 use cosmic::{
     Element, iced_widget,
     widget::text::caption,
-    widget::{button, checkbox, dialog, dropdown, radio, slider, text, text_input},
+    widget::{button, checkbox, dialog, dropdown, radio, slider, text, text_input, tooltip},
 };
 use disks_dbus::{PartitionTypeInfo, bytes_to_pretty, COMMON_GPT_TYPES, COMMON_DOS_TYPES};
 
@@ -74,11 +75,19 @@ pub fn create_partition<'a>(state: CreatePartitionDialog) -> Element<'a, Message
     content = content.push(checkbox(fl!("overwrite-data-slow"), create_clone.erase)
         .on_toggle(|v| CreateMessage::EraseUpdate(v).into()));
     
+    // Get filesystem tool availability status
+    let tool_status = get_fs_tool_status();
+    
     // Filesystem type selection (radio list with friendly labels)
     content = content.push(caption(fl!("filesystem-type")));
     for (idx, p_type) in partition_types.iter().enumerate() {
+        let fs_type = p_type.filesystem_type.as_str();
+        
+        // Check if tools are available (default to true for ext4, ext3, swap)
+        let tool_available = tool_status.get(fs_type).copied().unwrap_or(true);
+        
         // Build friendly label - match inline to use fl! macro with literals
-        let label = match p_type.filesystem_type.as_str() {
+        let mut label = match fs_type {
             "ext4" => format!("{} — {}", fl!("fs-name-ext4"), fl!("fs-desc-ext4")),
             "ext3" => format!("{} — {}", fl!("fs-name-ext3"), fl!("fs-desc-ext3")),
             "xfs" => format!("{} — {}", fl!("fs-name-xfs"), fl!("fs-desc-xfs")),
@@ -92,12 +101,40 @@ pub fn create_partition<'a>(state: CreatePartitionDialog) -> Element<'a, Message
             fs => fs.to_string(),
         };
         
-        content = content.push(radio(
-            text(label),
-            idx,
-            if create_clone.selected_partition_type_index == idx { Some(idx) } else { None },
-            |v| CreateMessage::PartitionTypeUpdate(v).into(),
-        ));
+        // Add indicator if tools are missing
+        if !tool_available {
+            label = format!("⚠ {} (tools required)", label);
+        }
+        
+        // Build element - wrap in tooltip if tools are missing
+        let element: Element<'a, Message> = if !tool_available {
+            // Get package hint from fs_tools info
+            let tooltip_text = detect_fs_tools()
+                .into_iter()
+                .find(|info| info.fs_type == fs_type)
+                .map(|info| format!("{} - required for {} support", info.package_hint, info.fs_name))
+                .unwrap_or_else(|| format!("Additional tools required for {}", fs_type));
+            
+            tooltip(
+                radio(
+                    text(label),
+                    idx,
+                    if create_clone.selected_partition_type_index == idx { Some(idx) } else { None },
+                    |v| CreateMessage::PartitionTypeUpdate(v).into(),
+                ),
+                text(tooltip_text),
+                tooltip::Position::Right,
+            ).into()
+        } else {
+            radio(
+                text(label),
+                idx,
+                if create_clone.selected_partition_type_index == idx { Some(idx) } else { None },
+                |v| CreateMessage::PartitionTypeUpdate(v).into(),
+            ).into()
+        };
+        
+        content = content.push(element);
     }
     
     content = content.push(checkbox(fl!("password-protected-luks"), create.password_protected)
@@ -171,11 +208,19 @@ pub fn format_partition<'a>(state: FormatPartitionDialog) -> Element<'a, Message
     content = content.push(checkbox(fl!("overwrite-data-slow"), create.erase)
         .on_toggle(|v| CreateMessage::EraseUpdate(v).into()));
     
+    // Get filesystem tool availability status
+    let tool_status = get_fs_tool_status();
+    
     // Filesystem type selection (radio list with friendly labels)
     content = content.push(caption(fl!("filesystem-type")));
     for (idx, p_type) in partition_types.iter().enumerate() {
+        let fs_type = p_type.filesystem_type.as_str();
+        
+        // Check if tools are available (default to true for ext4, ext3, swap)
+        let tool_available = tool_status.get(fs_type).copied().unwrap_or(true);
+        
         // Build friendly label - match inline to use fl! macro with literals
-        let label = match p_type.filesystem_type.as_str() {
+        let mut label = match fs_type {
             "ext4" => format!("{} — {}", fl!("fs-name-ext4"), fl!("fs-desc-ext4")),
             "ext3" => format!("{} — {}", fl!("fs-name-ext3"), fl!("fs-desc-ext3")),
             "xfs" => format!("{} — {}", fl!("fs-name-xfs"), fl!("fs-desc-xfs")),
@@ -189,12 +234,40 @@ pub fn format_partition<'a>(state: FormatPartitionDialog) -> Element<'a, Message
             fs => fs.to_string(),
         };
         
-        content = content.push(radio(
-            text(label),
-            idx,
-            if create.selected_partition_type_index == idx { Some(idx) } else { None },
-            |v| CreateMessage::PartitionTypeUpdate(v).into(),
-        ));
+        // Add indicator if tools are missing
+        if !tool_available {
+            label = format!("⚠ {} (tools required)", label);
+        }
+        
+        // Build element - wrap in tooltip if tools are missing
+        let element: Element<'a, Message> = if !tool_available {
+            // Get package hint from fs_tools info
+            let tooltip_text = detect_fs_tools()
+                .into_iter()
+                .find(|info| info.fs_type == fs_type)
+                .map(|info| format!("{} - required for {} support", info.package_hint, info.fs_name))
+                .unwrap_or_else(|| format!("Additional tools required for {}", fs_type));
+            
+            tooltip(
+                radio(
+                    text(label),
+                    idx,
+                    if create.selected_partition_type_index == idx { Some(idx) } else { None },
+                    |v| CreateMessage::PartitionTypeUpdate(v).into(),
+                ),
+                text(tooltip_text),
+                tooltip::Position::Right,
+            ).into()
+        } else {
+            radio(
+                text(label),
+                idx,
+                if create.selected_partition_type_index == idx { Some(idx) } else { None },
+                |v| CreateMessage::PartitionTypeUpdate(v).into(),
+            ).into()
+        };
+        
+        content = content.push(element);
     }
     
     content = content.spacing(12);

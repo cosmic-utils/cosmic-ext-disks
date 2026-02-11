@@ -3,7 +3,7 @@ mod segments;
 mod ui;
 
 // Explicit exports from fs_tools module
-pub use fs_tools::get_missing_tools;
+pub use fs_tools::{get_missing_tools, get_fs_tool_status, detect_fs_tools};
 
 // Explicit exports from segments module
 pub use segments::{DiskSegmentKind, PartitionExtent, SegmentAnomaly, compute_disk_segments};
