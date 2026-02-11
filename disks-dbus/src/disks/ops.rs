@@ -105,6 +105,45 @@ async fn device_for_display(connection: &Connection, path: &OwnedObjectPath) -> 
     block_proxy.device().await.ok().and_then(|dev| decode(&dev))
 }
 
+/// Check if a zbus error indicates the device/mount is busy (EBUSY/target is busy).
+/// Returns Some with device and mount_point if detected, None otherwise.
+/// Check if an error message string contains resource busy patterns
+fn is_resource_busy_message(msg: &str) -> bool {
+    let msg_lower = msg.to_lowercase();
+    msg_lower.contains("target is busy")
+        || msg_lower.contains("device is busy")
+        || msg_lower.contains("resource busy")
+}
+
+fn check_resource_busy_error(
+    device_for_display: Option<&str>,
+    object_path: &OwnedObjectPath,
+    err: &zbus::Error,
+) -> Option<(String, String)> {
+    let zbus::Error::MethodError(_name, msg, _info) = err else {
+        return None;
+    };
+
+    let msg_str = msg.as_deref().unwrap_or("");
+
+    // UDisks2 typically returns errors like "target is busy" or "device is busy" for EBUSY
+
+    if is_resource_busy_message(msg_str) {
+        let device = device_for_display.unwrap_or("<unknown device>").to_string();
+        // Mount point would need to be queried separately; for now use object_path as fallback
+        let mount_point = format!("<object: {}>", object_path);
+        tracing::debug!(
+            device = %device,
+            mount_point = %mount_point,
+            error_msg = %msg_str,
+            "Resource busy error detected during unmount"
+        );
+        return Some((device, mount_point));
+    }
+
+    None
+}
+
 fn anyhow_from_method_error(
     operation: &str,
     object_path: &OwnedObjectPath,
@@ -259,6 +298,18 @@ impl DiskBackend for RealDiskBackend {
             match res {
                 Ok(()) => Ok(()),
                 Err(err) => {
+                    // Check if this is a "resource busy" error first
+                    if let Some((device, mount_point)) =
+                        check_resource_busy_error(device_for_display.as_deref(), &path, &err)
+                    {
+                        return Err(crate::disks::DiskError::ResourceBusy {
+                            device,
+                            mount_point,
+                        }
+                        .into());
+                    }
+
+                    // Otherwise, use standard error handling
                     if let Some(e) = anyhow_from_method_error(
                         "Filesystem.Unmount",
                         &path,
@@ -928,5 +979,62 @@ mod tests {
 
         let calls = backend.take_calls();
         assert_eq!(calls.len(), 4);
+    }
+
+    #[test]
+    fn test_is_resource_busy_message() {
+        // Test messages that should match
+        let busy_messages = vec![
+            "target is busy",
+            "device is busy",
+            "Target Is Busy", // case-insensitive
+            "RESOURCE BUSY",
+            "Error: target is busy (unmount failed)",
+            "GDBus.Error: device is busy",
+        ];
+
+        for msg in busy_messages {
+            assert!(
+                is_resource_busy_message(msg),
+                "Should match busy pattern for: {}",
+                msg
+            );
+        }
+
+        // Test messages that should NOT match
+        let non_busy_messages = vec![
+            "permission denied",
+            "not mounted",
+            "some other error",
+            "device not found",
+        ];
+
+        for msg in non_busy_messages {
+            assert!(
+                !is_resource_busy_message(msg),
+                "Should NOT match busy pattern for: {}",
+                msg
+            );
+        }
+    }
+
+    #[test]
+    fn test_check_resource_busy_error() {
+        let test_path: OwnedObjectPath = "/org/freedesktop/UDisks2/block_devices/sda1"
+            .try_into()
+            .unwrap();
+
+        // Test with a non-MethodError - should return None
+        let failure_error = zbus::Error::Failure("some failure".to_string());
+        let result = check_resource_busy_error(Some("/dev/sda1"), &test_path, &failure_error);
+        assert!(
+            result.is_none(),
+            "Should return None for non-MethodError types"
+        );
+
+        // Note: Testing with actual MethodError is difficult because constructing
+        // zbus::Message requires D-Bus context. The core pattern matching logic
+        // is tested in test_is_resource_busy_message(), and the integration with
+        // actual D-Bus errors is tested through runtime usage.
     }
 }

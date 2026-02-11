@@ -2,7 +2,7 @@ use crate::config::Config;
 use crate::ui::app::state::ContextPage;
 use crate::ui::dialogs::message::{
     AttachDiskImageDialogMessage, FormatDiskMessage, ImageOperationDialogMessage,
-    NewDiskImageDialogMessage, SmartDialogMessage,
+    NewDiskImageDialogMessage, SmartDialogMessage, UnmountBusyMessage,
 };
 use crate::ui::dialogs::state::ShowDialog;
 use crate::ui::volumes::VolumesControlMessage;
@@ -59,6 +59,8 @@ pub enum Message {
     NewDiskImageDialog(NewDiskImageDialogMessage),
     AttachDiskImageDialog(AttachDiskImageDialogMessage),
     ImageOperationDialog(ImageOperationDialogMessage),
+    UnmountBusy(UnmountBusyMessage),
+    RetryUnmountAfterKill(String),
     OpenImagePathPicker(ImagePathPickerKind),
     ImagePathPicked(ImagePathPickerKind, Option<String>),
     ToggleShowReserved(bool),
@@ -101,5 +103,11 @@ impl From<AttachDiskImageDialogMessage> for Message {
 impl From<ImageOperationDialogMessage> for Message {
     fn from(val: ImageOperationDialogMessage) -> Self {
         Message::ImageOperationDialog(val)
+    }
+}
+
+impl From<UnmountBusyMessage> for Message {
+    fn from(val: UnmountBusyMessage) -> Self {
+        Message::UnmountBusy(val)
     }
 }

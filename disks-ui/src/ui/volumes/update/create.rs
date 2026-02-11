@@ -168,7 +168,8 @@ pub(super) fn create_message(
         | ShowDialog::EditFilesystemLabel(_)
         | ShowDialog::ConfirmAction(_)
         | ShowDialog::TakeOwnership(_)
-        | ShowDialog::ChangePassphrase(_) => {
+        | ShowDialog::ChangePassphrase(_)
+        | ShowDialog::UnmountBusy(_) => {
             tracing::warn!("create message received while a different dialog is open; ignoring");
         }
 

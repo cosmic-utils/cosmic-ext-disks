@@ -43,52 +43,52 @@ fn extract_owned_value(v: &OwnedValue) -> String {
 
     // Strip OwnedValue wrapper if present
     let mut s = debug_str.as_str();
-    if let Some(stripped) = s.strip_prefix("OwnedValue(") {
-        if let Some(inner) = stripped.strip_suffix(")") {
-            s = inner;
-        }
+    if let Some(stripped) = s.strip_prefix("OwnedValue(")
+        && let Some(inner) = stripped.strip_suffix(")")
+    {
+        s = inner;
     }
 
     // Handle specific zvariant types
     // U8(value) -> value
-    if let Some(rest) = s.strip_prefix("U8(") {
-        if let Some(num) = rest.strip_suffix(")") {
-            return num.to_string();
-        }
+    if let Some(rest) = s.strip_prefix("U8(")
+        && let Some(num) = rest.strip_suffix(")")
+    {
+        return num.to_string();
     }
 
     // I8(value) -> value
-    if let Some(rest) = s.strip_prefix("I8(") {
-        if let Some(num) = rest.strip_suffix(")") {
-            return num.to_string();
-        }
+    if let Some(rest) = s.strip_prefix("I8(")
+        && let Some(num) = rest.strip_suffix(")")
+    {
+        return num.to_string();
     }
 
     // Array types - format as [item1, item2, ...]
-    if let Some(rest) = s.strip_prefix("Array(") {
-        if let Some(inner) = rest.strip_suffix(")") {
-            // Extract elements between "elements: [" and "], signature:"
-            if let Some(elements_start) = inner.find("elements:") {
-                let after_elements = &inner[elements_start + 9..].trim_start();
-                // Find the array content between [ and ]
-                if let Some(array_start) = after_elements.find('[') {
-                    let array_content = &after_elements[array_start + 1..];
-                    if let Some(array_end) = array_content.find(']') {
-                        let elements_str = &array_content[..array_end];
-                        // Parse nested types within the array
-                        let cleaned = elements_str
-                            .replace("U8(", "")
-                            .replace("U16(", "")
-                            .replace("U32(", "")
-                            .replace("U64(", "")
-                            .replace("I8(", "")
-                            .replace("I16(", "")
-                            .replace("I32(", "")
-                            .replace("I64(", "")
-                            .replace("F64(", "")
-                            .replace(")", "");
-                        return format!("[{}]", cleaned);
-                    }
+    if let Some(rest) = s.strip_prefix("Array(")
+        && let Some(inner) = rest.strip_suffix(")")
+    {
+        // Extract elements between "elements: [" and "], signature:"
+        if let Some(elements_start) = inner.find("elements:") {
+            let after_elements = &inner[elements_start + 9..].trim_start();
+            // Find the array content between [ and ]
+            if let Some(array_start) = after_elements.find('[') {
+                let array_content = &after_elements[array_start + 1..];
+                if let Some(array_end) = array_content.find(']') {
+                    let elements_str = &array_content[..array_end];
+                    // Parse nested types within the array
+                    let cleaned = elements_str
+                        .replace("U8(", "")
+                        .replace("U16(", "")
+                        .replace("U32(", "")
+                        .replace("U64(", "")
+                        .replace("I8(", "")
+                        .replace("I16(", "")
+                        .replace("I32(", "")
+                        .replace("I64(", "")
+                        .replace("F64(", "")
+                        .replace(")", "");
+                    return format!("[{}]", cleaned);
                 }
             }
         }

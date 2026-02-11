@@ -18,7 +18,7 @@ use cosmic::app::Task;
 use cosmic::cosmic_config::CosmicConfigEntry;
 use cosmic::dialog::file_chooser;
 use cosmic::widget::nav_bar;
-use disks_dbus::{DriveModel, VolumeNode};
+use disks_dbus::{DiskError, DriveModel, VolumeNode};
 
 /// Recursively search for a volume child by object_path
 fn find_volume_child_recursive<'a>(
@@ -424,6 +424,114 @@ pub(crate) fn update(app: &mut AppModel, message: Message) -> Task<Message> {
         Message::ImageOperationDialog(msg) => {
             return image::image_operation_dialog(app, msg);
         }
+        Message::UnmountBusy(msg) => {
+            use crate::ui::dialogs::message::UnmountBusyMessage;
+
+            // Extract dialog data before consuming it
+            let dialog_data = if let Some(ShowDialog::UnmountBusy(ref dialog)) = app.dialog {
+                Some((
+                    dialog.object_path.clone(),
+                    dialog.mount_point.clone(),
+                    dialog.processes.iter().map(|p| p.pid).collect::<Vec<_>>(),
+                ))
+            } else {
+                None
+            };
+
+            match msg {
+                UnmountBusyMessage::Cancel => {
+                    tracing::debug!("User cancelled unmount busy dialog");
+                    app.dialog = None;
+                }
+                UnmountBusyMessage::Retry => {
+                    tracing::info!(
+                        object_path = dialog_data
+                            .as_ref()
+                            .map(|(op, _, _)| op.as_str())
+                            .unwrap_or("unknown"),
+                        "User requested unmount retry"
+                    );
+                    app.dialog = None;
+
+                    if let Some((object_path, _, _)) = dialog_data {
+                        // Retry the unmount operation
+                        if let Some(volumes) = app.nav.active_data::<VolumesControl>() {
+                            return retry_unmount(volumes, object_path);
+                        }
+                    }
+                }
+                UnmountBusyMessage::KillAndRetry => {
+                    let process_count = dialog_data
+                        .as_ref()
+                        .map(|(_, _, pids)| pids.len())
+                        .unwrap_or(0);
+                    tracing::info!(
+                        object_path = dialog_data
+                            .as_ref()
+                            .map(|(op, _, _)| op.as_str())
+                            .unwrap_or("unknown"),
+                        process_count = process_count,
+                        "User requested kill processes and retry unmount"
+                    );
+
+                    if let Some((object_path, mount_point, pids)) = dialog_data {
+                        app.dialog = None;
+
+                        // Kill processes and then retry unmount
+                        return Task::perform(
+                            async move {
+                                tracing::debug!(
+                                    mount_point = %mount_point,
+                                    process_count = pids.len(),
+                                    "Killing processes holding mount"
+                                );
+
+                                // Kill the processes
+                                let kill_results = disks_dbus::kill_processes(&pids);
+                                let failed = kill_results.iter().filter(|r| !r.success).count();
+
+                                if failed > 0 {
+                                    tracing::warn!(
+                                        failed_count = failed,
+                                        total_count = pids.len(),
+                                        "Failed to kill some processes"
+                                    );
+                                    for result in kill_results.iter().filter(|r| !r.success) {
+                                        tracing::debug!(
+                                            pid = result.pid,
+                                            error = result.error.as_deref().unwrap_or("unknown"),
+                                            "Process kill failed"
+                                        );
+                                    }
+                                } else {
+                                    tracing::info!(
+                                        total_count = pids.len(),
+                                        "Successfully killed all processes"
+                                    );
+                                }
+
+                                // Small delay to let processes terminate
+                                tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+
+                                (object_path, mount_point)
+                            },
+                            move |(object_path, _mount_point)| {
+                                // After killing, retry the unmount
+                                Message::RetryUnmountAfterKill(object_path).into()
+                            },
+                        );
+                    } else {
+                        app.dialog = None;
+                    }
+                }
+            }
+        }
+        Message::RetryUnmountAfterKill(object_path) => {
+            tracing::debug!("Retrying unmount after killing processes");
+            if let Some(volumes) = app.nav.active_data::<VolumesControl>() {
+                return retry_unmount(volumes, object_path);
+            }
+        }
         Message::Surface(action) => {
             return cosmic::task::message(cosmic::Action::Cosmic(cosmic::app::Action::Surface(
                 action,
@@ -452,6 +560,110 @@ pub(crate) fn on_nav_select(app: &mut AppModel, id: nav_bar::Id) -> Task<Message
 
         app.update_title()
     } else {
+        Task::none()
+    }
+}
+
+/// Helper function to retry unmount operation on a volume by object path
+fn retry_unmount(volumes: &VolumesControl, object_path: String) -> Task<Message> {
+    // Find the volume node
+    let node = volumes_helpers::find_volume_node(&volumes.model.volumes, &object_path).cloned();
+
+    if let Some(node) = node {
+        let device = node
+            .device_path
+            .clone()
+            .unwrap_or_else(|| node.object_path.to_string());
+        let mount_point = node.mount_points.first().cloned();
+        let object_path_for_retry = object_path.clone();
+        let object_path_for_selection = object_path.clone();
+
+        Task::perform(
+            async move {
+                match node.unmount().await {
+                    Ok(()) => {
+                        // Success - reload drives
+                        match DriveModel::get_drives().await {
+                            Ok(drives) => Ok(drives),
+                            Err(e) => {
+                                tracing::error!(?e, "Failed to reload drives after unmount");
+                                Err(None)
+                            }
+                        }
+                    }
+                    Err(e) => {
+                        // Check if it's still busy
+                        if let Some(disk_err) = e.downcast_ref::<DiskError>()
+                            && matches!(disk_err, DiskError::ResourceBusy { .. })
+                        {
+                            // Check if we have a mount point - can't find processes without it
+                            if let Some(mp) = mount_point {
+                                if !mp.trim().is_empty() {
+                                    // Still busy - find processes again and re-show dialog
+                                    match disks_dbus::find_processes_using_mount(&mp).await {
+                                        Ok(processes) => {
+                                            tracing::warn!(
+                                                mount_point = %mp,
+                                                process_count = processes.len(),
+                                                "Unmount still busy after retry"
+                                            );
+                                            return Err(Some((
+                                                device,
+                                                mp,
+                                                processes,
+                                                object_path_for_retry,
+                                            )));
+                                        }
+                                        Err(find_err) => {
+                                            tracing::warn!(
+                                                ?find_err,
+                                                "Failed to find processes on retry"
+                                            );
+                                        }
+                                    }
+                                } else {
+                                    tracing::warn!(
+                                        "Mount point is empty on retry, cannot find processes"
+                                    );
+                                }
+                            } else {
+                                tracing::warn!(
+                                    "No mount point available on retry, cannot find processes"
+                                );
+                            }
+                        }
+                        // Generic error
+                        tracing::error!(?e, "unmount retry failed");
+                        Err(None)
+                    }
+                }
+            },
+            move |result| match result {
+                Ok(drives) => Message::UpdateNavWithChildSelection(
+                    drives,
+                    Some(object_path_for_selection.clone()),
+                )
+                .into(),
+                Err(Some((device, mount_point, processes, object_path))) => {
+                    // Still busy - show dialog again
+                    Message::Dialog(Box::new(ShowDialog::UnmountBusy(
+                        crate::ui::dialogs::state::UnmountBusyDialog {
+                            device,
+                            mount_point,
+                            processes,
+                            object_path,
+                        },
+                    )))
+                    .into()
+                }
+                Err(None) => {
+                    // Generic error already logged
+                    Message::None.into()
+                }
+            },
+        )
+    } else {
+        tracing::warn!("Volume not found for retry: {}", object_path);
         Task::none()
     }
 }
