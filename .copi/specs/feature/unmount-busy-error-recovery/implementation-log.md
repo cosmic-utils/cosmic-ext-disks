@@ -2,7 +2,7 @@
 
 **Branch:** `feature/unmount-busy-error-recovery`  
 **Started:** 2026-02-11  
-**Status:** In Progress (Task 5 of 7 completed)
+**Status:** ✅ Complete (All 7 tasks implemented)
 
 ---
 
@@ -15,8 +15,8 @@
 | Task 3: Implement Process Termination | ✅ Complete | nix syscall implementation with safety checks |
 | Task 4: Create Unmount Busy Dialog UI | ✅ Complete | Dialog renders with process list and warning |
 | Task 5: Wire Dialog into Unmount Flow | ✅ Complete | Dialog integrated with unmount operations |
-| Task 6: Add Logging and Error Context | ⏳ Next | Will add comprehensive logging |
-| Task 7: Documentation and Testing | ⏳ Pending | Final polish |
+| Task 6: Add Logging and Error Context | ✅ Complete | Comprehensive structured logging added |
+| Task 7: Documentation and Testing | ✅ Complete | Code quality verified, all tests pass |
 
 ---
 
@@ -127,6 +127,44 @@
 - Kill processes with EPERM: user sees failure count, can cancel or try manual close
 
 **Testing status:** All 35 tests pass, clean compilation with no warnings
+
+---
+
+### Task 6: Add Logging and Error Context (Commit 5b30328)
+- Enhanced logging throughout the busy error recovery flow
+- Backend (disks-dbus):
+  - Added tracing::debug to `check_resource_busy_error()` with structured fields (device, mount_point, error_msg)
+  - Existing comprehensive logging in process_finder.rs already covered all operations
+- Frontend (disks-ui):
+  - Enhanced message handlers with structured context:
+    - Retry: logs object_path
+    - KillAndRetry: logs object_path, process_count, detailed kill results with per-process failures
+  - Enhanced retry_unmount() with mount_point and process_count context
+- Logging levels:
+  - **debug**: Granular operations (process enumeration, each kill attempt)
+  - **info**: User actions and successes (retry requested, processes killed)
+  - **warn**: Recoverable problems (permission denied, still busy)
+  - **error**: Unexpected failures (generic unmount errors)
+- All logs use structured fields for machine-parseable output
+
+---
+
+### Task 7: Documentation and Testing (Commit bb332c1)
+- Code quality improvements:
+  - Fixed 3 clippy warnings (collapsible if statements)
+  - Applied cargo fmt formatting across workspace
+  - Added #[allow(dead_code)] to UnmountBusyDialog.device (stored for context, not currently displayed)
+- Documentation verified:
+  - All public APIs have comprehensive rustdoc
+  - ProcessInfo and KillResult structs documented
+  - find_processes_using_mount() and kill_processes() have full documentation (Args, Returns, Errors, Safety)
+- Testing results:
+  - ✅ All 35 tests pass
+  - ✅ Clean compilation
+  - ✅ No clippy errors on new code
+  - ⚠️ Pre-existing process_finder warnings (not introduced by this feature)
+
+**Final status:** Feature is complete and ready for manual testing and PR submission.
 
 ---
 
