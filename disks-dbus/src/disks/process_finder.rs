@@ -32,10 +32,13 @@ pub struct KillResult {
 ///
 /// # Returns
 /// A vector of `ProcessInfo` structs, one for each process holding the mount open.
-/// Returns an empty vector if no processes are found.
+/// Returns an empty vector if:
+/// - No processes are found using the mount point
+/// - The mount point is invalid (empty or not absolute path)
+/// - /proc cannot be accessed or enumerated
 ///
 /// # Errors
-/// Returns an error if /proc cannot be accessed (unlikely on Linux systems).
+/// Returns an error only if the tokio blocking task fails to spawn.
 pub async fn find_processes_using_mount(mount_point: &str) -> Result<Vec<ProcessInfo>> {
     let mount_point = mount_point.to_string();
 
@@ -137,7 +140,8 @@ fn find_processes_using_mount_sync(mount_point: &str) -> Result<Vec<ProcessInfo>
 /// A vector of `KillResult` structs indicating success/failure for each PID.
 ///
 /// # Safety
-/// - Refuses to kill PID <= 1 (init/kernel processes)
+/// - Refuses to kill PID 0 or 1 (special processes: scheduler, init)
+/// - Refuses to kill negative PIDs (process groups - requires separate handling)
 /// - Returns success for ESRCH (process not found) - process already gone
 /// - Returns error for EPERM (permission denied) - user doesn't own the process
 ///
@@ -148,6 +152,17 @@ pub fn kill_processes(pids: &[i32]) -> Vec<KillResult> {
     let mut results = Vec::new();
 
     for &pid in pids {
+        // Safety check: reject negative PIDs (process groups)
+        if pid < 0 {
+            tracing::warn!("Refusing to kill negative PID {} (process group)", pid);
+            results.push(KillResult {
+                pid,
+                success: false,
+                error: Some("Process groups not supported (negative PID)".to_string()),
+            });
+            continue;
+        }
+
         // Safety check: never kill init or kernel processes
         if pid <= 1 {
             tracing::warn!("Refusing to kill system process with PID {}", pid);
@@ -357,15 +372,25 @@ mod tests {
 
     #[test]
     fn kill_processes_rejects_system_pids() {
-        // Test safety check: PIDs <= 1 should be rejected
+        // Test safety checks: negative PIDs and PIDs <= 1 should be rejected
         let results = kill_processes(&[0, 1, -1]);
 
         assert_eq!(results.len(), 3);
-        for result in &results {
+        
+        // PID 0 and 1 should have "system" in error message
+        for result in &results[0..2] {
             assert!(!result.success);
             assert!(result.error.is_some());
             assert!(result.error.as_ref().unwrap().contains("system"));
         }
+        
+        // PID -1 should have "process group" in error message
+        assert!(!results[2].success);
+        assert!(results[2].error.is_some());
+        assert!(
+            results[2].error.as_ref().unwrap().contains("process group")
+                || results[2].error.as_ref().unwrap().contains("negative PID")
+        );
     }
 
     #[test]
