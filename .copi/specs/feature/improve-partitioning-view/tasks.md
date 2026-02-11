@@ -567,10 +567,10 @@ This document breaks down the implementation into commit-sized tasks. Each task 
 - Order: Linux filesystems → Windows filesystems → Swap
 
 **Done when:**
-- [ ] Dropdown replaced with radio list in Create Partition
-- [ ] Dropdown replaced with radio list in Format Partition
-- [ ] All partition types visible at once
-- [ ] Selection works correctly
+- [x] Dropdown replaced with radio list in Create Partition
+- [x] Dropdown replaced with radio list in Format Partition
+- [x] All partition types visible at once
+- [x] Selection works correctly
 
 ---
 
