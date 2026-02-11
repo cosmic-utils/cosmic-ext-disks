@@ -167,7 +167,6 @@ pub fn unmount_busy<'a>(state: UnmountBusyDialog) -> Element<'a, Message> {
             mount = mount_point.as_str()
         )));
 
-
         // Create process list with headers
         let mut process_list = iced_widget::column![].spacing(4);
 

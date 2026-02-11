@@ -376,14 +376,14 @@ mod tests {
         let results = kill_processes(&[0, 1, -1]);
 
         assert_eq!(results.len(), 3);
-        
+
         // PID 0 and 1 should have "system" in error message
         for result in &results[0..2] {
             assert!(!result.success);
             assert!(result.error.is_some());
             assert!(result.error.as_ref().unwrap().contains("system"));
         }
-        
+
         // PID -1 should have "process group" in error message
         assert!(!results[2].success);
         assert!(results[2].error.is_some());
