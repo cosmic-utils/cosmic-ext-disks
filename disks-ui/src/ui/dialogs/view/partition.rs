@@ -11,9 +11,9 @@ use crate::utils::labelled_spinner;
 use cosmic::{
     Element, iced_widget,
     widget::text::caption,
-    widget::{button, checkbox, dialog, dropdown, slider, text_input},
+    widget::{button, checkbox, dialog, dropdown, radio, slider, text, text_input},
 };
-use disks_dbus::{PartitionTypeInfo, bytes_to_pretty, get_valid_partition_names};
+use disks_dbus::{PartitionTypeInfo, bytes_to_pretty, COMMON_GPT_TYPES, COMMON_DOS_TYPES};
 
 pub fn create_partition<'a>(state: CreatePartitionDialog) -> Element<'a, Message> {
     let CreatePartitionDialog {
@@ -34,7 +34,12 @@ pub fn create_partition<'a>(state: CreatePartitionDialog) -> Element<'a, Message
 
     let create_clone = create.clone();
 
-    let valid_partition_types = get_valid_partition_names(create.table_type.clone());
+    // Get partition type details for radio list
+    let partition_types: &[PartitionTypeInfo] = match create.table_type.as_str() {
+        "gpt" => &COMMON_GPT_TYPES,
+        "dos" => &COMMON_DOS_TYPES,
+        _ => &[],
+    };
 
     let mut content = iced_widget::column![];
     
@@ -68,11 +73,33 @@ pub fn create_partition<'a>(state: CreatePartitionDialog) -> Element<'a, Message
     ));
     content = content.push(checkbox(fl!("overwrite-data-slow"), create_clone.erase)
         .on_toggle(|v| CreateMessage::EraseUpdate(v).into()));
-    content = content.push(dropdown(
-        valid_partition_types,
-        Some(create_clone.selected_partition_type_index),
-        |v| CreateMessage::PartitionTypeUpdate(v).into(),
-    ));
+    
+    // Filesystem type selection (radio list with friendly labels)
+    content = content.push(caption(fl!("filesystem-type")));
+    for (idx, p_type) in partition_types.iter().enumerate() {
+        // Build friendly label - match inline to use fl! macro with literals
+        let label = match p_type.filesystem_type.as_str() {
+            "ext4" => format!("{} — {}", fl!("fs-name-ext4"), fl!("fs-desc-ext4")),
+            "ext3" => format!("{} — {}", fl!("fs-name-ext3"), fl!("fs-desc-ext3")),
+            "xfs" => format!("{} — {}", fl!("fs-name-xfs"), fl!("fs-desc-xfs")),
+            "btrfs" => format!("{} — {}", fl!("fs-name-btrfs"), fl!("fs-desc-btrfs")),
+            "f2fs" => format!("{} — {}", fl!("fs-name-f2fs"), fl!("fs-desc-f2fs")),
+            "udf" => format!("{} — {}", fl!("fs-name-udf"), fl!("fs-desc-udf")),
+            "ntfs" => format!("{} — {}", fl!("fs-name-ntfs"), fl!("fs-desc-ntfs")),
+            "vfat" => format!("{} — {}", fl!("fs-name-vfat"), fl!("fs-desc-vfat")),
+            "exfat" => format!("{} — {}", fl!("fs-name-exfat"), fl!("fs-desc-exfat")),
+            "swap" => format!("{} — {}", fl!("fs-name-swap"), fl!("fs-desc-swap")),
+            fs => fs.to_string(),
+        };
+        
+        content = content.push(radio(
+            text(label),
+            idx,
+            if create_clone.selected_partition_type_index == idx { Some(idx) } else { None },
+            |v| CreateMessage::PartitionTypeUpdate(v).into(),
+        ));
+    }
+    
     content = content.push(checkbox(fl!("password-protected-luks"), create.password_protected)
         .on_toggle(|v| CreateMessage::PasswordProtectedUpdate(v).into()));
 
@@ -120,7 +147,13 @@ pub fn format_partition<'a>(state: FormatPartitionDialog) -> Element<'a, Message
     } = state;
 
     let size_pretty = bytes_to_pretty(&create.size, false);
-    let valid_partition_types = get_valid_partition_names(create.table_type.clone());
+    
+    // Get partition type details for radio list
+    let partition_types: &[PartitionTypeInfo] = match create.table_type.as_str() {
+        "gpt" => &COMMON_GPT_TYPES,
+        "dos" => &COMMON_DOS_TYPES,
+        _ => &[],
+    };
 
     let mut content = iced_widget::column![
         caption(fl!("format-partition-description", size = size_pretty)),
@@ -137,11 +170,32 @@ pub fn format_partition<'a>(state: FormatPartitionDialog) -> Element<'a, Message
     
     content = content.push(checkbox(fl!("overwrite-data-slow"), create.erase)
         .on_toggle(|v| CreateMessage::EraseUpdate(v).into()));
-    content = content.push(dropdown(
-        valid_partition_types,
-        Some(create.selected_partition_type_index),
-        |v| CreateMessage::PartitionTypeUpdate(v).into(),
-    ));
+    
+    // Filesystem type selection (radio list with friendly labels)
+    content = content.push(caption(fl!("filesystem-type")));
+    for (idx, p_type) in partition_types.iter().enumerate() {
+        // Build friendly label - match inline to use fl! macro with literals
+        let label = match p_type.filesystem_type.as_str() {
+            "ext4" => format!("{} — {}", fl!("fs-name-ext4"), fl!("fs-desc-ext4")),
+            "ext3" => format!("{} — {}", fl!("fs-name-ext3"), fl!("fs-desc-ext3")),
+            "xfs" => format!("{} — {}", fl!("fs-name-xfs"), fl!("fs-desc-xfs")),
+            "btrfs" => format!("{} — {}", fl!("fs-name-btrfs"), fl!("fs-desc-btrfs")),
+            "f2fs" => format!("{} — {}", fl!("fs-name-f2fs"), fl!("fs-desc-f2fs")),
+            "udf" => format!("{} — {}", fl!("fs-name-udf"), fl!("fs-desc-udf")),
+            "ntfs" => format!("{} — {}", fl!("fs-name-ntfs"), fl!("fs-desc-ntfs")),
+            "vfat" => format!("{} — {}", fl!("fs-name-vfat"), fl!("fs-desc-vfat")),
+            "exfat" => format!("{} — {}", fl!("fs-name-exfat"), fl!("fs-desc-exfat")),
+            "swap" => format!("{} — {}", fl!("fs-name-swap"), fl!("fs-desc-swap")),
+            fs => fs.to_string(),
+        };
+        
+        content = content.push(radio(
+            text(label),
+            idx,
+            if create.selected_partition_type_index == idx { Some(idx) } else { None },
+            |v| CreateMessage::PartitionTypeUpdate(v).into(),
+        ));
+    }
     
     content = content.spacing(12);
 
