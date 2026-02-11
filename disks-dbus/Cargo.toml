@@ -21,3 +21,4 @@ enumflags2  = { workspace = true }
 num-format = { workspace = true }
 libc = { workspace = true }
 procfs = "0.16"
+nix = { version = "0.29", features = ["signal"] }

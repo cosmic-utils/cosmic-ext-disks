@@ -1,4 +1,6 @@
 use anyhow::{Context, Result};
+use nix::sys::signal::{kill, Signal};
+use nix::unistd::Pid;
 use std::path::Path;
 
 /// Information about a process holding a mount point open
@@ -8,6 +10,14 @@ pub struct ProcessInfo {
     pub command: String,
     pub uid: u32,
     pub username: String,
+}
+
+/// Result of attempting to kill a single process
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct KillResult {
+    pub pid: i32,
+    pub success: bool,
+    pub error: Option<String>,
 }
 
 /// Find all processes that have open file descriptors pointing to the given mount point.
@@ -94,6 +104,85 @@ fn find_processes_using_mount_sync(mount_point: &str) -> Result<Vec<ProcessInfo>
     );
 
     Ok(result)
+}
+
+/// Kill multiple processes by sending SIGKILL.
+///
+/// This function attempts to terminate the specified processes immediately using SIGKILL.
+/// It performs safety checks to prevent killing system-critical processes.
+///
+/// # Arguments
+/// * `pids` - Slice of process IDs to terminate
+///
+/// # Returns
+/// A vector of `KillResult` structs indicating success/failure for each PID.
+///
+/// # Safety
+/// - Refuses to kill PID <= 1 (init/kernel processes)
+/// - Returns success for ESRCH (process not found) - process already gone
+/// - Returns error for EPERM (permission denied) - user doesn't own the process
+///
+/// # Notes
+/// This function is synchronous and does not spawn a blocking task. The kill syscall
+/// completes quickly, so async wrapping is unnecessary.
+pub fn kill_processes(pids: &[i32]) -> Vec<KillResult> {
+    let mut results = Vec::new();
+
+    for &pid in pids {
+        // Safety check: never kill init or kernel processes
+        if pid <= 1 {
+            tracing::warn!("Refusing to kill system process with PID {}", pid);
+            results.push(KillResult {
+                pid,
+                success: false,
+                error: Some("Refusing to kill system process".to_string()),
+            });
+            continue;
+        }
+
+        tracing::debug!("Attempting to kill process: PID={}", pid);
+
+        // Send SIGKILL to the process
+        match kill(Pid::from_raw(pid), Signal::SIGKILL) {
+            Ok(()) => {
+                tracing::info!("Successfully killed process: PID={}", pid);
+                results.push(KillResult {
+                    pid,
+                    success: true,
+                    error: None,
+                });
+            }
+            Err(nix::Error::ESRCH) => {
+                // Process doesn't exist - treat as success (already gone)
+                tracing::debug!("Process {} not found (already terminated)", pid);
+                results.push(KillResult {
+                    pid,
+                    success: true,
+                    error: None,
+                });
+            }
+            Err(nix::Error::EPERM) => {
+                // Permission denied - user doesn't own the process
+                tracing::warn!("Permission denied when killing process {}", pid);
+                results.push(KillResult {
+                    pid,
+                    success: false,
+                    error: Some("Permission denied".to_string()),
+                });
+            }
+            Err(e) => {
+                // Other error
+                tracing::error!("Failed to kill process {}: {}", pid, e);
+                results.push(KillResult {
+                    pid,
+                    success: false,
+                    error: Some(e.to_string()),
+                });
+            }
+        }
+    }
+
+    results
 }
 
 /// Check if a process has any file descriptors pointing to paths under the mount point
@@ -213,5 +302,39 @@ mod tests {
         // Test with /proc itself - should work even if no processes are using it
         let result = find_processes_using_mount("/proc").await;
         assert!(result.is_ok());
+    }
+
+    #[test]
+    fn kill_processes_rejects_system_pids() {
+        // Test safety check: PIDs <= 1 should be rejected
+        let results = kill_processes(&[0, 1, -1]);
+        
+        assert_eq!(results.len(), 3);
+        for result in &results {
+            assert!(!result.success);
+            assert!(result.error.is_some());
+            assert!(result.error.as_ref().unwrap().contains("system"));
+        }
+    }
+
+    #[test]
+    fn kill_processes_handles_nonexistent_pid() {
+        // Very high PID unlikely to exist - should treat as success (ESRCH)
+        let results = kill_processes(&[99999]);
+        
+        assert_eq!(results.len(), 1);
+        // ESRCH should be treated as success (process already gone)
+        assert!(results[0].success || results[0].error.as_ref().map(|e| e.contains("Permission")).unwrap_or(false));
+    }
+
+    #[test]
+    fn kill_processes_handles_invalid_negative_pid() {
+        // Negative PIDs should be rejected
+        let results = kill_processes(&[-5, -100]);
+        
+        assert_eq!(results.len(), 2);
+        for result in &results {
+            assert!(!result.success);
+        }
     }
 }
