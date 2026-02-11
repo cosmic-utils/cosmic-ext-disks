@@ -198,4 +198,11 @@ block-device = Device
 # Status
 not-mounted = Not mounted
 can-create-partition = Can create partition
+
+# Filesystem tools detection
+fs-tools-missing-title = Missing Filesystem Tools
+fs-tools-missing-desc = The following tools are not installed. Install them to enable full filesystem support:
+fs-tools-all-installed-title = Filesystem Tools
+fs-tools-all-installed = All filesystem tools are installed.
+fs-tools-required-for = required for {$fs_name} support
 offset = Offset

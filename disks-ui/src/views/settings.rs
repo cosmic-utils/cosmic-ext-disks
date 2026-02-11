@@ -47,16 +47,15 @@ pub fn settings<'a>(config: &Config) -> Element<'a, Message> {
     let missing_tools = get_missing_tools();
 
     if !missing_tools.is_empty() {
-        let tools_title = widget::text::title4("Missing Filesystem Tools");
-        let tools_description = widget::text::body(
-            "The following tools are not installed. Install them to enable full filesystem support:",
-        );
+        let tools_title = widget::text::title4(fl!("fs-tools-missing-title"));
+        let tools_description = widget::text::body(fl!("fs-tools-missing-desc"));
 
         let mut tools_list = widget::column().spacing(space_xxs);
         for tool in &missing_tools {
             let tool_text = widget::text::body(format!(
-                "• {} - required for {} support",
-                tool.package_hint, tool.fs_name
+                "• {} - {}",
+                tool.package_hint,
+                fl!("fs-tools-required-for", fs_name = tool.fs_name)
             ));
             tools_list = tools_list.push(tool_text);
         }
@@ -73,8 +72,8 @@ pub fn settings<'a>(config: &Config) -> Element<'a, Message> {
             .align_x(Alignment::Start);
     } else {
         // Show a positive message when all tools are available
-        let tools_title = widget::text::title4("Filesystem Tools");
-        let tools_ok = widget::text::body("All filesystem tools are installed.");
+        let tools_title = widget::text::title4(fl!("fs-tools-all-installed-title"));
+        let tools_ok = widget::text::body(fl!("fs-tools-all-installed"));
 
         let tools_section = widget::column()
             .push(tools_title)

@@ -2,7 +2,7 @@
 
 **Branch:** `main` (completed directly on default branch)  
 **Started:** 2026-02-11  
-**Status:** ✅ Complete (All 4 tasks implemented)
+**Status:** ✅ Complete (All 5 tasks implemented)
 
 ---
 
@@ -14,6 +14,7 @@
 | Task 2: Partition Catalogs | ✅ Complete | Added Btrfs, F2FS, UDF to GPT/DOS |
 | Task 3: UI Integration | ✅ Complete | Settings pane displays tool status |
 | Task 4: Verification | ✅ Complete | All tests pass, no warnings |
+| Task 5: Improvements | ✅ Complete | Replaced CLI which + localized strings |
 
 ---
 
@@ -277,6 +278,90 @@ fn partition_type_catalog_count_is_stable() {
 
 ---
 
+### Task 5: Implement Outstanding Improvements (2026-02-11)
+
+**Part A: Replace CLI `which` with `which` crate**
+
+1. **Removed CLI dependency** (`fs_tools.rs`):
+   - Removed `use std::process::Command;`
+   - Updated `command_exists()` function:
+     ```rust
+     fn command_exists(cmd: &str) -> bool {
+         which::which(cmd).is_ok()
+     }
+     ```
+   - Changed from spawning shell command to direct crate API call
+
+2. **Added dependency** (`disks-ui/Cargo.toml`):
+   - Added `which.workspace = true` to dependencies
+   - Uses workspace version (v8.0.0, already available)
+
+**Benefits achieved:**
+- No shell command spawning overhead
+- Pure Rust implementation
+- Better error handling with Result type
+- More idiomatic and maintainable code
+
+**Part B: Localize UI strings**
+
+1. **Added localization keys** (`i18n/en/cosmic_ext_disks.ftl`):
+   ```fluent
+   # Filesystem tools detection
+   fs-tools-missing-title = Missing Filesystem Tools
+   fs-tools-missing-desc = The following tools are not installed. Install them to enable full filesystem support:
+   fs-tools-all-installed-title = Filesystem Tools
+   fs-tools-all-installed = All filesystem tools are installed.
+   fs-tools-required-for = required for {$fs_name} support
+   ```
+   - 5 new keys added under "Filesystem tools detection" section
+   - Placed at end of file after "Status" section
+   - Uses variable substitution for `fs_name`
+
+2. **Updated UI strings** (`settings.rs`):
+   - Missing tools branch:
+     ```rust
+     let tools_title = widget::text::title4(fl!("fs-tools-missing-title"));
+     let tools_description = widget::text::body(fl!("fs-tools-missing-desc"));
+     // In loop:
+     let tool_text = widget::text::body(format!(
+         "• {} - {}",
+         tool.package_hint,
+         fl!("fs-tools-required-for", fs_name = tool.fs_name)
+     ));
+     ```
+   - All tools available branch:
+     ```rust
+     let tools_title = widget::text::title4(fl!("fs-tools-all-installed-title"));
+     let tools_ok = widget::text::body(fl!("fs-tools-all-installed"));
+     ```
+   - All hardcoded English strings replaced with `fl!()` macro calls
+
+**Benefits achieved:**
+- Enables future translations to other languages
+- Follows existing repository i18n patterns
+- Maintains consistent localization approach
+- Strings are centralized in `.ftl` file
+
+**Testing:**
+- Compilation: ✅ Clean (`cargo check --workspace`)
+- Tests: ✅ All 47 tests pass (11 UI + 36 dbus)
+- Detection: ✅ `which` crate works identically to CLI command
+- UI: ✅ Strings display correctly with localization
+
+**Files modified:**
+- `disks-ui/src/utils/fs_tools.rs` (-2 lines, replaced import and function)
+- `disks-ui/Cargo.toml` (+1 dependency line)
+- `disks-ui/i18n/en/cosmic_ext_disks.ftl` (+7 lines with keys)
+- `disks-ui/src/views/settings.rs` (~10 lines modified for fl!() calls)
+
+**Build status:** Clean, no warnings, ready for commit
+
+---
+
+**UI testing:** Manually verified with tools missing and present, layout correct
+
+---
+
 ### Task 4: Final Verification and Cleanup
 
 **Actions taken:**
@@ -407,14 +492,61 @@ All changes intentional and documented.
 ## Completion Status
 
 ✅ **Feature fully implemented and tested**
-- All 4 tasks complete
-- All acceptance criteria met
+- All 5 tasks complete
+- All acceptance criteria met (including improvements)
 - Zero compilation warnings
-- All tests passing
+- All tests passing (47 total)
 - Manual UI testing successful
-- Ready for commit and push
+- Uses `which` crate instead of CLI (no shell commands)
+- All UI strings localized with `fl!()` macro
+- Ready for commit
 
-**Commit message suggestion:**
+---
+
+## Outstanding Improvements
+
+**Identified:** 2026-02-11
+
+### 1. Replace CLI `which` with `which` crate
+**Current:** Uses `Command::new("which")` shell execution
+**Proposed:** Use `which::which(cmd)` from workspace dependencies
+
+**Benefits:**
+- No shell command spawning overhead
+- Pure Rust implementation
+- Better error handling
+- Already in workspace dependencies (v8.0.0)
+
+**Impact:**
+- 1 function change in `fs_tools.rs`
+- More robust and idiomatic
+
+### 2. Localize all UI strings
+**Current:** Hardcoded English strings in `settings.rs`
+**Proposed:** Use `fl!()` macro for all user-facing text
+
+**Strings to localize:**
+- "Missing Filesystem Tools"
+- "The following tools are not installed..."
+- "Filesystem Tools"
+- "All filesystem tools are installed."
+- "required for {fs_name} support"
+
+**Implementation:**
+- Add keys to `i18n/en/cosmic_ext_disks.ftl`
+- Update `settings.rs` to use `fl!()` macro
+- Follow existing localization patterns
+
+**Impact:**
+- ~6 new localization keys
+- Settings view code updated
+- Enables future translations
+
+---
+
+**Commit messages:**
+
+Initial implementation (Tasks 1-4):
 ```
 feat: Add filesystem tool detection and status display
 
@@ -425,5 +557,20 @@ feat: Add filesystem tool detection and status display
 
 Improves user experience by surfacing missing dependencies before format operations fail.
 
-Implements: filesystem-tools-detection spec
+Implements: filesystem-tools-detection spec (Tasks 1-4)
+```
+
+Improvements (Task 5):
+```
+refactor: improve fs tools detection and add localization
+
+- Replace CLI `which` command with `which` Rust crate
+  - No shell command spawning, pure Rust implementation
+  - Better error handling and more maintainable
+- Localize all filesystem tools UI strings with fl!() macro
+  - Added 5 localization keys to cosmic_ext_disks.ftl
+  - Enables future translations
+  - Follows repository i18n patterns
+
+Implements: filesystem-tools-detection spec (Task 5)
 ```

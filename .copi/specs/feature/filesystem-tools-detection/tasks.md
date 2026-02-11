@@ -48,13 +48,10 @@ Task dependencies:
 4. Implement `command_exists()` helper:
    ```rust
    fn command_exists(cmd: &str) -> bool {
-       Command::new("which")
-           .arg(cmd)
-           .output()
-           .map(|output| output.status.success())
-           .unwrap_or(false)
+       which::which(cmd).is_ok()
    }
    ```
+   Note: Uses `which` crate from workspace dependencies (already available)
 5. Implement public API functions:
    - `detect_fs_tools() -> Vec<FsToolInfo>` - scans all tools
    - `get_missing_tools() -> Vec<FsToolInfo>` - filters to unavailable
@@ -226,7 +223,29 @@ Task dependencies:
    ```
    Note: Change alignment to `Start` after center-aligned about content
 
-5. Implementation structure:
+5. Add localization strings to `disks-ui/i18n/en/cosmic_ext_disks.ftl`:
+   ```fluent
+   # Filesystem tools
+   fs-tools-missing-title = Missing Filesystem Tools
+   fs-tools-missing-desc = The following tools are not installed. Install them to enable full filesystem support:
+   fs-tools-all-installed-title = Filesystem Tools
+   fs-tools-all-installed = All filesystem tools are installed.
+   fs-tools-required-for = required for {$fs_name} support
+   ```
+
+6. Update settings view to use `fl!()` for all UI strings:
+   ```rust
+   let tools_title = widget::text::title4(fl!("fs-tools-missing-title"));
+   let tools_description = widget::text::body(fl!("fs-tools-missing-desc"));
+   // For each tool:
+   let tool_text = widget::text::body(format!(
+       "• {} - {}",
+       tool.package_hint,
+       fl!("fs-tools-required-for", fs_name = tool.fs_name)
+   ));
+   ```
+
+7. Implementation structure:
    ```rust
    let mut about_section = widget::column()
        .push(icon)
@@ -258,11 +277,11 @@ Task dependencies:
    }
    ```
 
-6. Verify layout with existing settings section:
+7. Verify layout with existing settings section:
    - Ensure divider between tools section and settings section
    - Maintain consistent spacing (space_s, space_m)
 
-7. Test UI rendering:
+8. Test UI rendering:
    - Run application: `cargo run --bin cosmic-ext-disks`
    - Navigate to settings (hamburger menu)
    - Verify tools section displays correctly
@@ -281,6 +300,8 @@ Task dependencies:
 - [x] Conditional UI section built based on missing tools
 - [x] Missing tools displayed with package hints and filesystem names
 - [x] Positive message shown when all tools available
+- [x] All UI strings use `fl!()` macro with proper i18n keys
+- [x] Localization strings added to `.ftl` file
 - [x] Section positioned between About and Settings
 - [x] Horizontal dividers separate sections
 - [x] UI tested with both missing and present tools
@@ -360,12 +381,93 @@ Task dependencies:
 
 ---
 
+## Task 5: Implement Outstanding Improvements
+
+**Scope:** Replace CLI `which` with Rust crate and localize all UI strings.
+
+**Files/Areas:**
+- `disks-ui/src/utils/fs_tools.rs` (detection logic)
+- `disks-ui/src/views/settings.rs` (UI strings)
+- `disks-ui/i18n/en/cosmic_ext_disks.ftl` (localization keys)
+
+**Steps:**
+
+### Part A: Replace CLI `which` command (5 minutes)
+
+1. Update `fs_tools.rs` command detection:
+   ```rust
+   // Remove: use std::process::Command;
+   
+   /// Check if a command is available in PATH
+   fn command_exists(cmd: &str) -> bool {
+       which::which(cmd).is_ok()
+   }
+   ```
+   
+2. Verify `which` crate is already in workspace dependencies (it is - v8.0.0)
+
+3. Run tests: `cargo test --workspace`
+
+### Part B: Localize UI strings (15 minutes)
+
+1. Add localization keys to `disks-ui/i18n/en/cosmic_ext_disks.ftl`:
+   ```fluent
+   # Filesystem tools detection
+   fs-tools-missing-title = Missing Filesystem Tools
+   fs-tools-missing-desc = The following tools are not installed. Install them to enable full filesystem support:
+   fs-tools-all-installed-title = Filesystem Tools  
+   fs-tools-all-installed = All filesystem tools are installed.
+   fs-tools-required-for = required for {$fs_name} support
+   ```
+
+2. Update `settings.rs` to use localized strings:
+   ```rust
+   // Missing tools branch:
+   let tools_title = widget::text::title4(fl!("fs-tools-missing-title"));
+   let tools_description = widget::text::body(fl!("fs-tools-missing-desc"));
+   
+   // For each tool in loop:
+   let tool_text = widget::text::body(format!(
+       "• {} - {}",
+       tool.package_hint,
+       fl!("fs-tools-required-for", fs_name = tool.fs_name)
+   ));
+   
+   // All tools available branch:
+   let tools_title = widget::text::title4(fl!("fs-tools-all-installed-title"));
+   let tools_ok = widget::text::body(fl!("fs-tools-all-installed"));
+   ```
+
+3. Verify all hardcoded strings are replaced
+
+4. Test UI rendering with localized strings
+
+**Test Plan:**
+- Detection still works correctly (uses `which` crate instead of CLI)
+- All UI strings display properly
+- Format strings work with variables (`fs_name`)
+- No compilation warnings
+- Tests pass
+
+**Done When:**
+- [x] `which::which()` used instead of `Command::new("which")`
+- [x] 5 localization keys added to `.ftl` file
+- [x] All UI strings in settings view use `fl!()` macro
+- [x] No hardcoded English strings remain
+- [x] `cargo check --workspace` clean
+- [x] `cargo test --workspace` passes
+- [x] Manual UI test confirms strings display correctly
+
+---
+
 ## Summary
 
-Total tasks: 4 (completed)
+Total tasks: 5 (all completed)
 - Task 1: Detection module ✅
 - Task 2: Partition catalogs ✅
 - Task 3: UI integration ✅
 - Task 4: Verification ✅
+- Task 5: Outstanding improvements ✅
 
-All work completed in single commit/session on main branch.
+All work completed on main branch.
+Feature fully implemented with all improvements.

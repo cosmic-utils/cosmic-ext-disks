@@ -2,7 +2,7 @@
 
 **Branch:** `main` (completed directly on default branch)  
 **Source:** User brief (2026-02-11)  
-**Status:** ✅ Implemented
+**Status:** ✅ Implemented (All tasks complete)
 
 ---
 
@@ -63,7 +63,8 @@ Create a new utility module `disks-ui/src/utils/fs_tools.rs`:
      - Package hint for installation (`ntfs-3g`, `btrfs-progs`)
 
 2. **Implement detection logic:**
-   - Use `which` command to check PATH availability
+   - Use `which` Rust crate (already in workspace dependencies) to check PATH availability
+   - No shell command execution required - pure Rust implementation
    - Execute during module initialization using LazyLock
    - Return list of `FsToolInfo` structs with availability status
 
@@ -84,9 +85,10 @@ Create a new utility module `disks-ui/src/utils/fs_tools.rs`:
    ```
 
 4. **Edge cases:**
-   - `which` command not available → tool marked unavailable
+   - Command not in PATH → tool marked unavailable
    - Empty PATH → all marked unavailable
    - No missing tools → display positive confirmation message
+   - All error cases handled gracefully (no panics)
 
 ### B) Settings UI Integration (disks-ui/views/settings.rs)
 
@@ -109,6 +111,8 @@ Enhance the settings/about pane to display filesystem tools status:
    - Build column widget dynamically based on results
    - Use `text::title4()` for section heading
    - Use `text::body()` for description and tool entries
+   - **All user-facing strings must use `fl!()` macro for localization**
+   - Add localization strings to `i18n/en/cosmic_ext_disks.ftl`
    - Maintain existing COSMIC theme spacing (space_xxs, space_s)
 
 3. **Layout:**
@@ -189,7 +193,7 @@ Add missing filesystem types to TOML partition catalogs:
 
 | Risk | Impact | Mitigation |
 |---|---|---|
-| `which` command not available on some systems | Detection fails, all tools marked unavailable | Document assumption; alternative: check `/usr/bin/` and `/usr/local/bin/` directly |
+| `which` crate fails to find tools in PATH | Detection fails, tools marked unavailable | Use workspace which crate (v8.0.0), well-tested and maintained |
 | Tool available but broken/non-functional | False positive (shown as available) | Acceptable; UDisks2 will still report actual format errors |
 | Package names vary across distros | User confusion about package names | Use common names with `/` alternatives (e.g., "ntfs-3g / ntfsprogs") |
 | Detection adds startup latency | Slower app launch | LazyLock ensures check only happens when settings view opened |
@@ -199,9 +203,13 @@ Add missing filesystem types to TOML partition catalogs:
 
 ## Acceptance Criteria
 
+**All Acceptance Criteria Met:**
 - [x] Detection module checks for 7 common filesystem tools (NTFS, exFAT, XFS, Btrfs, F2FS, UDF, FAT)
 - [x] Settings pane displays missing tools with package hints
 - [x] Settings pane shows positive message when all tools available
+- [x] Detection uses `which` crate (no shell command execution)
+- [x] All UI strings use `fl!()` macro for localization
+- [x] Localization keys added to `.ftl` file
 - [x] GPT partition catalog includes Btrfs, F2FS, UDF entries
 - [x] DOS partition catalog includes XFS, Btrfs, F2FS, UDF entries
 - [x] Partition type tests updated to reflect new counts

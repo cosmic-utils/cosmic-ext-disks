@@ -28,4 +28,4 @@ A lightweight mapping of audited gaps/work items to implementation specs.
 | N/A | GNOME Disks parity: Edit Mount Options + Edit Encryption Options dialogs | `.copi/specs/feature/volume-commands-actionbar/` | `feature/volume-commands-actionbar` | N/A (brief; 2026-01-25 addendum) | Implemented |
 | N/A | Architecture cleanup (abstractions/naming/hierarchy) — covers audit 2026-01-25 structural gaps | `.copi/specs/chore/audit-2026-01-25-architecture-cleanup/` | `chore/audit-2026-01-25-architecture-cleanup` | `.copi/audits/2026-01-25T23-24-44Z.md` | Implemented |
 | N/A | Unmount resource busy error recovery with procfs-based process detection and kill options | `.copi/specs/feature/unmount-busy-error-recovery/` | `feature/unmount-busy-error-recovery` | N/A (brief; 2026-02-11) | Spec created |
-| N/A | Filesystem tools detection and status display in settings pane | `.copi/specs/feature/filesystem-tools-detection/` | `main` | N/A (brief; 2026-02-11) | Implemented |
+| N/A | Filesystem tools detection and status display in settings pane (with localization) | `.copi/specs/feature/filesystem-tools-detection/` | `main` | N/A (brief; 2026-02-11) | Implemented |

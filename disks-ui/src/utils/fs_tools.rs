@@ -6,7 +6,6 @@
 //! information about missing dependencies.
 
 use std::collections::HashMap;
-use std::process::Command;
 use std::sync::LazyLock;
 
 /// Information about a filesystem tool requirement
@@ -82,11 +81,7 @@ static FS_TOOL_REQUIREMENTS: LazyLock<Vec<FsToolInfo>> = LazyLock::new(|| {
 
 /// Check if a command is available in PATH
 fn command_exists(cmd: &str) -> bool {
-    Command::new("which")
-        .arg(cmd)
-        .output()
-        .map(|output| output.status.success())
-        .unwrap_or(false)
+    which::which(cmd).is_ok()
 }
 
 /// Detect all filesystem tools and return their availability status
