@@ -11,7 +11,7 @@ use crate::utils::labelled_spinner;
 use cosmic::{
     Element, iced_widget,
     widget::text::caption,
-    widget::{button, checkbox, dialog, dropdown, slider, text_input, toggler},
+    widget::{button, checkbox, dialog, dropdown, slider, text_input},
 };
 use disks_dbus::{PartitionTypeInfo, bytes_to_pretty, get_valid_partition_names};
 
@@ -60,8 +60,7 @@ pub fn create_partition<'a>(state: CreatePartitionDialog) -> Element<'a, Message
             len,
             move |v| { CreateMessage::SizeUpdate((len - v) as u64).into() },
         ),
-        toggler(create_clone.erase)
-            .label(fl!("erase"))
+        checkbox(fl!("overwrite-data-slow"), create_clone.erase)
             .on_toggle(|v| CreateMessage::EraseUpdate(v).into()),
         dropdown(
             valid_partition_types,
@@ -123,8 +122,7 @@ pub fn format_partition<'a>(state: FormatPartitionDialog) -> Element<'a, Message
         text_input(fl!("volume-name"), create.name.clone())
             .label(fl!("volume-name"))
             .on_input(|t| CreateMessage::NameUpdate(t).into()),
-        toggler(create.erase)
-            .label(fl!("erase"))
+        checkbox(fl!("overwrite-data-slow"), create.erase)
             .on_toggle(|v| CreateMessage::EraseUpdate(v).into()),
         dropdown(
             valid_partition_types,
