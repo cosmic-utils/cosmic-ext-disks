@@ -149,9 +149,10 @@ pub fn edit_mount_options<'a>(state: EditMountOptionsDialog) -> Element<'a, Mess
 
 pub fn unmount_busy<'a>(state: UnmountBusyDialog) -> Element<'a, Message> {
     let UnmountBusyDialog {
-        device,
+        device: _,
         mount_point,
         processes,
+        object_path: _,
     } = state;
 
     let has_processes = !processes.is_empty();

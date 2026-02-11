@@ -2,8 +2,9 @@ use cosmic::Task;
 use std::future::Future;
 
 use crate::app::Message;
+use crate::ui::dialogs::state::{ShowDialog, UnmountBusyDialog};
 use crate::ui::volumes::helpers;
-use disks_dbus::DriveModel;
+use disks_dbus::{DiskError, DriveModel};
 
 use crate::ui::volumes::VolumesControl;
 
@@ -61,12 +62,91 @@ pub(super) fn unmount(control: &mut VolumesControl) -> Task<cosmic::Action<Messa
         return Task::none();
     };
 
+    let device = volume.device_path.clone().unwrap_or_else(|| {
+        volume.path.to_string()
+    });
+    let mount_point = volume.mount_points.first().cloned().unwrap_or_default();
     let object_path = volume.path.to_string();
-    perform_volume_operation(
-        || async move { volume.unmount().await },
-        "unmount",
-        Some(object_path),
+    let object_path_for_retry = object_path.clone();
+
+    Task::perform(
+        async move {
+            match volume.unmount().await {
+                Ok(()) => {
+                    // Success - reload drives
+                    match DriveModel::get_drives().await {
+                        Ok(drives) => Ok(drives),
+                        Err(e) => {
+                            tracing::error!(?e, "Failed to reload drives");
+                            Err(UnmountBusyError {
+                                device: String::new(),
+                                mount_point: String::new(),
+                                processes: Vec::new(),
+                                object_path: String::new(),
+                            })
+                        }
+                    }
+                }
+                Err(e) => {
+                    // Check if it's a ResourceBusy error
+                    if let Some(disk_err) = e.downcast_ref::<DiskError>() {
+                        if matches!(disk_err, DiskError::ResourceBusy { .. }) {
+                            // Find processes using the mount point
+                            match disks_dbus::find_processes_using_mount(&mount_point).await {
+                                Ok(processes) => {
+                                    return Err(UnmountBusyError {
+                                        device,
+                                        mount_point,
+                                        processes,
+                                        object_path: object_path_for_retry,
+                                    });
+                                }
+                                Err(find_err) => {
+                                    tracing::warn!(?find_err, "Failed to find processes using mount");
+                                }
+                            }
+                        }
+                    }
+                    // Generic error - log and continue
+                    tracing::error!(?e, "unmount failed");
+                    Err(UnmountBusyError {
+                        device: String::new(),
+                        mount_point: String::new(),
+                        processes: Vec::new(),
+                        object_path: String::new(),
+                    })
+                }
+            }
+        },
+        move |result| match result {
+            Ok(drives) => {
+                Message::UpdateNavWithChildSelection(drives, Some(object_path.clone())).into()
+            }
+            Err(busy_err) if !busy_err.device.is_empty() => {
+                // Show busy dialog
+                Message::Dialog(Box::new(ShowDialog::UnmountBusy(UnmountBusyDialog {
+                    device: busy_err.device,
+                    mount_point: busy_err.mount_point,
+                    processes: busy_err.processes,
+                    object_path: busy_err.object_path,
+                })))
+                .into()
+            }
+            Err(_) => {
+                // Generic error already logged
+                Message::None.into()
+            }
+        },
     )
+}
+
+// Helper struct to pass busy error data through the async boundary
+#[derive(Debug)]
+struct UnmountBusyError {
+    device: String,
+    mount_point: String,
+    processes: Vec<disks_dbus::ProcessInfo>,
+    object_path: String,
 }
 
 pub(super) fn child_mount(
@@ -95,10 +175,80 @@ pub(super) fn child_unmount(
         return Task::none();
     };
 
+    let device = node.device_path.clone().unwrap_or_else(|| {
+        node.object_path.to_string()
+    });
+    let mount_point = node.mount_points.first().cloned().unwrap_or_default();
     let object_path_for_selection = object_path.clone();
-    perform_volume_operation(
-        || async move { node.unmount().await },
-        "child unmount",
-        Some(object_path_for_selection),
+    let object_path_for_retry = object_path.clone();
+
+    Task::perform(
+        async move {
+            match node.unmount().await {
+                Ok(()) => {
+                    // Success - reload drives
+                    match DriveModel::get_drives().await {
+                        Ok(drives) => Ok(drives),
+                        Err(e) => {
+                            tracing::error!(?e, "Failed to reload drives");
+                            Err(UnmountBusyError {
+                                device: String::new(),
+                                mount_point: String::new(),
+                                processes: Vec::new(),
+                                object_path: String::new(),
+                            })
+                        }
+                    }
+                }
+                Err(e) => {
+                    // Check if it's a ResourceBusy error
+                    if let Some(disk_err) = e.downcast_ref::<DiskError>() {
+                        if matches!(disk_err, DiskError::ResourceBusy { .. }) {
+                            // Find processes using the mount point
+                            match disks_dbus::find_processes_using_mount(&mount_point).await {
+                                Ok(processes) => {
+                                    return Err(UnmountBusyError {
+                                        device,
+                                        mount_point,
+                                        processes,
+                                        object_path: object_path_for_retry,
+                                    });
+                                }
+                                Err(find_err) => {
+                                    tracing::warn!(?find_err, "Failed to find processes using mount");
+                                }
+                            }
+                        }
+                    }
+                    // Generic error - log and continue
+                    tracing::error!(?e, "child unmount failed");
+                    Err(UnmountBusyError {
+                        device: String::new(),
+                        mount_point: String::new(),
+                        processes: Vec::new(),
+                        object_path: String::new(),
+                    })
+                }
+            }
+        },
+        move |result| match result {
+            Ok(drives) => {
+                Message::UpdateNavWithChildSelection(drives, Some(object_path_for_selection.clone())).into()
+            }
+            Err(busy_err) if !busy_err.device.is_empty() => {
+                // Show busy dialog
+                Message::Dialog(Box::new(ShowDialog::UnmountBusy(UnmountBusyDialog {
+                    device: busy_err.device,
+                    mount_point: busy_err.mount_point,
+                    processes: busy_err.processes,
+                    object_path: busy_err.object_path,
+                })))
+                .into()
+            }
+            Err(_) => {
+                // Generic error already logged
+                Message::None.into()
+            }
+        },
     )
 }

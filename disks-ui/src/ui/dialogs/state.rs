@@ -203,4 +203,5 @@ pub struct UnmountBusyDialog {
     pub device: String,
     pub mount_point: String,
     pub processes: Vec<ProcessInfo>,
+    pub object_path: String,
 }

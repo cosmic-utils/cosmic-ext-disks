@@ -60,6 +60,7 @@ pub enum Message {
     AttachDiskImageDialog(AttachDiskImageDialogMessage),
     ImageOperationDialog(ImageOperationDialogMessage),
     UnmountBusy(UnmountBusyMessage),
+    RetryUnmountAfterKill(String),
     OpenImagePathPicker(ImagePathPickerKind),
     ImagePathPicked(ImagePathPickerKind, Option<String>),
     ToggleShowReserved(bool),
