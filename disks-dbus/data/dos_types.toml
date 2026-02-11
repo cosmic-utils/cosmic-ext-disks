@@ -17,6 +17,38 @@ filesystem_type = "ext3"
 [[types]]
 table_type = "dos"
 table_subtype = "linux"
+ty = "0x83"
+name = "Linux (XFS)"
+flags = ""
+filesystem_type = "xfs"
+
+[[types]]
+table_type = "dos"
+table_subtype = "linux"
+ty = "0x83"
+name = "Linux (Btrfs)"
+flags = ""
+filesystem_type = "btrfs"
+
+[[types]]
+table_type = "dos"
+table_subtype = "linux"
+ty = "0x83"
+name = "Linux (F2FS)"
+flags = ""
+filesystem_type = "f2fs"
+
+[[types]]
+table_type = "dos"
+table_subtype = "linux"
+ty = "0x83"
+name = "Linux (UDF)"
+flags = ""
+filesystem_type = "udf"
+
+[[types]]
+table_type = "dos"
+table_subtype = "linux"
 ty = "0x82"
 name = "Linux Swap"
 flags = "Swap"

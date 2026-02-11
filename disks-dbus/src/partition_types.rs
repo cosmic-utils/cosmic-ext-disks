@@ -169,8 +169,9 @@ mod tests {
 
     #[test]
     fn partition_type_catalog_count_is_stable() {
-        // We now load from TOML, so total is 242 (186 GPT + 43 DOS + 13 APM)
-        assert_eq!(PARTITION_TYPES.len(), 242);
+        // We now load from TOML, so total is 249 (189 GPT + 47 DOS + 13 APM)
+        // Added: Btrfs, F2FS, UDF to both GPT and DOS; XFS to DOS
+        assert_eq!(PARTITION_TYPES.len(), 249);
 
         let gpt_count = PARTITION_TYPES
             .iter()
@@ -185,8 +186,8 @@ mod tests {
             .filter(|p| p.table_type == "apm")
             .count();
 
-        assert_eq!(gpt_count, 186);
-        assert_eq!(dos_count, 43);
+        assert_eq!(gpt_count, 189);
+        assert_eq!(dos_count, 47);
         assert_eq!(apm_count, 13);
     }
 
