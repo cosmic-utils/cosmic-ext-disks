@@ -1,5 +1,5 @@
 use anyhow::{Context, Result};
-use nix::sys::signal::{kill, Signal};
+use nix::sys::signal::{Signal, kill};
 use nix::unistd::Pid;
 use std::path::Path;
 
@@ -37,7 +37,7 @@ pub struct KillResult {
 /// Returns an error if /proc cannot be accessed (unlikely on Linux systems).
 pub async fn find_processes_using_mount(mount_point: &str) -> Result<Vec<ProcessInfo>> {
     let mount_point = mount_point.to_string();
-    
+
     // Spawn blocking task since procfs operations are synchronous
     tokio::task::spawn_blocking(move || find_processes_using_mount_sync(&mount_point))
         .await
@@ -240,10 +240,10 @@ fn extract_user_info(process: &procfs::process::Process) -> (u32, String) {
     // Get real UID from status
     if let Ok(status) = process.status() {
         let uid = status.ruid;
-        
+
         // Try to resolve username
         let username = resolve_username(uid).unwrap_or_else(|| uid.to_string());
-        
+
         return (uid, username);
     }
 
@@ -255,7 +255,7 @@ fn extract_user_info(process: &procfs::process::Process) -> (u32, String) {
 fn resolve_username(uid: u32) -> Option<String> {
     // Simple approach: read /etc/passwd and find matching UID
     let passwd_content = std::fs::read_to_string("/etc/passwd").ok()?;
-    
+
     for line in passwd_content.lines() {
         let parts: Vec<&str> = line.split(':').collect();
         if parts.len() >= 3 {
@@ -266,7 +266,7 @@ fn resolve_username(uid: u32) -> Option<String> {
             }
         }
     }
-    
+
     None
 }
 
@@ -308,7 +308,7 @@ mod tests {
     fn kill_processes_rejects_system_pids() {
         // Test safety check: PIDs <= 1 should be rejected
         let results = kill_processes(&[0, 1, -1]);
-        
+
         assert_eq!(results.len(), 3);
         for result in &results {
             assert!(!result.success);
@@ -321,17 +321,24 @@ mod tests {
     fn kill_processes_handles_nonexistent_pid() {
         // Very high PID unlikely to exist - should treat as success (ESRCH)
         let results = kill_processes(&[99999]);
-        
+
         assert_eq!(results.len(), 1);
         // ESRCH should be treated as success (process already gone)
-        assert!(results[0].success || results[0].error.as_ref().map(|e| e.contains("Permission")).unwrap_or(false));
+        assert!(
+            results[0].success
+                || results[0]
+                    .error
+                    .as_ref()
+                    .map(|e| e.contains("Permission"))
+                    .unwrap_or(false)
+        );
     }
 
     #[test]
     fn kill_processes_handles_invalid_negative_pid() {
         // Negative PIDs should be rejected
         let results = kill_processes(&[-5, -100]);
-        
+
         assert_eq!(results.len(), 2);
         for result in &results {
             assert!(!result.success);

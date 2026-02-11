@@ -117,9 +117,9 @@ fn check_resource_busy_error(
     };
 
     let msg_str = msg.as_deref().unwrap_or("");
-    
+
     // UDisks2 typically returns errors like "target is busy" or "device is busy" for EBUSY
-    if msg_str.to_lowercase().contains("target is busy") 
+    if msg_str.to_lowercase().contains("target is busy")
         || msg_str.to_lowercase().contains("device is busy")
         || msg_str.to_lowercase().contains("resource busy")
     {
@@ -293,11 +293,9 @@ impl DiskBackend for RealDiskBackend {
                 Ok(()) => Ok(()),
                 Err(err) => {
                     // Check if this is a "resource busy" error first
-                    if let Some((device, mount_point)) = check_resource_busy_error(
-                        device_for_display.as_deref(),
-                        &path,
-                        &err,
-                    ) {
+                    if let Some((device, mount_point)) =
+                        check_resource_busy_error(device_for_display.as_deref(), &path, &err)
+                    {
                         return Err(crate::disks::DiskError::ResourceBusy {
                             device,
                             mount_point,
@@ -991,7 +989,7 @@ mod tests {
         let test_messages = vec![
             "target is busy",
             "device is busy",
-            "Target Is Busy",  // case-insensitive
+            "Target Is Busy", // case-insensitive
             "RESOURCE BUSY",
             "Error: target is busy (unmount failed)",
         ];
@@ -1007,11 +1005,7 @@ mod tests {
         }
 
         // Test non-matching messages
-        let non_busy_messages = vec![
-            "permission denied",
-            "not mounted",
-            "some other error",
-        ];
+        let non_busy_messages = vec!["permission denied", "not mounted", "some other error"];
 
         for msg in non_busy_messages {
             assert!(

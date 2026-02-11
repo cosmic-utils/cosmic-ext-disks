@@ -62,9 +62,10 @@ pub(super) fn unmount(control: &mut VolumesControl) -> Task<cosmic::Action<Messa
         return Task::none();
     };
 
-    let device = volume.device_path.clone().unwrap_or_else(|| {
-        volume.path.to_string()
-    });
+    let device = volume
+        .device_path
+        .clone()
+        .unwrap_or_else(|| volume.path.to_string());
     let mount_point = volume.mount_points.first().cloned().unwrap_or_default();
     let object_path = volume.path.to_string();
     let object_path_for_retry = object_path.clone();
@@ -89,21 +90,21 @@ pub(super) fn unmount(control: &mut VolumesControl) -> Task<cosmic::Action<Messa
                 }
                 Err(e) => {
                     // Check if it's a ResourceBusy error
-                    if let Some(disk_err) = e.downcast_ref::<DiskError>() {
-                        if matches!(disk_err, DiskError::ResourceBusy { .. }) {
-                            // Find processes using the mount point
-                            match disks_dbus::find_processes_using_mount(&mount_point).await {
-                                Ok(processes) => {
-                                    return Err(UnmountBusyError {
-                                        device,
-                                        mount_point,
-                                        processes,
-                                        object_path: object_path_for_retry,
-                                    });
-                                }
-                                Err(find_err) => {
-                                    tracing::warn!(?find_err, "Failed to find processes using mount");
-                                }
+                    if let Some(disk_err) = e.downcast_ref::<DiskError>()
+                        && matches!(disk_err, DiskError::ResourceBusy { .. })
+                    {
+                        // Find processes using the mount point
+                        match disks_dbus::find_processes_using_mount(&mount_point).await {
+                            Ok(processes) => {
+                                return Err(UnmountBusyError {
+                                    device,
+                                    mount_point,
+                                    processes,
+                                    object_path: object_path_for_retry,
+                                });
+                            }
+                            Err(find_err) => {
+                                tracing::warn!(?find_err, "Failed to find processes using mount");
                             }
                         }
                     }
@@ -175,9 +176,10 @@ pub(super) fn child_unmount(
         return Task::none();
     };
 
-    let device = node.device_path.clone().unwrap_or_else(|| {
-        node.object_path.to_string()
-    });
+    let device = node
+        .device_path
+        .clone()
+        .unwrap_or_else(|| node.object_path.to_string());
     let mount_point = node.mount_points.first().cloned().unwrap_or_default();
     let object_path_for_selection = object_path.clone();
     let object_path_for_retry = object_path.clone();
@@ -202,21 +204,21 @@ pub(super) fn child_unmount(
                 }
                 Err(e) => {
                     // Check if it's a ResourceBusy error
-                    if let Some(disk_err) = e.downcast_ref::<DiskError>() {
-                        if matches!(disk_err, DiskError::ResourceBusy { .. }) {
-                            // Find processes using the mount point
-                            match disks_dbus::find_processes_using_mount(&mount_point).await {
-                                Ok(processes) => {
-                                    return Err(UnmountBusyError {
-                                        device,
-                                        mount_point,
-                                        processes,
-                                        object_path: object_path_for_retry,
-                                    });
-                                }
-                                Err(find_err) => {
-                                    tracing::warn!(?find_err, "Failed to find processes using mount");
-                                }
+                    if let Some(disk_err) = e.downcast_ref::<DiskError>()
+                        && matches!(disk_err, DiskError::ResourceBusy { .. })
+                    {
+                        // Find processes using the mount point
+                        match disks_dbus::find_processes_using_mount(&mount_point).await {
+                            Ok(processes) => {
+                                return Err(UnmountBusyError {
+                                    device,
+                                    mount_point,
+                                    processes,
+                                    object_path: object_path_for_retry,
+                                });
+                            }
+                            Err(find_err) => {
+                                tracing::warn!(?find_err, "Failed to find processes using mount");
                             }
                         }
                     }
@@ -232,9 +234,11 @@ pub(super) fn child_unmount(
             }
         },
         move |result| match result {
-            Ok(drives) => {
-                Message::UpdateNavWithChildSelection(drives, Some(object_path_for_selection.clone())).into()
-            }
+            Ok(drives) => Message::UpdateNavWithChildSelection(
+                drives,
+                Some(object_path_for_selection.clone()),
+            )
+            .into(),
             Err(busy_err) if !busy_err.device.is_empty() => {
                 // Show busy dialog
                 Message::Dialog(Box::new(ShowDialog::UnmountBusy(UnmountBusyDialog {

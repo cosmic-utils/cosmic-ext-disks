@@ -14,8 +14,8 @@ pub use dbus::bytestring::{
 
 // Explicit exports from disks module (main domain models and operations)
 pub use disks::{
-    ByteRange, CreatePartitionInfo, DeviceEvent, DeviceEventStream, DiskError, DiskManager, DriveModel,
-    EncryptionOptionsSettings, GPT_ALIGNMENT_BYTES, KillResult, LvmLogicalVolumeInfo,
+    ByteRange, CreatePartitionInfo, DeviceEvent, DeviceEventStream, DiskError, DiskManager,
+    DriveModel, EncryptionOptionsSettings, GPT_ALIGNMENT_BYTES, KillResult, LvmLogicalVolumeInfo,
     MountOptionsSettings, ProcessInfo, SmartInfo, SmartSelfTestKind, VolumeKind, VolumeModel,
     VolumeNode, VolumeType, fallback_gpt_usable_range_bytes, find_processes_using_mount,
     kill_processes, list_lvs_for_pv, loop_setup, mount_filesystem,

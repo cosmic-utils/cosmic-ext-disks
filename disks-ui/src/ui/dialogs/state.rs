@@ -1,4 +1,6 @@
-use disks_dbus::{CreatePartitionInfo, DriveModel, PartitionTypeInfo, ProcessInfo, VolumeModel, VolumeNode};
+use disks_dbus::{
+    CreatePartitionInfo, DriveModel, PartitionTypeInfo, ProcessInfo, VolumeModel, VolumeNode,
+};
 
 #[derive(Debug, Clone)]
 pub enum ShowDialog {
@@ -200,6 +202,7 @@ pub struct UnlockEncryptedDialog {
 
 #[derive(Debug, Clone)]
 pub struct UnmountBusyDialog {
+    #[allow(dead_code)]
     pub device: String,
     pub mount_point: String,
     pub processes: Vec<ProcessInfo>,

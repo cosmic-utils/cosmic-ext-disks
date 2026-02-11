@@ -158,9 +158,11 @@ pub fn unmount_busy<'a>(state: UnmountBusyDialog) -> Element<'a, Message> {
     let has_processes = !processes.is_empty();
 
     // Build the dialog body
-    let mut content = iced_widget::column![
-        caption(format!("{}: {}", fl!("unmount-busy-message"), mount_point)),
-    ]
+    let mut content = iced_widget::column![caption(format!(
+        "{}: {}",
+        fl!("unmount-busy-message"),
+        mount_point
+    )),]
     .spacing(12);
 
     if has_processes {
@@ -169,7 +171,7 @@ pub fn unmount_busy<'a>(state: UnmountBusyDialog) -> Element<'a, Message> {
 
         // Create process list rows
         let mut process_list = iced_widget::column![].spacing(4);
-        
+
         for proc in processes.iter() {
             let process_row = iced_widget::row![
                 iced_widget::text(format!("{}", proc.pid)).width(60),
@@ -177,7 +179,7 @@ pub fn unmount_busy<'a>(state: UnmountBusyDialog) -> Element<'a, Message> {
                 iced_widget::text(proc.username.clone()).width(100),
             ]
             .spacing(12);
-            
+
             process_list = process_list.push(process_row);
         }
 
@@ -189,11 +191,10 @@ pub fn unmount_busy<'a>(state: UnmountBusyDialog) -> Element<'a, Message> {
         // Add warning about killing processes
         content = content.push(
             iced_widget::row![
-                cosmic::widget::icon::from_name("dialog-warning-symbolic")
-                    .size(16),
+                cosmic::widget::icon::from_name("dialog-warning-symbolic").size(16),
                 caption(fl!("unmount-busy-kill-warning"))
             ]
-            .spacing(8)
+            .spacing(8),
         );
     } else {
         // No processes found (edge case)
@@ -207,19 +208,19 @@ pub fn unmount_busy<'a>(state: UnmountBusyDialog) -> Element<'a, Message> {
 
     // Cancel button (always available)
     dlg = dlg.tertiary_action(
-        button::standard(fl!("cancel")).on_press(UnmountBusyMessage::Cancel.into())
+        button::standard(fl!("cancel")).on_press(UnmountBusyMessage::Cancel.into()),
     );
 
     // Retry button (always available)
     dlg = dlg.secondary_action(
-        button::standard(fl!("retry")).on_press(UnmountBusyMessage::Retry.into())
+        button::standard(fl!("retry")).on_press(UnmountBusyMessage::Retry.into()),
     );
 
     // Kill + Retry button (only if we have processes)
     if has_processes {
         dlg = dlg.primary_action(
             button::destructive(fl!("unmount-busy-kill-and-retry"))
-                .on_press(UnmountBusyMessage::KillAndRetry.into())
+                .on_press(UnmountBusyMessage::KillAndRetry.into()),
         );
     }
 
