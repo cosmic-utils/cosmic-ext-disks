@@ -213,17 +213,17 @@ fn check_process_fds(process: &procfs::process::Process, mount_path: &Path) -> R
 /// Extract command name from process
 fn extract_command(process: &procfs::process::Process) -> String {
     // Try cmdline first (full command with args)
-    if let Ok(cmdline) = process.cmdline() {
-        if !cmdline.is_empty() {
-            // Use first element (executable path)
-            let cmd = &cmdline[0];
-            // Strip path, just return the basename
-            return Path::new(cmd)
-                .file_name()
-                .and_then(|s| s.to_str())
-                .unwrap_or(cmd)
-                .to_string();
-        }
+    if let Ok(cmdline) = process.cmdline()
+        && !cmdline.is_empty()
+    {
+        // Use first element (executable path)
+        let cmd = &cmdline[0];
+        // Strip path, just return the basename
+        return Path::new(cmd)
+            .file_name()
+            .and_then(|s| s.to_str())
+            .unwrap_or(cmd)
+            .to_string();
     }
 
     // Fallback to stat.comm (kernel thread name or process name)
@@ -258,12 +258,11 @@ fn resolve_username(uid: u32) -> Option<String> {
 
     for line in passwd_content.lines() {
         let parts: Vec<&str> = line.split(':').collect();
-        if parts.len() >= 3 {
-            if let Ok(line_uid) = parts[2].parse::<u32>() {
-                if line_uid == uid {
-                    return Some(parts[0].to_string());
-                }
-            }
+        if parts.len() >= 3
+            && let Ok(line_uid) = parts[2].parse::<u32>()
+            && line_uid == uid
+        {
+            return Some(parts[0].to_string());
         }
     }
 
