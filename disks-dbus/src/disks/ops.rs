@@ -117,11 +117,12 @@ fn check_resource_busy_error(
     };
 
     let msg_str = msg.as_deref().unwrap_or("");
+    let msg_lower = msg_str.to_ascii_lowercase();
 
     // UDisks2 typically returns errors like "target is busy" or "device is busy" for EBUSY
-    if msg_str.to_lowercase().contains("target is busy")
-        || msg_str.to_lowercase().contains("device is busy")
-        || msg_str.to_lowercase().contains("resource busy")
+    if msg_lower.contains("target is busy")
+        || msg_lower.contains("device is busy")
+        || msg_lower.contains("resource busy")
     {
         let device = device_for_display.unwrap_or("<unknown device>").to_string();
         // Mount point would need to be queried separately; for now use object_path as fallback
