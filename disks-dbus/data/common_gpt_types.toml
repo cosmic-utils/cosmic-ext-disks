@@ -1,0 +1,82 @@
+# Common GPT partition types for UI display
+# Spec: 10 user-selectable filesystem types for Create Partition dialog
+
+[[types]]
+table_type = "gpt"
+table_subtype = "linux"
+ty = "0fc63daf-8483-4772-8e79-3d69d8477de4"
+name = "Linux Filesystem (ext4)"
+flags = ""
+filesystem_type = "ext4"
+
+[[types]]
+table_type = "gpt"
+table_subtype = "linux"
+ty = "0fc63daf-8483-4772-8e79-3d69d8477de4"
+name = "Linux Filesystem (ext3)"
+flags = ""
+filesystem_type = "ext3"
+
+[[types]]
+table_type = "gpt"
+table_subtype = "linux"
+ty = "0fc63daf-8483-4772-8e79-3d69d8477de4"
+name = "Linux Filesystem (XFS)"
+flags = ""
+filesystem_type = "xfs"
+
+[[types]]
+table_type = "gpt"
+table_subtype = "linux"
+ty = "0fc63daf-8483-4772-8e79-3d69d8477de4"
+name = "Linux Filesystem (Btrfs)"
+flags = ""
+filesystem_type = "btrfs"
+
+[[types]]
+table_type = "gpt"
+table_subtype = "linux"
+ty = "0fc63daf-8483-4772-8e79-3d69d8477de4"
+name = "Linux Filesystem (F2FS)"
+flags = ""
+filesystem_type = "f2fs"
+
+[[types]]
+table_type = "gpt"
+table_subtype = "linux"
+ty = "0fc63daf-8483-4772-8e79-3d69d8477de4"
+name = "Linux Filesystem (UDF)"
+flags = ""
+filesystem_type = "udf"
+
+[[types]]
+table_type = "gpt"
+table_subtype = "linux"
+ty = "0657fd6d-a4ab-43c4-84e5-0933c84b4f4f"
+name = "Linux Swap"
+flags = "Swap"
+filesystem_type = "swap"
+
+[[types]]
+table_type = "gpt"
+table_subtype = "microsoft"
+ty = "ebd0a0a2-b9e5-4433-87c0-68b6b72699c7"
+name = "Microsoft Basic Data (NTFS)"
+flags = ""
+filesystem_type = "ntfs"
+
+[[types]]
+table_type = "gpt"
+table_subtype = "microsoft"
+ty = "ebd0a0a2-b9e5-4433-87c0-68b6b72699c7"
+name = "Microsoft Basic Data (FAT32)"
+flags = ""
+filesystem_type = "vfat"
+
+[[types]]
+table_type = "gpt"
+table_subtype = "microsoft"
+ty = "ebd0a0a2-b9e5-4433-87c0-68b6b72699c7"
+name = "Microsoft Basic Data (exFAT)"
+flags = ""
+filesystem_type = "exfat"

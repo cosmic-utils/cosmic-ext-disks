@@ -96,6 +96,8 @@ pub fn get_all_partition_type_infos(table_type: &str) -> Vec<PartitionTypeInfo> 
 const GPT_TOML: &str = include_str!("../data/gpt_types.toml");
 const DOS_TOML: &str = include_str!("../data/dos_types.toml");
 const APM_TOML: &str = include_str!("../data/apm_types.toml");
+const COMMON_GPT_TOML: &str = include_str!("../data/common_gpt_types.toml");
+const COMMON_DOS_TOML: &str = include_str!("../data/common_dos_types.toml");
 
 #[derive(Deserialize)]
 struct PartitionTypeCatalog {
@@ -130,37 +132,27 @@ pub static PARTITION_TYPES: std::sync::LazyLock<Vec<PartitionTypeInfo>> =
     std::sync::LazyLock::new(|| PARTITION_TYPES_DATA.clone());
 
 /// Common GPT partition types for UI display (user-selectable filesystem types)
+/// Loaded from dedicated common_gpt_types.toml containing exactly 10 filesystem types
+/// as specified in the partitioning view improvement spec
 pub static COMMON_GPT_TYPES: std::sync::LazyLock<Vec<PartitionTypeInfo>> =
     std::sync::LazyLock::new(|| {
-        PARTITION_TYPES_DATA
-            .iter()
-            .filter(|p| {
-                p.table_type == "gpt"
-                    && (p.table_subtype == "linux" || p.table_subtype == "microsoft")
-                    && matches!(
-                        p.flags,
-                        PartitionTypeInfoFlags::None | PartitionTypeInfoFlags::Swap
-                    )
-            })
-            .cloned()
-            .collect()
+        if let Ok(catalog) = toml::from_str::<PartitionTypeCatalog>(COMMON_GPT_TOML) {
+            catalog.types
+        } else {
+            vec![]
+        }
     });
 
 /// Common DOS partition types for UI display (user-selectable filesystem types)
+/// Loaded from dedicated common_dos_types.toml containing exactly 10 filesystem types
+/// as specified in the partitioning view improvement spec
 pub static COMMON_DOS_TYPES: std::sync::LazyLock<Vec<PartitionTypeInfo>> =
     std::sync::LazyLock::new(|| {
-        PARTITION_TYPES_DATA
-            .iter()
-            .filter(|p| {
-                p.table_type == "dos"
-                    && (p.table_subtype == "linux" || p.table_subtype == "microsoft")
-                    && matches!(
-                        p.flags,
-                        PartitionTypeInfoFlags::None | PartitionTypeInfoFlags::Swap
-                    )
-            })
-            .cloned()
-            .collect()
+        if let Ok(catalog) = toml::from_str::<PartitionTypeCatalog>(COMMON_DOS_TOML) {
+            catalog.types
+        } else {
+            vec![]
+        }
     });
 
 #[cfg(test)]
@@ -200,5 +192,40 @@ mod tests {
         let apm_map = PartitionTypeInfo::find_by_id("Apple_partition_map".to_string())
             .expect("APM partition map type must exist");
         assert_eq!(apm_map.table_type, "apm");
+    }
+
+    #[test]
+    fn common_types_have_filesystem_types() {
+        // All common types should have non-empty filesystem_type
+        // This ensures no labelless radio buttons appear in the UI
+        for p in COMMON_GPT_TYPES.iter() {
+            assert!(
+                !p.filesystem_type.is_empty(),
+                "GPT partition type '{}' has empty filesystem_type",
+                p.name
+            );
+        }
+
+        for p in COMMON_DOS_TYPES.iter() {
+            assert!(
+                !p.filesystem_type.is_empty(),
+                "DOS partition type '{}' has empty filesystem_type",
+                p.name
+            );
+        }
+
+        // Verify expected count (spec defines 10-11 filesystem types)
+        // GPT: ext4, ext3, xfs, btrfs, f2fs, udf, ntfs, vfat, exfat, swap = 10
+        // DOS: same subset = 10
+        assert_eq!(
+            COMMON_GPT_TYPES.len(),
+            10,
+            "Expected 10 common GPT filesystem types"
+        );
+        assert_eq!(
+            COMMON_DOS_TYPES.len(),
+            10,
+            "Expected 10 common DOS filesystem types"
+        );
     }
 }

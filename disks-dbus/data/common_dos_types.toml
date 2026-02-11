@@ -1,0 +1,82 @@
+# Common DOS/MBR partition types for UI display
+# Spec: 10 user-selectable filesystem types for Create Partition dialog
+
+[[types]]
+table_type = "dos"
+table_subtype = "linux"
+ty = "0x83"
+name = "Linux (ext4)"
+flags = ""
+filesystem_type = "ext4"
+
+[[types]]
+table_type = "dos"
+table_subtype = "linux"
+ty = "0x83"
+name = "Linux (ext3)"
+flags = ""
+filesystem_type = "ext3"
+
+[[types]]
+table_type = "dos"
+table_subtype = "linux"
+ty = "0x83"
+name = "Linux (XFS)"
+flags = ""
+filesystem_type = "xfs"
+
+[[types]]
+table_type = "dos"
+table_subtype = "linux"
+ty = "0x83"
+name = "Linux (Btrfs)"
+flags = ""
+filesystem_type = "btrfs"
+
+[[types]]
+table_type = "dos"
+table_subtype = "linux"
+ty = "0x83"
+name = "Linux (F2FS)"
+flags = ""
+filesystem_type = "f2fs"
+
+[[types]]
+table_type = "dos"
+table_subtype = "linux"
+ty = "0x83"
+name = "Linux (UDF)"
+flags = ""
+filesystem_type = "udf"
+
+[[types]]
+table_type = "dos"
+table_subtype = "linux"
+ty = "0x82"
+name = "Linux Swap"
+flags = "Swap"
+filesystem_type = "swap"
+
+[[types]]
+table_type = "dos"
+table_subtype = "microsoft"
+ty = "0x07"
+name = "NTFS / exFAT / HPFS (NTFS)"
+flags = ""
+filesystem_type = "ntfs"
+
+[[types]]
+table_type = "dos"
+table_subtype = "microsoft"
+ty = "0x0c"
+name = "W95 FAT32 (LBA)"
+flags = ""
+filesystem_type = "vfat"
+
+[[types]]
+table_type = "dos"
+table_subtype = "microsoft"
+ty = "0x07"
+name = "NTFS / exFAT / HPFS (exFAT)"
+flags = ""
+filesystem_type = "exfat"
