@@ -35,9 +35,8 @@ wake-up-failed = Wake-up failed
 unmount-failed = Unmount failed
 
 # Unmount busy dialog
-unmount-busy-title = Unable to Unmount — Device is Busy
-unmount-busy-message = The following processes are accessing this mount
-unmount-busy-mount-point = Mount point
+unmount-busy-title-template = {$device} is Busy
+unmount-busy-message-template = The following processes are accessing {$mount}
 unmount-busy-header-pid = PID
 unmount-busy-header-command = Command
 unmount-busy-header-user = User

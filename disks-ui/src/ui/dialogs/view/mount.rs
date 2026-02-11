@@ -149,7 +149,7 @@ pub fn edit_mount_options<'a>(state: EditMountOptionsDialog) -> Element<'a, Mess
 
 pub fn unmount_busy<'a>(state: UnmountBusyDialog) -> Element<'a, Message> {
     let UnmountBusyDialog {
-        device: _,
+        device,
         mount_point,
         processes,
         object_path: _,
@@ -158,10 +158,10 @@ pub fn unmount_busy<'a>(state: UnmountBusyDialog) -> Element<'a, Message> {
     let has_processes = !processes.is_empty();
 
     // Build the dialog body
-    let mut content = iced_widget::column![
-        caption(fl!("unmount-busy-message")),
-        caption(format!("{}: {}", fl!("unmount-busy-mount-point"), mount_point)),
-    ]
+    let mut content = iced_widget::column![iced_widget::text(format!(
+        "The following processes are accessing {}",
+        mount_point
+    )),]
     .spacing(12);
 
     if has_processes {
@@ -198,18 +198,18 @@ pub fn unmount_busy<'a>(state: UnmountBusyDialog) -> Element<'a, Message> {
         content = content.push(
             iced_widget::row![
                 cosmic::widget::icon::from_name("dialog-warning-symbolic").size(16),
-                caption(fl!("unmount-busy-kill-warning"))
+                iced_widget::text(fl!("unmount-busy-kill-warning"))
             ]
             .spacing(8),
         );
     } else {
         // No processes found (edge case)
-        content = content.push(caption(fl!("unmount-busy-no-processes")));
+        content = content.push(iced_widget::text(fl!("unmount-busy-no-processes")));
     }
 
     // Build dialog with appropriate buttons
     let mut dlg = dialog::dialog()
-        .title(fl!("unmount-busy-title"))
+        .title(format!("{} is Busy", device))
         .control(content);
 
     // Cancel button (always available)
