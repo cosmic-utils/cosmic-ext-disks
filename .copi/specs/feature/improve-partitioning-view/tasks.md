@@ -370,10 +370,10 @@ This document breaks down the implementation into commit-sized tasks. Each task 
 - No rounding errors for common sizes (1 GB, 500 MB, etc.)
 
 **Done when:**
-- [ ] `unit_size_input.rs` created with conversion logic
-- [ ] Unit tests pass
-- [ ] Module exported from `utils/mod.rs`
-- [ ] No compilation errors
+- [x] `unit_size_input.rs` created with conversion logic
+- [x] Unit tests pass
+- [x] Module exported from `utils/mod.rs`
+- [x] No compilation errors
 
 **Note:** This task creates the utility but doesn't integrate it into dialogs yet. Integration happens in Task 6.
 
