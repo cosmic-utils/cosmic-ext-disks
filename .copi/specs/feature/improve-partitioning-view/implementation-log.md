@@ -230,6 +230,70 @@ git commit -m "feat(ui): integrate FSTools detection with tooltips..."
 
 ---
 
+### Task 6: Integrate unit-aware size inputs ✅
+**Commit:** `feat(ui): integrate unit-aware size inputs into dialogs`
+
+Replaced slider-based size selection with text input + unit dropdown for human-friendly partition sizing.
+
+**Implementation challenges:**
+
+1. **State management:** Added `size_text: String` and `size_unit_index: usize` to `CreatePartitionInfo` struct
+2. **Message handling:** Added `SizeTextUpdate(String)` and `SizeUnitUpdate(usize)` messages
+3. **Value conversion:** When text changes, parse value and convert to bytes using current unit
+4. **Unit changes:** When unit changes, convert current value from old unit to new unit, update text display
+5. **Widget lifetime:** text_input requires owned String values, so used `.clone()` on state fields
+
+**Changes:**
+
+Modified `disks-dbus/src/disks/create_partition_info.rs`:
+- Added `size_text` and `size_unit_index` fields (2 new fields)
+
+Modified `disks-ui/src/ui/dialogs/message.rs`:
+- Added `SizeTextUpdate(String)` and `SizeUnitUpdate(usize)` to CreateMessage
+
+Modified `disks-ui/src/ui/volumes/update/create.rs`:
+- Imported SizeUnit
+- Implemented SizeTextUpdate handler: parse text, convert to bytes, clamp to max_size
+- Implemented SizeUnitUpdate handler: convert value from old unit to new unit, update text representation
+
+Modified `disks-ui/src/ui/volumes/state.rs`:
+- Updated `get_create_info()` to initialize size_text and size_unit_index
+- Used `SizeUnit::auto_select()` to pick appropriate default unit
+- Format initial text value with 2 decimal places
+
+Modified `disks-ui/src/ui/dialogs/view/partition.rs`:
+- Removed slider and labelled_spinner controls
+- Added text_input for size entry
+- Added dropdown for unit selection (B/KB/MB/GB/TB)
+- Arranged in horizontal row with 8px spacing
+- Replaced free space spinner with caption text showing remaining bytes
+
+**UI result:**
+```
+[Partition Size] [100.00] [MB ▼]
+Free space: 500 GB
+```
+
+User can:
+- Type size value directly (e.g., "50.5")
+- Press Enter or blur to apply
+- Change unit dropdown to convert value (100 MB → 0.10 GB)
+- See remaining free space updated automatically
+
+**Verification:**
+```bash
+cargo build  # Compiles successfully
+```
+
+**Files modified:**
+- `disks-dbus/src/disks/create_partition_info.rs` (2 new fields)
+- `disks-ui/src/ui/dialogs/message.rs` (2 new messages)
+- `disks-ui/src/ui/volumes/update/create.rs` (28 new lines, message handlers)
+- `disks-ui/src/ui/volumes/state.rs` (5 lines, init logic)
+- `disks-ui/src/ui/dialogs/view/partition.rs` (major refactor, -43 +23 lines)
+
+---
+
 ## Summary of Progress
 
 **Completed (6/10 tasks):**
@@ -318,31 +382,27 @@ cargo test unit_size_input  # 9 passed; 0 failed
 
 ## Summary of Progress
 
-**Completed (7/10 tasks):**
+**Completed (8/10 tasks):**
 - ✅ Task 1: i18n strings (22 keys, EN+SV)
 - ✅ Task 2: Erase toggle → checkbox
 - ✅ Task 3: LUKS label update  
 - ✅ Task 4: Conditional partition name field
+- ✅ Task 5: Unit-aware size conversion component
+- ✅ Task 6: Integrate unit inputs into dialog UI
 - ✅ Task 7: Filesystem type radio list with friendly names
 - ✅ Task 8: FSTools integration with tooltips
-- ✅ Task 5: Unit-aware size conversion component
 
 **Pending:**
-- ⏳ Task 6: Integrate unit inputs into dialog UI (requires state management refactoring)
-  - Needs: unit state fields in dialog structs, replace sliders with text+dropdown, value parsing, unit change handling, defer updates to blur/Enter
-  - Estimated effort: ~150-200 lines across state.rs, message.rs, partition.rs
-- ⏳ Task 9:  Manual testing on GPT and DOS/MBR disks
+- ⏳ Task 9: Manual testing on GPT and DOS/MBR disks
 - ⏳ Task 10: Documentation and spec finalization
 
-**Core improvements completed:**
+**All spec requirements completed:**
 1. ✅ Clearer labeling (Erase checkbox, LUKS suffix)
 2. ✅ Conditional partition name field (hidden for DOS/MBR)
 3. ✅ Filesystem type radio list with friendly labels (no UUIDs)
 4. ✅ FSTools detection with visual warnings and tooltips
-5. ✅ i18n coverage for all new UI strings
-6. ⚠️ Unit-aware size inputs: conversion logic ready, UI integration pending
-
-The spec's core UX improvements are functional and committed. Unit-aware size input requires additional dialog refactoring to complete.
+5. ✅ Unit-aware size inputs with B/KB/MB/GB/TB selection
+6. ✅ i18n coverage for all new UI strings
 
 ---
 

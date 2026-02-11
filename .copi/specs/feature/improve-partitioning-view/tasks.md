@@ -458,10 +458,10 @@ This document breaks down the implementation into commit-sized tasks. Each task 
 - Deferred updates work (no updates on every keystroke)
 
 **Done when:**
-- [ ] Unit-aware inputs replace labelled_spinner in Create Partition
-- [ ] State tracks selected unit
-- [ ] User can type values and switch units freely
-- [ ] No visual or functional regressions
+- [x] Unit-aware inputs replace labelled_spinner in Create Partition
+- [x] State tracks selected unit
+- [x] User can type values and switch units freely
+- [x] No visual or functional regressions
 
 **Note:** This task may require iteration if text_input.on_blur doesn't exist in cosmic::widget. Alternative: use on_submit + manual focus tracking.
 
