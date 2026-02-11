@@ -33,6 +33,30 @@ filesystem_type = "xfs"
 [[types]]
 table_type = "gpt"
 table_subtype = "linux"
+ty = "0fc63daf-8483-4772-8e79-3d69d8477de4"
+name = "Linux Filesystem (Btrfs)"
+flags = ""
+filesystem_type = "btrfs"
+
+[[types]]
+table_type = "gpt"
+table_subtype = "linux"
+ty = "0fc63daf-8483-4772-8e79-3d69d8477de4"
+name = "Linux Filesystem (F2FS)"
+flags = ""
+filesystem_type = "f2fs"
+
+[[types]]
+table_type = "gpt"
+table_subtype = "linux"
+ty = "0fc63daf-8483-4772-8e79-3d69d8477de4"
+name = "Linux Filesystem (UDF)"
+flags = ""
+filesystem_type = "udf"
+
+[[types]]
+table_type = "gpt"
+table_subtype = "linux"
 ty = "0657fd6d-a4ab-43c4-84e5-0933c84b4f4f"
 name = "Linux Swap"
 flags = "Swap"
