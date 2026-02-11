@@ -63,6 +63,12 @@ pub enum DiskError {
     #[error("The model {0} is not connected")]
     NotConnected(String),
 
+    #[error("Device is busy: {device} at {mount_point}")]
+    ResourceBusy {
+        device: String,
+        mount_point: String,
+    },
+
     #[error("Zbus Error")]
     ZbusError(#[from] zbus::Error),
 }
