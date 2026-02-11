@@ -987,7 +987,7 @@ mod tests {
         let busy_messages = vec![
             "target is busy",
             "device is busy",
-            "Target Is Busy",      // case-insensitive
+            "Target Is Busy", // case-insensitive
             "RESOURCE BUSY",
             "Error: target is busy (unmount failed)",
             "GDBus.Error: device is busy",

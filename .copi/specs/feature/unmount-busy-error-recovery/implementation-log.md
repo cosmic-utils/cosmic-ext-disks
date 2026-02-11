@@ -249,8 +249,8 @@ cargo build --workspace
 ```
 
 ### Test Results
-- All 35 tests passing
-- No clippy errors (warnings about pre-existing collapsible_if in smart.rs)
+- All 36 tests passing (increased from 35)
+- Clippy clean with `-D warnings`
 - Clean compilation
 
 ---
@@ -260,4 +260,81 @@ cargo build --workspace
 1. `69e76d1` - feat(unmount): add structured error type for resource busy
 2. `acf5d4b` - feat(unmount): implement process discovery via procfs
 3. `1acefe4` - feat(unmount): implement process termination via nix syscalls
-4. (pending) - feat(unmount): create unmount busy dialog UI component
+4. `e1aae80` - feat(unmount): add dialog UI and wire into unmount flow
+5. `2b16f5d` - feat(unmount): add comprehensive structured logging
+6. `f82f3a8` - refactor(unmount): code quality improvements and tests
+7. `a5bd40a` - fix(ui): improve unmount busy dialog presentation
+8. `428eb2b` - fix(ui): refine unmount busy dialog text and formatting
+9. `7b76447` - fix: address PR review feedback on code robustness
+
+---
+
+## Code Quality Improvements (Commit 7b76447)
+
+Addressed 7 issues from PR review:
+
+### Issue 1: Localization
+- **Problem:** Dialog used hardcoded English strings
+- **Fix:** Changed to `fl!()` macro with template parameters
+- **Files:** [`disks-ui/src/ui/dialogs/view/mount.rs`](../../disks-ui/src/ui/dialogs/view/mount.rs)
+
+### Issue 2: Explicit Error Types
+- **Problem:** Sentinel pattern using empty strings to distinguish error types
+- **Fix:** Created `UnmountResult` enum with `Success(DriveModel)`, `Busy{...}`, `GenericError`
+- **Impact:** Type-safe error handling, prevents misinterpretation of empty strings
+- **Files:** 
+  - [`disks-ui/src/ui/volumes/update/mount.rs`](../../disks-ui/src/ui/volumes/update/mount.rs) - `unmount()`, `child_unmount()`
+  - [`disks-ui/src/ui/app/update/mod.rs`](../../disks-ui/src/ui/app/update/mod.rs) - `retry_unmount()`
+
+### Issue 3: Proper Unit Tests
+- **Problem:** Test didn't actually call `check_resource_busy_error()`
+- **Fix:** 
+  - Extracted `is_resource_busy_message()` helper function
+  - Added `test_is_resource_busy_message()` for pattern matching
+  - Added `test_check_resource_busy_error()` to exercise full function
+- **Files:** [`disks-dbus/src/disks/ops.rs`](../../disks-dbus/src/disks/ops.rs)
+
+### Issue 4: Input Validation
+- **Problem:** No validation on mount_point parameter - empty string matches all paths
+- **Fix:** Added checks in `find_processes_using_mount_sync()`:
+  - Trim and check for empty string
+  - Verify absolute path (starts with `/`)
+  - Return `Ok(vec![])` early for invalid input
+- **Files:** [`disks-dbus/src/disks/process_finder.rs`](../../disks-dbus/src/disks/process_finder.rs)
+
+### Issue 5: Performance Optimization
+- **Problem:** `resolve_username()` reads `/etc/passwd` per-process (O(n) file reads)
+- **Fix:** 
+  - Created `build_uid_map()` to build `HashMap<u32, String>` once
+  - Updated `extract_user_info()` to accept and use the map
+  - Call `build_uid_map()` once per scan
+- **Impact:** Single file read instead of one per process
+- **Files:** [`disks-dbus/src/disks/process_finder.rs`](../../disks-dbus/src/disks/process_finder.rs)
+
+### Issues 6-7: Mount Point Handling
+- **Problem:** `unwrap_or_default()` creates empty strings that bypass validation
+- **Fix:**
+  - Changed from `unwrap_or_default()` to `Option<String>` 
+  - Added validation: check `Some` + non-empty before process discovery
+  - Added warning logs when mount point unavailable
+- **Impact:** Prevents pathological scans when mount point missing
+- **Files:**
+  - [`disks-ui/src/ui/volumes/update/mount.rs`](../../disks-ui/src/ui/volumes/update/mount.rs)
+  - [`disks-ui/src/ui/app/update/mod.rs`](../../disks-ui/src/ui/app/update/mod.rs)
+
+### Testing
+- ✅ All 36 tests passing
+- ✅ `cargo clippy --workspace -- -D warnings` clean
+- ✅ No compilation errors or warnings
+
+---
+
+## Final Status
+
+**All acceptance criteria met:**
+- ✅ Feature fully implemented (all 7 tasks complete)
+- ✅ UI refined based on feedback (2 rounds of improvements)
+- ✅ Code quality issues addressed (7 issues fixed)
+- ✅ Tests comprehensive (36 tests passing)
+- ✅ Clippy clean
+- ✅ Ready for review/merge

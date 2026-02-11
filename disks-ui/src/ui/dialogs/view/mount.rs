@@ -158,9 +158,10 @@ pub fn unmount_busy<'a>(state: UnmountBusyDialog) -> Element<'a, Message> {
     let has_processes = !processes.is_empty();
 
     // Build the dialog body
-    let mut content = iced_widget::column![iced_widget::text(
-        fl!("unmount-busy-message-template", mount = mount_point.as_str())
-    ),]
+    let mut content = iced_widget::column![iced_widget::text(fl!(
+        "unmount-busy-message-template",
+        mount = mount_point.as_str()
+    )),]
     .spacing(12);
 
     if has_processes {

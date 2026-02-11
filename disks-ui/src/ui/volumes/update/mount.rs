@@ -115,7 +115,10 @@ pub(super) fn unmount(control: &mut VolumesControl) -> Task<cosmic::Action<Messa
                                         };
                                     }
                                     Err(find_err) => {
-                                        tracing::warn!(?find_err, "Failed to find processes using mount");
+                                        tracing::warn!(
+                                            ?find_err,
+                                            "Failed to find processes using mount"
+                                        );
                                     }
                                 }
                             } else {
@@ -224,7 +227,10 @@ pub(super) fn child_unmount(
                                         };
                                     }
                                     Err(find_err) => {
-                                        tracing::warn!(?find_err, "Failed to find processes using mount");
+                                        tracing::warn!(
+                                            ?find_err,
+                                            "Failed to find processes using mount"
+                                        );
                                     }
                                 }
                             } else {

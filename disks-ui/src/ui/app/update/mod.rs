@@ -615,14 +615,21 @@ fn retry_unmount(volumes: &VolumesControl, object_path: String) -> Task<Message>
                                             )));
                                         }
                                         Err(find_err) => {
-                                            tracing::warn!(?find_err, "Failed to find processes on retry");
+                                            tracing::warn!(
+                                                ?find_err,
+                                                "Failed to find processes on retry"
+                                            );
                                         }
                                     }
                                 } else {
-                                    tracing::warn!("Mount point is empty on retry, cannot find processes");
+                                    tracing::warn!(
+                                        "Mount point is empty on retry, cannot find processes"
+                                    );
                                 }
                             } else {
-                                tracing::warn!("No mount point available on retry, cannot find processes");
+                                tracing::warn!(
+                                    "No mount point available on retry, cannot find processes"
+                                );
                             }
                         }
                         // Generic error

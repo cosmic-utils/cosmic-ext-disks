@@ -53,7 +53,7 @@ fn find_processes_using_mount_sync(mount_point: &str) -> Result<Vec<ProcessInfo>
         tracing::warn!("Empty mount point provided, returning no processes");
         return Ok(Vec::new());
     }
-    
+
     if !trimmed.starts_with('/') {
         tracing::warn!(
             mount_point = %mount_point,
@@ -255,7 +255,10 @@ fn extract_command(process: &procfs::process::Process) -> String {
 }
 
 /// Extract UID and username from process
-fn extract_user_info(process: &procfs::process::Process, uid_map: &HashMap<u32, String>) -> (u32, String) {
+fn extract_user_info(
+    process: &procfs::process::Process,
+    uid_map: &HashMap<u32, String>,
+) -> (u32, String) {
     // Get real UID from status
     if let Ok(status) = process.status() {
         let uid = status.ruid;
@@ -298,7 +301,7 @@ fn resolve_username(uid: u32) -> Option<String> {
 /// This is more efficient than calling resolve_username repeatedly
 fn build_uid_map() -> HashMap<u32, String> {
     let mut map = HashMap::new();
-    
+
     match std::fs::read_to_string("/etc/passwd") {
         Ok(passwd_content) => {
             for line in passwd_content.lines() {
@@ -314,7 +317,7 @@ fn build_uid_map() -> HashMap<u32, String> {
             tracing::warn!("Failed to read /etc/passwd for UID map: {}", e);
         }
     }
-    
+
     map
 }
 
