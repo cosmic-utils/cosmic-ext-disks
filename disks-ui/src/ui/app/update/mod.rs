@@ -424,6 +424,25 @@ pub(crate) fn update(app: &mut AppModel, message: Message) -> Task<Message> {
         Message::ImageOperationDialog(msg) => {
             return image::image_operation_dialog(app, msg);
         }
+        Message::UnmountBusy(msg) => {
+            // TODO: Wire up to actual unmount logic in Task 5
+            use crate::ui::dialogs::message::UnmountBusyMessage;
+            match msg {
+                UnmountBusyMessage::Cancel => {
+                    app.dialog = None;
+                }
+                UnmountBusyMessage::Retry => {
+                    // TODO: Retry unmount
+                    tracing::info!("Unmount retry requested");
+                    app.dialog = None;
+                }
+                UnmountBusyMessage::KillAndRetry => {
+                    // TODO: Kill processes and retry unmount
+                    tracing::info!("Kill and retry requested");
+                    app.dialog = None;
+                }
+            }
+        }
         Message::Surface(action) => {
             return cosmic::task::message(cosmic::Action::Cosmic(cosmic::app::Action::Surface(
                 action,

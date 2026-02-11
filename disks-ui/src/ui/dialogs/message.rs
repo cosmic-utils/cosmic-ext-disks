@@ -135,3 +135,10 @@ pub enum ImageOperationDialogMessage {
     CancelOperation,
     Complete(Result<(), String>),
 }
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum UnmountBusyMessage {
+    Cancel,
+    Retry,
+    KillAndRetry,
+}

@@ -1,4 +1,4 @@
-use disks_dbus::{CreatePartitionInfo, DriveModel, PartitionTypeInfo, VolumeModel, VolumeNode};
+use disks_dbus::{CreatePartitionInfo, DriveModel, PartitionTypeInfo, ProcessInfo, VolumeModel, VolumeNode};
 
 #[derive(Debug, Clone)]
 pub enum ShowDialog {
@@ -20,6 +20,7 @@ pub enum ShowDialog {
     NewDiskImage(Box<NewDiskImageDialog>),
     AttachDiskImage(Box<AttachDiskImageDialog>),
     ImageOperation(Box<ImageOperationDialog>),
+    UnmountBusy(UnmountBusyDialog),
     Info {
         title: String,
         body: String,
@@ -195,4 +196,11 @@ pub struct UnlockEncryptedDialog {
     pub passphrase: String,
     pub error: Option<String>,
     pub running: bool,
+}
+
+#[derive(Debug, Clone)]
+pub struct UnmountBusyDialog {
+    pub device: String,
+    pub mount_point: String,
+    pub processes: Vec<ProcessInfo>,
 }

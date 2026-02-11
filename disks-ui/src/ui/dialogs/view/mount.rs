@@ -1,11 +1,11 @@
 use crate::app::Message;
 use crate::fl;
-use crate::ui::dialogs::message::EditMountOptionsMessage;
-use crate::ui::dialogs::state::EditMountOptionsDialog;
+use crate::ui::dialogs::message::{EditMountOptionsMessage, UnmountBusyMessage};
+use crate::ui::dialogs::state::{EditMountOptionsDialog, UnmountBusyDialog};
 use cosmic::{
     Element, iced_widget,
     widget::text::{caption, caption_heading},
-    widget::{button, checkbox, dialog, dropdown, text_input},
+    widget::{button, checkbox, dialog, dropdown, scrollable, text_input},
 };
 
 pub fn edit_mount_options<'a>(state: EditMountOptionsDialog) -> Element<'a, Message> {
@@ -145,4 +145,82 @@ pub fn edit_mount_options<'a>(state: EditMountOptionsDialog) -> Element<'a, Mess
             button::standard(fl!("cancel")).on_press(EditMountOptionsMessage::Cancel.into()),
         )
         .into()
+}
+
+pub fn unmount_busy<'a>(state: UnmountBusyDialog) -> Element<'a, Message> {
+    let UnmountBusyDialog {
+        device,
+        mount_point,
+        processes,
+    } = state;
+
+    let has_processes = !processes.is_empty();
+
+    // Build the dialog body
+    let mut content = iced_widget::column![
+        caption(format!("{}: {}", fl!("unmount-busy-message"), mount_point)),
+    ]
+    .spacing(12);
+
+    if has_processes {
+        // Add process list section
+        content = content.push(caption_heading(fl!("unmount-busy-processes")));
+
+        // Create process list rows
+        let mut process_list = iced_widget::column![].spacing(4);
+        
+        for proc in processes.iter() {
+            let process_row = iced_widget::row![
+                iced_widget::text(format!("{}", proc.pid)).width(60),
+                iced_widget::text(proc.command.clone()).width(200),
+                iced_widget::text(proc.username.clone()).width(100),
+            ]
+            .spacing(12);
+            
+            process_list = process_list.push(process_row);
+        }
+
+        // Wrap in scrollable
+        let process_container = scrollable(process_list).height(200);
+
+        content = content.push(process_container);
+
+        // Add warning about killing processes
+        content = content.push(
+            iced_widget::row![
+                cosmic::widget::icon::from_name("dialog-warning-symbolic")
+                    .size(16),
+                caption(fl!("unmount-busy-kill-warning"))
+            ]
+            .spacing(8)
+        );
+    } else {
+        // No processes found (edge case)
+        content = content.push(caption(fl!("unmount-busy-no-processes")));
+    }
+
+    // Build dialog with appropriate buttons
+    let mut dlg = dialog::dialog()
+        .title(fl!("unmount-busy-title"))
+        .control(content);
+
+    // Cancel button (always available)
+    dlg = dlg.tertiary_action(
+        button::standard(fl!("cancel")).on_press(UnmountBusyMessage::Cancel.into())
+    );
+
+    // Retry button (always available)
+    dlg = dlg.secondary_action(
+        button::standard(fl!("retry")).on_press(UnmountBusyMessage::Retry.into())
+    );
+
+    // Kill + Retry button (only if we have processes)
+    if has_processes {
+        dlg = dlg.primary_action(
+            button::destructive(fl!("unmount-busy-kill-and-retry"))
+                .on_press(UnmountBusyMessage::KillAndRetry.into())
+        );
+    }
+
+    dlg.into()
 }

@@ -34,6 +34,15 @@ wake-up-from-standby = Wake-up From Standby
 wake-up-failed = Wake-up failed
 unmount-failed = Unmount failed
 
+# Unmount busy dialog
+unmount-busy-title = Unable to Unmount — Device is Busy
+unmount-busy-message = The following processes are accessing {$mount}:
+unmount-busy-processes = Process List (PID, Command, User):
+unmount-busy-no-processes = Device is busy but no processes found. Try again or manually close any files.
+unmount-busy-kill-warning = ⚠️ Killing processes may cause data loss or corruption.
+unmount-busy-kill-and-retry = Kill Processes + Retry
+retry = Retry
+
 # Dialog buttons
 ok = Ok
 cancel = Cancel
