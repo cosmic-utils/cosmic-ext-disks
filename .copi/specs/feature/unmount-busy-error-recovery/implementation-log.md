@@ -2,7 +2,7 @@
 
 **Branch:** `feature/unmount-busy-error-recovery`  
 **Started:** 2026-02-11  
-**Status:** In Progress (Task 4 of 7 completed)
+**Status:** In Progress (Task 5 of 7 completed)
 
 ---
 
@@ -14,8 +14,8 @@
 | Task 2: Implement Process Discovery | ✅ Complete | procfs-based discovery functional, tests pass |
 | Task 3: Implement Process Termination | ✅ Complete | nix syscall implementation with safety checks |
 | Task 4: Create Unmount Busy Dialog UI | ✅ Complete | Dialog renders with process list and warning |
-| Task 5: Wire Dialog into Unmount Flow | ⏳ Next | Integration with actual unmount operations |
-| Task 6: Add Logging and Error Context | ⏳ Pending | Will add after integration |
+| Task 5: Wire Dialog into Unmount Flow | ✅ Complete | Dialog integrated with unmount operations |
+| Task 6: Add Logging and Error Context | ⏳ Next | Will add comprehensive logging |
 | Task 7: Documentation and Testing | ⏳ Pending | Final polish |
 
 ---
@@ -87,6 +87,46 @@
 - If no processes found (edge case), Hide Kill button and show different message
 
 **Build status:** Clean compilation, all tests pass, ready for integration
+
+---
+
+### Task 5: Wire Dialog into Unmount Flow (Commit 88da8d7)
+- Integrated ResourceBusy error detection with unmount operations
+- Modified `unmount()` and `child_unmount()` functions:
+  - Created custom error handling logic to catch DiskError::ResourceBusy
+  - Extracted mount point from VolumeModel/VolumeNode (VolumeModel uses .path field)
+  - Called find_processes_using_mount() when ResourceBusy detected
+  - Showed UnmountBusyDialog with process list
+- Implemented dialog message handlers in `app/update/mod.rs`:
+  - **Cancel**: closes dialog, no further action
+  - **Retry**: calls retry_unmount() helper to re-attempt operation
+  - **KillAndRetry**: kills processes via kill_processes(), waits 100ms for kernel cleanup, then retries
+- Created `retry_unmount()` helper function:
+  - Attempts unmount on specified volume
+  - If still busy, re-finds processes and re-shows dialog (persistent recovery)
+  - If succeeds, reloads drive model
+- Enhanced data flow:
+  - Added `object_path` field to UnmountBusyDialog to preserve context for retry
+  - Created `Message::RetryUnmountAfterKill` variant for async kill→retry workflow
+  - Used Task::perform for async unmount operations with custom error types
+- Exported `DiskError` from disks_dbus crate root for UI layer access
+
+**Integration challenges resolved:**
+- Changed generic `perform_volume_operation` to custom handlers for unmount
+- UnmountBusyError struct used to pass error data through async boundary
+- VolumeModel uses `.path` not `.object_path` field
+- Message::Dialog takes Box<ShowDialog>, not plain ShowDialog
+- KillResult.success is bool field, not enum variant
+- Retrieved VolumesControl via app.nav.active_data() (nav component architecture)
+
+**Error handling strategy:**
+- Generic unmount errors: log and return to main view
+- ResourceBusy errors: capture, find processes, show dialog
+- Retry still busy: find processes again, re-show dialog (allows iterative recovery)
+- Find processes fails: log warning, treat as generic error
+- Kill processes with EPERM: user sees failure count, can cancel or try manual close
+
+**Testing status:** All 35 tests pass, clean compilation with no warnings
 
 ---
 

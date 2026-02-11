@@ -126,6 +126,12 @@ fn check_resource_busy_error(
         let device = device_for_display.unwrap_or("<unknown device>").to_string();
         // Mount point would need to be queried separately; for now use object_path as fallback
         let mount_point = format!("<object: {}>", object_path);
+        tracing::debug!(
+            device = %device,
+            mount_point = %mount_point,
+            error_msg = %msg_str,
+            "Resource busy error detected during unmount"
+        );
         return Some((device, mount_point));
     }
 

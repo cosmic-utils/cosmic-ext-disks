@@ -444,7 +444,10 @@ pub(crate) fn update(app: &mut AppModel, message: Message) -> Task<Message> {
                     app.dialog = None;
                 }
                 UnmountBusyMessage::Retry => {
-                    tracing::info!("Retrying unmount after user request");
+                    tracing::info!(
+                        object_path = dialog_data.as_ref().map(|(op, _, _)| op.as_str()).unwrap_or("unknown"),
+                        "User requested unmount retry"
+                    );
                     app.dialog = None;
                     
                     if let Some((object_path, _, _)) = dialog_data {
@@ -455,7 +458,12 @@ pub(crate) fn update(app: &mut AppModel, message: Message) -> Task<Message> {
                     }
                 }
                 UnmountBusyMessage::KillAndRetry => {
-                    tracing::info!("Killing processes and retrying unmount");
+                    let process_count = dialog_data.as_ref().map(|(_, _, pids)| pids.len()).unwrap_or(0);
+                    tracing::info!(
+                        object_path = dialog_data.as_ref().map(|(op, _, _)| op.as_str()).unwrap_or("unknown"),
+                        process_count = process_count,
+                        "User requested kill processes and retry unmount"
+                    );
                     
                     if let Some((object_path, mount_point, pids)) = dialog_data {
                         app.dialog = None;
@@ -463,6 +471,12 @@ pub(crate) fn update(app: &mut AppModel, message: Message) -> Task<Message> {
                         // Kill processes and then retry unmount
                         return Task::perform(
                             async move {
+                                tracing::debug!(
+                                    mount_point = %mount_point,
+                                    process_count = pids.len(),
+                                    "Killing processes holding mount"
+                                );
+                                
                                 // Kill the processes
                                 let kill_results = disks_dbus::kill_processes(&pids);
                                 let failed = kill_results
@@ -471,7 +485,23 @@ pub(crate) fn update(app: &mut AppModel, message: Message) -> Task<Message> {
                                     .count();
                                 
                                 if failed > 0 {
-                                    tracing::warn!("Failed to kill {} of {} processes", failed, pids.len());
+                                    tracing::warn!(
+                                        failed_count = failed,
+                                        total_count = pids.len(),
+                                        "Failed to kill some processes"
+                                    );
+                                    for result in kill_results.iter().filter(|r| !r.success) {
+                                        tracing::debug!(
+                                            pid = result.pid,
+                                            error = result.error.as_deref().unwrap_or("unknown"),
+                                            "Process kill failed"
+                                        );
+                                    }
+                                } else {
+                                    tracing::info!(
+                                        total_count = pids.len(),
+                                        "Successfully killed all processes"
+                                    );
                                 }
                                 
                                 // Small delay to let processes terminate
@@ -561,7 +591,11 @@ fn retry_unmount(volumes: &VolumesControl, object_path: String) -> Task<Message>
                                 // Still busy - find processes again and re-show dialog
                                 match disks_dbus::find_processes_using_mount(&mount_point).await {
                                     Ok(processes) => {
-                                        tracing::warn!("Unmount still busy after killing processes");
+                                        tracing::warn!(
+                                            mount_point = %mount_point,
+                                            process_count = processes.len(),
+                                            "Unmount still busy after retry"
+                                        );
                                         return Err(Some((device, mount_point, processes, object_path_for_retry)));
                                     }
                                     Err(find_err) => {
