@@ -1,9 +1,13 @@
 mod fs_tools;
 mod segments;
 mod ui;
+pub mod unit_size_input;
 
 // Explicit exports from fs_tools module
 pub use fs_tools::{get_missing_tools, get_fs_tool_status, detect_fs_tools};
+
+// Explicit exports from unit_size_input module
+pub use unit_size_input::SizeUnit;
 
 // Explicit exports from segments module
 pub use segments::{DiskSegmentKind, PartitionExtent, SegmentAnomaly, compute_disk_segments};
