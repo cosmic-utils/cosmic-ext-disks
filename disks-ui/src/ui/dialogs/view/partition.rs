@@ -8,79 +8,222 @@ use crate::ui::dialogs::state::{
     ResizePartitionDialog,
 };
 use crate::utils::labelled_spinner;
+use crate::utils::{SizeUnit, get_fs_tool_status};
 use cosmic::{
-    Element, iced_widget,
+    Element, Theme, iced, iced_widget,
     widget::text::caption,
-    widget::{button, checkbox, dialog, dropdown, slider, text_input, toggler},
+    widget::{button, checkbox, container, dialog, divider, dropdown, slider, text, text_input},
 };
-use disks_dbus::{PartitionTypeInfo, bytes_to_pretty, get_valid_partition_names};
+use disks_dbus::{COMMON_DOS_TYPES, COMMON_GPT_TYPES, PartitionTypeInfo, bytes_to_pretty};
 
 pub fn create_partition<'a>(state: CreatePartitionDialog) -> Element<'a, Message> {
-    let CreatePartitionDialog {
-        info: create,
-        running,
-        error,
-    } = state;
+    let running = state.running;
+    let error = state.error;
+    let create = &state.info;
 
+    // Get partition type details for radio list
+    let partition_types: &[PartitionTypeInfo] = match create.table_type.as_str() {
+        "gpt" => &COMMON_GPT_TYPES,
+        "dos" => &COMMON_DOS_TYPES,
+        _ => &[],
+    };
+
+    let mut content = iced_widget::column![];
+
+    // Only show partition name field for table types that support it (not DOS/MBR)
+    if create.table_type != "dos" {
+        content = content.push(
+            text_input(fl!("volume-name"), create.name.clone())
+                .label(fl!("volume-name"))
+                .on_input(|t| CreateMessage::NameUpdate(t).into()),
+        );
+        content = content.push(divider::horizontal::default());
+    }
+
+    // Size controls with slider, spinners, and unit selectors on one line
     let len = create.max_size as f64;
-
     let size = create.size as f64;
     let free = len - size;
     let free_bytes = free as u64;
 
-    let size_pretty = bytes_to_pretty(&create.size, false);
-    let free_pretty = bytes_to_pretty(&free_bytes, false);
+    // Get selected unit and convert sizes to that unit
+    let selected_unit = SizeUnit::from_index(create.size_unit_index);
+    let size_in_unit = selected_unit.from_bytes(create.size);
+    let free_in_unit = selected_unit.from_bytes(free_bytes);
+    let max_in_unit = selected_unit.from_bytes(create.max_size);
+
+    // Format values with appropriate precision
+    let size_text = if size_in_unit < 10.0 {
+        format!("{:.2}", size_in_unit)
+    } else {
+        format!("{:.1}", size_in_unit)
+    };
+    let free_text = if free_in_unit < 10.0 {
+        format!("{:.2}", free_in_unit)
+    } else {
+        format!("{:.1}", free_in_unit)
+    };
+
     let step = disks_dbus::get_step(&create.size);
+    let current_size = create.size; // Capture for closure
+    let max_size = create.max_size; // Capture for closure
 
-    let create_clone = create.clone();
+    // Slider for visual feedback
+    content = content.push(slider(0.0..=len, size, |v| {
+        CreateMessage::SizeUpdate(v as u64).into()
+    }));
 
-    let valid_partition_types = get_valid_partition_names(create.table_type.clone());
+    // Size and Free space controls on separate lines with grid alignment
+    let label_width = iced::Length::Fixed(120.);
 
-    let mut content = iced_widget::column![
-        text_input(fl!("volume-name"), create_clone.name)
-            .label(fl!("volume-name"))
-            .on_input(|t| CreateMessage::NameUpdate(t).into()),
-        slider(0.0..=len, size, |v| CreateMessage::SizeUpdate(v as u64)
-            .into()),
-        labelled_spinner(
-            fl!("partition-size"),
-            size_pretty,
-            size,
-            step,
-            0.,
-            len,
-            |v| { CreateMessage::SizeUpdate(v as u64).into() },
-        ),
-        labelled_spinner(
-            fl!("free-space"),
-            free_pretty,
-            free,
-            step,
-            0.,
-            len,
-            move |v| { CreateMessage::SizeUpdate((len - v) as u64).into() },
-        ),
-        toggler(create_clone.erase)
-            .label(fl!("erase"))
+    let size_row = iced_widget::row![
+        text(fl!("partition-size")).width(label_width),
+        button::text("-").on_press(CreateMessage::SizeUpdate((size - step).max(0.) as u64).into()),
+        text_input("", size_text)
+            .width(iced::Length::Fixed(100.))
+            .on_input(move |v| {
+                // Parse as plain number in the selected unit
+                match v.trim().parse::<f64>() {
+                    Ok(value) if value >= 0.0 => {
+                        let bytes = selected_unit.to_bytes(value.min(max_in_unit));
+                        CreateMessage::SizeUpdate(bytes.min(max_size)).into()
+                    }
+                    _ => CreateMessage::SizeUpdate(current_size).into(),
+                }
+            }),
+        button::text("+").on_press(CreateMessage::SizeUpdate((size + step).min(len) as u64).into()),
+        dropdown(SizeUnit::labels(), Some(create.size_unit_index), |idx| {
+            CreateMessage::SizeUnitUpdate(idx).into()
+        })
+        .width(iced::Length::Fixed(80.)),
+    ]
+    .spacing(8)
+    .align_y(iced::Alignment::Center);
+
+    let free_row = iced_widget::row![
+        text(fl!("free-space")).width(label_width),
+        button::text("-").on_press(CreateMessage::SizeUpdate((size + step).min(len) as u64).into()),
+        text_input("", free_text)
+            .width(iced::Length::Fixed(100.))
+            .on_input(move |v| {
+                // Parse as plain number in the selected unit, convert to size
+                match v.trim().parse::<f64>() {
+                    Ok(free_value) if free_value >= 0.0 => {
+                        let free_bytes = selected_unit.to_bytes(free_value.min(max_in_unit));
+                        let new_size = max_size.saturating_sub(free_bytes);
+                        CreateMessage::SizeUpdate(new_size).into()
+                    }
+                    _ => CreateMessage::SizeUpdate(current_size).into(),
+                }
+            }),
+        button::text("+").on_press(CreateMessage::SizeUpdate((size - step).max(0.) as u64).into()),
+        dropdown(SizeUnit::labels(), Some(create.size_unit_index), |idx| {
+            CreateMessage::SizeUnitUpdate(idx).into()
+        })
+        .width(iced::Length::Fixed(80.)),
+    ]
+    .spacing(8)
+    .align_y(iced::Alignment::Center);
+
+    content = content.push(size_row);
+    content = content.push(free_row);
+    content = content.push(divider::horizontal::default());
+
+    // Get filesystem tool availability status
+    let tool_status = get_fs_tool_status();
+
+    // Filter partition types to only include those with available tools
+    let available_types: Vec<_> = partition_types
+        .iter()
+        .filter(|p_type| {
+            let fs_type = p_type.filesystem_type.as_str();
+            tool_status.get(fs_type).copied().unwrap_or(true)
+        })
+        .collect();
+
+    let total_types = partition_types.len();
+    let available_count = available_types.len();
+    let has_missing_tools = available_count < total_types;
+
+    // Build dropdown labels for available types
+    let dropdown_labels: Vec<String> = available_types
+        .iter()
+        .map(|p_type| {
+            let fs_type = p_type.filesystem_type.as_str();
+            match fs_type {
+                "ext4" => format!("{} — {}", fl!("fs-name-ext4"), fl!("fs-desc-ext4")),
+                "ext3" => format!("{} — {}", fl!("fs-name-ext3"), fl!("fs-desc-ext3")),
+                "xfs" => format!("{} — {}", fl!("fs-name-xfs"), fl!("fs-desc-xfs")),
+                "btrfs" => format!("{} — {}", fl!("fs-name-btrfs"), fl!("fs-desc-btrfs")),
+                "f2fs" => format!("{} — {}", fl!("fs-name-f2fs"), fl!("fs-desc-f2fs")),
+                "udf" => format!("{} — {}", fl!("fs-name-udf"), fl!("fs-desc-udf")),
+                "ntfs" => format!("{} — {}", fl!("fs-name-ntfs"), fl!("fs-desc-ntfs")),
+                "vfat" => format!("{} — {}", fl!("fs-name-vfat"), fl!("fs-desc-vfat")),
+                "exfat" => format!("{} — {}", fl!("fs-name-exfat"), fl!("fs-desc-exfat")),
+                "swap" => format!("{} — {}", fl!("fs-name-swap"), fl!("fs-desc-swap")),
+                fs => fs.to_string(),
+            }
+        })
+        .collect();
+
+    // Map selected index from full list to filtered list
+    let selected_in_filtered = available_types.iter().position(|p| {
+        let original_idx = partition_types
+            .iter()
+            .position(|orig| orig.filesystem_type == p.filesystem_type);
+        original_idx == Some(create.selected_partition_type_index)
+    });
+
+    // Filesystem type selection (dropdown)
+    content = content.push(caption(fl!("filesystem-type")));
+    content = content.push(dropdown(
+        dropdown_labels,
+        selected_in_filtered,
+        move |selected_idx| {
+            // Map back from filtered index to original index
+            let original_idx = partition_types
+                .iter()
+                .position(|orig| {
+                    orig.filesystem_type == available_types[selected_idx].filesystem_type
+                })
+                .unwrap_or(0);
+            CreateMessage::PartitionTypeUpdate(original_idx).into()
+        },
+    ));
+
+    // Show warning if filesystem types are hidden due to missing tools
+    if has_missing_tools {
+        let warning_text =
+            container(caption(format!("⚠ {}", fl!("fs-tools-warning")))).style(|theme: &Theme| {
+                container::Style {
+                    text_color: Some(theme.cosmic().warning_color().into()),
+                    ..Default::default()
+                }
+            });
+        content = content.push(warning_text);
+    }
+
+    content = content.push(divider::horizontal::default());
+
+    content = content.push(
+        checkbox(fl!("overwrite-data-slow"), create.erase)
             .on_toggle(|v| CreateMessage::EraseUpdate(v).into()),
-        dropdown(
-            valid_partition_types,
-            Some(create_clone.selected_partition_type_index),
-            |v| CreateMessage::PartitionTypeUpdate(v).into(),
-        ),
-        checkbox(fl!("password-protected"), create.password_protected)
+    );
+
+    content = content.push(
+        checkbox(fl!("password-protected-luks"), create.password_protected)
             .on_toggle(|v| CreateMessage::PasswordProtectedUpdate(v).into()),
-    ];
+    );
 
     if create.password_protected {
         content = content.push(
-            text_input::secure_input("", create_clone.password, None, true)
+            text_input::secure_input("", create.password.clone(), None, true)
                 .label(fl!("password"))
                 .on_input(|v| CreateMessage::PasswordUpdate(v).into()),
         );
 
         content = content.push(
-            text_input::secure_input("", create_clone.confirmed_password, None, true)
+            text_input::secure_input("", create.confirmed_password.clone(), None, true)
                 .label(fl!("confirm"))
                 .on_input(|v| CreateMessage::ConfirmedPasswordUpdate(v).into()),
         );
@@ -116,23 +259,110 @@ pub fn format_partition<'a>(state: FormatPartitionDialog) -> Element<'a, Message
     } = state;
 
     let size_pretty = bytes_to_pretty(&create.size, false);
-    let valid_partition_types = get_valid_partition_names(create.table_type.clone());
 
-    let mut content = iced_widget::column![
-        caption(fl!("format-partition-description", size = size_pretty)),
-        text_input(fl!("volume-name"), create.name.clone())
-            .label(fl!("volume-name"))
-            .on_input(|t| CreateMessage::NameUpdate(t).into()),
-        toggler(create.erase)
-            .label(fl!("erase"))
+    // Get partition type details for radio list
+    let partition_types: &[PartitionTypeInfo] = match create.table_type.as_str() {
+        "gpt" => &COMMON_GPT_TYPES,
+        "dos" => &COMMON_DOS_TYPES,
+        _ => &[],
+    };
+
+    let mut content = iced_widget::column![caption(fl!(
+        "format-partition-description",
+        size = size_pretty
+    )),];
+
+    // Only show partition name field for table types that support it (not DOS/MBR)
+    if create.table_type != "dos" {
+        content = content.push(
+            text_input(fl!("volume-name"), create.name.clone())
+                .label(fl!("volume-name"))
+                .on_input(|t| CreateMessage::NameUpdate(t).into()),
+        );
+    }
+
+    // Get filesystem tool availability status
+    let tool_status = get_fs_tool_status();
+
+    // Filter partition types to only include those with available tools
+    let available_types: Vec<_> = partition_types
+        .iter()
+        .filter(|p_type| {
+            let fs_type = p_type.filesystem_type.as_str();
+            tool_status.get(fs_type).copied().unwrap_or(true)
+        })
+        .collect();
+
+    let total_types = partition_types.len();
+    let available_count = available_types.len();
+    let has_missing_tools = available_count < total_types;
+
+    // Build dropdown labels for available types
+    let dropdown_labels: Vec<String> = available_types
+        .iter()
+        .map(|p_type| {
+            let fs_type = p_type.filesystem_type.as_str();
+            match fs_type {
+                "ext4" => format!("{} — {}", fl!("fs-name-ext4"), fl!("fs-desc-ext4")),
+                "ext3" => format!("{} — {}", fl!("fs-name-ext3"), fl!("fs-desc-ext3")),
+                "xfs" => format!("{} — {}", fl!("fs-name-xfs"), fl!("fs-desc-xfs")),
+                "btrfs" => format!("{} — {}", fl!("fs-name-btrfs"), fl!("fs-desc-btrfs")),
+                "f2fs" => format!("{} — {}", fl!("fs-name-f2fs"), fl!("fs-desc-f2fs")),
+                "udf" => format!("{} — {}", fl!("fs-name-udf"), fl!("fs-desc-udf")),
+                "ntfs" => format!("{} — {}", fl!("fs-name-ntfs"), fl!("fs-desc-ntfs")),
+                "vfat" => format!("{} — {}", fl!("fs-name-vfat"), fl!("fs-desc-vfat")),
+                "exfat" => format!("{} — {}", fl!("fs-name-exfat"), fl!("fs-desc-exfat")),
+                "swap" => format!("{} — {}", fl!("fs-name-swap"), fl!("fs-desc-swap")),
+                fs => fs.to_string(),
+            }
+        })
+        .collect();
+
+    // Map selected index from full list to filtered list
+    let selected_in_filtered = available_types.iter().position(|p| {
+        let original_idx = partition_types
+            .iter()
+            .position(|orig| orig.filesystem_type == p.filesystem_type);
+        original_idx == Some(create.selected_partition_type_index)
+    });
+
+    // Filesystem type selection (dropdown)
+    content = content.push(caption(fl!("filesystem-type")));
+    content = content.push(dropdown(
+        dropdown_labels,
+        selected_in_filtered,
+        move |selected_idx| {
+            // Map back from filtered index to original index
+            let original_idx = partition_types
+                .iter()
+                .position(|orig| {
+                    orig.filesystem_type == available_types[selected_idx].filesystem_type
+                })
+                .unwrap_or(0);
+            CreateMessage::PartitionTypeUpdate(original_idx).into()
+        },
+    ));
+
+    // Show warning if filesystem types are hidden due to missing tools
+    if has_missing_tools {
+        let warning_text =
+            container(caption(format!("⚠ {}", fl!("fs-tools-warning")))).style(|theme: &Theme| {
+                container::Style {
+                    text_color: Some(theme.cosmic().warning_color().into()),
+                    ..Default::default()
+                }
+            });
+        content = content.push(warning_text);
+    }
+
+    content = content.push(divider::horizontal::default());
+
+    content = content.push(
+        checkbox(fl!("overwrite-data-slow"), create.erase)
             .on_toggle(|v| CreateMessage::EraseUpdate(v).into()),
-        dropdown(
-            valid_partition_types,
-            Some(create.selected_partition_type_index),
-            |v| CreateMessage::PartitionTypeUpdate(v).into(),
-        ),
-    ]
-    .spacing(12);
+    );
+
+    content = content.spacing(12);
 
     if running {
         content = content.push(caption(fl!("working")));

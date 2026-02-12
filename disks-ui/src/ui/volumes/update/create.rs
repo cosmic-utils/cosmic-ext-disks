@@ -33,6 +33,10 @@ pub(super) fn create_message(
                 state.info.size = size;
                 state.error = None;
             }
+            CreateMessage::SizeUnitUpdate(unit_index) => {
+                state.info.size_unit_index = unit_index;
+                state.error = None;
+            }
             CreateMessage::NameUpdate(name) => {
                 state.info.name = name;
                 state.error = None;

@@ -13,4 +13,6 @@ pub struct CreatePartitionInfo {
     pub can_continue: bool,
     pub filesystem_type: String,
     pub table_type: String,
+    pub size_text: String,
+    pub size_unit_index: usize,
 }

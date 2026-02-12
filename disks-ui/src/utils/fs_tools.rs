@@ -8,6 +8,14 @@
 use std::collections::HashMap;
 use std::sync::LazyLock;
 
+/// Cached filesystem tool detection status
+static FS_TOOL_STATUS: LazyLock<HashMap<String, bool>> = LazyLock::new(|| {
+    detect_fs_tools()
+        .into_iter()
+        .map(|info| (info.fs_type.to_string(), info.available))
+        .collect()
+});
+
 /// Information about a filesystem tool requirement
 #[derive(Debug, Clone)]
 pub struct FsToolInfo {
@@ -104,12 +112,10 @@ pub fn get_missing_tools() -> Vec<FsToolInfo> {
 }
 
 /// Get a mapping of filesystem types to their tool availability
+/// This is cached on first call and reused for subsequent calls.
 #[allow(dead_code)]
-pub fn get_fs_tool_status() -> HashMap<String, bool> {
-    detect_fs_tools()
-        .into_iter()
-        .map(|info| (info.fs_type.to_string(), info.available))
-        .collect()
+pub fn get_fs_tool_status() -> &'static HashMap<String, bool> {
+    &FS_TOOL_STATUS
 }
 
 /// Format missing tools as a human-readable string for display

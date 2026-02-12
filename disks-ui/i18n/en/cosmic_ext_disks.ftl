@@ -206,3 +206,34 @@ fs-tools-all-installed-title = Filesystem Tools
 fs-tools-all-installed = All filesystem tools are installed.
 fs-tools-required-for = required for {$fs_name} support
 offset = Offset
+
+# Partition dialog labels
+overwrite-data-slow = Overwrite Data (Slow)
+password-protected-luks = Password Protected (LUKS)
+
+# Filesystem type names
+fs-name-ext4 = ext4
+fs-name-ext3 = ext3
+fs-name-xfs = XFS
+fs-name-btrfs = Btrfs
+fs-name-f2fs = F2FS
+fs-name-udf = UDF
+fs-name-ntfs = NTFS
+fs-name-vfat = FAT32
+fs-name-exfat = exFAT
+fs-name-swap = Swap
+
+# Filesystem type descriptions
+fs-desc-ext4 = Modern Linux filesystem (default)
+fs-desc-ext3 = Legacy Linux filesystem
+fs-desc-xfs = High-performance journaling
+fs-desc-btrfs = Copy-on-write with snapshots
+fs-desc-f2fs = Flash-optimized filesystem
+fs-desc-udf = Universal Disk Format
+fs-desc-ntfs = Windows filesystem
+fs-desc-vfat = Universal compatibility
+fs-desc-exfat = Large files, cross-platform
+fs-desc-swap = Virtual memory
+
+# Filesystem tools warning
+fs-tools-warning = Some filesystem types are missing due to missing tools. See Settings for more info.
