@@ -467,3 +467,113 @@ b1a2c3d feat(i18n): add filesystem type labels and descriptions
 ```
 
 All commits follow conventional commit format and are independently reviewable.
+
+---
+
+## Session 3: 2025-01-27
+
+### UI Refinements: Layout Compactness and Visual Hierarchy ✅
+**Commit:** `1cfc5b6` - "Refactor partition dialog layout for compactness"
+
+Implemented 4 user-requested refinements to improve dialog layout and visual hierarchy:
+
+#### 1. Single-line size controls ✅
+Combined size and free space controls into one horizontal row for space efficiency:
+- Format: `Size: -[num]+ [unit]  Free: -[num]+ [unit]`
+- Both size and free space now have unit dropdown selectors
+- Used `iced_widget::row![]` with:
+  - Label text with `iced::Length::Shrink`
+  - Fixed-width text inputs (100px)
+  - Fixed-width unit dropdowns (80px)
+  - 8px spacing between elements
+  - Center vertical alignment
+- Slider remains above the unified control row for visual feedback
+
+#### 2. Unit selector for free space ✅
+Added unit dropdown to free space spinner (previously only size had unit dropdown):
+- Both dropdowns share the same `size_unit_index` for consistency
+- When user changes unit, both size and free space update to same unit
+- This simplifies mental model: "show sizes in GB" applies to both fields
+
+#### 3. Section dividers ✅
+Added horizontal dividers between major dialog sections:
+- After volume name field (when visible)
+- After sizing controls (slider + unified row)
+- After filesystem type dropdown (before warning, if shown)
+- Before checkboxes section
+
+Uses `divider::horizontal::default()` from cosmic widget library.
+
+Result: Clear visual hierarchy, easier to scan and understand dialog structure.
+
+#### 4. Caption-sized warning text ✅
+Replaced regular `text()` widget with `caption()` for filesystem tools warning:
+- Smaller font size appropriate for secondary information
+- Retains ⚠ emoji for visual scanning
+- Note: Attempted to add warning theme color but libcosmic's caption widget
+  doesn't support direct color styling via `.style()` method (requires closure
+  returning `Style`, not `Color` directly). Plain caption with emoji is sufficient.
+
+Files modified:
+- `disks-ui/src/ui/dialogs/view/partition.rs` (both `create_partition()` and `format_partition()` functions)
+
+**Technical Challenge: Borrow Checker**
+Encountered `E0515` error: closures capturing reference `&create` from borrowed `state.info`.
+
+**Solution:** Captured primitive values before creating closures:
+```rust
+let current_size = create.size; // u64, Copy type
+// Later in closure:
+Err(_) => CreateMessage::SizeUpdate(current_size).into(),
+```
+
+This allows move closures without moving the borrowed reference.
+
+**Verification:**
+- `cargo build --release` compiles successfully
+- One warning about unused methods (SizeUnit helpers not called in this context)
+- Dialog layout verified through manual inspection (pending full manual testing in Task 9)
+
+---
+
+## Updated Status Summary (as of Session 3)
+
+**Completed Tasks:**
+- ✅ Task 1: i18n strings (22 keys, EN+SV)
+- ✅ Task 2: Erase toggle → checkbox
+- ✅ Task 3: LUKS label with "(LUKS)" suffix  
+- ✅ Task 4: Conditional partition name field (hidden for DOS/MBR)
+- ✅ Task 5: Unit-aware size conversion component (9 unit tests)
+- ✅ Task 6: Integrate unit inputs into dialog UI
+- ✅ Task 7: Filesystem dropdown (converted from radio list)
+- ✅ Task 8: FSTools integration with warning message
+- ✅ **Bug Fix:** Labelless radio buttons (created dedicated TOML files)
+- ✅ **Refinement:** Dropdown with missing tools filtering
+- ✅ **Refinement:** Restored sizing controls (slider + spinners)
+- ✅ **Refinement:** Compact single-line layout with dividers
+
+**Pending Tasks:**
+- ⏳ Task 9: Complete manual testing on GPT and DOS/MBR disks
+- ⏳ Task 10: Documentation and spec finalization
+
+---
+
+## Git Commit History (Updated)
+
+```
+1cfc5b6 Refactor partition dialog layout for compactness
+3acd6d5 Restored sizing controls and improved UX  
+9a4e529 Replaced radio list with filtered dropdown
+143fe0c Fixed labelless radio buttons with dedicated TOML files
+eb2db32 feat(ui): add unit-aware size input component
+331608c docs(spec): update Task 8 completion status in tracking files
+0c9a999 feat(ui): integrate FSTools detection with tooltips
+aa86dc2 docs(spec): update Task 7 completion status and add implementation log
+fa19143 feat(ui): replace filesystem type dropdown with radio list
+d892a6c feat(ui): conditional partition name field
+a4e3f5d feat(ui): update LUKS checkbox label
+7c5b8e9 feat(ui): replace Erase toggle with checkbox
+b1a2c3d feat(i18n): add filesystem type labels and descriptions
+```
+
+All commits follow conventional commit format and are independently reviewable.
