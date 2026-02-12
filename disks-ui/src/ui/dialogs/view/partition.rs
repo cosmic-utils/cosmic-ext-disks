@@ -8,11 +8,11 @@ use crate::ui::dialogs::state::{
     ResizePartitionDialog,
 };
 use crate::utils::labelled_spinner;
-use crate::utils::{get_fs_tool_status, detect_fs_tools, SizeUnit};
+use crate::utils::{get_fs_tool_status, SizeUnit};
 use cosmic::{
     Element, iced_widget,
     widget::text::caption,
-    widget::{button, checkbox, dialog, dropdown, radio, slider, text, text_input, tooltip},
+    widget::{button, checkbox, dialog, dropdown, slider, text_input},
 };
 use disks_dbus::{PartitionTypeInfo, bytes_to_pretty, COMMON_GPT_TYPES, COMMON_DOS_TYPES};
 
@@ -66,63 +66,74 @@ pub fn create_partition<'a>(state: CreatePartitionDialog) -> Element<'a, Message
     // Get filesystem tool availability status
     let tool_status = get_fs_tool_status();
     
-    // Filesystem type selection (radio list with friendly labels)
+    // Filter partition types to only include those with available tools
+    let available_types: Vec<_> = partition_types
+        .iter()
+        .filter(|p_type| {
+            let fs_type = p_type.filesystem_type.as_str();
+            tool_status.get(fs_type).copied().unwrap_or(true)
+        })
+        .collect();
+    
+    let total_types = partition_types.len();
+    let available_count = available_types.len();
+    let has_missing_tools = available_count < total_types;
+    
+    // Build dropdown labels for available types
+    let dropdown_labels: Vec<String> = available_types
+        .iter()
+        .map(|p_type| {
+            let fs_type = p_type.filesystem_type.as_str();
+            match fs_type {
+                "ext4" => format!("{} — {}", fl!("fs-name-ext4"), fl!("fs-desc-ext4")),
+                "ext3" => format!("{} — {}", fl!("fs-name-ext3"), fl!("fs-desc-ext3")),
+                "xfs" => format!("{} — {}", fl!("fs-name-xfs"), fl!("fs-desc-xfs")),
+                "btrfs" => format!("{} — {}", fl!("fs-name-btrfs"), fl!("fs-desc-btrfs")),
+                "f2fs" => format!("{} — {}", fl!("fs-name-f2fs"), fl!("fs-desc-f2fs")),
+                "udf" => format!("{} — {}", fl!("fs-name-udf"), fl!("fs-desc-udf")),
+                "ntfs" => format!("{} — {}", fl!("fs-name-ntfs"), fl!("fs-desc-ntfs")),
+                "vfat" => format!("{} — {}", fl!("fs-name-vfat"), fl!("fs-desc-vfat")),
+                "exfat" => format!("{} — {}", fl!("fs-name-exfat"), fl!("fs-desc-exfat")),
+                "swap" => format!("{} — {}", fl!("fs-name-swap"), fl!("fs-desc-swap")),
+                fs => fs.to_string(),
+            }
+        })
+        .collect();
+    
+    // Map selected index from full list to filtered list
+    let selected_in_filtered = available_types
+        .iter()
+        .position(|p| {
+            let original_idx = partition_types.iter().position(|orig| {
+                orig.filesystem_type == p.filesystem_type
+            });
+            original_idx == Some(create.selected_partition_type_index)
+        });
+    
+    // Filesystem type selection (dropdown)
     content = content.push(caption(fl!("filesystem-type")));
-    for (idx, p_type) in partition_types.iter().enumerate() {
-        let fs_type = p_type.filesystem_type.as_str();
-        
-        // Check if tools are available (default to true for ext4, ext3, swap)
-        let tool_available = tool_status.get(fs_type).copied().unwrap_or(true);
-        
-        // Build friendly label - match inline to use fl! macro with literals
-        let mut label = match fs_type {
-            "ext4" => format!("{} — {}", fl!("fs-name-ext4"), fl!("fs-desc-ext4")),
-            "ext3" => format!("{} — {}", fl!("fs-name-ext3"), fl!("fs-desc-ext3")),
-            "xfs" => format!("{} — {}", fl!("fs-name-xfs"), fl!("fs-desc-xfs")),
-            "btrfs" => format!("{} — {}", fl!("fs-name-btrfs"), fl!("fs-desc-btrfs")),
-            "f2fs" => format!("{} — {}", fl!("fs-name-f2fs"), fl!("fs-desc-f2fs")),
-            "udf" => format!("{} — {}", fl!("fs-name-udf"), fl!("fs-desc-udf")),
-            "ntfs" => format!("{} — {}", fl!("fs-name-ntfs"), fl!("fs-desc-ntfs")),
-            "vfat" => format!("{} — {}", fl!("fs-name-vfat"), fl!("fs-desc-vfat")),
-            "exfat" => format!("{} — {}", fl!("fs-name-exfat"), fl!("fs-desc-exfat")),
-            "swap" => format!("{} — {}", fl!("fs-name-swap"), fl!("fs-desc-swap")),
-            fs => fs.to_string(),
-        };
-        
-        // Add indicator if tools are missing
-        if !tool_available {
-            label = format!("⚠ {} (tools required)", label);
-        }
-        
-        // Build element - wrap in tooltip if tools are missing
-        let element: Element<'a, Message> = if !tool_available {
-            // Get package hint from fs_tools info
-            let tooltip_text = detect_fs_tools()
-                .into_iter()
-                .find(|info| info.fs_type == fs_type)
-                .map(|info| format!("{} - required for {} support", info.package_hint, info.fs_name))
-                .unwrap_or_else(|| format!("Additional tools required for {}", fs_type));
-            
-            tooltip(
-                radio(
-                    text(label),
-                    idx,
-                    if create.selected_partition_type_index == idx { Some(idx) } else { None },
-                    |v| CreateMessage::PartitionTypeUpdate(v).into(),
-                ),
-                text(tooltip_text),
-                tooltip::Position::Right,
-            ).into()
-        } else {
-            radio(
-                text(label),
-                idx,
-                if create.selected_partition_type_index == idx { Some(idx) } else { None },
-                |v| CreateMessage::PartitionTypeUpdate(v).into(),
-            ).into()
-        };
-        
-        content = content.push(element);
+    content = content.push(
+        dropdown(
+            dropdown_labels,
+            selected_in_filtered,
+            move |selected_idx| {
+                // Map back from filtered index to original index
+                let original_idx = partition_types
+                    .iter()
+                    .position(|orig| {
+                        orig.filesystem_type == available_types[selected_idx].filesystem_type
+                    })
+                    .unwrap_or(0);
+                CreateMessage::PartitionTypeUpdate(original_idx).into()
+            }
+        )
+    );
+    
+    // Show warning if filesystem types are hidden due to missing tools
+    if has_missing_tools {
+        content = content.push(
+            caption(fl!("fs-tools-warning", settings = fl!("settings")))
+        );
     }
     
     content = content.push(checkbox(fl!("password-protected-luks"), create.password_protected)
@@ -199,63 +210,74 @@ pub fn format_partition<'a>(state: FormatPartitionDialog) -> Element<'a, Message
     // Get filesystem tool availability status
     let tool_status = get_fs_tool_status();
     
-    // Filesystem type selection (radio list with friendly labels)
+    // Filter partition types to only include those with available tools
+    let available_types: Vec<_> = partition_types
+        .iter()
+        .filter(|p_type| {
+            let fs_type = p_type.filesystem_type.as_str();
+            tool_status.get(fs_type).copied().unwrap_or(true)
+        })
+        .collect();
+    
+    let total_types = partition_types.len();
+    let available_count = available_types.len();
+    let has_missing_tools = available_count < total_types;
+    
+    // Build dropdown labels for available types
+    let dropdown_labels: Vec<String> = available_types
+        .iter()
+        .map(|p_type| {
+            let fs_type = p_type.filesystem_type.as_str();
+            match fs_type {
+                "ext4" => format!("{} — {}", fl!("fs-name-ext4"), fl!("fs-desc-ext4")),
+                "ext3" => format!("{} — {}", fl!("fs-name-ext3"), fl!("fs-desc-ext3")),
+                "xfs" => format!("{} — {}", fl!("fs-name-xfs"), fl!("fs-desc-xfs")),
+                "btrfs" => format!("{} — {}", fl!("fs-name-btrfs"), fl!("fs-desc-btrfs")),
+                "f2fs" => format!("{} — {}", fl!("fs-name-f2fs"), fl!("fs-desc-f2fs")),
+                "udf" => format!("{} — {}", fl!("fs-name-udf"), fl!("fs-desc-udf")),
+                "ntfs" => format!("{} — {}", fl!("fs-name-ntfs"), fl!("fs-desc-ntfs")),
+                "vfat" => format!("{} — {}", fl!("fs-name-vfat"), fl!("fs-desc-vfat")),
+                "exfat" => format!("{} — {}", fl!("fs-name-exfat"), fl!("fs-desc-exfat")),
+                "swap" => format!("{} — {}", fl!("fs-name-swap"), fl!("fs-desc-swap")),
+                fs => fs.to_string(),
+            }
+        })
+        .collect();
+    
+    // Map selected index from full list to filtered list
+    let selected_in_filtered = available_types
+        .iter()
+        .position(|p| {
+            let original_idx = partition_types.iter().position(|orig| {
+                orig.filesystem_type == p.filesystem_type
+            });
+            original_idx == Some(create.selected_partition_type_index)
+        });
+    
+    // Filesystem type selection (dropdown)
     content = content.push(caption(fl!("filesystem-type")));
-    for (idx, p_type) in partition_types.iter().enumerate() {
-        let fs_type = p_type.filesystem_type.as_str();
-        
-        // Check if tools are available (default to true for ext4, ext3, swap)
-        let tool_available = tool_status.get(fs_type).copied().unwrap_or(true);
-        
-        // Build friendly label - match inline to use fl! macro with literals
-        let mut label = match fs_type {
-            "ext4" => format!("{} — {}", fl!("fs-name-ext4"), fl!("fs-desc-ext4")),
-            "ext3" => format!("{} — {}", fl!("fs-name-ext3"), fl!("fs-desc-ext3")),
-            "xfs" => format!("{} — {}", fl!("fs-name-xfs"), fl!("fs-desc-xfs")),
-            "btrfs" => format!("{} — {}", fl!("fs-name-btrfs"), fl!("fs-desc-btrfs")),
-            "f2fs" => format!("{} — {}", fl!("fs-name-f2fs"), fl!("fs-desc-f2fs")),
-            "udf" => format!("{} — {}", fl!("fs-name-udf"), fl!("fs-desc-udf")),
-            "ntfs" => format!("{} — {}", fl!("fs-name-ntfs"), fl!("fs-desc-ntfs")),
-            "vfat" => format!("{} — {}", fl!("fs-name-vfat"), fl!("fs-desc-vfat")),
-            "exfat" => format!("{} — {}", fl!("fs-name-exfat"), fl!("fs-desc-exfat")),
-            "swap" => format!("{} — {}", fl!("fs-name-swap"), fl!("fs-desc-swap")),
-            fs => fs.to_string(),
-        };
-        
-        // Add indicator if tools are missing
-        if !tool_available {
-            label = format!("⚠ {} (tools required)", label);
-        }
-        
-        // Build element - wrap in tooltip if tools are missing
-        let element: Element<'a, Message> = if !tool_available {
-            // Get package hint from fs_tools info
-            let tooltip_text = detect_fs_tools()
-                .into_iter()
-                .find(|info| info.fs_type == fs_type)
-                .map(|info| format!("{} - required for {} support", info.package_hint, info.fs_name))
-                .unwrap_or_else(|| format!("Additional tools required for {}", fs_type));
-            
-            tooltip(
-                radio(
-                    text(label),
-                    idx,
-                    if create.selected_partition_type_index == idx { Some(idx) } else { None },
-                    |v| CreateMessage::PartitionTypeUpdate(v).into(),
-                ),
-                text(tooltip_text),
-                tooltip::Position::Right,
-            ).into()
-        } else {
-            radio(
-                text(label),
-                idx,
-                if create.selected_partition_type_index == idx { Some(idx) } else { None },
-                |v| CreateMessage::PartitionTypeUpdate(v).into(),
-            ).into()
-        };
-        
-        content = content.push(element);
+    content = content.push(
+        dropdown(
+            dropdown_labels,
+            selected_in_filtered,
+            move |selected_idx| {
+                // Map back from filtered index to original index
+                let original_idx = partition_types
+                    .iter()
+                    .position(|orig| {
+                        orig.filesystem_type == available_types[selected_idx].filesystem_type
+                    })
+                    .unwrap_or(0);
+                CreateMessage::PartitionTypeUpdate(original_idx).into()
+            }
+        )
+    );
+    
+    // Show warning if filesystem types are hidden due to missing tools
+    if has_missing_tools {
+        content = content.push(
+            caption(fl!("fs-tools-warning", settings = fl!("settings")))
+        );
     }
     
     content = content.spacing(12);

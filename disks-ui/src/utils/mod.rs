@@ -4,7 +4,7 @@ mod ui;
 pub mod unit_size_input;
 
 // Explicit exports from fs_tools module
-pub use fs_tools::{get_missing_tools, get_fs_tool_status, detect_fs_tools};
+pub use fs_tools::{get_missing_tools, get_fs_tool_status};
 
 // Explicit exports from unit_size_input module
 pub use unit_size_input::SizeUnit;

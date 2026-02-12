@@ -209,3 +209,6 @@ fs-desc-ntfs = Windows-filsystem
 fs-desc-vfat = Universell kompatibilitet
 fs-desc-exfat = Stora filer, multiplattform
 fs-desc-swap = Virtuellt minne
+
+# Varning för filsystemverktyg
+fs-tools-warning = Vissa filsystemtyper är dolda på grund av saknade verktyg. Installera dem i {$settings} för att aktivera fler alternativ.
