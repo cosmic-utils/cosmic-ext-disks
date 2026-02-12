@@ -19,7 +19,8 @@ pub enum SizeUnit {
 
 impl SizeUnit {
     /// Convert a value in this unit to bytes
-    pub fn to_bytes(&self, value: f64) -> u64 {
+    #[allow(dead_code)]
+    pub fn to_bytes(self, value: f64) -> u64 {
         match self {
             SizeUnit::Bytes => value as u64,
             SizeUnit::Kilobytes => (value * 1024.0) as u64,
@@ -30,6 +31,7 @@ impl SizeUnit {
     }
 
     /// Convert bytes to a value in this unit
+    #[allow(clippy::wrong_self_convention)]
     pub fn from_bytes(&self, bytes: u64) -> f64 {
         match self {
             SizeUnit::Bytes => bytes as f64,
@@ -57,6 +59,7 @@ impl SizeUnit {
     }
 
     /// Create a unit from a dropdown index
+    #[allow(dead_code)]
     pub fn from_index(idx: usize) -> Self {
         match idx {
             0 => SizeUnit::Bytes,
@@ -69,7 +72,7 @@ impl SizeUnit {
     }
 
     /// Get the dropdown index for this unit
-    pub fn to_index(&self) -> usize {
+    pub fn to_index(self) -> usize {
         match self {
             SizeUnit::Bytes => 0,
             SizeUnit::Kilobytes => 1,
