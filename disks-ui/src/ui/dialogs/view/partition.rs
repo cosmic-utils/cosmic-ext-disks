@@ -8,17 +8,17 @@ use crate::ui::dialogs::state::{
     ResizePartitionDialog,
 };
 use crate::utils::labelled_spinner;
-use crate::utils::{get_fs_tool_status, SizeUnit};
+use crate::utils::{SizeUnit, get_fs_tool_status};
 use cosmic::{
     Element, Theme, iced, iced_widget,
     widget::text::caption,
     widget::{button, checkbox, container, dialog, divider, dropdown, slider, text, text_input},
 };
-use disks_dbus::{PartitionTypeInfo, bytes_to_pretty, COMMON_GPT_TYPES, COMMON_DOS_TYPES};
+use disks_dbus::{COMMON_DOS_TYPES, COMMON_GPT_TYPES, PartitionTypeInfo, bytes_to_pretty};
 
 pub fn create_partition<'a>(state: CreatePartitionDialog) -> Element<'a, Message> {
     let running = state.running;
-    let error =state.error;
+    let error = state.error;
     let create = &state.info;
 
     // Get partition type details for radio list
@@ -29,17 +29,17 @@ pub fn create_partition<'a>(state: CreatePartitionDialog) -> Element<'a, Message
     };
 
     let mut content = iced_widget::column![];
-    
+
     // Only show partition name field for table types that support it (not DOS/MBR)
     if create.table_type != "dos" {
         content = content.push(
             text_input(fl!("volume-name"), create.name.clone())
                 .label(fl!("volume-name"))
-                .on_input(|t| CreateMessage::NameUpdate(t).into())
+                .on_input(|t| CreateMessage::NameUpdate(t).into()),
         );
         content = content.push(divider::horizontal::default());
     }
-    
+
     // Size controls with slider, spinners, and unit selectors on one line
     let len = create.max_size as f64;
     let size = create.size as f64;
@@ -49,13 +49,15 @@ pub fn create_partition<'a>(state: CreatePartitionDialog) -> Element<'a, Message
     let free_pretty = bytes_to_pretty(&free_bytes, false);
     let step = disks_dbus::get_step(&create.size);
     let current_size = create.size; // Capture for closure
-    
+
     // Slider for visual feedback
-    content = content.push(slider(0.0..=len, size, |v| CreateMessage::SizeUpdate(v as u64).into()));
-    
+    content = content.push(slider(0.0..=len, size, |v| {
+        CreateMessage::SizeUpdate(v as u64).into()
+    }));
+
     // Size and Free space controls on separate lines with grid alignment
     let label_width = iced::Length::Fixed(120.);
-    
+
     let size_row = iced_widget::row![
         text(fl!("partition-size")).width(label_width),
         button::text("-").on_press(CreateMessage::SizeUpdate((size - step).max(0.) as u64).into()),
@@ -63,7 +65,9 @@ pub fn create_partition<'a>(state: CreatePartitionDialog) -> Element<'a, Message
             .width(iced::Length::Fixed(100.))
             .on_input(move |v| {
                 match disks_dbus::pretty_to_bytes(&v) {
-                    Ok(bytes) => CreateMessage::SizeUpdate((bytes as f64).clamp(0., len) as u64).into(),
+                    Ok(bytes) => {
+                        CreateMessage::SizeUpdate((bytes as f64).clamp(0., len) as u64).into()
+                    }
                     Err(_) => CreateMessage::SizeUpdate(current_size).into(),
                 }
             }),
@@ -72,11 +76,12 @@ pub fn create_partition<'a>(state: CreatePartitionDialog) -> Element<'a, Message
             SizeUnit::all_labels(),
             Some(create.size_unit_index),
             |idx| CreateMessage::SizeUnitUpdate(idx).into()
-        ).width(iced::Length::Fixed(80.)),
+        )
+        .width(iced::Length::Fixed(80.)),
     ]
     .spacing(8)
     .align_y(iced::Alignment::Center);
-    
+
     let free_row = iced_widget::row![
         text(fl!("free-space")).width(label_width),
         button::text("-").on_press(CreateMessage::SizeUpdate((size + step).min(len) as u64).into()),
@@ -84,7 +89,10 @@ pub fn create_partition<'a>(state: CreatePartitionDialog) -> Element<'a, Message
             .width(iced::Length::Fixed(100.))
             .on_input(move |v| {
                 match disks_dbus::pretty_to_bytes(&v) {
-                    Ok(bytes) => CreateMessage::SizeUpdate((len - (bytes as f64).clamp(0., len)) as u64).into(),
+                    Ok(bytes) => {
+                        CreateMessage::SizeUpdate((len - (bytes as f64).clamp(0., len)) as u64)
+                            .into()
+                    }
                     Err(_) => CreateMessage::SizeUpdate(current_size).into(),
                 }
             }),
@@ -93,18 +101,19 @@ pub fn create_partition<'a>(state: CreatePartitionDialog) -> Element<'a, Message
             SizeUnit::all_labels(),
             Some(create.size_unit_index),
             |idx| CreateMessage::SizeUnitUpdate(idx).into()
-        ).width(iced::Length::Fixed(80.)),
+        )
+        .width(iced::Length::Fixed(80.)),
     ]
     .spacing(8)
     .align_y(iced::Alignment::Center);
-    
+
     content = content.push(size_row);
     content = content.push(free_row);
     content = content.push(divider::horizontal::default());
-    
+
     // Get filesystem tool availability status
     let tool_status = get_fs_tool_status();
-    
+
     // Filter partition types to only include those with available tools
     let available_types: Vec<_> = partition_types
         .iter()
@@ -113,11 +122,11 @@ pub fn create_partition<'a>(state: CreatePartitionDialog) -> Element<'a, Message
             tool_status.get(fs_type).copied().unwrap_or(true)
         })
         .collect();
-    
+
     let total_types = partition_types.len();
     let available_count = available_types.len();
     let has_missing_tools = available_count < total_types;
-    
+
     // Build dropdown labels for available types
     let dropdown_labels: Vec<String> = available_types
         .iter()
@@ -138,55 +147,55 @@ pub fn create_partition<'a>(state: CreatePartitionDialog) -> Element<'a, Message
             }
         })
         .collect();
-    
+
     // Map selected index from full list to filtered list
-    let selected_in_filtered = available_types
-        .iter()
-        .position(|p| {
-            let original_idx = partition_types.iter().position(|orig| {
-                orig.filesystem_type == p.filesystem_type
-            });
-            original_idx == Some(create.selected_partition_type_index)
-        });
-    
+    let selected_in_filtered = available_types.iter().position(|p| {
+        let original_idx = partition_types
+            .iter()
+            .position(|orig| orig.filesystem_type == p.filesystem_type);
+        original_idx == Some(create.selected_partition_type_index)
+    });
+
     // Filesystem type selection (dropdown)
     content = content.push(caption(fl!("filesystem-type")));
-    content = content.push(
-        dropdown(
-            dropdown_labels,
-            selected_in_filtered,
-            move |selected_idx| {
-                // Map back from filtered index to original index
-                let original_idx = partition_types
-                    .iter()
-                    .position(|orig| {
-                        orig.filesystem_type == available_types[selected_idx].filesystem_type
-                    })
-                    .unwrap_or(0);
-                CreateMessage::PartitionTypeUpdate(original_idx).into()
-            }
-        )
-    );
-    
+    content = content.push(dropdown(
+        dropdown_labels,
+        selected_in_filtered,
+        move |selected_idx| {
+            // Map back from filtered index to original index
+            let original_idx = partition_types
+                .iter()
+                .position(|orig| {
+                    orig.filesystem_type == available_types[selected_idx].filesystem_type
+                })
+                .unwrap_or(0);
+            CreateMessage::PartitionTypeUpdate(original_idx).into()
+        },
+    ));
+
     // Show warning if filesystem types are hidden due to missing tools
     if has_missing_tools {
-        let warning_text = container(
-            caption(format!("⚠ {}", fl!("fs-tools-warning")))
-        )
-        .style(|theme: &Theme| container::Style {
-            text_color: Some(theme.cosmic().warning_color().into()),
-            ..Default::default()
-        });
+        let warning_text =
+            container(caption(format!("⚠ {}", fl!("fs-tools-warning")))).style(|theme: &Theme| {
+                container::Style {
+                    text_color: Some(theme.cosmic().warning_color().into()),
+                    ..Default::default()
+                }
+            });
         content = content.push(warning_text);
     }
-    
+
     content = content.push(divider::horizontal::default());
-    
-    content = content.push(checkbox(fl!("overwrite-data-slow"), create.erase)
-        .on_toggle(|v| CreateMessage::EraseUpdate(v).into()));
-    
-    content = content.push(checkbox(fl!("password-protected-luks"), create.password_protected)
-        .on_toggle(|v| CreateMessage::PasswordProtectedUpdate(v).into()));
+
+    content = content.push(
+        checkbox(fl!("overwrite-data-slow"), create.erase)
+            .on_toggle(|v| CreateMessage::EraseUpdate(v).into()),
+    );
+
+    content = content.push(
+        checkbox(fl!("password-protected-luks"), create.password_protected)
+            .on_toggle(|v| CreateMessage::PasswordProtectedUpdate(v).into()),
+    );
 
     if create.password_protected {
         content = content.push(
@@ -232,7 +241,7 @@ pub fn format_partition<'a>(state: FormatPartitionDialog) -> Element<'a, Message
     } = state;
 
     let size_pretty = bytes_to_pretty(&create.size, false);
-    
+
     // Get partition type details for radio list
     let partition_types: &[PartitionTypeInfo] = match create.table_type.as_str() {
         "gpt" => &COMMON_GPT_TYPES,
@@ -240,22 +249,23 @@ pub fn format_partition<'a>(state: FormatPartitionDialog) -> Element<'a, Message
         _ => &[],
     };
 
-    let mut content = iced_widget::column![
-        caption(fl!("format-partition-description", size = size_pretty)),
-    ];
-    
+    let mut content = iced_widget::column![caption(fl!(
+        "format-partition-description",
+        size = size_pretty
+    )),];
+
     // Only show partition name field for table types that support it (not DOS/MBR)
     if create.table_type != "dos" {
         content = content.push(
             text_input(fl!("volume-name"), create.name.clone())
                 .label(fl!("volume-name"))
-                .on_input(|t| CreateMessage::NameUpdate(t).into())
+                .on_input(|t| CreateMessage::NameUpdate(t).into()),
         );
     }
-    
+
     // Get filesystem tool availability status
     let tool_status = get_fs_tool_status();
-    
+
     // Filter partition types to only include those with available tools
     let available_types: Vec<_> = partition_types
         .iter()
@@ -264,11 +274,11 @@ pub fn format_partition<'a>(state: FormatPartitionDialog) -> Element<'a, Message
             tool_status.get(fs_type).copied().unwrap_or(true)
         })
         .collect();
-    
+
     let total_types = partition_types.len();
     let available_count = available_types.len();
     let has_missing_tools = available_count < total_types;
-    
+
     // Build dropdown labels for available types
     let dropdown_labels: Vec<String> = available_types
         .iter()
@@ -289,53 +299,51 @@ pub fn format_partition<'a>(state: FormatPartitionDialog) -> Element<'a, Message
             }
         })
         .collect();
-    
+
     // Map selected index from full list to filtered list
-    let selected_in_filtered = available_types
-        .iter()
-        .position(|p| {
-            let original_idx = partition_types.iter().position(|orig| {
-                orig.filesystem_type == p.filesystem_type
-            });
-            original_idx == Some(create.selected_partition_type_index)
-        });
-    
+    let selected_in_filtered = available_types.iter().position(|p| {
+        let original_idx = partition_types
+            .iter()
+            .position(|orig| orig.filesystem_type == p.filesystem_type);
+        original_idx == Some(create.selected_partition_type_index)
+    });
+
     // Filesystem type selection (dropdown)
     content = content.push(caption(fl!("filesystem-type")));
-    content = content.push(
-        dropdown(
-            dropdown_labels,
-            selected_in_filtered,
-            move |selected_idx| {
-                // Map back from filtered index to original index
-                let original_idx = partition_types
-                    .iter()
-                    .position(|orig| {
-                        orig.filesystem_type == available_types[selected_idx].filesystem_type
-                    })
-                    .unwrap_or(0);
-                CreateMessage::PartitionTypeUpdate(original_idx).into()
-            }
-        )
-    );
-    
+    content = content.push(dropdown(
+        dropdown_labels,
+        selected_in_filtered,
+        move |selected_idx| {
+            // Map back from filtered index to original index
+            let original_idx = partition_types
+                .iter()
+                .position(|orig| {
+                    orig.filesystem_type == available_types[selected_idx].filesystem_type
+                })
+                .unwrap_or(0);
+            CreateMessage::PartitionTypeUpdate(original_idx).into()
+        },
+    ));
+
     // Show warning if filesystem types are hidden due to missing tools
     if has_missing_tools {
-        let warning_text = container(
-            caption(format!("⚠ {}", fl!("fs-tools-warning")))
-        )
-        .style(|theme: &Theme| container::Style {
-            text_color: Some(theme.cosmic().warning_color().into()),
-            ..Default::default()
-        });
+        let warning_text =
+            container(caption(format!("⚠ {}", fl!("fs-tools-warning")))).style(|theme: &Theme| {
+                container::Style {
+                    text_color: Some(theme.cosmic().warning_color().into()),
+                    ..Default::default()
+                }
+            });
         content = content.push(warning_text);
     }
-    
+
     content = content.push(divider::horizontal::default());
-    
-    content = content.push(checkbox(fl!("overwrite-data-slow"), create.erase)
-        .on_toggle(|v| CreateMessage::EraseUpdate(v).into()));
-    
+
+    content = content.push(
+        checkbox(fl!("overwrite-data-slow"), create.erase)
+            .on_toggle(|v| CreateMessage::EraseUpdate(v).into()),
+    );
+
     content = content.spacing(12);
 
     if running {

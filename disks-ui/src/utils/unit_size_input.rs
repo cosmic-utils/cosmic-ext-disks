@@ -55,7 +55,13 @@ impl SizeUnit {
 
     /// Get all unit labels as strings (for dropdown)
     pub fn all_labels() -> Vec<String> {
-        vec!["B".into(), "KB".into(), "MB".into(), "GB".into(), "TB".into()]
+        vec![
+            "B".into(),
+            "KB".into(),
+            "MB".into(),
+            "GB".into(),
+            "TB".into(),
+        ]
     }
 
     /// Create a unit from a dropdown index

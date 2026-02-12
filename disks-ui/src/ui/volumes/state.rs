@@ -84,7 +84,7 @@ impl Segment {
         // Auto-select appropriate unit and format size text
         let unit = crate::utils::SizeUnit::auto_select(self.size);
         let size_value = unit.from_bytes(self.size);
-        
+
         CreatePartitionInfo {
             max_size: self.size,
             offset: self.offset,
