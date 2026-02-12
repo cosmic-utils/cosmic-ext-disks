@@ -1,7 +1,7 @@
 # BTRFS Management Tools — Tasks
 
-**Branch:** `feature/btrfs-tools`  
-**Prerequisites:** feature/modal-dialogs merged to main  
+**Branch:** `feature/btrfs-mgmt`  
+**Prerequisites:** None (will use existing overlay dialogs)  
 **Target:** Small, independently testable commits
 
 ---
@@ -9,7 +9,7 @@
 ## Task Dependency Graph
 
 ```
-Prerequisites: modal-dialogs feature merged
+Prerequisites: None (using existing overlay dialogs)
 
 Task 1 (Detection)
     ↓

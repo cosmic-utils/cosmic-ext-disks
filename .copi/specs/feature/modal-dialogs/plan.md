@@ -1,8 +1,8 @@
 # Modal Dialog Windows — Plan
 
-**Branch:** `feature/modal-dialogs`  
+**Branch:** N/A (deferred)  
 **Source:** User request (addresses README V1 goal #1 "Dialogs are still ugly")  
-**Status:** ⚠️ **ON HOLD** — Research complete, blocked on product decision
+**Status:** ⛔ **DEFERRED** — Waiting for upstream libcosmic support
 
 ---
 
@@ -12,17 +12,13 @@
 
 **Impact:** The original spec goal ("Convert all dialogs to separate OS-level modal windows") is **not feasible** with the current COSMIC framework.
 
-**Spec Status:** ON HOLD pending product decision on approach:
+**Spec Status:** DEFERRED — Waiting for upstream libcosmic support
 
-| Option | Description | Effort | Feasibility | Timeline |
-|--------|-------------|--------|-------------|----------|
-| **A** | Wait for upstream libcosmic support | N/A | Possible | Months-Years |
-| **B** | Enhanced overlay dialogs (draggable, better styled) | 15-25h | ✅ Achievable | Immediate |
-| **C** | Hybrid (overlays + independent windows for some) | 25-35h | ⚠️ UX compromises | 1-2 weeks |
+**Decision:** Option A (Wait for Upstream) chosen. This spec is blocked until libcosmic implements parent-child window relationships and modal window semantics.
 
-**Recommendation:** Option B (Enhanced Overlays) — addresses "Dialogs are still ugly" without architectural constraints.
+**Alternative considered:** Enhanced overlay dialogs (Option B) was recommended but user decided to wait for proper modal window support.
 
-**Next Step:** User/product decision required before implementation begins.
+**Next Step:** Monitor libcosmic development for modal window feature. Revisit when feature becomes available (expected: Q3 2026 or later).
 
 ---
 

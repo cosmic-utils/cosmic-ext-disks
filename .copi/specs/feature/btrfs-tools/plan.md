@@ -1,8 +1,8 @@
 # BTRFS Management Tools — Plan
 
-**Branch:** `feature/btrfs-tools`  
+**Branch:** `feature/btrfs-mgmt`  
 **Source:** User request (implements README V1 goal #3)  
-**Status:** Spec created, implementation pending (blocked on modal dialogs)
+**Status:** Spec created, ready for implementation (uses existing overlay dialogs)
 
 ---
 
@@ -20,6 +20,8 @@ This represents a significant gap compared to GNOME Disks and other disk utiliti
 - README V1 goal #3: [README.md](../../../README.md#L27) — "1st class BTRFS support - Subvolumes CRUD, and snapshotting maybe"
 - Current BTRFS support: Formatonly, via [disks-ui/src/utils/fs_tools.rs](../../../disks-ui/src/utils/fs_tools.rs) (detection) and partition type catalog
 - Volume detail view: [disks-ui/src/ui/app/view.rs](../../../disks-ui/src/ui/app/view.rs#L280-L1000) — where BTRFS section will integrate
+
+**Dependency Note:** Originally blocked on modal-dialogs feature. Since that feature is now deferred pending upstream libcosmic support, this implementation will use the existing overlay dialog system (via `Application::dialog()`).
 
 ---
 

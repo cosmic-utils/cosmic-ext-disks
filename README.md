@@ -23,7 +23,7 @@ For partition type support:
 
 #### V1 - 99% Feature Parity with Gnome Disks (plus a few extras!)
 1. UI - Dialogs are still ugly, and main UI still needs some tweaking. 
-   - **In Progress**: Spec created for modal dialog windows (separate OS-level windows instead of overlays) — see [`.copi/specs/feature/modal-dialogs/`](.copi/specs/feature/modal-dialogs/)
+   - **Deferred**: Modal dialog windows blocked by upstream libcosmic limitations — see [`.copi/specs/feature/modal-dialogs/`](.copi/specs/feature/modal-dialogs/)
 2. Testing of as many disk types and partition/disk schemes as possible.
 3. 1st class BTRFS support - Subvolumes CRUD, and snapshotting maybe
    - **In Progress**: Spec created for BTRFS management tools (subvolumes, snapshots, usage breakdown) — see [`.copi/specs/feature/btrfs-tools/`](.copi/specs/feature/btrfs-tools/)

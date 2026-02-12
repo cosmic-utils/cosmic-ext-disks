@@ -1,8 +1,8 @@
 # Modal Dialog Windows — Tasks
 
-**Branch:** `feature/modal-dialogs`  
-**Status:** ⚠️ **ON HOLD** — Task 1 complete, remaining tasks blocked on product decision  
-**Target:** Small, independently testable commits
+**Branch:** N/A (deferred)  
+**Status:** ⛔ **DEFERRED** — Waiting for upstream libcosmic support  
+**Target:** N/A (spec deferred)
 
 ---
 
@@ -14,12 +14,9 @@
 
 **Tasks 2-11:** ⏸️ **ON HOLD** — Blocked pending product decision (see [plan.md](plan.md))
 
-**Decision Required:** User must choose approach before continuing:
-- **Option A:** Wait for upstream support (defer entire spec, months timeline)
-- **Option B:** Pivot to "Enhanced Overlay Dialogs" (rewrite tasks 2-11)
-- **Option C:** Hybrid approach (rewrite tasks for mixed strategy)
+**Decision Made:** Option A (Wait for Upstream) chosen. This spec is deferred indefinitely until libcosmic supports parent-child window relationships.
 
-**Impact:** The tasks below describe the **original plan** (true modal windows). If Option B or C is chosen, these tasks will be replaced with new implementation plans.
+**Impact:** All tasks 2-11 are cancelled. No implementation will occur until upstream feature becomes available.
 
 ---
 
