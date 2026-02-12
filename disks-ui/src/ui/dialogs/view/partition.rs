@@ -45,10 +45,28 @@ pub fn create_partition<'a>(state: CreatePartitionDialog) -> Element<'a, Message
     let size = create.size as f64;
     let free = len - size;
     let free_bytes = free as u64;
-    let size_pretty = bytes_to_pretty(&create.size, false);
-    let free_pretty = bytes_to_pretty(&free_bytes, false);
+    
+    // Get selected unit and convert sizes to that unit
+    let selected_unit = SizeUnit::from_index(create.size_unit_index);
+    let size_in_unit = selected_unit.from_bytes(create.size);
+    let free_in_unit = selected_unit.from_bytes(free_bytes);
+    let max_in_unit = selected_unit.from_bytes(create.max_size);
+    
+    // Format values with appropriate precision
+    let size_text = if size_in_unit < 10.0 {
+        format!("{:.2}", size_in_unit)
+    } else {
+        format!("{:.1}", size_in_unit)
+    };
+    let free_text = if free_in_unit < 10.0 {
+        format!("{:.2}", free_in_unit)
+    } else {
+        format!("{:.1}", free_in_unit)
+    };
+    
     let step = disks_dbus::get_step(&create.size);
     let current_size = create.size; // Capture for closure
+    let max_size = create.max_size; // Capture for closure
 
     // Slider for visual feedback
     content = content.push(slider(0.0..=len, size, |v| {
@@ -61,14 +79,16 @@ pub fn create_partition<'a>(state: CreatePartitionDialog) -> Element<'a, Message
     let size_row = iced_widget::row![
         text(fl!("partition-size")).width(label_width),
         button::text("-").on_press(CreateMessage::SizeUpdate((size - step).max(0.) as u64).into()),
-        text_input("", size_pretty)
+        text_input("", size_text)
             .width(iced::Length::Fixed(100.))
             .on_input(move |v| {
-                match disks_dbus::pretty_to_bytes(&v) {
-                    Ok(bytes) => {
-                        CreateMessage::SizeUpdate((bytes as f64).clamp(0., len) as u64).into()
+                // Parse as plain number in the selected unit
+                match v.trim().parse::<f64>() {
+                    Ok(value) if value >= 0.0 => {
+                        let bytes = selected_unit.to_bytes(value.min(max_in_unit));
+                        CreateMessage::SizeUpdate(bytes.min(max_size)).into()
                     }
-                    Err(_) => CreateMessage::SizeUpdate(current_size).into(),
+                    _ => CreateMessage::SizeUpdate(current_size).into(),
                 }
             }),
         button::text("+").on_press(CreateMessage::SizeUpdate((size + step).min(len) as u64).into()),
@@ -85,15 +105,17 @@ pub fn create_partition<'a>(state: CreatePartitionDialog) -> Element<'a, Message
     let free_row = iced_widget::row![
         text(fl!("free-space")).width(label_width),
         button::text("-").on_press(CreateMessage::SizeUpdate((size + step).min(len) as u64).into()),
-        text_input("", free_pretty)
+        text_input("", free_text)
             .width(iced::Length::Fixed(100.))
             .on_input(move |v| {
-                match disks_dbus::pretty_to_bytes(&v) {
-                    Ok(bytes) => {
-                        CreateMessage::SizeUpdate((len - (bytes as f64).clamp(0., len)) as u64)
-                            .into()
+                // Parse as plain number in the selected unit, convert to size
+                match v.trim().parse::<f64>() {
+                    Ok(free_value) if free_value >= 0.0 => {
+                        let free_bytes = selected_unit.to_bytes(free_value.min(max_in_unit));
+                        let new_size = max_size.saturating_sub(free_bytes);
+                        CreateMessage::SizeUpdate(new_size).into()
                     }
-                    Err(_) => CreateMessage::SizeUpdate(current_size).into(),
+                    _ => CreateMessage::SizeUpdate(current_size).into(),
                 }
             }),
         button::text("+").on_press(CreateMessage::SizeUpdate((size - step).max(0.) as u64).into()),
