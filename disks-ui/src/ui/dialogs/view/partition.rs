@@ -10,9 +10,9 @@ use crate::ui::dialogs::state::{
 use crate::utils::labelled_spinner;
 use crate::utils::{get_fs_tool_status, SizeUnit};
 use cosmic::{
-    Element, iced, iced_widget,
+    Element, Theme, iced, iced_widget,
     widget::text::caption,
-    widget::{button, checkbox, dialog, divider, dropdown, slider, text, text_input},
+    widget::{button, checkbox, container, dialog, divider, dropdown, slider, text, text_input},
 };
 use disks_dbus::{PartitionTypeInfo, bytes_to_pretty, COMMON_GPT_TYPES, COMMON_DOS_TYPES};
 
@@ -53,9 +53,11 @@ pub fn create_partition<'a>(state: CreatePartitionDialog) -> Element<'a, Message
     // Slider for visual feedback
     content = content.push(slider(0.0..=len, size, |v| CreateMessage::SizeUpdate(v as u64).into()));
     
-    // Compact row: Size: -[num]+ [unit]  Free: -[num]+ [unit]
-    let size_controls = iced_widget::row![
-        text(fl!("partition-size")).width(iced::Length::Shrink),
+    // Size and Free space controls on separate lines with grid alignment
+    let label_width = iced::Length::Fixed(120.);
+    
+    let size_row = iced_widget::row![
+        text(fl!("partition-size")).width(label_width),
         button::text("-").on_press(CreateMessage::SizeUpdate((size - step).max(0.) as u64).into()),
         text_input("", size_pretty)
             .width(iced::Length::Fixed(100.))
@@ -71,7 +73,12 @@ pub fn create_partition<'a>(state: CreatePartitionDialog) -> Element<'a, Message
             Some(create.size_unit_index),
             |idx| CreateMessage::SizeUnitUpdate(idx).into()
         ).width(iced::Length::Fixed(80.)),
-        text(fl!("free-space")).width(iced::Length::Shrink),
+    ]
+    .spacing(8)
+    .align_y(iced::Alignment::Center);
+    
+    let free_row = iced_widget::row![
+        text(fl!("free-space")).width(label_width),
         button::text("-").on_press(CreateMessage::SizeUpdate((size + step).min(len) as u64).into()),
         text_input("", free_pretty)
             .width(iced::Length::Fixed(100.))
@@ -91,7 +98,8 @@ pub fn create_partition<'a>(state: CreatePartitionDialog) -> Element<'a, Message
     .spacing(8)
     .align_y(iced::Alignment::Center);
     
-    content = content.push(size_controls);
+    content = content.push(size_row);
+    content = content.push(free_row);
     content = content.push(divider::horizontal::default());
     
     // Get filesystem tool availability status
@@ -160,13 +168,16 @@ pub fn create_partition<'a>(state: CreatePartitionDialog) -> Element<'a, Message
         )
     );
     
-    content = content.push(divider::horizontal::default());
-    
     // Show warning if filesystem types are hidden due to missing tools
     if has_missing_tools {
-        content = content.push(
+        let warning_text = container(
             caption(format!("⚠ {}", fl!("fs-tools-warning")))
-        );
+        )
+        .style(|theme: &Theme| container::Style {
+            text_color: Some(theme.cosmic().warning_color().into()),
+            ..Default::default()
+        });
+        content = content.push(warning_text);
     }
     
     content = content.push(divider::horizontal::default());
@@ -308,13 +319,16 @@ pub fn format_partition<'a>(state: FormatPartitionDialog) -> Element<'a, Message
         )
     );
     
-    content = content.push(divider::horizontal::default());
-    
     // Show warning if filesystem types are hidden due to missing tools
     if has_missing_tools {
-        content = content.push(
+        let warning_text = container(
             caption(format!("⚠ {}", fl!("fs-tools-warning")))
-        );
+        )
+        .style(|theme: &Theme| container::Style {
+            text_color: Some(theme.cosmic().warning_color().into()),
+            ..Default::default()
+        });
+        content = content.push(warning_text);
     }
     
     content = content.push(divider::horizontal::default());
