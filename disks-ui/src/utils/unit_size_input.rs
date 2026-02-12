@@ -21,13 +21,33 @@ impl SizeUnit {
     /// Convert a value in this unit to bytes
     #[allow(dead_code)]
     pub fn to_bytes(self, value: f64) -> u64 {
-        match self {
-            SizeUnit::Bytes => value as u64,
-            SizeUnit::Kilobytes => (value * 1024.0) as u64,
-            SizeUnit::Megabytes => (value * 1024.0 * 1024.0) as u64,
-            SizeUnit::Gigabytes => (value * 1024.0 * 1024.0 * 1024.0) as u64,
-            SizeUnit::Terabytes => (value * 1024.0 * 1024.0 * 1024.0 * 1024.0) as u64,
+        // Validate input: require finite value
+        if !value.is_finite() {
+            return 0;
         }
+
+        // Compute the value in bytes as f64
+        let bytes = match self {
+            SizeUnit::Bytes => value,
+            SizeUnit::Kilobytes => value * 1024.0,
+            SizeUnit::Megabytes => value * 1024.0 * 1024.0,
+            SizeUnit::Gigabytes => value * 1024.0 * 1024.0 * 1024.0,
+            SizeUnit::Terabytes => value * 1024.0 * 1024.0 * 1024.0 * 1024.0,
+        };
+
+        // Clamp to non-negative range
+        if bytes <= 0.0 {
+            return 0;
+        }
+
+        // Explicitly handle values that exceed u64::MAX
+        let max_u64_as_f64 = u64::MAX as f64;
+        if bytes >= max_u64_as_f64 {
+            return u64::MAX;
+        }
+
+        // Explicit truncation toward zero before converting to u64
+        bytes.trunc() as u64
     }
 
     /// Convert bytes to a value in this unit
