@@ -10,9 +10,9 @@ use crate::ui::dialogs::state::{
 use crate::utils::labelled_spinner;
 use crate::utils::{get_fs_tool_status, SizeUnit};
 use cosmic::{
-    Element, iced_widget,
+    Element, iced, iced_widget,
     widget::text::caption,
-    widget::{button, checkbox, dialog, dropdown, slider, text, text_input},
+    widget::{button, checkbox, dialog, divider, dropdown, slider, text, text_input},
 };
 use disks_dbus::{PartitionTypeInfo, bytes_to_pretty, COMMON_GPT_TYPES, COMMON_DOS_TYPES};
 
@@ -37,9 +37,10 @@ pub fn create_partition<'a>(state: CreatePartitionDialog) -> Element<'a, Message
                 .label(fl!("volume-name"))
                 .on_input(|t| CreateMessage::NameUpdate(t).into())
         );
+        content = content.push(divider::horizontal::default());
     }
     
-    // Size controls with slider, spinners, and unit selector
+    // Size controls with slider, spinners, and unit selectors on one line
     let len = create.max_size as f64;
     let size = create.size as f64;
     let free = len - size;
@@ -47,41 +48,51 @@ pub fn create_partition<'a>(state: CreatePartitionDialog) -> Element<'a, Message
     let size_pretty = bytes_to_pretty(&create.size, false);
     let free_pretty = bytes_to_pretty(&free_bytes, false);
     let step = disks_dbus::get_step(&create.size);
+    let current_size = create.size; // Capture for closure
     
     // Slider for visual feedback
     content = content.push(slider(0.0..=len, size, |v| CreateMessage::SizeUpdate(v as u64).into()));
     
-    // Row with labelled_spinner and unit selector
-    let size_spinner = labelled_spinner(
-        fl!("partition-size"),
-        size_pretty,
-        size,
-        step,
-        0.,
-        len,
-        |v| { CreateMessage::SizeUpdate(v as u64).into() },
-    );
+    // Compact row: Size: -[num]+ [unit]  Free: -[num]+ [unit]
+    let size_controls = iced_widget::row![
+        text(fl!("partition-size")).width(iced::Length::Shrink),
+        button::text("-").on_press(CreateMessage::SizeUpdate((size - step).max(0.) as u64).into()),
+        text_input("", size_pretty)
+            .width(iced::Length::Fixed(100.))
+            .on_input(move |v| {
+                match disks_dbus::pretty_to_bytes(&v) {
+                    Ok(bytes) => CreateMessage::SizeUpdate((bytes as f64).clamp(0., len) as u64).into(),
+                    Err(_) => CreateMessage::SizeUpdate(current_size).into(),
+                }
+            }),
+        button::text("+").on_press(CreateMessage::SizeUpdate((size + step).min(len) as u64).into()),
+        dropdown(
+            SizeUnit::all_labels(),
+            Some(create.size_unit_index),
+            |idx| CreateMessage::SizeUnitUpdate(idx).into()
+        ).width(iced::Length::Fixed(80.)),
+        text(fl!("free-space")).width(iced::Length::Shrink),
+        button::text("-").on_press(CreateMessage::SizeUpdate((size + step).min(len) as u64).into()),
+        text_input("", free_pretty)
+            .width(iced::Length::Fixed(100.))
+            .on_input(move |v| {
+                match disks_dbus::pretty_to_bytes(&v) {
+                    Ok(bytes) => CreateMessage::SizeUpdate((len - (bytes as f64).clamp(0., len)) as u64).into(),
+                    Err(_) => CreateMessage::SizeUpdate(current_size).into(),
+                }
+            }),
+        button::text("+").on_press(CreateMessage::SizeUpdate((size - step).max(0.) as u64).into()),
+        dropdown(
+            SizeUnit::all_labels(),
+            Some(create.size_unit_index),
+            |idx| CreateMessage::SizeUnitUpdate(idx).into()
+        ).width(iced::Length::Fixed(80.)),
+    ]
+    .spacing(8)
+    .align_y(iced::Alignment::Center);
     
-    let unit_selector = dropdown(
-        SizeUnit::all_labels(),
-        Some(create.size_unit_index),
-        |idx| CreateMessage::SizeUnitUpdate(idx).into()
-    );
-    
-    let size_row = iced_widget::row![size_spinner, unit_selector]
-        .spacing(8);
-    content = content.push(size_row);
-    
-    // Free space spinner
-    content = content.push(labelled_spinner(
-        fl!("free-space"),
-        free_pretty,
-        free,
-        step,
-        0.,
-        len,
-        move |v| { CreateMessage::SizeUpdate((len - v) as u64).into() },
-    ));
+    content = content.push(size_controls);
+    content = content.push(divider::horizontal::default());
     
     // Get filesystem tool availability status
     let tool_status = get_fs_tool_status();
@@ -149,12 +160,16 @@ pub fn create_partition<'a>(state: CreatePartitionDialog) -> Element<'a, Message
         )
     );
     
+    content = content.push(divider::horizontal::default());
+    
     // Show warning if filesystem types are hidden due to missing tools
     if has_missing_tools {
         content = content.push(
-            text(format!("⚠ {}", fl!("fs-tools-warning")))
+            caption(format!("⚠ {}", fl!("fs-tools-warning")))
         );
     }
+    
+    content = content.push(divider::horizontal::default());
     
     content = content.push(checkbox(fl!("overwrite-data-slow"), create.erase)
         .on_toggle(|v| CreateMessage::EraseUpdate(v).into()));
@@ -293,12 +308,16 @@ pub fn format_partition<'a>(state: FormatPartitionDialog) -> Element<'a, Message
         )
     );
     
+    content = content.push(divider::horizontal::default());
+    
     // Show warning if filesystem types are hidden due to missing tools
     if has_missing_tools {
         content = content.push(
-            text(format!("⚠ {}", fl!("fs-tools-warning")))
+            caption(format!("⚠ {}", fl!("fs-tools-warning")))
         );
     }
+    
+    content = content.push(divider::horizontal::default());
     
     content = content.push(checkbox(fl!("overwrite-data-slow"), create.erase)
         .on_toggle(|v| CreateMessage::EraseUpdate(v).into()));
