@@ -236,4 +236,4 @@ fs-desc-exfat = Large files, cross-platform
 fs-desc-swap = Virtual memory
 
 # Filesystem tools warning
-fs-tools-warning = Some filesystem types are hidden due to missing tools. Install them in {$settings} to enable more options.
+fs-tools-warning = Some filesystem types are missing due to missing tools. See Settings for more info.

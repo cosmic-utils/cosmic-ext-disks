@@ -12,7 +12,7 @@ use crate::utils::{get_fs_tool_status, SizeUnit};
 use cosmic::{
     Element, iced_widget,
     widget::text::caption,
-    widget::{button, checkbox, dialog, dropdown, slider, text_input},
+    widget::{button, checkbox, dialog, dropdown, slider, text, text_input},
 };
 use disks_dbus::{PartitionTypeInfo, bytes_to_pretty, COMMON_GPT_TYPES, COMMON_DOS_TYPES};
 
@@ -39,10 +39,28 @@ pub fn create_partition<'a>(state: CreatePartitionDialog) -> Element<'a, Message
         );
     }
     
-    // Size input with unit selector
-    let size_input = text_input("", create.size_text.clone())
-        .label(fl!("partition-size"))
-        .on_input(|t| CreateMessage::SizeTextUpdate(t).into());
+    // Size controls with slider, spinners, and unit selector
+    let len = create.max_size as f64;
+    let size = create.size as f64;
+    let free = len - size;
+    let free_bytes = free as u64;
+    let size_pretty = bytes_to_pretty(&create.size, false);
+    let free_pretty = bytes_to_pretty(&free_bytes, false);
+    let step = disks_dbus::get_step(&create.size);
+    
+    // Slider for visual feedback
+    content = content.push(slider(0.0..=len, size, |v| CreateMessage::SizeUpdate(v as u64).into()));
+    
+    // Row with labelled_spinner and unit selector
+    let size_spinner = labelled_spinner(
+        fl!("partition-size"),
+        size_pretty,
+        size,
+        step,
+        0.,
+        len,
+        |v| { CreateMessage::SizeUpdate(v as u64).into() },
+    );
     
     let unit_selector = dropdown(
         SizeUnit::all_labels(),
@@ -50,18 +68,20 @@ pub fn create_partition<'a>(state: CreatePartitionDialog) -> Element<'a, Message
         |idx| CreateMessage::SizeUnitUpdate(idx).into()
     );
     
-    let size_row = iced_widget::row![size_input, unit_selector]
+    let size_row = iced_widget::row![size_spinner, unit_selector]
         .spacing(8);
-    
     content = content.push(size_row);
     
-    // Show remaining space
-    let free_bytes = create.max_size.saturating_sub(create.size);
-    let free_pretty = bytes_to_pretty(&free_bytes, false);
-    content = content.push(caption(format!("{}: {}", fl!("free-space"), free_pretty)));
-    
-    content = content.push(checkbox(fl!("overwrite-data-slow"), create.erase)
-        .on_toggle(|v| CreateMessage::EraseUpdate(v).into()));
+    // Free space spinner
+    content = content.push(labelled_spinner(
+        fl!("free-space"),
+        free_pretty,
+        free,
+        step,
+        0.,
+        len,
+        move |v| { CreateMessage::SizeUpdate((len - v) as u64).into() },
+    ));
     
     // Get filesystem tool availability status
     let tool_status = get_fs_tool_status();
@@ -132,9 +152,12 @@ pub fn create_partition<'a>(state: CreatePartitionDialog) -> Element<'a, Message
     // Show warning if filesystem types are hidden due to missing tools
     if has_missing_tools {
         content = content.push(
-            caption(fl!("fs-tools-warning", settings = fl!("settings")))
+            text(format!("⚠ {}", fl!("fs-tools-warning")))
         );
     }
+    
+    content = content.push(checkbox(fl!("overwrite-data-slow"), create.erase)
+        .on_toggle(|v| CreateMessage::EraseUpdate(v).into()));
     
     content = content.push(checkbox(fl!("password-protected-luks"), create.password_protected)
         .on_toggle(|v| CreateMessage::PasswordProtectedUpdate(v).into()));
@@ -204,9 +227,6 @@ pub fn format_partition<'a>(state: FormatPartitionDialog) -> Element<'a, Message
         );
     }
     
-    content = content.push(checkbox(fl!("overwrite-data-slow"), create.erase)
-        .on_toggle(|v| CreateMessage::EraseUpdate(v).into()));
-    
     // Get filesystem tool availability status
     let tool_status = get_fs_tool_status();
     
@@ -276,9 +296,12 @@ pub fn format_partition<'a>(state: FormatPartitionDialog) -> Element<'a, Message
     // Show warning if filesystem types are hidden due to missing tools
     if has_missing_tools {
         content = content.push(
-            caption(fl!("fs-tools-warning", settings = fl!("settings")))
+            text(format!("⚠ {}", fl!("fs-tools-warning")))
         );
     }
+    
+    content = content.push(checkbox(fl!("overwrite-data-slow"), create.erase)
+        .on_toggle(|v| CreateMessage::EraseUpdate(v).into()));
     
     content = content.spacing(12);
 
