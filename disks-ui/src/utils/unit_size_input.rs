@@ -19,7 +19,6 @@ pub enum SizeUnit {
 
 impl SizeUnit {
     /// Convert a value in this unit to bytes
-    #[allow(dead_code)]
     pub fn to_bytes(self, value: f64) -> u64 {
         // Validate input: require finite value
         if !value.is_finite() {
@@ -85,7 +84,6 @@ impl SizeUnit {
     }
 
     /// Create a unit from a dropdown index
-    #[allow(dead_code)]
     pub fn from_index(idx: usize) -> Self {
         match idx {
             0 => SizeUnit::Bytes,
