@@ -45,13 +45,13 @@ pub fn create_partition<'a>(state: CreatePartitionDialog) -> Element<'a, Message
     let size = create.size as f64;
     let free = len - size;
     let free_bytes = free as u64;
-    
+
     // Get selected unit and convert sizes to that unit
     let selected_unit = SizeUnit::from_index(create.size_unit_index);
     let size_in_unit = selected_unit.from_bytes(create.size);
     let free_in_unit = selected_unit.from_bytes(free_bytes);
     let max_in_unit = selected_unit.from_bytes(create.max_size);
-    
+
     // Format values with appropriate precision
     let size_text = if size_in_unit < 10.0 {
         format!("{:.2}", size_in_unit)
@@ -63,7 +63,7 @@ pub fn create_partition<'a>(state: CreatePartitionDialog) -> Element<'a, Message
     } else {
         format!("{:.1}", free_in_unit)
     };
-    
+
     let step = disks_dbus::get_step(&create.size);
     let current_size = create.size; // Capture for closure
     let max_size = create.max_size; // Capture for closure
@@ -92,11 +92,9 @@ pub fn create_partition<'a>(state: CreatePartitionDialog) -> Element<'a, Message
                 }
             }),
         button::text("+").on_press(CreateMessage::SizeUpdate((size + step).min(len) as u64).into()),
-        dropdown(
-            SizeUnit::labels(),
-            Some(create.size_unit_index),
-            |idx| CreateMessage::SizeUnitUpdate(idx).into()
-        )
+        dropdown(SizeUnit::labels(), Some(create.size_unit_index), |idx| {
+            CreateMessage::SizeUnitUpdate(idx).into()
+        })
         .width(iced::Length::Fixed(80.)),
     ]
     .spacing(8)
@@ -119,11 +117,9 @@ pub fn create_partition<'a>(state: CreatePartitionDialog) -> Element<'a, Message
                 }
             }),
         button::text("+").on_press(CreateMessage::SizeUpdate((size - step).max(0.) as u64).into()),
-        dropdown(
-            SizeUnit::labels(),
-            Some(create.size_unit_index),
-            |idx| CreateMessage::SizeUnitUpdate(idx).into()
-        )
+        dropdown(SizeUnit::labels(), Some(create.size_unit_index), |idx| {
+            CreateMessage::SizeUnitUpdate(idx).into()
+        })
         .width(iced::Length::Fixed(80.)),
     ]
     .spacing(8)
