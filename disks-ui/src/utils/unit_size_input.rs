@@ -7,6 +7,9 @@
 
 use std::fmt;
 
+/// Cached unit labels for dropdown to avoid repeated allocations
+static UNIT_LABELS: &[&str] = &["B", "KB", "MB", "GB", "TB"];
+
 /// Size units for displaying and inputting partition sizes
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SizeUnit {
@@ -72,15 +75,9 @@ impl SizeUnit {
         }
     }
 
-    /// Get all unit labels as strings (for dropdown)
-    pub fn all_labels() -> Vec<String> {
-        vec![
-            "B".into(),
-            "KB".into(),
-            "MB".into(),
-            "GB".into(),
-            "TB".into(),
-        ]
+    /// Get all unit labels as a static slice
+    pub fn labels() -> &'static [&'static str] {
+        UNIT_LABELS
     }
 
     /// Create a unit from a dropdown index
@@ -206,8 +203,8 @@ mod tests {
     }
 
     #[test]
-    fn test_all_labels() {
-        let labels = SizeUnit::all_labels();
+    fn test_labels() {
+        let labels = SizeUnit::labels();
         assert_eq!(labels.len(), 5);
         assert_eq!(labels[0], "B");
         assert_eq!(labels[1], "KB");

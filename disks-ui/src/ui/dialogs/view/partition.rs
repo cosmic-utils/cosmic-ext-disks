@@ -93,7 +93,7 @@ pub fn create_partition<'a>(state: CreatePartitionDialog) -> Element<'a, Message
             }),
         button::text("+").on_press(CreateMessage::SizeUpdate((size + step).min(len) as u64).into()),
         dropdown(
-            SizeUnit::all_labels(),
+            SizeUnit::labels(),
             Some(create.size_unit_index),
             |idx| CreateMessage::SizeUnitUpdate(idx).into()
         )
@@ -120,7 +120,7 @@ pub fn create_partition<'a>(state: CreatePartitionDialog) -> Element<'a, Message
             }),
         button::text("+").on_press(CreateMessage::SizeUpdate((size - step).max(0.) as u64).into()),
         dropdown(
-            SizeUnit::all_labels(),
+            SizeUnit::labels(),
             Some(create.size_unit_index),
             |idx| CreateMessage::SizeUnitUpdate(idx).into()
         )
