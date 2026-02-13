@@ -10,39 +10,24 @@ pub fn btrfs_management_section<'a>(
     volume: &'a disks_dbus::VolumeModel,
     state: &'a BtrfsState,
 ) -> Element<'a, Message> {
-    // Clickable header with expand/collapse icon
-    let icon_name = if state.expanded {
-        "go-down-symbolic"
-    } else {
-        "go-next-symbolic"
-    };
-    
-    let header = widget::button::custom(
-        iced_widget::row![
-            widget::icon::from_name(icon_name).size(16),
-            widget::text(fl!("btrfs-management"))
-                .size(13.0)
-                .font(cosmic::iced::font::Font {
-                    weight: cosmic::iced::font::Weight::Semibold,
-                    ..Default::default()
-                }),
-        ]
-        .spacing(8)
-        .align_y(cosmic::iced::Alignment::Center)
-    )
-    .padding(0)
-    .on_press(Message::BtrfsToggleExpanded);
+    let header = widget::text(fl!("btrfs-management"))
+        .size(13.0)
+        .font(cosmic::iced::font::Font {
+            weight: cosmic::iced::font::Weight::Semibold,
+            ..Default::default()
+        });
 
-    if !state.expanded {
-        // Show collapsed header only
-        return iced_widget::column![header].spacing(8).padding(8).into();
-    }
-
-    // Expanded view
     let mut content_items: Vec<Element<'a, Message>> = vec![header.into()];
 
     // === Usage Breakdown Section ===
-    if let Some(_mount_point) = volume.mount_points.first() {
+    // Try to get mount point from state first, then from volume
+    let mount_point = state.mount_point.as_ref()
+        .or_else(|| volume.mount_points.first());
+    
+    tracing::debug!("btrfs_management_section: state.mount_point={:?}, volume.mount_points={:?}, effective_mount_point={:?}",
+        state.mount_point, volume.mount_points, mount_point);
+        
+    if let Some(_mount_point) = mount_point {
         // Check if we need to load usage
         if state.usage_info.is_none() && !state.loading_usage {
             // Trigger load on next render cycle (will be caught by update handler)
@@ -171,8 +156,11 @@ pub fn btrfs_management_section<'a>(
     // === Subvolumes Section ===
     // Check if we need to load subvolumes
     if state.subvolumes.is_none() && !state.loading {
-        // Trigger load if we have a mount point
-        if let Some(_mount_point) = volume.mount_points.first() {
+        // Try to get mount point from state first, then from volume
+        let mount_point = state.mount_point.as_ref()
+            .or_else(|| volume.mount_points.first());
+            
+        if let Some(_mp) = mount_point {
             // Note: This will trigger on every render until loaded
             // A better approach would be to trigger once, but this works for now
             content_items.push(widget::text("Loading subvolumes...").size(11.0).into());
@@ -180,11 +168,21 @@ pub fn btrfs_management_section<'a>(
             // Send message to load (will be handled in update)
             // For now, just show loading state
         } else {
-            content_items.push(
-                widget::text("BTRFS filesystem not mounted")
-                    .size(11.0)
-                    .into(),
-            );
+            // Neither state nor volume has a mount point
+            if volume.has_filesystem {
+                // Filesystem exists but not detected as mounted
+                content_items.push(
+                    widget::text("BTRFS filesystem not mounted (try refreshing)")
+                        .size(11.0)
+                        .into(),
+                );
+            } else {
+                content_items.push(
+                    widget::text("BTRFS filesystem not mounted")
+                        .size(11.0)
+                        .into(),
+                );
+            }
         }
     } else if state.loading {
         content_items.push(widget::text("Loading subvolumes...").size(11.0).into());

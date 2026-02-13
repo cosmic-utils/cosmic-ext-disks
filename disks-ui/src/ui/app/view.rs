@@ -5,7 +5,7 @@ use crate::ui::btrfs::{BtrfsState, btrfs_management_section};
 use crate::ui::dialogs::state::{DeletePartitionDialog, ShowDialog};
 use crate::ui::dialogs::view as dialogs;
 use crate::ui::sidebar;
-use crate::ui::volumes::{VolumesControl, VolumesControlMessage, disk_header};
+use crate::ui::volumes::{VolumesControl, VolumesControlMessage, disk_header, helpers};
 use crate::utils::DiskSegmentKind;
 use crate::views::settings::settings;
 use cosmic::app::context_drawer as cosmic_context_drawer;
@@ -268,10 +268,13 @@ pub(crate) fn view(app: &AppModel) -> Element<'_, Message> {
                     .padding(20)
                     .width(Length::Fill)
                     .height(Length::Shrink),
-                widget::container(bottom_section)
-                    .padding(20)
-                    .width(Length::Fill)
-                    .height(Length::Fill)
+                widget::scrollable(
+                    widget::container(bottom_section)
+                        .padding(20)
+                        .width(Length::Fill)
+                )
+                .width(Length::Fill)
+                .height(Length::Fill)
             ]
             .spacing(0)
             .width(Length::Fill)
@@ -551,12 +554,11 @@ fn build_volume_node_info<'a>(
     );
 
     // Build info_and_actions with conditional BTRFS management section
-    let is_btrfs = v.id_type.to_lowercase() == "btrfs"
-        || (v.has_filesystem && v.id_type.to_lowercase() == "btrfs");
+    // Check through LUKS containers for an inner BTRFS filesystem
+    let has_btrfs = helpers::detect_btrfs_in_node(v).is_some();
 
     // Use a static default state to avoid lifetime issues
     const DEFAULT_BTRFS_STATE: BtrfsState = BtrfsState {
-        expanded: false,
         loading: false,
         subvolumes: None,
         mount_point: None,
@@ -565,15 +567,14 @@ fn build_volume_node_info<'a>(
         loading_usage: false,
     };
 
-    let info_and_actions = if is_btrfs {
+    let info_and_actions = if has_btrfs {
         // Get BTRFS state from volumes_control, or use default
         let btrfs_state = volumes_control
             .btrfs_state
             .as_ref()
             .unwrap_or(&DEFAULT_BTRFS_STATE);
 
-        // Convert VolumeNode to VolumeModel for btrfs_management_section
-        // Use the segment's volume if available
+        // Use the segment's volume if available for the management section
         if let Some(volume) = &segment.volume {
             iced_widget::column![
                 text_column,
@@ -961,12 +962,15 @@ fn build_partition_info<'a>(
     }
 
     // Build info_and_actions with conditional BTRFS management section
-    let is_btrfs = p.id_type.to_lowercase() == "btrfs"
-        || (p.has_filesystem && p.id_type.to_lowercase() == "btrfs");
+    // Check through LUKS containers for an inner BTRFS filesystem
+    let has_btrfs = if let Some(node) = volume_node {
+        helpers::detect_btrfs_in_node(node).is_some()
+    } else {
+        p.id_type.to_lowercase() == "btrfs"
+    };
 
     // Use a static default state to avoid lifetime issues
     const DEFAULT_BTRFS_STATE: BtrfsState = BtrfsState {
-        expanded: false,
         loading: false,
         subvolumes: None,
         mount_point: None,
@@ -975,7 +979,7 @@ fn build_partition_info<'a>(
         loading_usage: false,
     };
 
-    let info_and_actions = if is_btrfs {
+    let info_and_actions = if has_btrfs {
         // Get BTRFS state from volumes_control, or use default
         let btrfs_state = volumes_control
             .btrfs_state

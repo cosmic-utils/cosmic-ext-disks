@@ -2,7 +2,7 @@ use crate::ui::app::message::Message;
 use crate::ui::app::state::AppModel;
 use crate::ui::btrfs::BtrfsState;
 use crate::ui::dialogs::state::ShowDialog;
-use crate::ui::volumes::VolumesControl;
+use crate::ui::volumes::{VolumesControl, helpers};
 use cosmic::app::Task;
 use cosmic::widget::icon;
 use disks_dbus::DriveModel;
@@ -69,15 +69,18 @@ pub(super) fn update_nav(
 
         let mut volumes_control = VolumesControl::new(drive.clone(), show_reserved);
 
-        // Initialize BTRFS state for the first segment if it's BTRFS
-        if let Some(segment) = volumes_control.segments.first()
+        // Initialize BTRFS state for the selected segment if it contains BTRFS
+        // (checks all segments and looks through LUKS containers)
+        let selected_idx = volumes_control.selected_segment;
+        if let Some(segment) = volumes_control.segments.get(selected_idx)
             && let Some(volume) = &segment.volume
         {
-            let is_btrfs = volume.id_type.to_lowercase() == "btrfs"
-                || (volume.has_filesystem && volume.id_type.to_lowercase() == "btrfs");
+            let btrfs_info = helpers::detect_btrfs_for_volume(&drive.volumes, volume);
+            tracing::info!("update_nav: drive={}, segment={}, btrfs_detected={}, id_type={}, has_filesystem={}, mount_points={:?}",
+                drive.name(), selected_idx, btrfs_info.is_some(), volume.id_type, volume.has_filesystem, volume.mount_points);
 
-            if is_btrfs {
-                let mount_point = volume.mount_points.first().cloned();
+            if let Some(mount_point) = btrfs_info {
+                tracing::info!("update_nav: Initializing BTRFS state with mount_point={:?}", mount_point);
                 volumes_control.btrfs_state = Some(BtrfsState::new(mount_point));
             }
         }

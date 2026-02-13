@@ -89,7 +89,6 @@ pub enum Message {
         usage_result: Result<crate::utils::btrfs::UsageInfo, String>,
         compression_result: Result<Option<String>, String>,
     },
-    BtrfsToggleExpanded,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

@@ -1,7 +1,9 @@
 use cosmic::Task;
 
 use crate::app::Message;
+use crate::ui::btrfs::BtrfsState;
 use crate::ui::dialogs::state::ShowDialog;
+use crate::ui::volumes::helpers;
 
 use crate::ui::volumes::VolumesControl;
 
@@ -25,6 +27,48 @@ pub(super) fn segment_selected(
         control.segments.iter_mut().for_each(|s| s.state = false);
         if let Some(segment) = control.segments.get_mut(index) {
             segment.state = true;
+        }
+
+        // Initialize/update BTRFS state if this segment has a BTRFS volume
+        // Also checks through LUKS containers for an inner BTRFS filesystem
+        if let Some(segment) = control.segments.get(index)
+            && let Some(volume) = &segment.volume
+        {
+            let btrfs_info = helpers::detect_btrfs_for_volume(&control.model.volumes, volume);
+            tracing::info!("segment_selected: index={}, btrfs_detected={}, id_type={}, has_filesystem={}, mount_points={:?}",
+                index, btrfs_info.is_some(), volume.id_type, volume.has_filesystem, volume.mount_points);
+            if let Some(mount_point) = btrfs_info {
+                tracing::info!("segment_selected: Initializing BTRFS state with mount_point={:?}", mount_point);
+                control.btrfs_state = Some(BtrfsState::new(mount_point.clone()));
+
+                // If mounted, trigger data loading
+                if let Some(mp) = mount_point {
+                    let mut tasks = vec![Task::done(cosmic::Action::App(
+                        Message::SidebarSelectChild {
+                            object_path: volume.path.to_string(),
+                        },
+                    ))];
+
+                    // Load subvolumes
+                    tasks.push(Task::done(cosmic::Action::App(
+                        Message::BtrfsLoadSubvolumes {
+                            mount_point: mp.clone(),
+                        },
+                    )));
+
+                    // Load usage info
+                    tasks.push(Task::done(cosmic::Action::App(
+                        Message::BtrfsLoadUsage {
+                            mount_point: mp,
+                        },
+                    )));
+
+                    return Task::batch(tasks);
+                }
+            } else {
+                // Clear BTRFS state if not a BTRFS volume
+                control.btrfs_state = None;
+            }
         }
 
         // Sync with sidebar: select the segment's volume node if it has one
@@ -66,6 +110,48 @@ pub(super) fn select_volume(
         control.segments.iter_mut().for_each(|s| s.state = false);
         if let Some(segment) = control.segments.get_mut(segment_index) {
             segment.state = true;
+        }
+
+        // Initialize/update BTRFS state if this segment has a BTRFS volume
+        // Also checks through LUKS containers for an inner BTRFS filesystem
+        if let Some(segment) = control.segments.get(segment_index)
+            && let Some(volume) = &segment.volume
+        {
+            let btrfs_info = helpers::detect_btrfs_for_volume(&control.model.volumes, volume);
+            tracing::info!("select_volume: segment_index={}, btrfs_detected={}, id_type={}, has_filesystem={}, mount_points={:?}",
+                segment_index, btrfs_info.is_some(), volume.id_type, volume.has_filesystem, volume.mount_points);
+            if let Some(mount_point) = btrfs_info {
+                tracing::info!("select_volume: Initializing BTRFS state with mount_point={:?}", mount_point);
+                control.btrfs_state = Some(BtrfsState::new(mount_point.clone()));
+
+                // If mounted, trigger data loading
+                if let Some(mp) = mount_point {
+                    let mut tasks = vec![Task::done(cosmic::Action::App(
+                        Message::SidebarSelectChild {
+                            object_path: object_path.clone(),
+                        },
+                    ))];
+
+                    // Load subvolumes
+                    tasks.push(Task::done(cosmic::Action::App(
+                        Message::BtrfsLoadSubvolumes {
+                            mount_point: mp.clone(),
+                        },
+                    )));
+
+                    // Load usage info
+                    tasks.push(Task::done(cosmic::Action::App(
+                        Message::BtrfsLoadUsage {
+                            mount_point: mp,
+                        },
+                    )));
+
+                    return Task::batch(tasks);
+                }
+            } else {
+                // Clear BTRFS state if not a BTRFS volume
+                control.btrfs_state = None;
+            }
         }
 
         // Sync with sidebar: select the corresponding volume in sidebar

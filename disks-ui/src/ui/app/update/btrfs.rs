@@ -162,16 +162,6 @@ pub(super) fn handle_btrfs_message(app: &mut AppModel, message: Message) -> Task
             Task::none()
         }
 
-        Message::BtrfsToggleExpanded => {
-            // Toggle the expanded state
-            if let Some(volumes_control) = app.nav.active_data_mut::<VolumesControl>()
-                && let Some(btrfs_state) = &mut volumes_control.btrfs_state
-            {
-                btrfs_state.expanded = !btrfs_state.expanded;
-            }
-            Task::none()
-        }
-
         _ => Task::none(),
     }
 }
