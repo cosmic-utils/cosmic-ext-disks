@@ -1,6 +1,7 @@
 use super::message::Message;
 use super::state::{AppModel, ContextPage};
 use crate::fl;
+use crate::ui::btrfs::{BtrfsState, btrfs_management_section};
 use crate::ui::dialogs::state::{DeletePartitionDialog, ShowDialog};
 use crate::ui::dialogs::view as dialogs;
 use crate::ui::sidebar;
@@ -541,25 +542,26 @@ fn build_volume_node_info<'a>(
         .into(),
     );
 
-    // Build column elements with conditional BTRFS management section
-    let mut column_elements = vec![
-        text_column.into(),
-        widget::Row::from_vec(action_buttons).spacing(4).into(),
-    ];
-
-    // BTRFS Detection: Add placeholder for BTRFS management
+    // Build info_and_actions with conditional BTRFS management section
     let is_btrfs = v.id_type.to_lowercase() == "btrfs"
         || (v.has_filesystem && v.id_type.to_lowercase() == "btrfs");
 
-    if is_btrfs {
-        column_elements.push(
-            widget::text("BTRFS Management (coming soon)")
-                .size(12.0)
-                .into(),
-        );
-    }
-
-    let info_and_actions = iced_widget::Column::from_vec(column_elements).spacing(8);
+    let info_and_actions = if is_btrfs {
+        // For Task 2 scaffold: keep simple placeholder for VolumeNode
+        // Will integrate properly with state in Task 4
+        iced_widget::column![
+            text_column,
+            widget::Row::from_vec(action_buttons).spacing(4),
+            widget::text("BTRFS Management (coming soon)").size(12.0)
+        ]
+        .spacing(8)
+    } else {
+        iced_widget::column![
+            text_column,
+            widget::Row::from_vec(action_buttons).spacing(4)
+        ]
+        .spacing(8)
+    };
 
     // Row layout: info_and_actions | pie_chart (aligned right, shrink to fit)
     iced_widget::Row::new()
@@ -924,25 +926,26 @@ fn build_partition_info<'a>(
         );
     }
 
-    // Build column elements with conditional BTRFS management section
-    let mut column_elements = vec![
-        text_column.into(),
-        widget::Row::from_vec(action_buttons).spacing(4).into(),
-    ];
-
-    // BTRFS Detection: Add placeholder for BTRFS management
+    // Build info_and_actions with conditional BTRFS management section
     let is_btrfs = p.id_type.to_lowercase() == "btrfs"
         || (p.has_filesystem && p.id_type.to_lowercase() == "btrfs");
 
-    if is_btrfs {
-        column_elements.push(
-            widget::text("BTRFS Management (coming soon)")
-                .size(12.0)
-                .into(),
-        );
-    }
-
-    let info_and_actions = iced_widget::Column::from_vec(column_elements).spacing(8);
+    let info_and_actions = if is_btrfs {
+        // For Task 2 scaffold: inline creation to avoid ownership issues
+        // Will integrate properly with AppModel state in Task 4
+        iced_widget::column![
+            text_column,
+            widget::Row::from_vec(action_buttons).spacing(4),
+            btrfs_management_section(p, &BtrfsState { expanded: true })
+        ]
+        .spacing(8)
+    } else {
+        iced_widget::column![
+            text_column,
+            widget::Row::from_vec(action_buttons).spacing(4)
+        ]
+        .spacing(8)
+    };
 
     // Row layout: info_and_actions | pie_chart (aligned right, shrink to fit)
     iced_widget::Row::new()

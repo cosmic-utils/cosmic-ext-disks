@@ -237,3 +237,7 @@ fs-desc-swap = Virtual memory
 
 # Filesystem tools warning
 fs-tools-warning = Some filesystem types are missing due to missing tools. See Settings for more info.
+
+# BTRFS Management
+btrfs-management = BTRFS Management
+btrfs-placeholder = BTRFS management features coming soon
