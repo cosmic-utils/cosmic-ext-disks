@@ -176,10 +176,13 @@ fn build_subvolume_hierarchy<'a>(
     let mut children_map: HashMap<u64, Vec<&BtrfsSubvolume>> = HashMap::new();
     
     for subvol in subvolumes {
-        children_map
-            .entry(subvol.parent_id)
-            .or_default()
-            .push(subvol);
+        // Only group by parent_id if it exists
+        if let Some(parent_id) = subvol.parent_id {
+            children_map
+                .entry(parent_id)
+                .or_default()
+                .push(subvol);
+        }
     }
 
     let mut list = iced_widget::column![].spacing(4);
@@ -189,7 +192,11 @@ fn build_subvolume_hierarchy<'a>(
     for subvol in subvolumes {
         // Only show subvolumes that are not children of another displayed subvolume
         // A heuristic: if this subvolume's parent_id appears in our list, skip it here
-        let parent_exists = subvolumes.iter().any(|sv| sv.id == subvol.parent_id);
+        let parent_exists = if let Some(parent_id) = subvol.parent_id {
+            subvolumes.iter().any(|sv| sv.id == parent_id)
+        } else {
+            false
+        };
         
         if !parent_exists {
             // This is a root-level subvolume
@@ -240,7 +247,7 @@ fn render_subvolume_row<'a>(
 
     // Path (normal text size, fills space)
     row_items.push(
-        widget::text(&subvol.path)
+        widget::text(subvol.path.display().to_string())
             .size(13.0)
             .width(cosmic::iced::Length::Fill)
             .into(),
@@ -259,7 +266,7 @@ fn render_subvolume_row<'a>(
             .on_press(Message::BtrfsDeleteSubvolume {
                 block_path: bp.clone(),
                 mount_point: mp.clone(),
-                path: subvol.path.clone(),
+                path: subvol.path.display().to_string(),
             })
             .padding(4)
     } else {

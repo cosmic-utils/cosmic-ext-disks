@@ -59,7 +59,10 @@ pub fn create_snapshot<'a>(state: BtrfsCreateSnapshotDialog) -> Element<'a, Mess
     } = state;
 
     // Create dropdown options from subvolumes
-    let options: Vec<String> = subvolumes.iter().map(|s| s.path.clone()).collect();
+    let options: Vec<String> = subvolumes
+        .iter()
+        .map(|s| s.path.display().to_string())
+        .collect();
 
     let mut content = iced_widget::column![
         caption(fl!("btrfs-source-subvolume")),

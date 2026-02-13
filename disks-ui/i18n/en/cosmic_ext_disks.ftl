@@ -270,3 +270,5 @@ btrfs-used-space = Used space
 btrfs-subvolume-id = ID
 btrfs-subvolume-path = Path
 btrfs-subvolume-actions = Actions
+btrfs-set-default-failed = Failed to set default subvolume
+btrfs-readonly-failed = Failed to toggle readonly flag

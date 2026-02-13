@@ -1,5 +1,6 @@
 use cosmic::Task;
-use disks_dbus::{BtrfsFilesystem, DiskManager, DriveModel, OwnedObjectPath};
+use disks_dbus::{BtrfsFilesystem, DriveModel};
+use std::path::PathBuf;
 
 use crate::app::Message;
 use crate::fl;
@@ -86,16 +87,13 @@ pub(super) fn btrfs_create_subvolume_message(
             state.running = true;
             state.error = None;
 
-            let block_path = state.block_path.clone();
+            let mount_point = state.mount_point.clone();
             let name = name.to_string();
 
             return Task::perform(
                 async move {
-                    let manager = DiskManager::new().await?;
-                    let connection = manager.connection();
-                    let block_obj_path: OwnedObjectPath = block_path.as_str().try_into()?;
-                    let btrfs = BtrfsFilesystem::new(connection, block_obj_path);
-
+                    let mount_path = PathBuf::from(&mount_point);
+                    let btrfs = BtrfsFilesystem::new(mount_path).await?;
                     btrfs.create_subvolume(&name).await?;
                     DriveModel::get_drives().await
                 },
@@ -216,17 +214,14 @@ pub(super) fn btrfs_create_snapshot_message(
             // Get source subvolume path
             let source_subvol = &state.subvolumes[state.selected_source_index];
             let source = source_subvol.path.clone();
-            let dest = name.to_string();
+            let dest = PathBuf::from(&name);
             let read_only = state.read_only;
-            let block_path = state.block_path.clone();
+            let mount_point = state.mount_point.clone();
 
             return Task::perform(
                 async move {
-                    let manager = DiskManager::new().await?;
-                    let connection = manager.connection();
-                    let block_obj_path: OwnedObjectPath = block_path.as_str().try_into()?;
-                    let btrfs = BtrfsFilesystem::new(connection, block_obj_path);
-
+                    let mount_path = PathBuf::from(&mount_point);
+                    let btrfs = BtrfsFilesystem::new(mount_path).await?;
                     btrfs.create_snapshot(&source, &dest, read_only).await?;
                     DriveModel::get_drives().await
                 },
