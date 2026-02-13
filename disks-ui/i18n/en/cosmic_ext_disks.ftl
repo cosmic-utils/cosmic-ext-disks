@@ -241,3 +241,8 @@ fs-tools-warning = Some filesystem types are missing due to missing tools. See S
 # BTRFS Management
 btrfs-management = BTRFS Management
 btrfs-placeholder = BTRFS management features coming soon
+btrfs-create-subvolume = Create Subvolume
+btrfs-subvolume-name = Subvolume Name
+btrfs-subvolume-name-required = Subvolume name is required
+btrfs-subvolume-invalid-chars = Subvolume name cannot contain slashes
+btrfs-create-subvolume-failed = Failed to create subvolume

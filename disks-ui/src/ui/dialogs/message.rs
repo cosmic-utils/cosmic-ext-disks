@@ -143,3 +143,10 @@ pub enum UnmountBusyMessage {
     Retry,
     KillAndRetry,
 }
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum BtrfsCreateSubvolumeMessage {
+    NameUpdate(String),
+    Create,
+    Cancel,
+}

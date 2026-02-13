@@ -4,6 +4,7 @@ use cosmic::{Element, iced_widget};
 use super::BtrfsState;
 use crate::fl;
 use crate::ui::app::message::Message;
+use crate::ui::volumes::VolumesControlMessage;
 
 /// Builds the BTRFS management section for a BTRFS volume
 pub fn btrfs_management_section<'a>(
@@ -58,6 +59,13 @@ pub fn btrfs_management_section<'a>(
     } else if let Some(result) = &state.subvolumes {
         match result {
             Ok(subvolumes) => {
+                // Add Create Subvolume button
+                content_items.push(
+                    widget::button::standard(fl!("btrfs-create-subvolume"))
+                        .on_press(VolumesControlMessage::OpenBtrfsCreateSubvolume.into())
+                        .into(),
+                );
+
                 if subvolumes.is_empty() {
                     content_items.push(
                         widget::text("No subvolumes found")

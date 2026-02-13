@@ -4,6 +4,7 @@ mod encryption;
 mod image;
 mod mount;
 mod partition;
+mod btrfs;
 
 pub use common::{confirmation, info};
 pub use disk::{format_disk, smart_data};
@@ -15,3 +16,4 @@ pub use mount::{edit_mount_options, unmount_busy};
 pub use partition::{
     create_partition, edit_filesystem_label, edit_partition, format_partition, resize_partition,
 };
+pub use btrfs::create_subvolume;

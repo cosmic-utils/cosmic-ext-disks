@@ -1,8 +1,8 @@
 use crate::app::Message;
 use crate::ui::dialogs::message::{
-    ChangePassphraseMessage, CreateMessage, EditEncryptionOptionsMessage,
-    EditFilesystemLabelMessage, EditMountOptionsMessage, EditPartitionMessage,
-    ResizePartitionMessage, TakeOwnershipMessage, UnlockMessage,
+    BtrfsCreateSubvolumeMessage, ChangePassphraseMessage, CreateMessage,
+    EditEncryptionOptionsMessage, EditFilesystemLabelMessage, EditMountOptionsMessage,
+    EditPartitionMessage, ResizePartitionMessage, TakeOwnershipMessage, UnlockMessage,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -30,6 +30,7 @@ pub enum VolumesControlMessage {
     OpenTakeOwnership,
     OpenChangePassphrase,
     OpenEditEncryptionOptions,
+    OpenBtrfsCreateSubvolume,
     CreateMessage(CreateMessage),
     UnlockMessage(UnlockMessage),
     EditPartitionMessage(EditPartitionMessage),
@@ -38,6 +39,7 @@ pub enum VolumesControlMessage {
     EditMountOptionsMessage(EditMountOptionsMessage),
     TakeOwnershipMessage(TakeOwnershipMessage),
     ChangePassphraseMessage(ChangePassphraseMessage),
+    BtrfsCreateSubvolumeMessage(BtrfsCreateSubvolumeMessage),
     EditEncryptionOptionsMessage(EditEncryptionOptionsMessage),
 }
 
@@ -146,6 +148,18 @@ impl From<TakeOwnershipMessage> for Message {
 impl From<ChangePassphraseMessage> for Message {
     fn from(val: ChangePassphraseMessage) -> Self {
         Message::VolumesMessage(VolumesControlMessage::ChangePassphraseMessage(val))
+    }
+}
+
+impl From<BtrfsCreateSubvolumeMessage> for VolumesControlMessage {
+    fn from(val: BtrfsCreateSubvolumeMessage) -> Self {
+        VolumesControlMessage::BtrfsCreateSubvolumeMessage(val)
+    }
+}
+
+impl From<BtrfsCreateSubvolumeMessage> for Message {
+    fn from(val: BtrfsCreateSubvolumeMessage) -> Self {
+        Message::VolumesMessage(VolumesControlMessage::BtrfsCreateSubvolumeMessage(val))
     }
 }
 

@@ -1,0 +1,112 @@
+use cosmic::Task;
+use disks_dbus::DriveModel;
+
+use crate::app::Message;
+use crate::fl;
+use crate::ui::dialogs::message::BtrfsCreateSubvolumeMessage;
+use crate::ui::dialogs::state::{BtrfsCreateSubvolumeDialog, ShowDialog};
+use crate::ui::error::{log_error_and_show_dialog, UiErrorContext};
+use crate::ui::volumes::VolumesControl;
+use crate::utils::btrfs;
+
+pub(super) fn open_create_subvolume(
+    control: &mut VolumesControl,
+    dialog: &mut Option<ShowDialog>,
+) -> Task<cosmic::Action<Message>> {
+    if dialog.is_some() {
+        return Task::none();
+    }
+
+    // Get mount point from BTRFS state
+    let Some(btrfs_state) = &control.btrfs_state else {
+        return Task::none();
+    };
+
+    let Some(mount_point) = &btrfs_state.mount_point else {
+        return Task::none();
+    };
+
+    *dialog = Some(ShowDialog::BtrfsCreateSubvolume(
+        BtrfsCreateSubvolumeDialog {
+            mount_point: mount_point.clone(),
+            name: String::new(),
+            running: false,
+            error: None,
+        },
+    ));
+
+    Task::none()
+}
+
+pub(super) fn btrfs_create_subvolume_message(
+    _control: &mut VolumesControl,
+    msg: BtrfsCreateSubvolumeMessage,
+    dialog: &mut Option<ShowDialog>,
+) -> Task<cosmic::Action<Message>> {
+    let Some(ShowDialog::BtrfsCreateSubvolume(state)) = dialog.as_mut() else {
+        return Task::none();
+    };
+
+    match msg {
+        BtrfsCreateSubvolumeMessage::NameUpdate(name) => {
+            state.name = name;
+            state.error = None;
+        }
+        BtrfsCreateSubvolumeMessage::Cancel => {
+            return Task::done(Message::CloseDialog.into());
+        }
+        BtrfsCreateSubvolumeMessage::Create => {
+            if state.running {
+                return Task::none();
+            }
+
+            // Validate name
+            let name = state.name.trim();
+            if name.is_empty() {
+                state.error = Some(fl!("btrfs-subvolume-name-required"));
+                return Task::none();
+            }
+
+            if name.contains('/') {
+                state.error = Some(fl!("btrfs-subvolume-invalid-chars"));
+                return Task::none();
+            }
+
+            if name.len() > 255 {
+                state.error = Some("Subvolume name too long".to_string());
+                return Task::none();
+            }
+
+            state.running = true;
+            state.error = None;
+
+            let mount_point = state.mount_point.clone();
+            let name = name.to_string();
+
+            return Task::perform(
+                async move {
+                    btrfs::create_subvolume(&mount_point, &name).await?;
+                    DriveModel::get_drives().await
+                },
+                |result| match result {
+                    Ok(drives) => {
+                        // Close dialog and refresh the drive list
+                        // The subvolume list will reload automatically via nav update
+                        Message::UpdateNav(drives, None).into()
+                    }
+                    Err(e) => {
+                        let ctx = UiErrorContext::new("create_subvolume");
+                        log_error_and_show_dialog(
+                            fl!("btrfs-create-subvolume-failed"),
+                            e,
+                            ctx,
+                        )
+                        .into()
+                    }
+                },
+            );
+        }
+    }
+
+    Task::none()
+}

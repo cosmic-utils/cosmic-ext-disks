@@ -12,6 +12,7 @@ mod mount;
 mod mount_options;
 mod partition;
 mod selection;
+mod btrfs;
 
 impl VolumesControl {
     pub fn update(
@@ -72,6 +73,9 @@ impl VolumesControl {
             VolumesControlMessage::OpenEditEncryptionOptions => {
                 encryption::open_edit_encryption_options(self, dialog)
             }
+            VolumesControlMessage::OpenBtrfsCreateSubvolume => {
+                btrfs::open_create_subvolume(self, dialog)
+            }
 
             VolumesControlMessage::CreateMessage(msg) => create::create_message(self, msg, dialog),
             VolumesControlMessage::UnlockMessage(unlock_message) => {
@@ -97,6 +101,9 @@ impl VolumesControl {
             }
             VolumesControlMessage::EditEncryptionOptionsMessage(msg) => {
                 encryption::edit_encryption_options_message(self, msg, dialog)
+            }
+            VolumesControlMessage::BtrfsCreateSubvolumeMessage(msg) => {
+                btrfs::btrfs_create_subvolume_message(self, msg, dialog)
             }
         }
     }
