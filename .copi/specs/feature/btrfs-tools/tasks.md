@@ -838,27 +838,72 @@ Task 9 (Polish & localization)
 4. Simplify conditional rendering chain
 5. Test with multiple subvolumes (create 3-4 test subvolumes)
 
+### 6. Subvolumes Grid Refinement (High Priority)
+**Current:** Flat list with grid headers (ID | Path | Actions)  
+**Required:** Hierarchical tree view with snapshots nested under parent subvolumes  
+**Details:**
+- **Remove header row** - Grid headers (ID/Path/Actions) should be removed
+- **Fixed position nodes** - All text and buttons align horizontally across rows
+- **Node structure:** `Path (normal text size) | ID (caption size) | Action buttons`
+- **Snapshot nesting:**
+  - Snapshots appear in expandable/collapsible section under their parent subvolume
+  - Use expander widget (similar to sidebar drive expander pattern)
+  - Expander shows count: "Snapshots (N)"
+  - When expanded, shows list of snapshots indented below parent
+- **Indentation:** Snapshot nodes should be visually indented (add left padding/margin)
+- **Action button styling:**
+  - Create Subvolume and Create Snapshot buttons should match icon button style from drive header / volume info
+  - Use `widget::button::icon()` with text label (not `button::standard()`)
+  - Icons: "list-add-symbolic" for create operations
+  - Size and padding should match existing action buttons (16px icon, 4-8px padding)
+- **Layout constraints:**
+  - Path column: flexible width (fills available space)
+  - ID column: fixed ~80px width
+  - Actions column: fixed ~60-80px width (icon button size)
+
+**Rationale:**
+- Hierarchical view better represents BTRFS snapshot relationships
+- Removes clutter from listing many snapshots
+- Matches UX patterns in other disk tools (GParted, GNOME Disks)
+- Fixed alignment improves scannability of large lists
+- Icon buttons reduce visual weight, match app patterns
+
+**Implementation notes:**
+- Snapshot detection: Check subvolume path or parent ID to determine snapshot relationship
+- Expander state: Store in BTRFS state (HashMap<subvol_id, bool> for expanded state)
+- Consider: Default expanded state for snapshots (all expanded on first load?)
+
 **Test Plan:**
-- Create BTRFS filesystem with default @ subvolume
-- Create additional test subvolumes (/test1, /test2)
-- Verify all 3 subvolumes appear in list with delete buttons
-- Verify count matches list length
+- Create BTRFS filesystem with @ subvolume
+- Create 3 snapshots of @ subvolume
+- Verify snapshots appear under @ with expander
+- Click expander, verify snapshots show/hide
+- Verify all IDs and paths align horizontally
+- Verify action buttons match drive header styling
+- Test with multiple parent subvolumes each having snapshots
 
 **Done When:**
-- [ ] Tabs relocated to `header_start` section of app header
-- [ ] Tabs right-aligned within `header_start` (centers them visually)
+- [ ] Tabs relocated to `header_center` section of app header
 - [ ] Tab labels updated ("Volume" / "BTRFS")
-- [ ] Selected tab uses accent color background
-- [ ] BTRFS section header text sized properly (match Volume Info)
-- [ ] Subheaders and body text sized correctly
+- [ ] Selected tab uses accent color background with white text
+- [ ] Unselected tab uses accent color text
+- [x] BTRFS section header text sized properly (match Volume Info)
+- [x] Subheaders and body text sized correctly
 - [ ] Usage display uses pie chart widget
 - [ ] Pie chart right-aligned
 - [ ] Padding matches drive header (no excess spacing)
-- [ ] **CRITICAL: Subvolumes list renders correctly**
-- [ ] Delete buttons appear on all subvolume rows
+- [x] **CRITICAL: Subvolumes list renders correctly**
+- [x] Delete buttons appear on all subvolume rows (using edit-delete-symbolic icon)
+- [x] Subvolumes display in grid layout with proper alignment
+- [ ] **Grid headers removed**
+- [ ] **Fixed position layout: Path | ID | Actions**
+- [ ] **Snapshots nested under parent subvolumes in expander**
+- [ ] **Snapshot rows indented**
+- [ ] **Create buttons use icon button styling (match drive header)**
 - [ ] Manual test: 3+ subvolumes all visible
+- [ ] Manual test: snapshots expand/collapse correctly
 
-**Estimated effort:** 4-6 hours (includes bug investigation time)
+**Estimated effort:** 6-8 hours (includes hierarchical layout + expander implementation)
 
 **Priority:** CRITICAL - Blocking Task 9 (final polish)
 
