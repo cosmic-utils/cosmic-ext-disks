@@ -48,6 +48,26 @@ This represents a significant gap compared to GNOME Disks and other disk utiliti
 
 ---
 
+## Known Issues (Discovered in Testing - 2026-02-13)
+
+### Critical
+- **Subvolumes list not rendering**: Count shows "Subvolumes (1)" but no list items display
+- Root cause unknown, investigation required (see Task 10 in tasks.md)
+
+### High Priority UI/UX Issues
+- **Tab placement**: Volume Info / BTRFS tabs should be in app top bar, not local to volume detail view
+- **Tab styling**: Selected tab should use accent color background
+- **Tab labels**: Too verbose (should be "Volume" / "BTRFS")
+
+### Medium Priority UI/UX Issues  
+- **Text sizing**: All BTRFS text too small (10-13px), should match Volume Info sizing (16-24px for headers)
+- **Usage display**: Currently text-only, should use pie chart like Volume Info (right-aligned)
+- **Excess padding**: BTRFS section has more horizontal padding than drive header
+
+**Status:** Implementation 95% complete, blocked on UI refinements (Task 10)
+
+---
+
 ## Non-Goals
 
 - **BTRFS advanced features**: No scrub operations, balance, device management, RAID profile changes, or send/receive

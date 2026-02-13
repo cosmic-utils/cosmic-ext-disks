@@ -753,7 +753,110 @@ Task 9 (Polish & localization)
 - [ ] No crashes or errors in normal use
 - [ ] Documentation complete
 
+**Status:** ⏸️ **BLOCKED** - UI/UX issues discovered (see Task 10)
+
 **Estimated effort:** 3-4 hours
+
+---
+
+## Task 10: UI/UX Refinements & Bug Fixes (DISCOVERED IN TESTING)
+
+**Scope:** Address UI/UX issues and bugs discovered during manual testing.
+
+**Files/Areas:**
+- `disks-ui/src/ui/app/view.rs` (tab bar relocation)
+- `disks-ui/src/ui/btrfs/view.rs` (sizing, layout, pie chart)
+- `disks-ui/src/ui/app/state.rs` (possibly move DetailTab state)
+- `disks-ui/i18n/en/cosmic_ext_disks.ftl` (update tab labels)
+
+**Issues Discovered:**
+
+### 1. Tab Placement (High Priority)
+**Current:** Volume Info / BTRFS Management tabs are local to volume detail view  
+**Required:** Move tabs to app-level top bar  
+**Details:**
+- Tabs should be part of main app header bar (next to app title or in dedicated tab bar)
+- Labels: "Volume Info" → "Volume", "BTRFS Management" → "BTRFS"
+- Selected tab should use theme accent color background
+- Both tabs always visible when BTRFS volume selected (not conditional rendering)
+
+### 2. Text Sizing Issues (Medium Priority)
+**Current:** All BTRFS Management text is size 10-13  
+**Required:** Match sizing with Volume Info tab  
+**Details:**
+- Section header ("BTRFS Management") should be size 20-24 (match drive header / volume info headers)
+- Subheaders ("Subvolumes (N)") should be size 16-18
+- Body text (subvolume paths, usage) should be size 12-14
+- Button text should use standard cosmic button sizing
+
+### 3. Usage Display (Medium Priority)
+**Current:** Text-only "Used space: X GB"  
+**Required:** Pie diagram matching Volume Info style  
+**Details:**
+- Use same pie chart widget as Volume Info capacity display
+- Right-align (like Volume Info)
+- Show used/total with visual representation
+- Consider: BTRFS allocation is complex (data/metadata/system)
+  - V1: Show simple used/total pie chart
+  - Future: Add detailed breakdown expansion
+
+### 4. Padding/Spacing (Low Priority)
+**Current:** Excess horizontal padding in BTRFS Management section  
+**Required:** Match drive header padding  
+**Details:**
+- Current `.padding(8)` in `btrfs_management_section()`
+- Should match padding used in drive header and Volume Info
+- Likely need to remove or reduce padding, rely on parent container spacing
+
+### 5. **BUG: Subvolumes Not Displaying** (CRITICAL)
+**Symptoms:**
+- Text shows "Subvolumes (1)" indicating 1 subvolume loaded
+- No subvolume list items render below the count
+- No delete buttons visible
+- Only "Create Subvolume" and "Create Snapshot" buttons show
+
+**Investigation needed:**
+- Check if subvolumes vec is actually populated in state
+- Check conditional rendering logic in `view.rs` lines 140-180
+- Verify the `for subvol in subvolumes` loop is executing
+- Check if Element rendering is failing silently
+- Add debug logging to confirm loop iteration
+
+**Likely causes:**
+- Conditional rendering bug (if-let chain issue)
+- Element type mismatch preventing rendering
+- CSS/layout issue hiding elements (overflow, z-index)
+- State mutation timing issue (list cleared after count displayed)
+
+**Steps:**
+1. Add `tracing::debug!` in subvolume loop to verify iteration
+2. Test with fresh state load (refresh after mount)
+3. Check browser DevTools if using WebView (visual debug)
+4. Simplify conditional rendering chain
+5. Test with multiple subvolumes (create 3-4 test subvolumes)
+
+**Test Plan:**
+- Create BTRFS filesystem with default @ subvolume
+- Create additional test subvolumes (/test1, /test2)
+- Verify all 3 subvolumes appear in list with delete buttons
+- Verify count matches list length
+
+**Done When:**
+- [ ] Tabs relocated to app-level top bar
+- [ ] Tab labels updated ("Volume" / "BTRFS")
+- [ ] Selected tab uses accent color background
+- [ ] BTRFS section header text sized properly (match Volume Info)
+- [ ] Subheaders and body text sized correctly
+- [ ] Usage display uses pie chart widget
+- [ ] Pie chart right-aligned
+- [ ] Padding matches drive header (no excess spacing)
+- [ ] **CRITICAL: Subvolumes list renders correctly**
+- [ ] Delete buttons appear on all subvolume rows
+- [ ] Manual test: 3+ subvolumes all visible
+
+**Estimated effort:** 4-6 hours (includes bug investigation time)
+
+**Priority:** CRITICAL - Blocking Task 9 (final polish)
 
 ---
 
