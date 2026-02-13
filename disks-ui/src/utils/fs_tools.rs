@@ -64,6 +64,13 @@ static FS_TOOL_REQUIREMENTS: LazyLock<Vec<FsToolInfo>> = LazyLock::new(|| {
             available: false,
         },
         FsToolInfo {
+            fs_type: "btrfs_udisks",
+            fs_name: "UDisks2 BTRFS Module",
+            command: "udisksctl",
+            package_hint: "udisks2-btrfs",
+            available: false,
+        },
+        FsToolInfo {
             fs_type: "f2fs",
             fs_name: "F2FS",
             command: "mkfs.f2fs",
@@ -144,7 +151,7 @@ mod tests {
     fn test_detect_fs_tools() {
         let tools = detect_fs_tools();
         assert!(!tools.is_empty());
-        assert_eq!(tools.len(), 7); // We define 7 filesystem types
+        assert_eq!(tools.len(), 8); // We define 8 filesystem types
     }
 
     #[test]

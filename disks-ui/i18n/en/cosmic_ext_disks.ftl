@@ -205,6 +205,13 @@ fs-tools-missing-desc = The following tools are not installed. Install them to e
 fs-tools-all-installed-title = Filesystem Tools
 fs-tools-all-installed = All filesystem tools are installed.
 fs-tools-required-for = required for {$fs_name} support
+
+# UDisks2 BTRFS module
+settings-enable-udisks-btrfs = Try Enable UDisks2 BTRFS
+settings-udisks-btrfs-enabled = UDisks2 BTRFS Module Enabled
+settings-udisks-btrfs-enabled-body = The UDisks2 BTRFS module has been enabled successfully. You can now use BTRFS management features.
+settings-udisks-btrfs-failed = Failed to Enable UDisks2 BTRFS Module
+
 offset = Offset
 
 # Partition dialog labels

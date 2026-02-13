@@ -64,6 +64,8 @@ pub enum Message {
     OpenImagePathPicker(ImagePathPickerKind),
     ImagePathPicked(ImagePathPickerKind, Option<String>),
     ToggleShowReserved(bool),
+    EnableUDisksBtrfs,
+    EnableUDisksBtrfsResult(Result<(), String>),
     #[allow(dead_code)]
     Surface(cosmic::surface::Action),
 

@@ -23,6 +23,8 @@ pub trait UDisks2Manager {
         &self,
         options: HashMap<String, Value<'_>>,
     ) -> zbus::Result<Vec<zvariant::OwnedObjectPath>>;
+    
+    fn enable_modules(&self, enable: bool) -> zbus::Result<()>;
 }
 
 #[proxy(
@@ -126,6 +128,16 @@ impl DiskManager {
         });
 
         Ok(DeviceEventStream { receiver })
+    }
+
+    /// Enable UDisks2 modules (primarily for udisks2-btrfs support).
+    ///
+    /// On systems with `modules_load_preference=ondemand`, this must be called
+    /// to enable the BTRFS interface on mounted BTRFS filesystems.
+    pub async fn enable_modules(&self) -> Result<()> {
+        let manager = UDisks2ManagerProxy::new(&self.connection).await?;
+        manager.enable_modules(true).await?;
+        Ok(())
     }
 
     pub async fn apply_change(

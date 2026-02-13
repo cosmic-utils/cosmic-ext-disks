@@ -19,7 +19,7 @@ use cosmic::app::Task;
 use cosmic::cosmic_config::CosmicConfigEntry;
 use cosmic::dialog::file_chooser;
 use cosmic::widget::nav_bar;
-use disks_dbus::{DiskError, DriveModel, VolumeNode};
+use disks_dbus::{DiskError, DiskManager, DriveModel, VolumeNode};
 
 /// Recursively search for a volume child by object_path
 fn find_volume_child_recursive<'a>(
@@ -102,6 +102,48 @@ pub(crate) fn update(app: &mut AppModel, message: Message) -> Task<Message> {
             if let Some(volumes_control) = app.nav.active_data_mut::<VolumesControl>() {
                 volumes_control.set_show_reserved(show_reserved);
             }
+        }
+        Message::EnableUDisksBtrfs => {
+            return Task::perform(
+                async {
+                    match DiskManager::new().await {
+                        Ok(manager) => match manager.enable_modules().await {
+                            Ok(()) => Ok(()),
+                            Err(e) => Err(format!("Failed to enable modules: {}", e)),
+                        },
+                        Err(e) => Err(format!("Failed to create manager: {}", e)),
+                    }
+                },
+                |result| Message::EnableUDisksBtrfsResult(result).into(),
+            );
+        }
+        Message::EnableUDisksBtrfsResult(result) => {
+            return match result {
+                Ok(()) => {
+                    tracing::info!("UDisks2 BTRFS modules enabled successfully");
+                    cosmic::Task::done(
+                        Message::Dialog(Box::new(
+                            crate::ui::dialogs::state::ShowDialog::Info {
+                                title: fl!("settings-udisks-btrfs-enabled"),
+                                body: fl!("settings-udisks-btrfs-enabled-body"),
+                            },
+                        ))
+                        .into(),
+                    )
+                }
+                Err(e) => {
+                    tracing::error!("Failed to enable UDisks2 BTRFS modules: {}", e);
+                    cosmic::Task::done(
+                        Message::Dialog(Box::new(
+                            crate::ui::dialogs::state::ShowDialog::Info {
+                                title: fl!("settings-udisks-btrfs-failed"),
+                                body: e,
+                            },
+                        ))
+                        .into(),
+                    )
+                }
+            };
         }
         Message::OpenImagePathPicker(kind) => {
             let title = match kind {
