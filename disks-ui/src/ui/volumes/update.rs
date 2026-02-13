@@ -76,6 +76,9 @@ impl VolumesControl {
             VolumesControlMessage::OpenBtrfsCreateSubvolume => {
                 btrfs::open_create_subvolume(self, dialog)
             }
+            VolumesControlMessage::OpenBtrfsCreateSnapshot => {
+                btrfs::open_create_snapshot(self, dialog)
+            }
 
             VolumesControlMessage::CreateMessage(msg) => create::create_message(self, msg, dialog),
             VolumesControlMessage::UnlockMessage(unlock_message) => {
@@ -104,6 +107,9 @@ impl VolumesControl {
             }
             VolumesControlMessage::BtrfsCreateSubvolumeMessage(msg) => {
                 btrfs::btrfs_create_subvolume_message(self, msg, dialog)
+            }
+            VolumesControlMessage::BtrfsCreateSnapshotMessage(msg) => {
+                btrfs::btrfs_create_snapshot_message(self, msg, dialog)
             }
         }
     }

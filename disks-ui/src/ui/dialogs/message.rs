@@ -150,3 +150,12 @@ pub enum BtrfsCreateSubvolumeMessage {
     Create,
     Cancel,
 }
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum BtrfsCreateSnapshotMessage {
+    SourceIndexUpdate(usize),
+    NameUpdate(String),
+    ReadOnlyUpdate(bool),
+    Create,
+    Cancel,
+}

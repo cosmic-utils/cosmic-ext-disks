@@ -58,14 +58,20 @@ pub fn btrfs_management_section<'a>(
     } else if let Some(result) = &state.subvolumes {
         match result {
             Ok(subvolumes) => {
-                // Add Create Subvolume button
-                content_items.push(
+                // Add Create buttons row
+                let button_row = iced_widget::row![
                     widget::button::standard(fl!("btrfs-create-subvolume"))
                         .on_press(Message::VolumesMessage(
                             crate::ui::volumes::VolumesControlMessage::OpenBtrfsCreateSubvolume
-                        ))
-                        .into(),
-                );
+                        )),
+                    widget::button::standard(fl!("btrfs-create-snapshot"))
+                        .on_press(Message::VolumesMessage(
+                            crate::ui::volumes::VolumesControlMessage::OpenBtrfsCreateSnapshot
+                        )),
+                ]
+                .spacing(8);
+
+                content_items.push(button_row.into());
 
                 if subvolumes.is_empty() {
                     content_items.push(

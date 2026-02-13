@@ -116,6 +116,10 @@ pub(crate) fn dialog(app: &AppModel) -> Option<Element<'_, Message>> {
                 Some(dialogs::create_subvolume(state.clone()))
             }
 
+            crate::ui::dialogs::state::ShowDialog::BtrfsCreateSnapshot(state) => {
+                Some(dialogs::create_snapshot(state.clone()))
+            }
+
             crate::ui::dialogs::state::ShowDialog::Info { title, body } => {
                 Some(dialogs::info(title, body, Message::CloseDialog))
             }

@@ -16,4 +16,4 @@ pub use mount::{edit_mount_options, unmount_busy};
 pub use partition::{
     create_partition, edit_filesystem_label, edit_partition, format_partition, resize_partition,
 };
-pub use btrfs::create_subvolume;
+pub use btrfs::{create_subvolume, create_snapshot};

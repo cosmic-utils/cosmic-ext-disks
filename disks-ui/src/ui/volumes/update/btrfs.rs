@@ -3,8 +3,10 @@ use disks_dbus::DriveModel;
 
 use crate::app::Message;
 use crate::fl;
-use crate::ui::dialogs::message::BtrfsCreateSubvolumeMessage;
-use crate::ui::dialogs::state::{BtrfsCreateSubvolumeDialog, ShowDialog};
+use crate::ui::dialogs::message::{BtrfsCreateSubvolumeMessage, BtrfsCreateSnapshotMessage};
+use crate::ui::dialogs::state::{
+    BtrfsCreateSubvolumeDialog, BtrfsCreateSnapshotDialog, ShowDialog,
+};
 use crate::ui::error::{log_error_and_show_dialog, UiErrorContext};
 use crate::ui::volumes::VolumesControl;
 use crate::utils::btrfs;
@@ -110,3 +112,129 @@ pub(super) fn btrfs_create_subvolume_message(
 
     Task::none()
 }
+
+pub(super) fn open_create_snapshot(
+    control: &mut VolumesControl,
+    dialog: &mut Option<ShowDialog>,
+) -> Task<cosmic::Action<Message>> {
+    if dialog.is_some() {
+        return Task::none();
+    }
+
+    // Get BTRFS state with subvolumes
+    let Some(btrfs_state) = &control.btrfs_state else {
+        return Task::none();
+    };
+
+    let Some(mount_point) = &btrfs_state.mount_point else {
+        return Task::none();
+    };
+
+    // Get subvolumes list
+    let subvolumes = match &btrfs_state.subvolumes {
+        Some(Ok(subvols)) if !subvols.is_empty() => subvols.clone(),
+        _ => {
+            // No subvolumes available
+            return Task::none();
+        }
+    };
+
+    *dialog = Some(ShowDialog::BtrfsCreateSnapshot(
+        BtrfsCreateSnapshotDialog {
+            mount_point: mount_point.clone(),
+            subvolumes,
+            selected_source_index: 0,
+            snapshot_name: String::new(),
+            read_only: true,
+            running: false,
+            error: None,
+        },
+    ));
+
+    Task::none()
+}
+
+pub(super) fn btrfs_create_snapshot_message(
+    _control: &mut VolumesControl,
+    msg: BtrfsCreateSnapshotMessage,
+    dialog: &mut Option<ShowDialog>,
+) -> Task<cosmic::Action<Message>> {
+    let Some(ShowDialog::BtrfsCreateSnapshot(state)) = dialog.as_mut() else {
+        return Task::none();
+    };
+
+    match msg {
+        BtrfsCreateSnapshotMessage::SourceIndexUpdate(index) => {
+            if index < state.subvolumes.len() {
+                state.selected_source_index = index;
+            }
+            state.error = None;
+        }
+        BtrfsCreateSnapshotMessage::NameUpdate(name) => {
+            state.snapshot_name = name;
+            state.error = None;
+        }
+        BtrfsCreateSnapshotMessage::ReadOnlyUpdate(read_only) => {
+            state.read_only = read_only;
+        }
+        BtrfsCreateSnapshotMessage::Cancel => {
+            return Task::done(Message::CloseDialog.into());
+        }
+        BtrfsCreateSnapshotMessage::Create => {
+            if state.running {
+                return Task::none();
+            }
+
+            // Validate snapshot name
+            let name = state.snapshot_name.trim();
+            if name.is_empty() {
+                state.error = Some(fl!("btrfs-subvolume-name-required"));
+                return Task::none();
+            }
+
+            if name.contains('/') {
+                state.error = Some(fl!("btrfs-subvolume-invalid-chars"));
+                return Task::none();
+            }
+
+            if name.len() > 255 {
+                state.error = Some("Snapshot name too long".to_string());
+                return Task::none();
+            }
+
+            // Get source path
+            let source_subvol = &state.subvolumes[state.selected_source_index];
+            let source = format!("{}/{}", state.mount_point, source_subvol.path);
+            let dest = format!("{}/{}", state.mount_point, name);
+            let read_only = state.read_only;
+
+            state.running = true;
+            state.error = None;
+
+            return Task::perform(
+                async move {
+                    btrfs::create_snapshot(&source, &dest, read_only).await?;
+                    DriveModel::get_drives().await
+                },
+                |result| match result {
+                    Ok(drives) => {
+                        // Close dialog and refresh the drive list
+                        Message::UpdateNav(drives, None).into()
+                    }
+                    Err(e) => {
+                        let ctx = UiErrorContext::new("create_snapshot");
+                        log_error_and_show_dialog(
+                            fl!("btrfs-create-snapshot-failed"),
+                            e,
+                            ctx,
+                        )
+                        .into()
+                    }
+                },
+            );
+        }
+    }
+
+    Task::none()
+}
+

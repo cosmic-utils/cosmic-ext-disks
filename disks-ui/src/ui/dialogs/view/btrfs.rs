@@ -1,10 +1,11 @@
-use cosmic::widget::{button, dialog, text_input, text};
+use cosmic::widget::{button, dialog, text_input, text, checkbox, dropdown};
+use cosmic::widget::text::caption;
 use cosmic::{iced_widget, Element};
 
 use crate::app::Message;
 use crate::fl;
-use crate::ui::dialogs::message::BtrfsCreateSubvolumeMessage;
-use crate::ui::dialogs::state::BtrfsCreateSubvolumeDialog;
+use crate::ui::dialogs::message::{BtrfsCreateSubvolumeMessage, BtrfsCreateSnapshotMessage};
+use crate::ui::dialogs::state::{BtrfsCreateSubvolumeDialog, BtrfsCreateSnapshotDialog};
 
 pub fn create_subvolume<'a>(state: BtrfsCreateSubvolumeDialog) -> Element<'a, Message> {
     let BtrfsCreateSubvolumeDialog {
@@ -38,6 +39,57 @@ pub fn create_subvolume<'a>(state: BtrfsCreateSubvolumeDialog) -> Element<'a, Me
         .primary_action(create_button)
         .secondary_action(
             button::standard(fl!("cancel")).on_press(BtrfsCreateSubvolumeMessage::Cancel.into()),
+        )
+        .into()
+}
+
+pub fn create_snapshot<'a>(state: BtrfsCreateSnapshotDialog) -> Element<'a, Message> {
+    let BtrfsCreateSnapshotDialog {
+        mount_point: _,
+        subvolumes,
+        selected_source_index,
+        snapshot_name,
+        read_only,
+        running,
+        error,
+    } = state;
+
+    // Create dropdown options from subvolumes
+    let options: Vec<String> = subvolumes.iter().map(|s| s.path.clone()).collect();
+    
+    let mut content = iced_widget::column![
+        caption(fl!("btrfs-source-subvolume")),
+        dropdown(options, Some(selected_source_index), |idx| {
+            BtrfsCreateSnapshotMessage::SourceIndexUpdate(idx).into()
+        })
+        .width(cosmic::iced::Length::Fill),
+        text_input(fl!("btrfs-snapshot-name"), snapshot_name)
+            .label(fl!("btrfs-snapshot-name"))
+            .on_input(|t| BtrfsCreateSnapshotMessage::NameUpdate(t).into()),
+        checkbox(fl!("btrfs-read-only"), read_only)
+            .on_toggle(|v| BtrfsCreateSnapshotMessage::ReadOnlyUpdate(v).into()),
+    ]
+    .spacing(12);
+
+    if running {
+        content = content.push(text(fl!("working")).size(11));
+    }
+
+    if let Some(error_msg) = error {
+        content = content.push(text(error_msg).size(11));
+    }
+
+    let mut create_button = button::standard(fl!("apply"));
+    if !running {
+        create_button = create_button.on_press(BtrfsCreateSnapshotMessage::Create.into());
+    }
+
+    dialog::dialog()
+        .title(fl!("btrfs-create-snapshot"))
+        .control(content)
+        .primary_action(create_button)
+        .secondary_action(
+            button::standard(fl!("cancel")).on_press(BtrfsCreateSnapshotMessage::Cancel.into()),
         )
         .into()
 }

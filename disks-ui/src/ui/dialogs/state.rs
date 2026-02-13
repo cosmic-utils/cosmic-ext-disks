@@ -24,6 +24,7 @@ pub enum ShowDialog {
     ImageOperation(Box<ImageOperationDialog>),
     UnmountBusy(UnmountBusyDialog),
     BtrfsCreateSubvolume(BtrfsCreateSubvolumeDialog),
+    BtrfsCreateSnapshot(BtrfsCreateSnapshotDialog),
     Info {
         title: String,
         body: String,
@@ -213,6 +214,17 @@ pub struct UnmountBusyDialog {
 pub struct BtrfsCreateSubvolumeDialog {
     pub mount_point: String,
     pub name: String,
+    pub running: bool,
+    pub error: Option<String>,
+}
+
+#[derive(Debug, Clone)]
+pub struct BtrfsCreateSnapshotDialog {
+    pub mount_point: String,
+    pub subvolumes: Vec<crate::utils::btrfs::Subvolume>,
+    pub selected_source_index: usize,
+    pub snapshot_name: String,
+    pub read_only: bool,
     pub running: bool,
     pub error: Option<String>,
 }

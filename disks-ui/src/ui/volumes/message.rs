@@ -1,8 +1,9 @@
 use crate::app::Message;
 use crate::ui::dialogs::message::{
-    BtrfsCreateSubvolumeMessage, ChangePassphraseMessage, CreateMessage,
-    EditEncryptionOptionsMessage, EditFilesystemLabelMessage, EditMountOptionsMessage,
-    EditPartitionMessage, ResizePartitionMessage, TakeOwnershipMessage, UnlockMessage,
+    BtrfsCreateSubvolumeMessage, BtrfsCreateSnapshotMessage, ChangePassphraseMessage,
+    CreateMessage, EditEncryptionOptionsMessage, EditFilesystemLabelMessage,
+    EditMountOptionsMessage, EditPartitionMessage, ResizePartitionMessage, TakeOwnershipMessage,
+    UnlockMessage,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -31,6 +32,7 @@ pub enum VolumesControlMessage {
     OpenChangePassphrase,
     OpenEditEncryptionOptions,
     OpenBtrfsCreateSubvolume,
+    OpenBtrfsCreateSnapshot,
     CreateMessage(CreateMessage),
     UnlockMessage(UnlockMessage),
     EditPartitionMessage(EditPartitionMessage),
@@ -39,8 +41,9 @@ pub enum VolumesControlMessage {
     EditMountOptionsMessage(EditMountOptionsMessage),
     TakeOwnershipMessage(TakeOwnershipMessage),
     ChangePassphraseMessage(ChangePassphraseMessage),
-    BtrfsCreateSubvolumeMessage(BtrfsCreateSubvolumeMessage),
     EditEncryptionOptionsMessage(EditEncryptionOptionsMessage),
+    BtrfsCreateSubvolumeMessage(BtrfsCreateSubvolumeMessage),
+    BtrfsCreateSnapshotMessage(BtrfsCreateSnapshotMessage),
 }
 
 impl From<CreateMessage> for VolumesControlMessage {
@@ -160,6 +163,18 @@ impl From<BtrfsCreateSubvolumeMessage> for VolumesControlMessage {
 impl From<BtrfsCreateSubvolumeMessage> for Message {
     fn from(val: BtrfsCreateSubvolumeMessage) -> Self {
         Message::VolumesMessage(VolumesControlMessage::BtrfsCreateSubvolumeMessage(val))
+    }
+}
+
+impl From<BtrfsCreateSnapshotMessage> for VolumesControlMessage {
+    fn from(val: BtrfsCreateSnapshotMessage) -> Self {
+        VolumesControlMessage::BtrfsCreateSnapshotMessage(val)
+    }
+}
+
+impl From<BtrfsCreateSnapshotMessage> for Message {
+    fn from(val: BtrfsCreateSnapshotMessage) -> Self {
+        Message::VolumesMessage(VolumesControlMessage::BtrfsCreateSnapshotMessage(val))
     }
 }
 
