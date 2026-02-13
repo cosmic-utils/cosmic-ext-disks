@@ -109,12 +109,31 @@ impl BtrfsFilesystem {
 
     /// Create a new subvolume
     pub async fn create_subvolume(&self, name: &str) -> Result<BtrfsSubvolume> {
-        unimplemented!("Task 2.1")
+        let operation = Operation::CreateSubvolume {
+            mount_point: self.mount_point.clone(),
+            name: name.to_string(),
+        };
+
+        self.helper.execute(operation).await
+            .context("Failed to create subvolume")?;
+
+        // Query the newly created subvolume info
+        let subvol_path = self.mount_point.join(name);
+        self.get_subvolume_info(&subvol_path).await
     }
 
     /// Delete a subvolume
     pub async fn delete_subvolume(&self, path: &Path) -> Result<()> {
-        unimplemented!("Task 2.1")
+        let operation = Operation::DeleteSubvolume {
+            mount_point: self.mount_point.clone(),
+            path: path.to_path_buf(),
+            recursive: false,
+        };
+
+        self.helper.execute(operation).await
+            .context("Failed to delete subvolume")?;
+
+        Ok(())
     }
 
     /// Create a snapshot of a subvolume
@@ -124,37 +143,104 @@ impl BtrfsFilesystem {
         dest: &Path,
         readonly: bool,
     ) -> Result<BtrfsSubvolume> {
-        unimplemented!("Task 2.1")
+        let operation = Operation::CreateSnapshot {
+            mount_point: self.mount_point.clone(),
+            source: source.to_path_buf(),
+            dest: dest.to_path_buf(),
+            readonly,
+            recursive: false,
+        };
+
+        self.helper.execute(operation).await
+            .context("Failed to create snapshot")?;
+
+        // Query the newly created snapshot info
+        self.get_subvolume_info(dest).await
     }
 
     /// Get detailed information about a subvolume
     pub async fn get_subvolume_info(&self, path: &Path) -> Result<BtrfsSubvolume> {
-        unimplemented!("Task 2.1")
+        // List all subvolumes and find the one with matching path
+        let subvolumes = self.list_subvolumes().await?;
+        
+        let canonical_path = path.canonicalize()
+            .unwrap_or_else(|_| path.to_path_buf());
+
+        subvolumes
+            .into_iter()
+            .find(|s| {
+                let subvol_canonical = s.path.canonicalize()
+                    .unwrap_or_else(|_| s.path.clone());
+                subvol_canonical == canonical_path
+            })
+            .ok_or_else(|| anyhow::anyhow!("Subvolume not found at {}", path.display()))
     }
 
     /// Set or unset the read-only flag on a subvolume
     pub async fn set_readonly(&self, path: &Path, readonly: bool) -> Result<()> {
-        unimplemented!("Task 2.1")
+        let operation = Operation::SetReadonly {
+            mount_point: self.mount_point.clone(),
+            path: path.to_path_buf(),
+            readonly,
+        };
+
+        self.helper.execute(operation).await
+            .context("Failed to set readonly flag")?;
+
+        Ok(())
     }
 
     /// Get the default subvolume
     pub async fn get_default_subvolume(&self) -> Result<BtrfsSubvolume> {
-        unimplemented!("Task 2.1")
+        let default_id = self.get_default_subvolume_id().await?;
+        
+        // List all subvolumes and find the default one
+        let subvolumes = self.list_subvolumes().await?;
+        
+        subvolumes
+            .into_iter()
+            .find(|s| s.id == default_id)
+            .ok_or_else(|| anyhow::anyhow!("Default subvolume (ID {}) not found", default_id))
     }
 
     /// Set a subvolume as the default
     pub async fn set_default_subvolume(&self, path: &Path) -> Result<()> {
-        unimplemented!("Task 2.1")
+        let operation = Operation::SetDefault {
+            mount_point: self.mount_point.clone(),
+            path: path.to_path_buf(),
+        };
+
+        self.helper.execute(operation).await
+            .context("Failed to set default subvolume")?;
+
+        Ok(())
     }
 
     /// List deleted subvolumes pending cleanup
     pub async fn list_deleted_subvolumes(&self) -> Result<Vec<BtrfsSubvolume>> {
-        unimplemented!("Task 2.1")
+        let operation = Operation::ListDeleted {
+            mount_point: self.mount_point.clone(),
+        };
+
+        let output = self.helper.execute(operation).await
+            .context("Failed to list deleted subvolumes")?;
+
+        // Parse array of deleted subvolumes
+        let helper_outputs: Vec<SubvolumeHelperOutput> = serde_json::from_value(output)
+            .context("Failed to deserialize deleted subvolume list")?;
+
+        // Convert to BtrfsSubvolume
+        helper_outputs
+            .into_iter()
+            .map(|output| BtrfsSubvolume::try_from(output))
+            .collect::<Result<Vec<_>>>()
+            .context("Failed to convert deleted subvolume data")
     }
 
     /// Check if a path is a subvolume
     pub async fn is_subvolume(&self, path: &Path) -> Result<bool> {
-        unimplemented!("Task 2.1")
+        // Try to get subvolume info - if it succeeds, it's a subvolume
+        Ok(self.get_subvolume_info(path).await.is_ok())
     }
 }
 
