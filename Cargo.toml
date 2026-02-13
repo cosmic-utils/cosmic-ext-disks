@@ -2,7 +2,9 @@
 members = [
     "disks-dbus",
     "disks-ui",
-    "disks-btrfs-helper",
+    "disks-btrfs-helper",  # Keep old helper for now
+    "disks-btrfs",         # New library
+    "storage-service",     # New D-Bus service
 ]
 default-members = ["disks-ui"]
 resolver = "2"

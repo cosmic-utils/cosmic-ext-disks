@@ -1,0 +1,32 @@
+[Unit]
+Description=COSMIC Storage Management Service
+Documentation=https://github.com/cosmic-utils/cosmic-ext-disks
+Requires=dbus.service
+After=dbus.service
+
+[Service]
+Type=dbus
+BusName=org.cosmic.ext.StorageService
+ExecStart=/usr/bin/cosmic-storage-service
+Restart=on-failure
+RestartSec=5s
+
+# Security hardening
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/dev /sys /run/udev
+
+# Resource limits
+MemoryMax=256M
+TasksMax=50
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=cosmic-storage-service
+
+[Install]
+WantedBy=multi-user.target
+Also=cosmic-storage-service.socket

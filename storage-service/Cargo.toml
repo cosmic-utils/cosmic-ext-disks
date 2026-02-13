@@ -1,0 +1,37 @@
+[package]
+name = "storage-service"
+description = "D-Bus service for COSMIC Disks storage operations"
+version = "0.1.0"
+edition = "2024"
+license = "GPL-3.0-only"
+
+[[bin]]
+name = "cosmic-storage-service"
+path = "src/main.rs"
+
+[dependencies]
+# D-Bus framework
+zbus.workspace = true
+zbus_polkit = "5.0"
+
+# Async runtime
+tokio.workspace = true
+
+# Logging
+tracing.workspace = true
+tracing-subscriber.workspace = true
+
+# Error handling
+anyhow.workspace = true
+thiserror.workspace = true
+
+# Serialization
+serde.workspace = true
+serde_json.workspace = true
+
+# System integration
+libc.workspace = true
+
+# Internal dependencies
+disks-btrfs = { path = "../disks-btrfs" }
+disks-dbus.workspace = true

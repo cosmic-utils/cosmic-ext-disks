@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE policyconfig PUBLIC "-//freedesktop//DTD PolicyKit Policy Configuration 1.0//EN"
+  "http://www.freedesktop.org/standards/PolicyKit/1/policyconfig.dtd">
+<policyconfig>
+  <vendor>System76</vendor>
+  <vendor_url>https://github.com/cosmic-utils/cosmic-ext-disks</vendor_url>
+
+  <!-- BTRFS Read Operations -->
+  <action id="org.cosmic.ext.storage-service.btrfs-read">
+    <description>Read BTRFS filesystem information</description>
+    <message>Authentication is required to read BTRFS filesystem information</message>
+    <defaults>
+      <allow_any>no</allow_any>
+      <allow_inactive>no</allow_inactive>
+      <allow_active>yes</allow_active>  <!-- No auth for read operations -->
+    </defaults>
+  </action>
+
+  <!-- BTRFS Modify Operations -->
+  <action id="org.cosmic.ext.storage-service.btrfs-modify">
+    <description>Modify BTRFS filesystems</description>
+    <message>Authentication is required to modify BTRFS filesystems</message>
+    <defaults>
+      <allow_any>auth_admin</allow_any>
+      <allow_inactive>auth_admin</allow_inactive>
+      <allow_active>auth_admin_keep</allow_active>  <!-- Auth once, remember for session -->
+    </defaults>
+  </action>
+
+  <!-- Partition Read Operations -->
+  <action id="org.cosmic.ext.storage-service.partition-read">
+    <description>Read partition information</description>
+    <message>Authentication is required to read partition information</message>
+    <defaults>
+      <allow_any>no</allow_any>
+      <allow_inactive>no</allow_inactive>
+      <allow_active>yes</allow_active>
+    </defaults>
+  </action>
+
+  <!-- Partition Modify Operations -->
+  <action id="org.cosmic.ext.storage-service.partition-modify">
+    <description>Modify disk partitions</description>
+    <message>Authentication is required to modify disk partitions</message>
+    <defaults>
+      <allow_any>auth_admin</allow_any>
+      <allow_inactive>auth_admin</allow_inactive>
+      <allow_active>auth_admin_keep</allow_active>
+    </defaults>
+  </action>
+
+  <!-- LVM Operations -->
+  <action id="org.cosmic.ext.storage-service.lvm-modify">
+    <description>Modify LVM volumes</description>
+    <message>Authentication is required to modify LVM volumes</message>
+    <defaults>
+      <allow_any>auth_admin</allow_any>
+      <allow_inactive>auth_admin</allow_inactive>
+      <allow_active>auth_admin_keep</allow_active>
+    </defaults>
+  </action>
+
+  <!-- Dangerous Operations (Always require auth) -->
+  <action id="org.cosmic.ext.storage-service.format">
+    <description>Format storage devices</description>
+    <message>Authentication is required to format storage devices</message>
+    <defaults>
+      <allow_any>auth_admin</allow_any>
+      <allow_inactive>auth_admin</allow_inactive>
+      <allow_active>auth_admin</allow_active>  <!-- Always prompt for format -->
+    </defaults>
+  </action>
+</policyconfig>
