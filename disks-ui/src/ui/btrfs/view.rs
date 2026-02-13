@@ -4,6 +4,17 @@ use cosmic::{Element, iced_widget};
 use super::BtrfsState;
 use crate::fl;
 use crate::ui::app::message::Message;
+use disks_dbus::BtrfsSubvolume;
+use std::collections::HashMap;
+
+/// Helper to get expander icon name
+fn expander_icon(expanded: bool) -> &'static str {
+    if expanded {
+        "go-down-symbolic"
+    } else {
+        "go-next-symbolic"
+    }
+}
 
 /// Builds the BTRFS management section for a BTRFS volume
 pub fn btrfs_management_section<'a>(
@@ -120,17 +131,23 @@ pub fn btrfs_management_section<'a>(
     } else if let Some(result) = &state.subvolumes {
         match result {
             Ok(subvolumes) => {
-                // Add Create buttons row
+                // Add Create buttons row with icon button styling
                 let button_row = iced_widget::row![
-                    widget::button::standard(fl!("btrfs-create-subvolume")).on_press(
-                        Message::VolumesMessage(
-                            crate::ui::volumes::VolumesControlMessage::OpenBtrfsCreateSubvolume
-                        )
+                    widget::tooltip(
+                        widget::button::icon(widget::icon::from_name("list-add-symbolic"))
+                            .on_press(Message::VolumesMessage(
+                                crate::ui::volumes::VolumesControlMessage::OpenBtrfsCreateSubvolume
+                            )),
+                        widget::text(fl!("btrfs-create-subvolume")),
+                        widget::tooltip::Position::Bottom,
                     ),
-                    widget::button::standard(fl!("btrfs-create-snapshot")).on_press(
-                        Message::VolumesMessage(
-                            crate::ui::volumes::VolumesControlMessage::OpenBtrfsCreateSnapshot
-                        )
+                    widget::tooltip(
+                        widget::button::icon(widget::icon::from_name("camera-photo-symbolic"))
+                            .on_press(Message::VolumesMessage(
+                                crate::ui::volumes::VolumesControlMessage::OpenBtrfsCreateSnapshot
+                            )),
+                        widget::text(fl!("btrfs-create-snapshot")),
+                        widget::tooltip::Position::Bottom,
                     ),
                 ]
                 .spacing(8);
@@ -140,57 +157,9 @@ pub fn btrfs_management_section<'a>(
                 if subvolumes.is_empty() {
                     content_items.push(widget::text("No subvolumes found").size(11.0).into());
                 } else {
-                    // Show subvolumes list
-                    tracing::debug!("Rendering {} subvolumes", subvolumes.len());
-                    
-                    // Create grid with headers
-                    let mut subvol_grid = iced_widget::column![].spacing(4);
-                    
-                    // Add header row
-                    let header_row = iced_widget::row![
-                        widget::text::caption_heading(fl!("btrfs-subvolume-id")).width(80),
-                        widget::text::caption_heading(fl!("btrfs-subvolume-path")),
-                        widget::text::caption_heading(fl!("btrfs-subvolume-actions")).width(60),
-                    ]
-                    .spacing(12);
-                    subvol_grid = subvol_grid.push(header_row);
-
-                    for (idx, subvol) in subvolumes.iter().enumerate() {
-                        tracing::debug!(
-                            "Rendering subvolume {}/{}: id={}, path={}",
-                            idx + 1,
-                            subvolumes.len(),
-                            subvol.id,
-                            subvol.path
-                        );
-                        
-                        let delete_button = if let (Some(bp), Some(mp)) = (&state.block_path, &state.mount_point) {
-                            widget::button::icon(widget::icon::from_name("edit-delete-symbolic"))
-                                .on_press(Message::BtrfsDeleteSubvolume {
-                                    block_path: bp.clone(),
-                                    mount_point: mp.clone(),
-                                    path: subvol.path.clone(),
-                                })
-                                .padding(4)
-                        } else {
-                            widget::button::icon(widget::icon::from_name("edit-delete-symbolic"))
-                                .padding(4)
-                        };
-
-                        let row = iced_widget::row![
-                            widget::text(format!("{}", subvol.id)).width(80),
-                            widget::text(&subvol.path),
-                            delete_button,
-                        ]
-                        .spacing(12)
-                        .align_y(cosmic::iced::Alignment::Center);
-
-                        subvol_grid = subvol_grid.push(row);
-                        tracing::debug!("Added subvolume row to grid");
-                    }
-                    
-                    content_items.push(subvol_grid.into());
-                    tracing::debug!("Finished rendering all subvolumes, total content_items: {}", content_items.len());
+                    // Build hierarchical view
+                    let subvol_list = build_subvolume_hierarchy(subvolumes, state);
+                    content_items.push(subvol_list);
                 }
             }
             Err(error) => {
@@ -199,9 +168,134 @@ pub fn btrfs_management_section<'a>(
         }
     }
 
-    tracing::debug!("btrfs_management_section: Building final column with {} items", content_items.len());
-    iced_widget::Column::from_vec(content_items)
-        .spacing(4)
+    // Spacing at end
+    content_items.push(widget::vertical_space().height(8).into());
+
+    iced_widget::column(content_items)
+        .spacing(8)
         .padding(8)
         .into()
+}
+
+/// Build hierarchical subvolume list with snapshots nested under parents
+fn build_subvolume_hierarchy<'a>(
+    subvolumes: &'a [BtrfsSubvolume],
+    state: &'a BtrfsState,
+) -> Element<'a, Message> {
+    // Group subvolumes: find root subvolumes and their snapshots
+    let mut children_map: HashMap<u64, Vec<&BtrfsSubvolume>> = HashMap::new();
+    
+    for subvol in subvolumes {
+        children_map
+            .entry(subvol.parent_id)
+            .or_insert_with(Vec::new)
+            .push(subvol);
+    }
+
+    let mut list = iced_widget::column![].spacing(4);
+
+    // Find root subvolumes (typically parent_id == 5 or 0)
+    // We'll display all subvolumes at the top level, then check if they have children
+    for subvol in subvolumes {
+        // Only show subvolumes that are not children of another displayed subvolume
+        // A heuristic: if this subvolume's parent_id appears in our list, skip it here
+        let parent_exists = subvolumes.iter().any(|sv| sv.id == subvol.parent_id);
+        
+        if !parent_exists {
+            // This is a root-level subvolume
+            list = list.push(render_subvolume_row(subvol, &children_map, state, 0));
+        }
+    }
+
+    list.into()
+}
+
+/// Render a single subvolume row with optional child snapshots
+fn render_subvolume_row<'a>(
+    subvol: &'a BtrfsSubvolume,
+    children_map: &HashMap<u64, Vec<&'a BtrfsSubvolume>>,
+    state: &'a BtrfsState,
+    indent_level: u16,
+) -> Element<'a, Message> {
+    let mount_point = state.mount_point.as_ref();
+    let snapshots = children_map.get(&subvol.id);
+    let has_snapshots = snapshots.map_or(false, |s| !s.is_empty());
+    let is_expanded = state.expanded_subvolumes.get(&subvol.id).copied().unwrap_or(false);
+
+    let mut row_items: Vec<Element<'a, Message>> = Vec::new();
+
+    // Indentation
+    if indent_level > 0 {
+        row_items.push(widget::horizontal_space().width((indent_level * 20) as f32).into());
+    }
+
+    // Expander (if has snapshots)
+    if has_snapshots {
+        let expander_btn = if let Some(mp) = mount_point {
+            widget::button::icon(widget::icon::from_name(expander_icon(is_expanded)).size(16))
+                .on_press(Message::BtrfsToggleSubvolumeExpanded {
+                    mount_point: mp.clone(),
+                    subvolume_id: subvol.id,
+                })
+                .padding(2)
+        } else {
+            widget::button::icon(widget::icon::from_name(expander_icon(is_expanded)).size(16))
+                .padding(2)
+        };
+        row_items.push(expander_btn.into());
+    } else {
+        // Spacer where expander would be
+        row_items.push(widget::horizontal_space().width(20.0).into());
+    }
+
+    // Path (normal text size, fills space)
+    row_items.push(
+        widget::text(&subvol.path)
+            .width(cosmic::iced::Length::Fill)
+            .into(),
+    );
+
+    // ID (caption size, fixed width)
+    row_items.push(
+        widget::text::caption(format!("{}", subvol.id))
+            .width(80)
+            .into(),
+    );
+
+    // Delete button
+    let delete_button = if let (Some(bp), Some(mp)) = (&state.block_path, mount_point) {
+        widget::button::icon(widget::icon::from_name("edit-delete-symbolic"))
+            .on_press(Message::BtrfsDeleteSubvolume {
+                block_path: bp.clone(),
+                mount_point: mp.clone(),
+                path: subvol.path.clone(),
+            })
+            .padding(4)
+    } else {
+        widget::button::icon(widget::icon::from_name("edit-delete-symbolic"))
+            .padding(4)
+    };
+    row_items.push(delete_button.into());
+
+    let row = iced_widget::row(row_items)
+        .spacing(8)
+        .align_y(cosmic::iced::Alignment::Center);
+
+    let mut col = iced_widget::column![row].spacing(2);
+
+    // If expanded and has snapshots, render them indented
+    if is_expanded && has_snapshots {
+        if let Some(snapshot_list) = snapshots {
+            for snapshot in snapshot_list.iter() {
+                col = col.push(render_subvolume_row(
+                    snapshot,
+                    children_map,
+                    state,
+                    indent_level + 1,
+                ));
+            }
+        }
+    }
+
+    col.into()
 }

@@ -96,6 +96,10 @@ pub enum Message {
         mount_point: String,
         used_space: Result<u64, String>,
     },
+    BtrfsToggleSubvolumeExpanded {
+        mount_point: String,
+        subvolume_id: u64,
+    },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

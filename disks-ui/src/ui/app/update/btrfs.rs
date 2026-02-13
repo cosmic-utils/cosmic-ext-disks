@@ -185,6 +185,24 @@ pub(super) fn handle_btrfs_message(app: &mut AppModel, message: Message) -> Task
             Task::none()
         }
 
+        Message::BtrfsToggleSubvolumeExpanded {
+            mount_point,
+            subvolume_id,
+        } => {
+            // Toggle the expanded state for a subvolume's snapshots
+            if let Some(volumes_control) = app.nav.active_data_mut::<VolumesControl>()
+                && let Some(btrfs_state) = &mut volumes_control.btrfs_state
+                && btrfs_state.mount_point.as_deref() == Some(&mount_point)
+            {
+                let expanded = btrfs_state
+                    .expanded_subvolumes
+                    .entry(subvolume_id)
+                    .or_insert(false);
+                *expanded = !*expanded;
+            }
+            Task::none()
+        }
+
         _ => Task::none(),
     }
 }

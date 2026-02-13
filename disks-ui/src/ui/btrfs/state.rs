@@ -1,4 +1,5 @@
 use disks_dbus::BtrfsSubvolume;
+use std::collections::HashMap;
 
 /// State for BTRFS management UI
 #[derive(Debug, Clone, Default)]
@@ -15,6 +16,8 @@ pub struct BtrfsState {
     pub used_space: Option<Result<u64, String>>,
     /// Loading state for usage info
     pub loading_usage: bool,
+    /// Expander state: maps subvolume ID to expanded state (true = expanded)
+    pub expanded_subvolumes: HashMap<u64, bool>,
 }
 
 impl BtrfsState {
@@ -27,6 +30,7 @@ impl BtrfsState {
             block_path,
             used_space: None,
             loading_usage: false,
+            expanded_subvolumes: HashMap::new(),
         }
     }
 }

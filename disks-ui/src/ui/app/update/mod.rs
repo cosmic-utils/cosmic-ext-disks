@@ -282,7 +282,8 @@ pub(crate) fn update(app: &mut AppModel, message: Message) -> Task<Message> {
         | Message::BtrfsDeleteSubvolume { .. }
         | Message::BtrfsDeleteSubvolumeConfirm { .. }
         | Message::BtrfsLoadUsage { .. }
-        | Message::BtrfsUsageLoaded { .. } => {
+        | Message::BtrfsUsageLoaded { .. }
+        | Message::BtrfsToggleSubvolumeExpanded { .. } => {
             return btrfs::handle_btrfs_message(app, message);
         }
 
