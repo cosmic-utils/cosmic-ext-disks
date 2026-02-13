@@ -1,3 +1,4 @@
+pub mod btrfs;
 mod fs_tools;
 mod segments;
 mod ui;
