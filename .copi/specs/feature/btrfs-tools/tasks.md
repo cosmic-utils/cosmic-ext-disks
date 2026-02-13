@@ -634,7 +634,6 @@ Task 9 (Polish & localization)
 - No known bugs
 
 **Done When:**
-- [ ] Swedish translations added and verified
 - [ ] README updated (V1 goal #3 marked complete)
 - [ ] All quality gates pass
 - [ ] Full manual test suite executed
@@ -666,7 +665,6 @@ Task 9 (Polish & localization)
 - `feat(btrfs): add delete subvolume with confirmation`
 - `feat(btrfs): implement snapshot creation (read-only and writable)`
 - `feat(btrfs): display usage breakdown and compression info`
-- `chore(i18n): add Swedish translations for BTRFS features`
 - `docs: update README to mark BTRFS support complete (V1 goal #3)`
 
 ---

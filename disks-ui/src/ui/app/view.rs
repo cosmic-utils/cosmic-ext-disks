@@ -541,11 +541,25 @@ fn build_volume_node_info<'a>(
         .into(),
     );
 
-    let info_and_actions = iced_widget::column![
-        text_column,
-        widget::Row::from_vec(action_buttons).spacing(4)
-    ]
-    .spacing(8);
+    // Build column elements with conditional BTRFS management section
+    let mut column_elements = vec![
+        text_column.into(),
+        widget::Row::from_vec(action_buttons).spacing(4).into(),
+    ];
+
+    // BTRFS Detection: Add placeholder for BTRFS management
+    let is_btrfs = v.id_type.to_lowercase() == "btrfs"
+        || (v.has_filesystem && v.id_type.to_lowercase() == "btrfs");
+
+    if is_btrfs {
+        column_elements.push(
+            widget::text("BTRFS Management (coming soon)")
+                .size(12.0)
+                .into(),
+        );
+    }
+
+    let info_and_actions = iced_widget::Column::from_vec(column_elements).spacing(8);
 
     // Row layout: info_and_actions | pie_chart (aligned right, shrink to fit)
     iced_widget::Row::new()
@@ -910,11 +924,25 @@ fn build_partition_info<'a>(
         );
     }
 
-    let info_and_actions = iced_widget::column![
-        text_column,
-        widget::Row::from_vec(action_buttons).spacing(4)
-    ]
-    .spacing(8);
+    // Build column elements with conditional BTRFS management section
+    let mut column_elements = vec![
+        text_column.into(),
+        widget::Row::from_vec(action_buttons).spacing(4).into(),
+    ];
+
+    // BTRFS Detection: Add placeholder for BTRFS management
+    let is_btrfs = p.id_type.to_lowercase() == "btrfs"
+        || (p.has_filesystem && p.id_type.to_lowercase() == "btrfs");
+
+    if is_btrfs {
+        column_elements.push(
+            widget::text("BTRFS Management (coming soon)")
+                .size(12.0)
+                .into(),
+        );
+    }
+
+    let info_and_actions = iced_widget::Column::from_vec(column_elements).spacing(8);
 
     // Row layout: info_and_actions | pie_chart (aligned right, shrink to fit)
     iced_widget::Row::new()
