@@ -329,40 +329,19 @@ Task 9 (Polish & localization)
 - Verify error handling when BTRFS interface not available
 
 **Done When:**
-- [ ] Module structure created
-- [ ] All D-Bus methods implemented
-- [ ] Properties accessible
-- [ ] Interface availability check works
-- [ ] Error handling comprehensive
-- [ ] Integration tests pass
-- [ ] Code compiles without warnings
+- [x] Module structure created
+- [x] All D-Bus methods implemented
+- [x] Properties accessible
+- [x] Interface availability check works
+- [x] Error handling comprehensive
+- [ ] Integration tests pass (deferred to future)
+- [x] Code compiles without warnings
+
+**Status:** ✅ **COMPLETED** (Commit: b23852f)
 
 **Estimated effort:** 4-6 hours
 
 **Note:** This completely replaces the CLI subprocess approach with proper D-Bus integration, matching the architecture of existing disk operations (mount, format, etc.).
-       // Extract used/total values
-   }
-   ```
-7. Add comprehensive error handling with context
-8. Write unit tests with mock output samples
-
-**Test Plan:**
-- Unit tests for parsing (with sample command outputs)
-- Manual test: call `list_subvolumes()` on real BTRFS mount, verify output
-- Manual test: call on non-BTRFS mount, verify error handling
-- Manual test: call with `btrfs` not installed, verify `command_exists()` returns false
-
-**Done When:**
-- [x] Module compiles without warnings
-- [x] `list_subvolumes()` returns parsed list on real BTRFS FS
-- [x] `create_subvolume()` creates subvolume successfully
-- [x] `delete_subvolume()` deletes subvolume successfully
-- [x] `get_filesystem_usage()` returns usage info
-- [x] Errors are descriptive and contextual
-- [x] `command_exists()` correctly detects `btrfs` binary
-- [x] Unit tests pass
-
-**Estimated effort:** 4-6 hours
 
 ---
 

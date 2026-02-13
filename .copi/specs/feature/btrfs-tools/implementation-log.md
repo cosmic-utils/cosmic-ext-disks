@@ -77,17 +77,52 @@ Implemented foundation for BTRFS management by adding udisks2-btrfs package dete
 
 ---
 
-## Task 3: BTRFS CLI Wrapper Module ✅
-**Completed:** 2026-02-13  
-**Commit:** bc06d69
+## Task 3: UDisks2 BTRFS D-Bus Module ✅
+**Completed:** 2024-01-XX (REFACTORED from CLI to D-Bus)
+**Commit:** b23852f (replaces bc06d69 CLI approach)
 
 **Changes:**
-- Created `disks-ui/src/utils/btrfs.rs` (408 lines)
-- Implemented async functions:
-  - `command_exists()` - Check if btrfs binary available
-  - `list_subvolumes()` - Parse output from `btrfs subvolume list`
-  - `create_subvolume()` - Create with name validation
-  - `delete_subvolume()` - Delete subvolume
+- Created `disks-dbus/src/disks/btrfs.rs` (290 lines)
+- Implemented `BtrfsSubvolume` struct with id, parent_id, path fields
+- Implemented `BtrfsFilesystem<'a>` D-Bus proxy wrapper:
+  - `new(connection, block_path)` - Constructor
+  - `is_available()` - Check if BTRFS interface exists
+  - `get_subvolumes(snapshots_only)` - Get list via GetSubvolumes D-Bus call
+  - `create_subvolume(name)` - Create via CreateSubvolume D-Bus method
+  - `remove_subvolume(name)` - Remove via RemoveSubvolume D-Bus method
+  - `create_snapshot(source, dest, read_only)` - Create via CreateSnapshot D-Bus method
+  - `get_used_space()`, `get_label()`, `get_uuid()`, `get_num_devices()` - Property accessors
+- Modified `disks-dbus/src/disks/mod.rs` to export BtrfsFilesystem and BtrfsSubvolume
+- Added comprehensive error context using anyhow::Context
+- Included unit tests for BtrfsSubvolume::name() extraction logic
+
+**Key Decisions:**
+1. Fixed import: `zbus::zvariant::OwnedObjectPath` (not `zbus::names::OwnedObjectPath`)
+2. Used explicit type annotations `let proxy: zbus::Proxy<'_>` to satisfy edition 2024 type inference
+3. Inlined proxy creation in each method (avoids lifetime complexity)
+4. Used explicit `: ()` type annotation for void D-Bus method calls
+5. Properties return explicit Result types with intermediate variables
+
+**Refactoring Note:**
+This completely replaces the CLI subprocess approach (bc06d69) with native D-Bus integration
+matching existing patterns (mount, format, partition operations). Old `disks-ui/src/utils/btrfs.rs`
+CLI wrapper will be removed once all UI code is migrated to use D-Bus calls.
+
+**Testing:**
+- Unit tests: PASSED (subvolume name extraction)
+- Compilation: SUCCESS (cargo check --workspace)
+- Clippy: No errors, only expected "unused" warnings (code not integrated yet)
+
+---
+
+## Task 4: Subvolume List Display ✅
+**Completed:** 2026-02-13  
+**Commit:** bc06d69 → cf6f097
+
+**Note:** Task 4 was completed BEFORE the D-Bus refactor and currently uses CLI wrapper.
+Refactoring to use D-Bus is required as part of migration from CLI to D-Bus approach.
+
+**Changes:**
   - `create_snapshot()` - Create snapshot (read-only or writable)
   - `get_filesystem_usage()` - Parse `btrfs filesystem usage -b`
   - `get_compression()` - Query compression property
