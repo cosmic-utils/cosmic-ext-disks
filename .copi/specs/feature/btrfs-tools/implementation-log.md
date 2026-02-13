@@ -199,9 +199,51 @@
 
 ---
 
-## Task 6: Delete Subvolume Confirmation 📋
+## Task 6: Delete Subvolume Confirmation ✅
+**Completed:** 2026-02-13  
+**Commit:** cf34d92
+
+**Changes:**
+- Added `BtrfsDeleteSubvolume { path }` message to `app/message.rs`
+- Added `BtrfsDeleteSubvolumeConfirm { path }` message for actual deletion
+- Modified `btrfs/view.rs`
+  - Added delete icon button (user-trash-symbolic) to each subvolume row
+  - Row structure: ID/path text + spacer + delete button
+  - Button triggers BtrfsDeleteSubvolume message
+- Modified `app/update/btrfs.rs`
+  - `BtrfsDeleteSubvolume`: Shows ConfirmAction dialog with subvolume name
+  - `BtrfsDeleteSubvolumeConfirm`: Performs async delete via btrfs::delete_subvolume
+  - Dialog set to running state during deletion
+  - Success: closes dialog and refreshes drive list (triggers subvolume reload)
+  - Error: shows error dialog with details
+- Modified `app/update/mod.rs`
+  - Added BtrfsDeleteSubvolume and BtrfsDeleteSubvolumeConfirm to message routing
+- Added i18n strings to `cosmic_ext_disks.ftl`:
+  - btrfs-delete-subvolume = "Delete Subvolume" 
+  - btrfs-delete-confirm = "Delete subvolume '{ $name }'? This action cannot be undone."
+  - btrfs-delete-subvolume-failed = "Failed to delete subvolume"
+
+**Implementation Details:**
+- Reused existing ConfirmAction dialog pattern (requires FilesystemTarget dummy)
+- Icon button with padding(4) for compact row display
+- Subvolume name extracted from path using rsplit('/')
+- Confirmation body uses fl! macro with name parameter
+- Delete operation is async Task returning drives for auto-refresh
+- No separate "deleted successfully" dialog - implicit via list refresh
+
+**Testing:**
+- Compilation successful: `cargo check --workspace`
+- Clippy clean: `cargo clippy --workspace --all-features -- -D warnings`
+
+**Challenges Resolved:**
+- Fixed dead_code warning by removing unused mount_point field from messages
+- Fixed useless_conversion by removing .into() on direct Message assignment
+
+---
+
+## Task 7: Snapshot Creation Dialog 📋
 **Status:** Not started  
-**Next:** Implement delete confirmation and integration
+**Next:** Implement snapshot creation dialog and integration
 - Add BtrfsMessage variants (LoadSubvolumes, SubvolumesLoaded)
 - Integrate into AppModel message handling
 - Update btrfs_management_section() to display list in scrollable widget

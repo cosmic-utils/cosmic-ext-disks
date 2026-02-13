@@ -415,11 +415,11 @@ Task 9 (Polish & localization)
 - Test error case: try deleting mounted subvolume (should fail with error)
 
 **Done When:**
-- [ ] Delete icon appears on subvolume rows
-- [ ] Confirmation modal opens
-- [ ] Delete succeeds and list refreshes
-- [ ] Error handling works (mounted subvolume, permission denied)
-- [ ] Cannot delete root subvolume or currently mounted subvolume (graceful error)
+- [x] Delete icon appears on subvolume rows
+- [x] Confirmation modal opens
+- [x] Delete succeeds and list refreshes
+- [x] Error handling works (mounted subvolume, permission denied)
+- [x] Cannot delete root subvolume or currently mounted subvolume (graceful error)
 
 **Estimated effort:** 2-3 hours
 
