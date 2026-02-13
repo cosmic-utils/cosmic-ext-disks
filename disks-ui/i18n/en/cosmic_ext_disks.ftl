@@ -250,6 +250,8 @@ volume-info = Volume Info
 
 # BTRFS Management
 btrfs-management = BTRFS Management
+btrfs = BTRFS
+volume = Volume
 btrfs-placeholder = BTRFS management features coming soon
 btrfs-create-subvolume = Create Subvolume
 btrfs-subvolume-name = Subvolume Name

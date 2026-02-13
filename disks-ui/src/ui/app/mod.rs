@@ -91,6 +91,11 @@ impl Application for AppModel {
         view::header_start(self)
     }
 
+    /// Elements to pack at the center of the header bar.
+    fn header_center(&self) -> Vec<Element<'_, Self::Message>> {
+        view::header_center(self)
+    }
+
     fn dialog(&self) -> Option<Element<'_, Self::Message>> {
         view::dialog(self)
     }

@@ -16,6 +16,44 @@ use cosmic::{Apply, Element, iced_widget};
 use disks_dbus::bytes_to_pretty;
 use disks_dbus::{DriveModel, VolumeKind};
 
+/// Custom button style for header tabs with accent color background.
+fn tab_button_class(active: bool) -> cosmic::theme::Button {
+    cosmic::theme::Button::Custom {
+        active: Box::new(move |_focused, theme| tab_button_style(active, theme)),
+        disabled: Box::new(move |theme| tab_button_style(active, theme)),
+        hovered: Box::new(move |_focused, theme| tab_button_style(active, theme)),
+        pressed: Box::new(move |_focused, theme| tab_button_style(active, theme)),
+    }
+}
+
+fn tab_button_style(
+    active: bool,
+    theme: &cosmic::theme::Theme,
+) -> cosmic::widget::button::Style {
+    let cosmic = theme.cosmic();
+    
+    let (background, text_color) = if active {
+        // Active tab: accent background with white text
+        (Some(cosmic::iced::Background::Color(cosmic.accent_color().into())), cosmic.on_accent_color().into())
+    } else {
+        // Inactive tab: transparent with accent color text
+        (None, cosmic.accent_color().into())
+    };
+
+    cosmic::widget::button::Style {
+        shadow_offset: Default::default(),
+        background,
+        overlay: None,
+        border_radius: cosmic.corner_radii.radius_s.into(),
+        border_width: 0.0,
+        border_color: cosmic::iced::Color::TRANSPARENT,
+        outline_width: 0.0,
+        outline_color: cosmic::iced::Color::TRANSPARENT,
+        icon_color: Some(text_color),
+        text_color: Some(text_color),
+    }
+}
+
 /// Elements to pack at the start of the header bar.
 pub(crate) fn header_start(_app: &AppModel) -> Vec<Element<'_, Message>> {
     vec![
@@ -23,6 +61,66 @@ pub(crate) fn header_start(_app: &AppModel) -> Vec<Element<'_, Message>> {
             .on_press(Message::ToggleContextPage(ContextPage::Settings))
             .into(),
     ]
+}
+
+/// Elements to pack at the center of the header bar.
+pub(crate) fn header_center(app: &AppModel) -> Vec<Element<'_, Message>> {
+    let mut elements = vec![];
+    
+    // Add BTRFS tabs if applicable
+    if let Some(volumes_control) = app.nav.active_data::<VolumesControl>() {
+        if let Some(segment) = volumes_control
+            .segments
+            .get(volumes_control.selected_segment)
+            .or_else(|| volumes_control.segments.first())
+        {
+            // Determine if this segment contains BTRFS
+            let selected_volume_node = segment.volume.as_ref().and_then(|p| {
+                helpers::find_volume_node_for_partition(&volumes_control.model.volumes, p)
+            });
+
+            let selected_volume = segment.volume.as_ref().and_then(|p| {
+                helpers::find_volume_node_for_partition(&volumes_control.model.volumes, p)
+            });
+
+            let has_btrfs = if let Some(v) = selected_volume_node {
+                helpers::detect_btrfs_in_node(v).is_some()
+            } else if let Some(v) = selected_volume {
+                helpers::detect_btrfs_in_node(v).is_some()
+            } else {
+                false
+            };
+
+            if has_btrfs {
+                let active_tab = volumes_control.detail_tab;
+
+                // Volume tab
+                let is_active = active_tab == DetailTab::VolumeInfo;
+                let mut volume_tab = widget::button::text(fl!("volume"))
+                    .class(tab_button_class(is_active));
+                if !is_active {
+                    volume_tab = volume_tab.on_press(Message::VolumesMessage(
+                        VolumesControlMessage::SelectDetailTab(DetailTab::VolumeInfo),
+                    ));
+                }
+
+                // BTRFS tab  
+                let is_active = active_tab == DetailTab::BtrfsManagement;
+                let mut btrfs_tab = widget::button::text(fl!("btrfs"))
+                    .class(tab_button_class(is_active));
+                if !is_active {
+                    btrfs_tab = btrfs_tab.on_press(Message::VolumesMessage(
+                        VolumesControlMessage::SelectDetailTab(DetailTab::BtrfsManagement),
+                    ));
+                }
+
+                elements.push(volume_tab.into());
+                elements.push(btrfs_tab.into());
+            }
+        }
+    }
+    
+    elements
 }
 
 pub(crate) fn dialog(app: &AppModel) -> Option<Element<'_, Message>> {
@@ -311,38 +409,7 @@ fn volume_detail_view<'a>(
         false
     };
 
-    // Build the tab bar if BTRFS is present
-    let tab_bar: Option<Element<'a, Message>> = if has_btrfs {
-        let active_tab = volumes_control.detail_tab;
-
-        let info_tab = if active_tab == DetailTab::VolumeInfo {
-            widget::button::standard(fl!("volume-info"))
-        } else {
-            widget::button::standard(fl!("volume-info"))
-                .on_press(Message::VolumesMessage(
-                    VolumesControlMessage::SelectDetailTab(DetailTab::VolumeInfo),
-                ))
-        };
-
-        let btrfs_tab = if active_tab == DetailTab::BtrfsManagement {
-            widget::button::standard(fl!("btrfs-management"))
-        } else {
-            widget::button::standard(fl!("btrfs-management"))
-                .on_press(Message::VolumesMessage(
-                    VolumesControlMessage::SelectDetailTab(DetailTab::BtrfsManagement),
-                ))
-        };
-
-        Some(
-            iced_widget::row![info_tab, btrfs_tab]
-                .spacing(8)
-                .into(),
-        )
-    } else {
-        None
-    };
-
-    // Build the tab content
+    // Build the tab content based on selected tab
     let tab_content: Element<'a, Message> =
         if has_btrfs && volumes_control.detail_tab == DetailTab::BtrfsManagement {
             // BTRFS Management tab
@@ -366,15 +433,8 @@ fn volume_detail_view<'a>(
             }
         };
 
-    // Assemble the final layout
-    if let Some(tabs) = tab_bar {
-        iced_widget::column![tabs, tab_content]
-            .spacing(12)
-            .width(Length::Fill)
-            .into()
-    } else {
-        tab_content
-    }
+    // Return the tab content directly (tabs are now in header)
+    tab_content
 }
 
 /// Aggregate children's used space for LUKS containers

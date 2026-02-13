@@ -215,6 +215,8 @@ fs-tools-warning = Vissa filsystemtyper saknas på grund av saknade verktyg. Se 
 
 # BTRFS-hantering
 btrfs-management = BTRFS-hantering
+btrfs = BTRFS
+volume = Volym
 btrfs-placeholder = BTRFS-hanteringsfunktioner kommer snart
 btrfs-create-subvolume = Skapa undervolym
 btrfs-subvolume-name = Undervolymnamn
