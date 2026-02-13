@@ -1,9 +1,11 @@
 use cosmic::widget;
 use cosmic::{Element, iced_widget};
+use cosmic::iced::Length;
 
 use super::BtrfsState;
 use crate::fl;
 use crate::ui::app::message::Message;
+use crate::ui::volumes::usage_pie;
 use disks_dbus::BtrfsSubvolume;
 use std::collections::HashMap;
 
@@ -53,30 +55,24 @@ pub fn btrfs_management_section<'a>(
         } else if let Some(used_space_result) = &state.used_space {
             match used_space_result {
                 Ok(used_bytes) => {
-                    // Helper to format bytes to human-readable
-                    fn format_bytes(bytes: u64) -> String {
-                        const GB: u64 = 1024 * 1024 * 1024;
-                        const MB: u64 = 1024 * 1024;
-                        const KB: u64 = 1024;
-                        if bytes >= GB {
-                            format!("{:.2} GB", bytes as f64 / GB as f64)
-                        } else if bytes >= MB {
-                            format!("{:.2} MB", bytes as f64 / MB as f64)
-                        } else if bytes >= KB {
-                            format!("{:.2} KB", bytes as f64 / KB as f64)
-                        } else {
-                            format!("{} bytes", bytes)
-                        }
-                    }
+                    // Create pie chart showing usage
+                    let pie_segment = usage_pie::PieSegmentData {
+                        name: "BTRFS".to_string(),
+                        used: *used_bytes,
+                    };
+                    let pie_chart = usage_pie::disk_usage_pie(
+                        &[pie_segment],
+                        volume.size,
+                        *used_bytes,
+                        false, // no legend
+                    );
 
-                    // Display used space
+                    // Display pie chart right-aligned (matching Volume Info layout)
                     content_items.push(
-                        widget::text::caption(format!(
-                            "{}: {}",
-                            fl!("btrfs-used-space"),
-                            format_bytes(*used_bytes)
-                        ))
-                        .into(),
+                        widget::container(pie_chart)
+                            .width(Length::Fill)
+                            .align_x(cosmic::iced::alignment::Horizontal::Right)
+                            .into(),
                     );
                 }
                 Err(error) => {
