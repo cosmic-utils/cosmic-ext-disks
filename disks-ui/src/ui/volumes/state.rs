@@ -1,5 +1,6 @@
 use crate::{
     fl,
+    ui::btrfs::BtrfsState,
     ui::volumes::helpers,
     utils::{DiskSegmentKind, PartitionExtent, SegmentAnomaly, compute_disk_segments},
 };
@@ -11,6 +12,8 @@ pub struct VolumesControl {
     pub segments: Vec<Segment>,
     pub show_reserved: bool,
     pub(crate) model: DriveModel,
+    /// BTRFS management state for the currently selected volume (if BTRFS)
+    pub btrfs_state: Option<BtrfsState>,
 }
 
 #[derive(Clone, Debug)]
@@ -306,6 +309,7 @@ impl VolumesControl {
             selected_volume: None,
             segments,
             show_reserved,
+            btrfs_state: None,
         }
     }
 
@@ -323,6 +327,7 @@ impl VolumesControl {
         self.segments = Segment::get_segments(&self.model, self.show_reserved);
         self.selected_segment = 0;
         self.selected_volume = None;
+        self.btrfs_state = None;
         if let Some(first) = self.segments.first_mut() {
             first.state = true;
         }

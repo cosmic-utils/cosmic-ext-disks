@@ -66,6 +66,15 @@ pub enum Message {
     ToggleShowReserved(bool),
     #[allow(dead_code)]
     Surface(cosmic::surface::Action),
+
+    // BTRFS management
+    BtrfsLoadSubvolumes {
+        mount_point: String,
+    },
+    BtrfsSubvolumesLoaded {
+        mount_point: String,
+        result: Result<Vec<crate::utils::btrfs::Subvolume>, String>,
+    },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

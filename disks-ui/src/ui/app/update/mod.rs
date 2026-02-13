@@ -1,3 +1,4 @@
+mod btrfs;
 mod drive;
 mod image;
 mod nav;
@@ -230,11 +231,17 @@ pub(crate) fn update(app: &mut AppModel, message: Message) -> Task<Message> {
         }
         Message::None => {}
         Message::UpdateNav(drive_models, selected) => {
-            nav::update_nav(app, drive_models, selected);
+            return nav::update_nav(app, drive_models, selected);
         }
+
+        // BTRFS management
+        Message::BtrfsLoadSubvolumes { .. } | Message::BtrfsSubvolumesLoaded { .. } => {
+            return btrfs::handle_btrfs_message(app, message);
+        }
+
         Message::UpdateNavWithChildSelection(drive_models, child_object_path) => {
             // Update drives while preserving child volume selection
-            nav::update_nav(app, drive_models, None);
+            let task = nav::update_nav(app, drive_models, None);
 
             // Restore child selection if provided
             if let Some(object_path) = child_object_path {
@@ -259,6 +266,8 @@ pub(crate) fn update(app: &mut AppModel, message: Message) -> Task<Message> {
                     }
                 }
             }
+            
+            return task;
         }
         Message::Dialog(show_dialog) => app.dialog = Some(*show_dialog),
         Message::CloseDialog => {

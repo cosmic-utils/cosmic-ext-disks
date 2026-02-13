@@ -930,13 +930,23 @@ fn build_partition_info<'a>(
     let is_btrfs = p.id_type.to_lowercase() == "btrfs"
         || (p.has_filesystem && p.id_type.to_lowercase() == "btrfs");
 
+    // Use a static default state to avoid lifetime issues
+    const DEFAULT_BTRFS_STATE: BtrfsState = BtrfsState {
+        expanded: false,
+        loading: false,
+        subvolumes: None,
+        mount_point: None,
+    };
+
     let info_and_actions = if is_btrfs {
-        // For Task 2 scaffold: inline creation to avoid ownership issues
-        // Will integrate properly with AppModel state in Task 4
+        // Get BTRFS state from volumes_control, or use default
+        let btrfs_state = volumes_control.btrfs_state.as_ref()
+            .unwrap_or(&DEFAULT_BTRFS_STATE);
+        
         iced_widget::column![
             text_column,
             widget::Row::from_vec(action_buttons).spacing(4),
-            btrfs_management_section(p, &BtrfsState { expanded: true })
+            btrfs_management_section(p, btrfs_state)
         ]
         .spacing(8)
     } else {
