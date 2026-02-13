@@ -141,25 +141,31 @@ pub fn btrfs_management_section<'a>(
                     content_items.push(widget::text("No subvolumes found").size(11.0).into());
                 } else {
                     // Show subvolumes list
-                    content_items.push(
-                        widget::text(format!("Subvolumes ({})", subvolumes.len()))
-                            .size(11.0)
-                            .font(cosmic::iced::font::Font {
-                                weight: cosmic::iced::font::Weight::Medium,
-                                ..Default::default()
-                            })
-                            .into(),
-                    );
+                    tracing::debug!("Rendering {} subvolumes", subvolumes.len());
+                    
+                    // Create grid with headers
+                    let mut subvol_grid = iced_widget::column![].spacing(4);
+                    
+                    // Add header row
+                    let header_row = iced_widget::row![
+                        widget::text::caption_heading(fl!("btrfs-subvolume-id")).width(80),
+                        widget::text::caption_heading(fl!("btrfs-subvolume-path")),
+                        widget::text::caption_heading(fl!("btrfs-subvolume-actions")).width(60),
+                    ]
+                    .spacing(12);
+                    subvol_grid = subvol_grid.push(header_row);
 
-                    for subvol in subvolumes {
-                        // Create row with subvolume info and delete button
-                        let subvol_text =
-                            widget::text(format!("ID {} - {}", subvol.id, subvol.path)).size(10.0);
-
-                        let delete_button = if let Some(bp) = &state.block_path
-                            && let Some(mp) = &state.mount_point
-                        {
-                            widget::button::icon(widget::icon::from_name("user-trash-symbolic"))
+                    for (idx, subvol) in subvolumes.iter().enumerate() {
+                        tracing::debug!(
+                            "Rendering subvolume {}/{}: id={}, path={}",
+                            idx + 1,
+                            subvolumes.len(),
+                            subvol.id,
+                            subvol.path
+                        );
+                        
+                        let delete_button = if let (Some(bp), Some(mp)) = (&state.block_path, &state.mount_point) {
+                            widget::button::icon(widget::icon::from_name("edit-delete-symbolic"))
                                 .on_press(Message::BtrfsDeleteSubvolume {
                                     block_path: bp.clone(),
                                     mount_point: mp.clone(),
@@ -167,20 +173,24 @@ pub fn btrfs_management_section<'a>(
                                 })
                                 .padding(4)
                         } else {
-                            widget::button::icon(widget::icon::from_name("user-trash-symbolic"))
+                            widget::button::icon(widget::icon::from_name("edit-delete-symbolic"))
                                 .padding(4)
                         };
 
                         let row = iced_widget::row![
-                            subvol_text,
-                            widget::horizontal_space(),
+                            widget::text(format!("{}", subvol.id)).width(80),
+                            widget::text(&subvol.path),
                             delete_button,
                         ]
-                        .spacing(8)
+                        .spacing(12)
                         .align_y(cosmic::iced::Alignment::Center);
 
-                        content_items.push(row.into());
+                        subvol_grid = subvol_grid.push(row);
+                        tracing::debug!("Added subvolume row to grid");
                     }
+                    
+                    content_items.push(subvol_grid.into());
+                    tracing::debug!("Finished rendering all subvolumes, total content_items: {}", content_items.len());
                 }
             }
             Err(error) => {
@@ -189,6 +199,7 @@ pub fn btrfs_management_section<'a>(
         }
     }
 
+    tracing::debug!("btrfs_management_section: Building final column with {} items", content_items.len());
     iced_widget::Column::from_vec(content_items)
         .spacing(4)
         .padding(8)

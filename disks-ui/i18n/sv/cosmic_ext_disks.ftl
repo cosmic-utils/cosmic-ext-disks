@@ -230,3 +230,6 @@ btrfs-snapshot-name = Ögonblicksbildnamn
 btrfs-read-only = Skrivskyddad ögonblicksbild
 btrfs-create-snapshot-failed = Misslyckades skapa ögonblicksbild
 btrfs-used-space = Använt utrymme
+btrfs-subvolume-id = ID
+btrfs-subvolume-path = Sökväg
+btrfs-subvolume-actions = Åtgärder

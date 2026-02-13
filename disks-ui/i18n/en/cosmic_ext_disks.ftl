@@ -265,3 +265,6 @@ btrfs-snapshot-name = Snapshot Name
 btrfs-read-only = Read-only snapshot
 btrfs-create-snapshot-failed = Failed to create snapshot
 btrfs-used-space = Used space
+btrfs-subvolume-id = ID
+btrfs-subvolume-path = Path
+btrfs-subvolume-actions = Actions
