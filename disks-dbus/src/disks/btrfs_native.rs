@@ -50,12 +50,61 @@ pub struct BtrfsFilesystem {
 impl BtrfsFilesystem {
     /// Create a new BTRFS filesystem interface
     pub async fn new(mount_point: PathBuf) -> Result<Self> {
-        unimplemented!("Task 1.8")
+        let helper = BtrfsHelper::new()
+            .context("Failed to initialize BTRFS helper")?;
+
+        Ok(Self {
+            mount_point,
+            helper,
+        })
     }
 
     /// List all subvolumes in the filesystem
     pub async fn list_subvolumes(&self) -> Result<Vec<BtrfsSubvolume>> {
-        unimplemented!("Task 1.8")
+        let operation = Operation::ListSubvolumes {
+            mount_point: self.mount_point.clone(),
+        };
+
+        let output = self.helper.execute(operation).await
+            .context("Failed to list subvolumes")?;
+
+        // Parse array of subvolumes
+        let helper_outputs: Vec<SubvolumeHelperOutput> = serde_json::from_value(output)
+            .context("Failed to deserialize subvolume list")?;
+
+        // Get default subvolume ID to mark it in the list
+        let default_id = self.get_default_subvolume_id().await.ok();
+
+        // Convert to BtrfsSubvolume
+        let mut subvolumes = Vec::new();
+        for helper_output in helper_outputs {
+            let mut subvol = BtrfsSubvolume::try_from(helper_output)
+                .context("Failed to convert subvolume data")?;
+
+            // Mark if this is the default subvolume
+            if let Some(default_id) = default_id {
+                subvol.is_default = subvol.id == default_id;
+            }
+
+            subvolumes.push(subvol);
+        }
+
+        Ok(subvolumes)
+    }
+
+    /// Get the default subvolume ID (helper method)
+    async fn get_default_subvolume_id(&self) -> Result<u64> {
+        let operation = Operation::GetDefault {
+            mount_point: self.mount_point.clone(),
+        };
+
+        let output = self.helper.execute(operation).await
+            .context("Failed to get default subvolume")?;
+
+        let id = output["id"].as_u64()
+            .context("Default subvolume response missing 'id' field")?;
+
+        Ok(id)
     }
 
     /// Create a new subvolume
@@ -117,12 +166,143 @@ struct BtrfsHelper {
 impl BtrfsHelper {
     /// Create a new helper instance
     fn new() -> Result<Self> {
-        unimplemented!("Task 1.7")
+        // Try common installation paths
+        let paths = [
+            PathBuf::from("/usr/libexec/cosmic-ext-disks-btrfs-helper"),
+            PathBuf::from("/usr/local/libexec/cosmic-ext-disks-btrfs-helper"),
+            // For development/testing, also check in target directory
+            PathBuf::from("target/debug/cosmic-ext-disks-btrfs-helper"),
+            PathBuf::from("target/release/cosmic-ext-disks-btrfs-helper"),
+        ];
+
+        for path in &paths {
+            if path.exists() {
+                return Ok(Self {
+                    helper_path: path.clone(),
+                });
+            }
+        }
+
+        anyhow::bail!(
+            "BTRFS helper binary not found. Expected at: {}",
+            paths[0].display()
+        )
     }
 
     /// Execute a privileged operation via the helper binary
     async fn execute(&self, operation: Operation) -> Result<serde_json::Value> {
-        unimplemented!("Task 1.7")
+        // Convert operation to command-line arguments
+        let args = operation.to_args();
+
+        // Spawn helper via pkexec for privilege escalation
+        let output = tokio::process::Command::new("pkexec")
+            .arg(&self.helper_path)
+            .args(&args)
+            .output()
+            .await
+            .context("Failed to spawn helper binary via pkexec")?;
+
+        // Check exit status
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            anyhow::bail!(
+                "Helper binary failed with exit code {}: {}",
+                output.status.code().unwrap_or(-1),
+                stderr
+            );
+        }
+
+        // Parse JSON output
+        let stdout = String::from_utf8(output.stdout)
+            .context("Helper output is not valid UTF-8")?;
+
+        serde_json::from_str(&stdout)
+            .context("Failed to parse helper JSON output")
+    }
+}
+
+impl Operation {
+    /// Convert operation to command-line arguments for the helper binary
+    fn to_args(&self) -> Vec<String> {
+        match self {
+            Operation::ListSubvolumes { mount_point } => {
+                vec!["list".to_string(), mount_point.to_string_lossy().to_string()]
+            }
+            Operation::CreateSubvolume { mount_point, name } => {
+                vec![
+                    "create".to_string(),
+                    mount_point.to_string_lossy().to_string(),
+                    name.clone(),
+                ]
+            }
+            Operation::DeleteSubvolume {
+                mount_point,
+                path,
+                recursive,
+            } => {
+                let mut args = vec![
+                    "delete".to_string(),
+                    mount_point.to_string_lossy().to_string(),
+                    path.to_string_lossy().to_string(),
+                ];
+                if *recursive {
+                    args.push("--recursive".to_string());
+                }
+                args
+            }
+            Operation::CreateSnapshot {
+                mount_point,
+                source,
+                dest,
+                readonly,
+                recursive,
+            } => {
+                let mut args = vec![
+                    "snapshot".to_string(),
+                    mount_point.to_string_lossy().to_string(),
+                    source.to_string_lossy().to_string(),
+                    dest.to_string_lossy().to_string(),
+                ];
+                if *readonly {
+                    args.push("--readonly".to_string());
+                }
+                if *recursive {
+                    args.push("--recursive".to_string());
+                }
+                args
+            }
+            Operation::SetReadonly {
+                mount_point,
+                path,
+                readonly,
+            } => {
+                vec![
+                    "set-readonly".to_string(),
+                    mount_point.to_string_lossy().to_string(),
+                    path.to_string_lossy().to_string(),
+                    readonly.to_string(),
+                ]
+            }
+            Operation::SetDefault { mount_point, path } => {
+                vec![
+                    "set-default".to_string(),
+                    mount_point.to_string_lossy().to_string(),
+                    path.to_string_lossy().to_string(),
+                ]
+            }
+            Operation::GetDefault { mount_point } => {
+                vec![
+                    "get-default".to_string(),
+                    mount_point.to_string_lossy().to_string(),
+                ]
+            }
+            Operation::ListDeleted { mount_point } => {
+                vec![
+                    "list-deleted".to_string(),
+                    mount_point.to_string_lossy().to_string(),
+                ]
+            }
+        }
     }
 }
 
