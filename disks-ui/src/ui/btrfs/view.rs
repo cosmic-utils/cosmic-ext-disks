@@ -4,7 +4,6 @@ use cosmic::{Element, iced_widget};
 use super::BtrfsState;
 use crate::fl;
 use crate::ui::app::message::Message;
-use crate::ui::volumes::VolumesControlMessage;
 
 /// Builds the BTRFS management section for a BTRFS volume
 pub fn btrfs_management_section<'a>(
@@ -62,7 +61,9 @@ pub fn btrfs_management_section<'a>(
                 // Add Create Subvolume button
                 content_items.push(
                     widget::button::standard(fl!("btrfs-create-subvolume"))
-                        .on_press(VolumesControlMessage::OpenBtrfsCreateSubvolume.into())
+                        .on_press(Message::VolumesMessage(
+                            crate::ui::volumes::VolumesControlMessage::OpenBtrfsCreateSubvolume
+                        ))
                         .into(),
                 );
 
@@ -85,12 +86,25 @@ pub fn btrfs_management_section<'a>(
                     );
 
                     for subvol in subvolumes {
-                        let subvol_text = format!("ID {} - {}", subvol.id, subvol.path);
-                        content_items.push(
-                            widget::text(subvol_text)
-                                .size(10.0)
-                                .into(),
-                        );
+                        // Create row with subvolume info and delete button
+                        let subvol_text = widget::text(format!("ID {} - {}", subvol.id, subvol.path))
+                            .size(10.0);
+                        
+                        let delete_button = widget::button::icon(widget::icon::from_name("user-trash-symbolic"))
+                            .on_press(Message::BtrfsDeleteSubvolume {
+                                path: subvol.path.clone(),
+                            })
+                            .padding(4);
+
+                        let row = iced_widget::row![
+                            subvol_text,
+                            widget::horizontal_space(),
+                            delete_button,
+                        ]
+                        .spacing(8)
+                        .align_y(cosmic::iced::Alignment::Center);
+
+                        content_items.push(row.into());
                     }
                 }
             }

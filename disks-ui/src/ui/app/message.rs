@@ -75,6 +75,12 @@ pub enum Message {
         mount_point: String,
         result: Result<Vec<crate::utils::btrfs::Subvolume>, String>,
     },
+    BtrfsDeleteSubvolume {
+        path: String,
+    },
+    BtrfsDeleteSubvolumeConfirm {
+        path: String,
+    },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

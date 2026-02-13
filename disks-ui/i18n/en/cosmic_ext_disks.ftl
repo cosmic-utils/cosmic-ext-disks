@@ -246,3 +246,6 @@ btrfs-subvolume-name = Subvolume Name
 btrfs-subvolume-name-required = Subvolume name is required
 btrfs-subvolume-invalid-chars = Subvolume name cannot contain slashes
 btrfs-create-subvolume-failed = Failed to create subvolume
+btrfs-delete-subvolume = Delete Subvolume
+btrfs-delete-confirm = Delete subvolume '{ $name }'? This action cannot be undone.
+btrfs-delete-subvolume-failed = Failed to delete subvolume
