@@ -235,7 +235,7 @@ pub(crate) fn update(app: &mut AppModel, message: Message) -> Task<Message> {
         }
 
         // BTRFS management
-        Message::BtrfsLoadSubvolumes { .. } 
+        Message::BtrfsLoadSubvolumes { .. }
         | Message::BtrfsSubvolumesLoaded { .. }
         | Message::BtrfsDeleteSubvolume { .. }
         | Message::BtrfsDeleteSubvolumeConfirm { .. }
@@ -271,7 +271,7 @@ pub(crate) fn update(app: &mut AppModel, message: Message) -> Task<Message> {
                     }
                 }
             }
-            
+
             return task;
         }
         Message::Dialog(show_dialog) => app.dialog = Some(*show_dialog),

@@ -25,8 +25,8 @@ For partition type support:
 1. UI - Dialogs are still ugly, and main UI still needs some tweaking. 
    - **Deferred**: Modal dialog windows blocked by upstream libcosmic limitations — see [`.copi/specs/feature/modal-dialogs/`](.copi/specs/feature/modal-dialogs/)
 2. Testing of as many disk types and partition/disk schemes as possible.
-3. 1st class BTRFS support - Subvolumes CRUD, and snapshotting maybe
-   - **In Progress**: Spec created for BTRFS management tools (subvolumes, snapshots, usage breakdown) — see [`.copi/specs/feature/btrfs-tools/`](.copi/specs/feature/btrfs-tools/)
+3. ✅ 1st class BTRFS support - Subvolumes CRUD, snapshots, and usage breakdown
+   - **Completed**: Implemented BTRFS management tools with subvolumes, snapshots, and usage display — see [`.copi/specs/feature/btrfs-tools/`](.copi/specs/feature/btrfs-tools/)
 4. Automatic "Resource Busy" resolution on unmount
    - Essentially this will list what processes are holding the mount open, and give you the option to kill them.
 5. Add detection for required packages:

@@ -951,9 +951,11 @@ fn build_partition_info<'a>(
 
     let info_and_actions = if is_btrfs {
         // Get BTRFS state from volumes_control, or use default
-        let btrfs_state = volumes_control.btrfs_state.as_ref()
+        let btrfs_state = volumes_control
+            .btrfs_state
+            .as_ref()
             .unwrap_or(&DEFAULT_BTRFS_STATE);
-        
+
         iced_widget::column![
             text_column,
             widget::Row::from_vec(action_buttons).spacing(4),

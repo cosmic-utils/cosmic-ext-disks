@@ -19,10 +19,7 @@ pub fn btrfs_management_section<'a>(
 
     if !state.expanded {
         // Show collapsed header only
-        return iced_widget::column![header]
-            .spacing(8)
-            .padding(8)
-            .into();
+        return iced_widget::column![header].spacing(8).padding(8).into();
     }
 
     // Expanded view
@@ -162,12 +159,8 @@ pub fn btrfs_management_section<'a>(
         if let Some(_mount_point) = volume.mount_points.first() {
             // Note: This will trigger on every render until loaded
             // A better approach would be to trigger once, but this works for now
-            content_items.push(
-                widget::text("Loading subvolumes...")
-                    .size(11.0)
-                    .into(),
-            );
-            
+            content_items.push(widget::text("Loading subvolumes...").size(11.0).into());
+
             // Send message to load (will be handled in update)
             // For now, just show loading state
         } else {
@@ -178,35 +171,29 @@ pub fn btrfs_management_section<'a>(
             );
         }
     } else if state.loading {
-        content_items.push(
-            widget::text("Loading subvolumes...")
-                .size(11.0)
-                .into(),
-        );
+        content_items.push(widget::text("Loading subvolumes...").size(11.0).into());
     } else if let Some(result) = &state.subvolumes {
         match result {
             Ok(subvolumes) => {
                 // Add Create buttons row
                 let button_row = iced_widget::row![
-                    widget::button::standard(fl!("btrfs-create-subvolume"))
-                        .on_press(Message::VolumesMessage(
+                    widget::button::standard(fl!("btrfs-create-subvolume")).on_press(
+                        Message::VolumesMessage(
                             crate::ui::volumes::VolumesControlMessage::OpenBtrfsCreateSubvolume
-                        )),
-                    widget::button::standard(fl!("btrfs-create-snapshot"))
-                        .on_press(Message::VolumesMessage(
+                        )
+                    ),
+                    widget::button::standard(fl!("btrfs-create-snapshot")).on_press(
+                        Message::VolumesMessage(
                             crate::ui::volumes::VolumesControlMessage::OpenBtrfsCreateSnapshot
-                        )),
+                        )
+                    ),
                 ]
                 .spacing(8);
 
                 content_items.push(button_row.into());
 
                 if subvolumes.is_empty() {
-                    content_items.push(
-                        widget::text("No subvolumes found")
-                            .size(11.0)
-                            .into(),
-                    );
+                    content_items.push(widget::text("No subvolumes found").size(11.0).into());
                 } else {
                     // Show subvolumes list
                     content_items.push(
@@ -221,14 +208,15 @@ pub fn btrfs_management_section<'a>(
 
                     for subvol in subvolumes {
                         // Create row with subvolume info and delete button
-                        let subvol_text = widget::text(format!("ID {} - {}", subvol.id, subvol.path))
-                            .size(10.0);
-                        
-                        let delete_button = widget::button::icon(widget::icon::from_name("user-trash-symbolic"))
-                            .on_press(Message::BtrfsDeleteSubvolume {
-                                path: subvol.path.clone(),
-                            })
-                            .padding(4);
+                        let subvol_text =
+                            widget::text(format!("ID {} - {}", subvol.id, subvol.path)).size(10.0);
+
+                        let delete_button =
+                            widget::button::icon(widget::icon::from_name("user-trash-symbolic"))
+                                .on_press(Message::BtrfsDeleteSubvolume {
+                                    path: subvol.path.clone(),
+                                })
+                                .padding(4);
 
                         let row = iced_widget::row![
                             subvol_text,
@@ -243,11 +231,7 @@ pub fn btrfs_management_section<'a>(
                 }
             }
             Err(error) => {
-                content_items.push(
-                    widget::text(format!("Error: {}", error))
-                        .size(11.0)
-                        .into(),
-                );
+                content_items.push(widget::text(format!("Error: {}", error)).size(11.0).into());
             }
         }
     }

@@ -68,14 +68,14 @@ pub(super) fn update_nav(
         let should_activate = selected.as_ref().is_some_and(|s| &drive.block_path == s);
 
         let mut volumes_control = VolumesControl::new(drive.clone(), show_reserved);
-        
+
         // Initialize BTRFS state for the first segment if it's BTRFS
         if let Some(segment) = volumes_control.segments.first()
             && let Some(volume) = &segment.volume
         {
-            let is_btrfs = volume.id_type.to_lowercase() == "btrfs" 
+            let is_btrfs = volume.id_type.to_lowercase() == "btrfs"
                 || (volume.has_filesystem && volume.id_type.to_lowercase() == "btrfs");
-            
+
             if is_btrfs {
                 let mount_point = volume.mount_points.first().cloned();
                 volumes_control.btrfs_state = Some(BtrfsState::new(mount_point));
@@ -99,14 +99,14 @@ pub(super) fn update_nav(
     }
 
     app.sidebar.set_drive_entities(drive_entities);
-    
+
     //  Trigger BTRFS data loading for activated drive
     if let Some(volumes_control) = app.nav.active_data::<VolumesControl>()
         && let Some(btrfs_state) = &volumes_control.btrfs_state
         && let Some(mount_point) = &btrfs_state.mount_point
     {
         let mut tasks = Vec::new();
-        
+
         // Load subvolumes if not already loaded/loading
         if btrfs_state.subvolumes.is_none() && !btrfs_state.loading {
             tasks.push(Task::done(
@@ -116,7 +116,7 @@ pub(super) fn update_nav(
                 .into(),
             ));
         }
-        
+
         // Load usage info if not already loaded/loading
         if btrfs_state.usage_info.is_none() && !btrfs_state.loading_usage {
             tasks.push(Task::done(
@@ -126,11 +126,11 @@ pub(super) fn update_nav(
                 .into(),
             ));
         }
-        
+
         if !tasks.is_empty() {
             return Task::batch(tasks);
         }
     }
-    
+
     Task::none()
 }

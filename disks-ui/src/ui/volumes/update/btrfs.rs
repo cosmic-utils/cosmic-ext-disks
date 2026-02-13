@@ -3,11 +3,11 @@ use disks_dbus::DriveModel;
 
 use crate::app::Message;
 use crate::fl;
-use crate::ui::dialogs::message::{BtrfsCreateSubvolumeMessage, BtrfsCreateSnapshotMessage};
+use crate::ui::dialogs::message::{BtrfsCreateSnapshotMessage, BtrfsCreateSubvolumeMessage};
 use crate::ui::dialogs::state::{
-    BtrfsCreateSubvolumeDialog, BtrfsCreateSnapshotDialog, ShowDialog,
+    BtrfsCreateSnapshotDialog, BtrfsCreateSubvolumeDialog, ShowDialog,
 };
-use crate::ui::error::{log_error_and_show_dialog, UiErrorContext};
+use crate::ui::error::{UiErrorContext, log_error_and_show_dialog};
 use crate::ui::volumes::VolumesControl;
 use crate::utils::btrfs;
 
@@ -98,12 +98,8 @@ pub(super) fn btrfs_create_subvolume_message(
                     }
                     Err(e) => {
                         let ctx = UiErrorContext::new("create_subvolume");
-                        log_error_and_show_dialog(
-                            fl!("btrfs-create-subvolume-failed"),
-                            e,
-                            ctx,
-                        )
-                        .into()
+                        log_error_and_show_dialog(fl!("btrfs-create-subvolume-failed"), e, ctx)
+                            .into()
                     }
                 },
             );
@@ -139,17 +135,15 @@ pub(super) fn open_create_snapshot(
         }
     };
 
-    *dialog = Some(ShowDialog::BtrfsCreateSnapshot(
-        BtrfsCreateSnapshotDialog {
-            mount_point: mount_point.clone(),
-            subvolumes,
-            selected_source_index: 0,
-            snapshot_name: String::new(),
-            read_only: true,
-            running: false,
-            error: None,
-        },
-    ));
+    *dialog = Some(ShowDialog::BtrfsCreateSnapshot(BtrfsCreateSnapshotDialog {
+        mount_point: mount_point.clone(),
+        subvolumes,
+        selected_source_index: 0,
+        snapshot_name: String::new(),
+        read_only: true,
+        running: false,
+        error: None,
+    }));
 
     Task::none()
 }
@@ -223,12 +217,8 @@ pub(super) fn btrfs_create_snapshot_message(
                     }
                     Err(e) => {
                         let ctx = UiErrorContext::new("create_snapshot");
-                        log_error_and_show_dialog(
-                            fl!("btrfs-create-snapshot-failed"),
-                            e,
-                            ctx,
-                        )
-                        .into()
+                        log_error_and_show_dialog(fl!("btrfs-create-snapshot-failed"), e, ctx)
+                            .into()
                     }
                 },
             );
@@ -237,4 +227,3 @@ pub(super) fn btrfs_create_snapshot_message(
 
     Task::none()
 }
-

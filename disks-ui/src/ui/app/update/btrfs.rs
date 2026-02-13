@@ -2,7 +2,7 @@ use super::super::state::AppModel;
 use super::Message;
 use crate::fl;
 use crate::ui::dialogs::state::{ConfirmActionDialog, FilesystemTarget, ShowDialog};
-use crate::ui::error::{log_error_and_show_dialog, UiErrorContext};
+use crate::ui::error::{UiErrorContext, log_error_and_show_dialog};
 use crate::ui::volumes::VolumesControl;
 use crate::utils::btrfs;
 use cosmic::app::Task;
@@ -56,10 +56,13 @@ pub(super) fn handle_btrfs_message(app: &mut AppModel, message: Message) -> Task
         Message::BtrfsDeleteSubvolume { path } => {
             // Show confirmation dialog
             let subvol_name = path.rsplit('/').next().unwrap_or(&path).to_string();
-            
+
             // Get a dummy FilesystemTarget (required by ConfirmActionDialog but not used for BTRFS)
             let target = if let Some(volumes_control) = app.nav.active_data::<VolumesControl>() {
-                if let Some(segment) = volumes_control.segments.get(volumes_control.selected_segment) {
+                if let Some(segment) = volumes_control
+                    .segments
+                    .get(volumes_control.selected_segment)
+                {
                     if let Some(volume) = &segment.volume {
                         FilesystemTarget::Volume(volume.clone())
                     } else {
@@ -76,9 +79,7 @@ pub(super) fn handle_btrfs_message(app: &mut AppModel, message: Message) -> Task
                 title: fl!("btrfs-delete-subvolume"),
                 body: fl!("btrfs-delete-confirm", name = subvol_name.as_str()),
                 target,
-                ok_message: Message::BtrfsDeleteSubvolumeConfirm {
-                    path,
-                },
+                ok_message: Message::BtrfsDeleteSubvolumeConfirm { path },
                 running: false,
             }));
 
@@ -104,12 +105,8 @@ pub(super) fn handle_btrfs_message(app: &mut AppModel, message: Message) -> Task
                     }
                     Err(e) => {
                         let ctx = UiErrorContext::new("delete_subvolume");
-                        log_error_and_show_dialog(
-                            fl!("btrfs-delete-subvolume-failed"),
-                            e,
-                            ctx,
-                        )
-                        .into()
+                        log_error_and_show_dialog(fl!("btrfs-delete-subvolume-failed"), e, ctx)
+                            .into()
                     }
                 },
             )
@@ -130,11 +127,11 @@ pub(super) fn handle_btrfs_message(app: &mut AppModel, message: Message) -> Task
                     let usage = btrfs::get_filesystem_usage(&mount_point_for_async)
                         .await
                         .map_err(|e| format!("{:#}", e));
-                    
+
                     let compression = btrfs::get_compression(&mount_point_for_async)
                         .await
                         .map_err(|e| format!("{:#}", e));
-                    
+
                     (usage, compression)
                 },
                 move |(usage_result, compression_result)| {

@@ -1,6 +1,6 @@
 use crate::app::Message;
 use crate::ui::dialogs::message::{
-    BtrfsCreateSubvolumeMessage, BtrfsCreateSnapshotMessage, ChangePassphraseMessage,
+    BtrfsCreateSnapshotMessage, BtrfsCreateSubvolumeMessage, ChangePassphraseMessage,
     CreateMessage, EditEncryptionOptionsMessage, EditFilesystemLabelMessage,
     EditMountOptionsMessage, EditPartitionMessage, ResizePartitionMessage, TakeOwnershipMessage,
     UnlockMessage,

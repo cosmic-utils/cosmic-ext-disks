@@ -5,6 +5,7 @@ use crate::ui::dialogs::state::ShowDialog;
 
 use super::{VolumesControl, VolumesControlMessage};
 
+mod btrfs;
 mod create;
 mod encryption;
 mod filesystem;
@@ -12,7 +13,6 @@ mod mount;
 mod mount_options;
 mod partition;
 mod selection;
-mod btrfs;
 
 impl VolumesControl {
     pub fn update(

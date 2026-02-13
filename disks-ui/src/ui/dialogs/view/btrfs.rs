@@ -1,11 +1,11 @@
-use cosmic::widget::{button, dialog, text_input, text, checkbox, dropdown};
 use cosmic::widget::text::caption;
-use cosmic::{iced_widget, Element};
+use cosmic::widget::{button, checkbox, dialog, dropdown, text, text_input};
+use cosmic::{Element, iced_widget};
 
 use crate::app::Message;
 use crate::fl;
-use crate::ui::dialogs::message::{BtrfsCreateSubvolumeMessage, BtrfsCreateSnapshotMessage};
-use crate::ui::dialogs::state::{BtrfsCreateSubvolumeDialog, BtrfsCreateSnapshotDialog};
+use crate::ui::dialogs::message::{BtrfsCreateSnapshotMessage, BtrfsCreateSubvolumeMessage};
+use crate::ui::dialogs::state::{BtrfsCreateSnapshotDialog, BtrfsCreateSubvolumeDialog};
 
 pub fn create_subvolume<'a>(state: BtrfsCreateSubvolumeDialog) -> Element<'a, Message> {
     let BtrfsCreateSubvolumeDialog {
@@ -15,9 +15,11 @@ pub fn create_subvolume<'a>(state: BtrfsCreateSubvolumeDialog) -> Element<'a, Me
         error,
     } = state;
 
-    let mut content = iced_widget::column![text_input(fl!("btrfs-subvolume-name"), name)
-        .label(fl!("btrfs-subvolume-name"))
-        .on_input(|t| BtrfsCreateSubvolumeMessage::NameUpdate(t).into()),]
+    let mut content = iced_widget::column![
+        text_input(fl!("btrfs-subvolume-name"), name)
+            .label(fl!("btrfs-subvolume-name"))
+            .on_input(|t| BtrfsCreateSubvolumeMessage::NameUpdate(t).into()),
+    ]
     .spacing(12);
 
     if running {
@@ -56,7 +58,7 @@ pub fn create_snapshot<'a>(state: BtrfsCreateSnapshotDialog) -> Element<'a, Mess
 
     // Create dropdown options from subvolumes
     let options: Vec<String> = subvolumes.iter().map(|s| s.path.clone()).collect();
-    
+
     let mut content = iced_widget::column![
         caption(fl!("btrfs-source-subvolume")),
         dropdown(options, Some(selected_source_index), |idx| {
