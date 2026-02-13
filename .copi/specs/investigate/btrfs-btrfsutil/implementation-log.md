@@ -104,6 +104,33 @@ cargo run
 
 ---
 
+## Phase 4: Localization (COMPLETE ✅)
+
+### 2023-02-13 22:10 - Add English Translations
+
+**Objective**: Add proper i18n strings for all BTRFS UI text
+
+**Strings Added**:
+- `btrfs-not-mounted` - "BTRFS filesystem not mounted"
+- `btrfs-not-mounted-refresh` - "BTRFS filesystem not mounted (try refreshing)"
+- `btrfs-loading-subvolumes` - "Loading subvolumes..."
+- `btrfs-no-subvolumes` - "No subvolumes found"
+- `btrfs-no-subvolumes-desc` - "This BTRFS volume may be newly created or not yet have any subvolumes."
+- `btrfs-loading-usage` - "Loading usage information..."
+- `btrfs-usage-error` - "Usage error: { $error }"
+
+**Code Updated**:
+- Replaced all hardcoded English strings in `disks-ui/src/ui/btrfs/view.rs` with `fl!()` macro calls
+- All BTRFS UI text now properly localized and consistent with app style
+
+**Files Changed**:
+- `disks-ui/i18n/en/cosmic_ext_disks.ftl` - Added 7 new strings
+- `disks-ui/src/ui/btrfs/view.rs` - Replaced 6 hardcoded strings with fl! calls
+
+**Status**: Phase 4 complete (Task 4.1 done, Task 4.2 Swedish translations skipped as optional)
+
+---
+
 ## Phase Status Summary
 
 - ✅ Phase 1: Foundation (8/8 tasks)
@@ -116,7 +143,9 @@ cargo run
   - ✅ Hierarchical display with expand/collapse
   - ✅ UI polish (icons, tooltips, errors)
   - ✅ Filesystem usage display
-- ⏳ Phase 4: Localization (0/2 tasks)
+- ✅ Phase 4: Localization (2/2 tasks)
+  - ✅ English translations
+  - ⏭️ Swedish translations (skipped - optional)
 - ⏳ Phase 5: Testing & Polish (0/8 tasks)
 - ⏳ Phase 6: CI & Final (0/4 tasks)
 

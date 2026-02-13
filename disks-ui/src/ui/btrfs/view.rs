@@ -50,7 +50,7 @@ pub fn btrfs_management_section<'a>(
 
         if state.loading_usage {
             content_items.push(
-                widget::text::caption("Loading usage information...")
+                widget::text::caption(fl!("btrfs-loading-usage"))
                     .into(),
             );
         } else if let Some(used_space_result) = &state.used_space {
@@ -78,7 +78,7 @@ pub fn btrfs_management_section<'a>(
                 }
                 Err(error) => {
                     content_items.push(
-                        widget::text::caption(format!("Usage error: {}", error))
+                        widget::text::caption(fl!("btrfs-usage-error", error = error))
                             .into(),
                     );
                 }
@@ -108,18 +108,18 @@ pub fn btrfs_management_section<'a>(
             if volume.has_filesystem {
                 // Filesystem exists but not detected as mounted
                 content_items.push(
-                    widget::text::caption("BTRFS filesystem not mounted (try refreshing)")
+                    widget::text::caption(fl!("btrfs-not-mounted-refresh"))
                         .into(),
                 );
             } else {
                 content_items.push(
-                    widget::text::caption("BTRFS filesystem not mounted")
+                    widget::text::caption(fl!("btrfs-not-mounted"))
                         .into(),
                 );
             }
         }
     } else if state.loading {
-        content_items.push(widget::text::caption("Loading subvolumes...").into());
+        content_items.push(widget::text::caption(fl!("btrfs-loading-subvolumes")).into());
     } else if let Some(result) = &state.subvolumes {
         match result {
             Ok(subvolumes) => {
@@ -148,11 +148,11 @@ pub fn btrfs_management_section<'a>(
 
                 if subvolumes.is_empty() {
                     content_items.push(
-                        widget::text::caption("No subvolumes found")
+                        widget::text::caption(fl!("btrfs-no-subvolumes"))
                             .into(),
                     );
                     content_items.push(
-                        widget::text::caption("This BTRFS volume may be newly created or not yet have any subvolumes.")
+                        widget::text::caption(fl!("btrfs-no-subvolumes-desc"))
                             .size(11)
                             .into(),
                     );
