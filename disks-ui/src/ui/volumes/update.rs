@@ -5,6 +5,7 @@ use crate::ui::dialogs::state::ShowDialog;
 
 use super::{VolumesControl, VolumesControlMessage};
 
+mod btrfs;
 mod create;
 mod encryption;
 mod filesystem;
@@ -22,6 +23,37 @@ impl VolumesControl {
         match message {
             VolumesControlMessage::SegmentSelected(index) => {
                 selection::segment_selected(self, index, dialog)
+            }
+            VolumesControlMessage::SelectDetailTab(tab) => {
+                self.detail_tab = tab;
+                // If switching to BTRFS tab, ensure data is loaded
+                if tab == super::state::DetailTab::BtrfsManagement
+                    && let Some(btrfs_state) = &self.btrfs_state
+                        && let Some(mp) = &btrfs_state.mount_point
+                            && let Some(bp) = &btrfs_state.block_path
+                        {
+                            let mut tasks = Vec::new();
+                            if btrfs_state.subvolumes.is_none() && !btrfs_state.loading {
+                                tasks.push(Task::done(cosmic::Action::App(
+                                    Message::BtrfsLoadSubvolumes {
+                                        block_path: bp.clone(),
+                                        mount_point: mp.clone(),
+                                    },
+                                )));
+                            }
+                            if btrfs_state.used_space.is_none() && !btrfs_state.loading_usage {
+                                tasks.push(Task::done(cosmic::Action::App(
+                                    Message::BtrfsLoadUsage {
+                                        block_path: bp.clone(),
+                                        mount_point: mp.clone(),
+                                    },
+                                )));
+                            }
+                            if !tasks.is_empty() {
+                                return Task::batch(tasks);
+                            }
+                        }
+                Task::none()
             }
             VolumesControlMessage::SelectVolume {
                 segment_index,
@@ -72,6 +104,12 @@ impl VolumesControl {
             VolumesControlMessage::OpenEditEncryptionOptions => {
                 encryption::open_edit_encryption_options(self, dialog)
             }
+            VolumesControlMessage::OpenBtrfsCreateSubvolume => {
+                btrfs::open_create_subvolume(self, dialog)
+            }
+            VolumesControlMessage::OpenBtrfsCreateSnapshot => {
+                btrfs::open_create_snapshot(self, dialog)
+            }
 
             VolumesControlMessage::CreateMessage(msg) => create::create_message(self, msg, dialog),
             VolumesControlMessage::UnlockMessage(unlock_message) => {
@@ -97,6 +135,12 @@ impl VolumesControl {
             }
             VolumesControlMessage::EditEncryptionOptionsMessage(msg) => {
                 encryption::edit_encryption_options_message(self, msg, dialog)
+            }
+            VolumesControlMessage::BtrfsCreateSubvolumeMessage(msg) => {
+                btrfs::btrfs_create_subvolume_message(self, msg, dialog)
+            }
+            VolumesControlMessage::BtrfsCreateSnapshotMessage(msg) => {
+                btrfs::btrfs_create_snapshot_message(self, msg, dialog)
             }
         }
     }

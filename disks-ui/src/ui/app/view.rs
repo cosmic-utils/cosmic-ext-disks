@@ -1,10 +1,11 @@
 use super::message::Message;
 use super::state::{AppModel, ContextPage};
 use crate::fl;
+use crate::ui::btrfs::btrfs_management_section;
 use crate::ui::dialogs::state::{DeletePartitionDialog, ShowDialog};
 use crate::ui::dialogs::view as dialogs;
 use crate::ui::sidebar;
-use crate::ui::volumes::{VolumesControl, VolumesControlMessage, disk_header};
+use crate::ui::volumes::{DetailTab, VolumesControl, VolumesControlMessage, disk_header, helpers};
 use crate::utils::DiskSegmentKind;
 use crate::views::settings::settings;
 use cosmic::app::context_drawer as cosmic_context_drawer;
@@ -15,6 +16,44 @@ use cosmic::{Apply, Element, iced_widget};
 use disks_dbus::bytes_to_pretty;
 use disks_dbus::{DriveModel, VolumeKind};
 
+/// Custom button style for header tabs with accent color background.
+fn tab_button_class(active: bool) -> cosmic::theme::Button {
+    cosmic::theme::Button::Custom {
+        active: Box::new(move |_focused, theme| tab_button_style(active, theme)),
+        disabled: Box::new(move |theme| tab_button_style(active, theme)),
+        hovered: Box::new(move |_focused, theme| tab_button_style(active, theme)),
+        pressed: Box::new(move |_focused, theme| tab_button_style(active, theme)),
+    }
+}
+
+fn tab_button_style(
+    active: bool,
+    theme: &cosmic::theme::Theme,
+) -> cosmic::widget::button::Style {
+    let cosmic = theme.cosmic();
+    
+    let (background, text_color) = if active {
+        // Active tab: accent background with white text
+        (Some(cosmic::iced::Background::Color(cosmic.accent_color().into())), cosmic.on_accent_color().into())
+    } else {
+        // Inactive tab: transparent with accent color text
+        (None, cosmic.accent_color().into())
+    };
+
+    cosmic::widget::button::Style {
+        shadow_offset: Default::default(),
+        background,
+        overlay: None,
+        border_radius: cosmic.corner_radii.radius_s.into(),
+        border_width: 0.0,
+        border_color: cosmic::iced::Color::TRANSPARENT,
+        outline_width: 0.0,
+        outline_color: cosmic::iced::Color::TRANSPARENT,
+        icon_color: Some(text_color),
+        text_color: Some(text_color),
+    }
+}
+
 /// Elements to pack at the start of the header bar.
 pub(crate) fn header_start(_app: &AppModel) -> Vec<Element<'_, Message>> {
     vec![
@@ -22,6 +61,65 @@ pub(crate) fn header_start(_app: &AppModel) -> Vec<Element<'_, Message>> {
             .on_press(Message::ToggleContextPage(ContextPage::Settings))
             .into(),
     ]
+}
+
+/// Elements to pack at the center of the header bar.
+pub(crate) fn header_center(app: &AppModel) -> Vec<Element<'_, Message>> {
+    let mut elements = vec![];
+    
+    // Add BTRFS tabs if applicable
+    if let Some(volumes_control) = app.nav.active_data::<VolumesControl>()
+        && let Some(segment) = volumes_control
+            .segments
+            .get(volumes_control.selected_segment)
+            .or_else(|| volumes_control.segments.first())
+        {
+            // Determine if this segment contains BTRFS
+            let selected_volume_node = segment.volume.as_ref().and_then(|p| {
+                helpers::find_volume_node_for_partition(&volumes_control.model.volumes, p)
+            });
+
+            let selected_volume = segment.volume.as_ref().and_then(|p| {
+                helpers::find_volume_node_for_partition(&volumes_control.model.volumes, p)
+            });
+
+            let has_btrfs = if let Some(v) = selected_volume_node {
+                helpers::detect_btrfs_in_node(v).is_some()
+            } else if let Some(v) = selected_volume {
+                helpers::detect_btrfs_in_node(v).is_some()
+            } else {
+                false
+            };
+
+            if has_btrfs {
+                let active_tab = volumes_control.detail_tab;
+
+                // Volume tab
+                let is_active = active_tab == DetailTab::VolumeInfo;
+                let mut volume_tab = widget::button::text(fl!("volume"))
+                    .class(tab_button_class(is_active));
+                if !is_active {
+                    volume_tab = volume_tab.on_press(Message::VolumesMessage(
+                        VolumesControlMessage::SelectDetailTab(DetailTab::VolumeInfo),
+                    ));
+                }
+
+                // BTRFS tab  
+                let is_active = active_tab == DetailTab::BtrfsManagement;
+                let mut btrfs_tab = widget::button::text(fl!("btrfs"))
+                    .class(tab_button_class(is_active));
+                if !is_active {
+                    btrfs_tab = btrfs_tab.on_press(Message::VolumesMessage(
+                        VolumesControlMessage::SelectDetailTab(DetailTab::BtrfsManagement),
+                    ));
+                }
+
+                elements.push(volume_tab.into());
+                elements.push(btrfs_tab.into());
+            }
+        }
+    
+    elements
 }
 
 pub(crate) fn dialog(app: &AppModel) -> Option<Element<'_, Message>> {
@@ -109,6 +207,14 @@ pub(crate) fn dialog(app: &AppModel) -> Option<Element<'_, Message>> {
 
             crate::ui::dialogs::state::ShowDialog::UnmountBusy(state) => {
                 Some(dialogs::unmount_busy(state.clone()))
+            }
+
+            crate::ui::dialogs::state::ShowDialog::BtrfsCreateSubvolume(state) => {
+                Some(dialogs::create_subvolume(state.clone()))
+            }
+
+            crate::ui::dialogs::state::ShowDialog::BtrfsCreateSnapshot(state) => {
+                Some(dialogs::create_snapshot(state.clone()))
             }
 
             crate::ui::dialogs::state::ShowDialog::Info { title, body } => {
@@ -253,18 +359,19 @@ pub(crate) fn view(app: &AppModel) -> Element<'_, Message> {
             // Bottom section: Volume-specific detail view (2/3 of height)
             let bottom_section = volume_detail_view(volumes_control, segment);
 
-            // Split layout: header shrinks to fit, detail view fills remaining space
-            iced_widget::column![
-                widget::container(top_section)
-                    .padding(20)
-                    .width(Length::Fill)
-                    .height(Length::Shrink),
-                widget::container(bottom_section)
-                    .padding(20)
-                    .width(Length::Fill)
-                    .height(Length::Fill)
-            ]
-            .spacing(0)
+            // Full layout wrapped in a single scrollable
+            widget::scrollable(
+                iced_widget::column![
+                    widget::container(top_section)
+                        .padding(20)
+                        .width(Length::Fill),
+                    widget::container(bottom_section)
+                        .padding(20)
+                        .width(Length::Fill),
+                ]
+                .spacing(0)
+                .width(Length::Fill)
+            )
             .width(Length::Fill)
             .height(Length::Fill)
             .into()
@@ -292,15 +399,41 @@ fn volume_detail_view<'a>(
         )
     });
 
-    // Build the info section (mirroring disk header layout)
-
-    if let Some(v) = selected_volume_node {
-        build_volume_node_info(v, volumes_control, segment, selected_volume)
-    } else if let Some(ref p) = segment.volume {
-        build_partition_info(p, selected_volume, volumes_control, segment)
+    // Determine if this segment contains a BTRFS filesystem (directly or inside LUKS)
+    let has_btrfs = if let Some(v) = selected_volume_node {
+        helpers::detect_btrfs_in_node(v).is_some()
+    } else if let Some(v) = selected_volume {
+        helpers::detect_btrfs_in_node(v).is_some()
     } else {
-        build_free_space_info(segment)
-    }
+        false
+    };
+
+    // Build the tab content based on selected tab
+    let tab_content: Element<'a, Message> =
+        if has_btrfs && volumes_control.detail_tab == DetailTab::BtrfsManagement {
+            // BTRFS Management tab
+            if let Some(btrfs_state) = &volumes_control.btrfs_state {
+                if let Some(volume) = &segment.volume {
+                    btrfs_management_section(volume, btrfs_state)
+                } else {
+                    widget::text("No volume data available").into()
+                }
+            } else {
+                widget::text("Initializing BTRFS state...").into()
+            }
+        } else {
+            // Volume Info tab (default)
+            if let Some(v) = selected_volume_node {
+                build_volume_node_info(v, volumes_control, segment, selected_volume)
+            } else if let Some(ref p) = segment.volume {
+                build_partition_info(p, selected_volume, volumes_control, segment)
+            } else {
+                build_free_space_info(segment)
+            }
+        };
+
+    // Return the tab content directly (tabs are now in header)
+    tab_content
 }
 
 /// Aggregate children's used space for LUKS containers

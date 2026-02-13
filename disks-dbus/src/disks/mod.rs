@@ -1,3 +1,4 @@
+mod btrfs_native;
 mod create_partition_info;
 mod drive;
 mod gpt;
@@ -11,6 +12,7 @@ mod volume;
 mod volume_model;
 
 // Explicit exports from submodules
+pub use btrfs_native::{BtrfsFilesystem, BtrfsSubvolume};
 pub use create_partition_info::CreatePartitionInfo;
 pub use drive::DriveModel;
 pub use gpt::{

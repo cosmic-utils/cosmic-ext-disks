@@ -212,3 +212,26 @@ fs-desc-swap = Virtuellt minne
 
 # Varning för filsystemverktyg
 fs-tools-warning = Vissa filsystemtyper saknas på grund av saknade verktyg. Se Inställningar för mer information.
+
+# BTRFS-hantering
+btrfs-management = BTRFS-hantering
+btrfs = BTRFS
+volume = Volym
+btrfs-placeholder = BTRFS-hanteringsfunktioner kommer snart
+btrfs-create-subvolume = Skapa undervolym
+btrfs-subvolume-name = Undervolymnamn
+btrfs-subvolume-name-required = Undervolymnamn krävs
+btrfs-subvolume-invalid-chars = Undervolymnamnet kan inte innehålla snedstreck
+btrfs-create-subvolume-failed = Misslyckades skapa undervolym
+btrfs-delete-subvolume = Ta bort undervolym
+btrfs-delete-confirm = Ta bort undervolym '{ $name }'? Denna åtgärd kan inte ångras.
+btrfs-delete-subvolume-failed = Misslyckades ta bort undervolym
+btrfs-create-snapshot = Skapa ögonblicksbild
+btrfs-source-subvolume = Källundervolym
+btrfs-snapshot-name = Ögonblicksbildnamn
+btrfs-read-only = Skrivskyddad ögonblicksbild
+btrfs-create-snapshot-failed = Misslyckades skapa ögonblicksbild
+btrfs-used-space = Använt utrymme
+btrfs-subvolume-id = ID
+btrfs-subvolume-path = Sökväg
+btrfs-subvolume-actions = Åtgärder

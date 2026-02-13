@@ -1,0 +1,244 @@
+use cosmic::Task;
+use disks_dbus::{BtrfsFilesystem, DriveModel};
+use std::path::PathBuf;
+
+use crate::app::Message;
+use crate::fl;
+use crate::ui::dialogs::message::{BtrfsCreateSnapshotMessage, BtrfsCreateSubvolumeMessage};
+use crate::ui::dialogs::state::{
+    BtrfsCreateSnapshotDialog, BtrfsCreateSubvolumeDialog, ShowDialog,
+};
+use crate::ui::error::{UiErrorContext, log_error_and_show_dialog};
+use crate::ui::volumes::VolumesControl;
+
+pub(super) fn open_create_subvolume(
+    control: &mut VolumesControl,
+    dialog: &mut Option<ShowDialog>,
+) -> Task<cosmic::Action<Message>> {
+    if dialog.is_some() {
+        return Task::none();
+    }
+
+    // Get mount point and block path from BTRFS state
+    let Some(btrfs_state) = &control.btrfs_state else {
+        return Task::none();
+    };
+
+    let Some(mount_point) = &btrfs_state.mount_point else {
+        return Task::none();
+    };
+
+    let Some(block_path) = &btrfs_state.block_path else {
+        return Task::none();
+    };
+
+    *dialog = Some(ShowDialog::BtrfsCreateSubvolume(
+        BtrfsCreateSubvolumeDialog {
+            mount_point: mount_point.clone(),
+            block_path: block_path.clone(),
+            name: String::new(),
+            running: false,
+            error: None,
+        },
+    ));
+
+    Task::none()
+}
+
+pub(super) fn btrfs_create_subvolume_message(
+    _control: &mut VolumesControl,
+    msg: BtrfsCreateSubvolumeMessage,
+    dialog: &mut Option<ShowDialog>,
+) -> Task<cosmic::Action<Message>> {
+    let Some(ShowDialog::BtrfsCreateSubvolume(state)) = dialog.as_mut() else {
+        return Task::none();
+    };
+
+    match msg {
+        BtrfsCreateSubvolumeMessage::NameUpdate(name) => {
+            state.name = name;
+            state.error = None;
+        }
+        BtrfsCreateSubvolumeMessage::Cancel => {
+            return Task::done(Message::CloseDialog.into());
+        }
+        BtrfsCreateSubvolumeMessage::Create => {
+            if state.running {
+                return Task::none();
+            }
+
+            // Validate name
+            let name = state.name.trim();
+            if name.is_empty() {
+                state.error = Some(fl!("btrfs-subvolume-name-required"));
+                return Task::none();
+            }
+
+            if name.contains('/') {
+                state.error = Some(fl!("btrfs-subvolume-invalid-chars"));
+                return Task::none();
+            }
+
+            if name.len() > 255 {
+                state.error = Some("Subvolume name too long".to_string());
+                return Task::none();
+            }
+
+            state.running = true;
+            state.error = None;
+
+            let mount_point = state.mount_point.clone();
+            let name = name.to_string();
+
+            return Task::perform(
+                async move {
+                    let mount_path = PathBuf::from(&mount_point);
+                    let btrfs = BtrfsFilesystem::new(mount_path).await?;
+                    btrfs.create_subvolume(&name).await?;
+                    DriveModel::get_drives().await
+                },
+                |result| match result {
+                    Ok(drives) => {
+                        // Close dialog and refresh the drive list
+                        // The subvolume list will reload automatically via nav update
+                        Message::UpdateNav(drives, None).into()
+                    }
+                    Err(e) => {
+                        let ctx = UiErrorContext::new("create_subvolume");
+                        log_error_and_show_dialog(fl!("btrfs-create-subvolume-failed"), e, ctx)
+                            .into()
+                    }
+                },
+            );
+        }
+    }
+
+    Task::none()
+}
+
+pub(super) fn open_create_snapshot(
+    control: &mut VolumesControl,
+    dialog: &mut Option<ShowDialog>,
+) -> Task<cosmic::Action<Message>> {
+    if dialog.is_some() {
+        return Task::none();
+    }
+
+    // Get mount point and block path from BTRFS state
+    let Some(btrfs_state) = &control.btrfs_state else {
+        return Task::none();
+    };
+
+    let Some(mount_point) = &btrfs_state.mount_point else {
+        return Task::none();
+    };
+
+    let Some(block_path) = &btrfs_state.block_path else {
+        return Task::none();
+    };
+
+    // Get subvolumes list
+    let subvolumes: Vec<disks_dbus::BtrfsSubvolume> = match &btrfs_state.subvolumes {
+        Some(Ok(subvols)) if !subvols.is_empty() => subvols.clone(),
+        _ => {
+            // No subvolumes available
+            return Task::none();
+        }
+    };
+
+    *dialog = Some(ShowDialog::BtrfsCreateSnapshot(BtrfsCreateSnapshotDialog {
+        mount_point: mount_point.clone(),
+        block_path: block_path.clone(),
+        subvolumes,
+        selected_source_index: 0,
+        snapshot_name: String::new(),
+        read_only: true,
+        running: false,
+        error: None,
+    }));
+
+    Task::none()
+}
+
+pub(super) fn btrfs_create_snapshot_message(
+    _control: &mut VolumesControl,
+    msg: BtrfsCreateSnapshotMessage,
+    dialog: &mut Option<ShowDialog>,
+) -> Task<cosmic::Action<Message>> {
+    let Some(ShowDialog::BtrfsCreateSnapshot(state)) = dialog.as_mut() else {
+        return Task::none();
+    };
+
+    match msg {
+        BtrfsCreateSnapshotMessage::SourceIndexUpdate(index) => {
+            if index < state.subvolumes.len() {
+                state.selected_source_index = index;
+            }
+            state.error = None;
+        }
+        BtrfsCreateSnapshotMessage::NameUpdate(name) => {
+            state.snapshot_name = name;
+            state.error = None;
+        }
+        BtrfsCreateSnapshotMessage::ReadOnlyUpdate(read_only) => {
+            state.read_only = read_only;
+        }
+        BtrfsCreateSnapshotMessage::Cancel => {
+            return Task::done(Message::CloseDialog.into());
+        }
+        BtrfsCreateSnapshotMessage::Create => {
+            if state.running {
+                return Task::none();
+            }
+
+            // Validate snapshot name
+            let name = state.snapshot_name.trim();
+            if name.is_empty() {
+                state.error = Some(fl!("btrfs-subvolume-name-required"));
+                return Task::none();
+            }
+
+            if name.contains('/') {
+                state.error = Some(fl!("btrfs-subvolume-invalid-chars"));
+                return Task::none();
+            }
+
+            if name.len() > 255 {
+                state.error = Some("Snapshot name too long".to_string());
+                return Task::none();
+            }
+
+            state.running = true;
+            state.error = None;
+
+            // Get source subvolume path
+            let source_subvol = &state.subvolumes[state.selected_source_index];
+            let source = source_subvol.path.clone();
+            let dest = PathBuf::from(&name);
+            let read_only = state.read_only;
+            let mount_point = state.mount_point.clone();
+
+            return Task::perform(
+                async move {
+                    let mount_path = PathBuf::from(&mount_point);
+                    let btrfs = BtrfsFilesystem::new(mount_path).await?;
+                    btrfs.create_snapshot(&source, &dest, read_only).await?;
+                    DriveModel::get_drives().await
+                },
+                |result| match result {
+                    Ok(drives) => {
+                        // Close dialog and refresh the drive list
+                        Message::UpdateNav(drives, None).into()
+                    }
+                    Err(e) => {
+                        let ctx = UiErrorContext::new("create_snapshot");
+                        log_error_and_show_dialog(fl!("btrfs-create-snapshot-failed"), e, ctx)
+                            .into()
+                    }
+                },
+            );
+        }
+    }
+
+    Task::none()
+}

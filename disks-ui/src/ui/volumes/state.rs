@@ -1,9 +1,18 @@
 use crate::{
     fl,
+    ui::btrfs::BtrfsState,
     ui::volumes::helpers,
     utils::{DiskSegmentKind, PartitionExtent, SegmentAnomaly, compute_disk_segments},
 };
 use disks_dbus::{CreatePartitionInfo, DriveModel, VolumeModel, VolumeNode};
+
+/// Which detail tab is active below the drive header
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum DetailTab {
+    #[default]
+    VolumeInfo,
+    BtrfsManagement,
+}
 
 pub struct VolumesControl {
     pub selected_segment: usize,
@@ -11,6 +20,10 @@ pub struct VolumesControl {
     pub segments: Vec<Segment>,
     pub show_reserved: bool,
     pub(crate) model: DriveModel,
+    /// BTRFS management state for the currently selected volume (if BTRFS)
+    pub btrfs_state: Option<BtrfsState>,
+    /// Which detail tab is currently displayed
+    pub detail_tab: DetailTab,
 }
 
 #[derive(Clone, Debug)]
@@ -306,6 +319,8 @@ impl VolumesControl {
             selected_volume: None,
             segments,
             show_reserved,
+            btrfs_state: None,
+            detail_tab: DetailTab::default(),
         }
     }
 
@@ -323,6 +338,7 @@ impl VolumesControl {
         self.segments = Segment::get_segments(&self.model, self.show_reserved);
         self.selected_segment = 0;
         self.selected_volume = None;
+        self.btrfs_state = None;
         if let Some(first) = self.segments.first_mut() {
             first.state = true;
         }

@@ -64,8 +64,81 @@ pub enum Message {
     OpenImagePathPicker(ImagePathPickerKind),
     ImagePathPicked(ImagePathPickerKind, Option<String>),
     ToggleShowReserved(bool),
+    EnableUDisksBtrfs,
+    EnableUDisksBtrfsResult(Result<(), String>),
     #[allow(dead_code)]
     Surface(cosmic::surface::Action),
+
+    // BTRFS management
+    BtrfsLoadSubvolumes {
+        block_path: String,
+        mount_point: String,
+    },
+    BtrfsSubvolumesLoaded {
+        mount_point: String,
+        result: Result<Vec<disks_dbus::BtrfsSubvolume>, String>,
+    },
+    BtrfsDeleteSubvolume {
+        block_path: String,
+        mount_point: String,
+        path: String,
+    },
+    BtrfsDeleteSubvolumeConfirm {
+        block_path: String,
+        mount_point: String,
+        path: String,
+    },
+    BtrfsLoadUsage {
+        block_path: String,
+        mount_point: String,
+    },
+    BtrfsUsageLoaded {
+        mount_point: String,
+        used_space: Result<u64, String>,
+    },
+    BtrfsToggleSubvolumeExpanded {
+        mount_point: String,
+        subvolume_id: u64,
+    },
+    BtrfsLoadDefaultSubvolume {
+        mount_point: String,
+    },
+    BtrfsDefaultSubvolumeLoaded {
+        mount_point: String,
+        result: Result<disks_dbus::BtrfsSubvolume, String>,
+    },
+    BtrfsSetDefaultSubvolume {
+        mount_point: String,
+        subvolume_id: u64,
+    },
+    BtrfsToggleReadonly {
+        mount_point: String,
+        subvolume_id: u64,
+    },
+    BtrfsReadonlyToggled {
+        mount_point: String,
+        result: Result<(), String>,
+    },
+    BtrfsShowProperties {
+        mount_point: String,
+        subvolume_id: u64,
+    },
+    BtrfsCloseProperties {
+        mount_point: String,
+    },
+    BtrfsLoadDeletedSubvolumes {
+        mount_point: String,
+    },
+    BtrfsDeletedSubvolumesLoaded {
+        mount_point: String,
+        result: Result<Vec<disks_dbus::BtrfsSubvolume>, String>,
+    },
+    BtrfsToggleShowDeleted {
+        mount_point: String,
+    },
+    BtrfsRefreshAll {
+        mount_point: String,
+    },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

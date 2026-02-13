@@ -23,6 +23,8 @@ pub enum ShowDialog {
     AttachDiskImage(Box<AttachDiskImageDialog>),
     ImageOperation(Box<ImageOperationDialog>),
     UnmountBusy(UnmountBusyDialog),
+    BtrfsCreateSubvolume(BtrfsCreateSubvolumeDialog),
+    BtrfsCreateSnapshot(BtrfsCreateSnapshotDialog),
     Info {
         title: String,
         body: String,
@@ -206,4 +208,25 @@ pub struct UnmountBusyDialog {
     pub mount_point: String,
     pub processes: Vec<ProcessInfo>,
     pub object_path: String,
+}
+
+#[derive(Debug, Clone)]
+pub struct BtrfsCreateSubvolumeDialog {
+    pub mount_point: String,
+    pub block_path: String,
+    pub name: String,
+    pub running: bool,
+    pub error: Option<String>,
+}
+
+#[derive(Debug, Clone)]
+pub struct BtrfsCreateSnapshotDialog {
+    pub mount_point: String,
+    pub block_path: String,
+    pub subvolumes: Vec<disks_dbus::BtrfsSubvolume>,
+    pub selected_source_index: usize,
+    pub snapshot_name: String,
+    pub read_only: bool,
+    pub running: bool,
+    pub error: Option<String>,
 }

@@ -205,6 +205,13 @@ fs-tools-missing-desc = The following tools are not installed. Install them to e
 fs-tools-all-installed-title = Filesystem Tools
 fs-tools-all-installed = All filesystem tools are installed.
 fs-tools-required-for = required for {$fs_name} support
+
+# UDisks2 BTRFS module
+settings-enable-udisks-btrfs = Try Enable UDisks2 BTRFS
+settings-udisks-btrfs-enabled = UDisks2 BTRFS Module Enabled
+settings-udisks-btrfs-enabled-body = The UDisks2 BTRFS module has been enabled successfully. You can now use BTRFS management features.
+settings-udisks-btrfs-failed = Failed to Enable UDisks2 BTRFS Module
+
 offset = Offset
 
 # Partition dialog labels
@@ -237,3 +244,38 @@ fs-desc-swap = Virtual memory
 
 # Filesystem tools warning
 fs-tools-warning = Some filesystem types are missing due to missing tools. See Settings for more info.
+
+# Detail Tabs
+volume-info = Volume Info
+
+# BTRFS Management
+btrfs-management = BTRFS Management
+btrfs = BTRFS
+volume = Volume
+btrfs-placeholder = BTRFS management features coming soon
+btrfs-create-subvolume = Create Subvolume
+btrfs-subvolume-name = Subvolume Name
+btrfs-subvolume-name-required = Subvolume name is required
+btrfs-subvolume-invalid-chars = Subvolume name cannot contain slashes
+btrfs-create-subvolume-failed = Failed to create subvolume
+btrfs-delete-subvolume = Delete Subvolume
+btrfs-delete-confirm = Delete subvolume '{ $name }'? This action cannot be undone.
+btrfs-delete-subvolume-failed = Failed to delete subvolume
+btrfs-create-snapshot = Create Snapshot
+btrfs-source-subvolume = Source Subvolume
+btrfs-snapshot-name = Snapshot Name
+btrfs-read-only = Read-only snapshot
+btrfs-create-snapshot-failed = Failed to create snapshot
+btrfs-used-space = Used space
+btrfs-subvolume-id = ID
+btrfs-subvolume-path = Path
+btrfs-subvolume-actions = Actions
+btrfs-set-default-failed = Failed to set default subvolume
+btrfs-readonly-failed = Failed to toggle readonly flag
+btrfs-not-mounted = BTRFS filesystem not mounted
+btrfs-not-mounted-refresh = BTRFS filesystem not mounted (try refreshing)
+btrfs-loading-subvolumes = Loading subvolumes...
+btrfs-no-subvolumes = No subvolumes found
+btrfs-no-subvolumes-desc = This BTRFS volume may be newly created or not yet have any subvolumes.
+btrfs-loading-usage = Loading usage information...
+btrfs-usage-error = Usage error: { $error }

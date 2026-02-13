@@ -1,16 +1,18 @@
+use crate::ui::app::message::Message;
+use crate::ui::app::state::AppModel;
+use crate::ui::btrfs::BtrfsState;
 use crate::ui::dialogs::state::ShowDialog;
-use crate::ui::volumes::VolumesControl;
+use crate::ui::volumes::{VolumesControl, helpers};
+use cosmic::app::Task;
 use cosmic::widget::icon;
 use disks_dbus::DriveModel;
 use std::collections::HashMap;
-
-use crate::ui::app::state::AppModel;
 
 pub(super) fn update_nav(
     app: &mut AppModel,
     drive_models: Vec<DriveModel>,
     selected: Option<String>,
-) {
+) -> Task<Message> {
     // Cache drive models for the custom sidebar tree.
     app.sidebar.set_drives(drive_models.clone());
 
@@ -65,11 +67,29 @@ pub(super) fn update_nav(
 
         let should_activate = selected.as_ref().is_some_and(|s| &drive.block_path == s);
 
+        let mut volumes_control = VolumesControl::new(drive.clone(), show_reserved);
+
+        // Initialize BTRFS state for the selected segment if it contains BTRFS
+        // (checks all segments and looks through LUKS containers)
+        let selected_idx = volumes_control.selected_segment;
+        if let Some(segment) = volumes_control.segments.get(selected_idx)
+            && let Some(volume) = &segment.volume
+        {
+            let btrfs_info = helpers::detect_btrfs_for_volume(&drive.volumes, volume);
+            tracing::info!("update_nav: drive={}, segment={}, btrfs_detected={}, id_type={}, has_filesystem={}, mount_points={:?}",
+                drive.name(), selected_idx, btrfs_info.is_some(), volume.id_type, volume.has_filesystem, volume.mount_points);
+
+            if let Some((mount_point, block_path)) = btrfs_info {
+                tracing::info!("update_nav: Initializing BTRFS state with mount_point={:?}, block_path={}", mount_point, block_path);
+                volumes_control.btrfs_state = Some(BtrfsState::new(mount_point, Some(block_path)));
+            }
+        }
+
         let mut nav_item = app
             .nav
             .insert()
             .text(drive.name())
-            .data::<VolumesControl>(VolumesControl::new(drive.clone(), show_reserved))
+            .data::<VolumesControl>(volumes_control)
             .data::<DriveModel>(drive.clone())
             .icon(icon::from_name(icon_name));
 
@@ -82,4 +102,41 @@ pub(super) fn update_nav(
     }
 
     app.sidebar.set_drive_entities(drive_entities);
+
+    //  Trigger BTRFS data loading for activated drive
+    if let Some(volumes_control) = app.nav.active_data::<VolumesControl>()
+        && let Some(btrfs_state) = &volumes_control.btrfs_state
+        && let Some(mount_point) = &btrfs_state.mount_point
+        && let Some(block_path) = &btrfs_state.block_path
+    {
+        let mut tasks = Vec::new();
+
+        // Load subvolumes if not already loaded/loading
+        if btrfs_state.subvolumes.is_none() && !btrfs_state.loading {
+            tasks.push(Task::done(
+                Message::BtrfsLoadSubvolumes {
+                    block_path: block_path.clone(),
+                    mount_point: mount_point.clone(),
+                }
+                .into(),
+            ));
+        }
+
+        // Load usage info if not already loaded/loading
+        if btrfs_state.used_space.is_none() && !btrfs_state.loading_usage {
+            tasks.push(Task::done(
+                Message::BtrfsLoadUsage {
+                    block_path: block_path.clone(),
+                    mount_point: mount_point.clone(),
+                }
+                .into(),
+            ));
+        }
+
+        if !tasks.is_empty() {
+            return Task::batch(tasks);
+        }
+    }
+
+    Task::none()
 }

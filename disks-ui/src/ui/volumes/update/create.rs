@@ -173,7 +173,9 @@ pub(super) fn create_message(
         | ShowDialog::ConfirmAction(_)
         | ShowDialog::TakeOwnership(_)
         | ShowDialog::ChangePassphrase(_)
-        | ShowDialog::UnmountBusy(_) => {
+        | ShowDialog::UnmountBusy(_)
+        | ShowDialog::BtrfsCreateSubvolume(_)
+        | ShowDialog::BtrfsCreateSnapshot(_) => {
             tracing::warn!("create message received while a different dialog is open; ignoring");
         }
 

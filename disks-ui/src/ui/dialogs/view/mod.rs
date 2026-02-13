@@ -1,3 +1,4 @@
+mod btrfs;
 mod common;
 mod disk;
 mod encryption;
@@ -5,6 +6,7 @@ mod image;
 mod mount;
 mod partition;
 
+pub use btrfs::{create_snapshot, create_subvolume};
 pub use common::{confirmation, info};
 pub use disk::{format_disk, smart_data};
 pub use encryption::{

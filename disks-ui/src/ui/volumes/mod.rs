@@ -7,4 +7,4 @@ pub(crate) mod usage_pie;
 pub(crate) mod view;
 
 pub use message::VolumesControlMessage;
-pub use state::{Segment, ToggleState, VolumesControl};
+pub use state::{DetailTab, Segment, ToggleState, VolumesControl};
