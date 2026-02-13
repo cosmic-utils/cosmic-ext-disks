@@ -27,9 +27,9 @@ impl VolumesControl {
             VolumesControlMessage::SelectDetailTab(tab) => {
                 self.detail_tab = tab;
                 // If switching to BTRFS tab, ensure data is loaded
-                if tab == super::state::DetailTab::BtrfsManagement {
-                    if let Some(btrfs_state) = &self.btrfs_state {
-                        if let Some(mp) = &btrfs_state.mount_point
+                if tab == super::state::DetailTab::BtrfsManagement
+                    && let Some(btrfs_state) = &self.btrfs_state
+                        && let Some(mp) = &btrfs_state.mount_point
                             && let Some(bp) = &btrfs_state.block_path
                         {
                             let mut tasks = Vec::new();
@@ -53,8 +53,6 @@ impl VolumesControl {
                                 return Task::batch(tasks);
                             }
                         }
-                    }
-                }
                 Task::none()
             }
             VolumesControlMessage::SelectVolume {

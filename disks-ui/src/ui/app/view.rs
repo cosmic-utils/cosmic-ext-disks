@@ -68,8 +68,8 @@ pub(crate) fn header_center(app: &AppModel) -> Vec<Element<'_, Message>> {
     let mut elements = vec![];
     
     // Add BTRFS tabs if applicable
-    if let Some(volumes_control) = app.nav.active_data::<VolumesControl>() {
-        if let Some(segment) = volumes_control
+    if let Some(volumes_control) = app.nav.active_data::<VolumesControl>()
+        && let Some(segment) = volumes_control
             .segments
             .get(volumes_control.selected_segment)
             .or_else(|| volumes_control.segments.first())
@@ -118,7 +118,6 @@ pub(crate) fn header_center(app: &AppModel) -> Vec<Element<'_, Message>> {
                 elements.push(btrfs_tab.into());
             }
         }
-    }
     
     elements
 }

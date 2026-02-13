@@ -178,7 +178,7 @@ fn build_subvolume_hierarchy<'a>(
     for subvol in subvolumes {
         children_map
             .entry(subvol.parent_id)
-            .or_insert_with(Vec::new)
+            .or_default()
             .push(subvol);
     }
 
@@ -209,7 +209,7 @@ fn render_subvolume_row<'a>(
 ) -> Element<'a, Message> {
     let mount_point = state.mount_point.as_ref();
     let snapshots = children_map.get(&subvol.id);
-    let has_snapshots = snapshots.map_or(false, |s| !s.is_empty());
+    let has_snapshots = snapshots.is_some_and(|s| !s.is_empty());
     let is_expanded = state.expanded_subvolumes.get(&subvol.id).copied().unwrap_or(false);
 
     let mut row_items: Vec<Element<'a, Message>> = Vec::new();
@@ -275,8 +275,8 @@ fn render_subvolume_row<'a>(
     let mut col = iced_widget::column![row].spacing(2);
 
     // If expanded and has snapshots, render them indented
-    if is_expanded && has_snapshots {
-        if let Some(snapshot_list) = snapshots {
+    if is_expanded && has_snapshots
+        && let Some(snapshot_list) = snapshots {
             for snapshot in snapshot_list.iter() {
                 col = col.push(render_subvolume_row(
                     snapshot,
@@ -286,7 +286,6 @@ fn render_subvolume_row<'a>(
                 ));
             }
         }
-    }
 
     col.into()
 }

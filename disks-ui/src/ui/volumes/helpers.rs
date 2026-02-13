@@ -98,14 +98,13 @@ pub(crate) fn detect_btrfs_for_volume(
         return Some((mount_point, block_path));
     }
 
-    if let Some(node) = find_volume_node_for_partition(volumes, volume) {
-        if let Some(mp) = detect_btrfs_in_node(node) {
+    if let Some(node) = find_volume_node_for_partition(volumes, volume)
+        && let Some(mp) = detect_btrfs_in_node(node) {
             // Find the BTRFS block device path by looking for the BTRFS child
             if let Some(btrfs_child) = find_btrfs_child(node) {
                 return Some((mp, btrfs_child.object_path.to_string()));
             }
         }
-    }
 
     None
 }
