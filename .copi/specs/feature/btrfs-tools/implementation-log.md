@@ -6,6 +6,33 @@
 
 ---
 
+## Task 0: FsTools Integration + Module Enablement ✅
+**Completed:** 2024-01-XX  
+**Commit:** 3cabd28
+
+**Summary:**
+Implemented foundation for BTRFS management by adding udisks2-btrfs package detection and UDisks2 module enablement button in settings.
+
+**Changes:**
+- `disks-dbus/src/disks/manager.rs` - Added `enable_modules()` D-Bus method
+- `disks-ui/src/utils/fs_tools.rs` - Added udisks2-btrfs to FS_TOOL_REQUIREMENTS
+- `disks-ui/src/ui/app/message.rs` - Added EnableUDisksBtrfs messages
+- `disks-ui/src/ui/app/update/mod.rs` - Added message handler with Task::perform and info dialogs
+- `disks-ui/src/views/settings.rs` - Added "Try Enable UDisks2 BTRFS" button
+- `disks-ui/i18n/en/cosmic_ext_disks.ftl` - Added i18n strings for module enablement
+
+**Key Decisions:**
+1. Used Info dialog variant for success/failure feedback (consistent with existing error patterns)
+2. Required `.into()` wrapper for Message→Action conversion in Task::perform callbacks
+3. Separated title and body strings for dialog display
+
+**Testing:**
+- Unit tests: PASSED (fs_tools structure + detection tests)
+- Clippy: No warnings in modified files
+- Compilation: SUCCESS
+
+---
+
 ## Task 1: BTRFS Filesystem Detection ✅
 **Completed:** 2026-02-13  
 **Commit:** abe0979

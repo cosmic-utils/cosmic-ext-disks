@@ -92,13 +92,15 @@ Task 9 (Polish & localization)
 - Clear error message if `udisks2-btrfs` package not installed
 
 **Done When:**
-- [ ] `udisks2-btrfs` added to FsTools detection
-- [ ] "Try Enable UDisks2 BTRFS" button in settings
-- [ ] `EnableModules` D-Bus method implemented
-- [ ] Button triggers module enablement
-- [ ] Warning shown if package not installed
-- [ ] i18n strings added
-- [ ] Code compiles without warnings
+- [x] `udisks2-btrfs` added to FsTools detection
+- [x] "Try Enable UDisks2 BTRFS" button in settings
+- [x] `EnableModules` D-Bus method implemented
+- [x] Button triggers module enablement
+- [x] Warning shown if package not installed
+- [x] i18n strings added
+- [x] Code compiles without warnings
+
+**Status:** ✅ **COMPLETED** (Commit: 3cabd28)
 
 **Estimated effort:** 2-3 hours
 
