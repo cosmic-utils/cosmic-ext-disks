@@ -773,12 +773,15 @@ Task 9 (Polish & localization)
 
 ### 1. Tab Placement (High Priority)
 **Current:** Volume Info / BTRFS Management tabs are local to volume detail view  
-**Required:** Move tabs to app-level top bar  
+**Required:** Move tabs to app header `header_start` section with right alignment  
 **Details:**
-- Tabs should be part of main app header bar (next to app title or in dedicated tab bar)
+- Place tabs in `header_start` section (via `.header_start()` builder pattern)
+- Right-align the tab row (this effectively centers them in the header visually)
+- Better size constraints than `header_center` approach
 - Labels: "Volume Info" → "Volume", "BTRFS Management" → "BTRFS"
 - Selected tab should use theme accent color background
 - Both tabs always visible when BTRFS volume selected (not conditional rendering)
+- Implementation: Build tab row with `.align_x(Alignment::End)` or `horizontal_space()` before tabs
 
 ### 2. Text Sizing Issues (Medium Priority)
 **Current:** All BTRFS Management text is size 10-13  
@@ -842,7 +845,8 @@ Task 9 (Polish & localization)
 - Verify count matches list length
 
 **Done When:**
-- [ ] Tabs relocated to app-level top bar
+- [ ] Tabs relocated to `header_start` section of app header
+- [ ] Tabs right-aligned within `header_start` (centers them visually)
 - [ ] Tab labels updated ("Volume" / "BTRFS")
 - [ ] Selected tab uses accent color background
 - [ ] BTRFS section header text sized properly (match Volume Info)
