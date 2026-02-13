@@ -58,10 +58,10 @@ Task 9 (Polish & localization)
 - Select ext4 partition, verify no BTRFS text
 
 **Done When:**
-- [ ] BTRFS volumes detected correctly
-- [ ] Non-BTRFS volumes show no BTRFS indicator
-- [ ] Placeholder UI element displays
-- [ ] Code compiles without warnings
+- [x] BTRFS volumes detected correctly
+- [x] Non-BTRFS volumes show no BTRFS indicator
+- [x] Placeholder UI element displays
+- [x] Code compiles without warnings
 
 **Estimated effort:** 1-2 hours
 
@@ -115,12 +115,12 @@ Task 9 (Polish & localization)
 - Verify section does not appear for non-BTRFS volumes
 
 **Done When:**
-- [ ] Module structure created
-- [ ] Section displays for BTRFS volumes only
-- [ ] Section is collapsible
-- [ ] Placeholder content shows
-- [ ] Localized strings used
-- [ ] Code compiles
+- [x] Module structure created
+- [x] Section displays for BTRFS volumes only
+- [x] Section is collapsible
+- [x] Placeholder content shows
+- [x] Localized strings used
+- [x] Code compiles
 
 **Estimated effort:** 2-3 hours
 
@@ -211,14 +211,14 @@ Task 9 (Polish & localization)
 - Manual test: call with `btrfs` not installed, verify `command_exists()` returns false
 
 **Done When:**
-- [ ] Module compiles without warnings
-- [ ] `list_subvolumes()` returns parsed list on real BTRFS FS
-- [ ] `create_subvolume()` creates subvolume successfully
-- [ ] `delete_subvolume()` deletes subvolume successfully
-- [ ] `get_filesystem_usage()` returns usage info
-- [ ] Errors are descriptive and contextual
-- [ ] `command_exists()` correctly detects `btrfs` binary
-- [ ] Unit tests pass
+- [x] Module compiles without warnings
+- [x] `list_subvolumes()` returns parsed list on real BTRFS FS
+- [x] `create_subvolume()` creates subvolume successfully
+- [x] `delete_subvolume()` deletes subvolume successfully
+- [x] `get_filesystem_usage()` returns usage info
+- [x] Errors are descriptive and contextual
+- [x] `command_exists()` correctly detects `btrfs` binary
+- [x] Unit tests pass
 
 **Estimated effort:** 4-6 hours
 
@@ -272,11 +272,11 @@ Task 9 (Polish & localization)
 - Test error case: unmounted BTRFS volume (should show error)
 
 **Done When:**
-- [ ] Subvolume list populates from real data
-- [ ] List displays correctly (name, ID visible)
-- [ ] List scrolls if many subvolumes
-- [ ] Loading indicator shows while fetching
-- [ ] Error states handled gracefully (message shown, no crash)
+- [x] Subvolume list populates from real data
+- [x] List displays correctly (name, ID visible)
+- [x] List scrolls if many subvolumes
+- [x] Loading indicator shows while fetching
+- [x] Error states handled gracefully (message shown, no crash)
 
 **Estimated effort:** 3-4 hours
 
