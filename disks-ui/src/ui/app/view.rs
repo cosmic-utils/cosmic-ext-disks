@@ -1,7 +1,7 @@
 use super::message::Message;
 use super::state::{AppModel, ContextPage};
 use crate::fl;
-use crate::ui::btrfs::{BtrfsState, btrfs_management_section};
+use crate::ui::btrfs::btrfs_management_section;
 use crate::ui::dialogs::state::{DeletePartitionDialog, ShowDialog};
 use crate::ui::dialogs::view as dialogs;
 use crate::ui::sidebar;
@@ -346,15 +346,14 @@ fn volume_detail_view<'a>(
     let tab_content: Element<'a, Message> =
         if has_btrfs && volumes_control.detail_tab == DetailTab::BtrfsManagement {
             // BTRFS Management tab
-            let btrfs_state = volumes_control
-                .btrfs_state
-                .as_ref()
-                .unwrap_or(&DEFAULT_BTRFS_STATE);
-
-            if let Some(volume) = &segment.volume {
-                btrfs_management_section(volume, btrfs_state)
+            if let Some(btrfs_state) = &volumes_control.btrfs_state {
+                if let Some(volume) = &segment.volume {
+                    btrfs_management_section(volume, btrfs_state)
+                } else {
+                    widget::text("No volume data available").into()
+                }
             } else {
-                widget::text("No volume data available").into()
+                widget::text("Initializing BTRFS state...").into()
             }
         } else {
             // Volume Info tab (default)
@@ -377,16 +376,6 @@ fn volume_detail_view<'a>(
         tab_content
     }
 }
-
-// Static default BTRFS state used when no state is available
-const DEFAULT_BTRFS_STATE: BtrfsState = BtrfsState {
-    loading: false,
-    subvolumes: None,
-    mount_point: None,
-    usage_info: None,
-    compression: None,
-    loading_usage: false,
-};
 
 /// Aggregate children's used space for LUKS containers
 fn aggregate_children_usage(node: &disks_dbus::VolumeNode) -> u64 {

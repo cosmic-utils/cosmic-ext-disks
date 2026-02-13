@@ -79,9 +79,9 @@ pub(super) fn update_nav(
             tracing::info!("update_nav: drive={}, segment={}, btrfs_detected={}, id_type={}, has_filesystem={}, mount_points={:?}",
                 drive.name(), selected_idx, btrfs_info.is_some(), volume.id_type, volume.has_filesystem, volume.mount_points);
 
-            if let Some(mount_point) = btrfs_info {
-                tracing::info!("update_nav: Initializing BTRFS state with mount_point={:?}", mount_point);
-                volumes_control.btrfs_state = Some(BtrfsState::new(mount_point));
+            if let Some((mount_point, block_path)) = btrfs_info {
+                tracing::info!("update_nav: Initializing BTRFS state with mount_point={:?}, block_path={}", mount_point, block_path);
+                volumes_control.btrfs_state = Some(BtrfsState::new(mount_point, Some(block_path)));
             }
         }
 
@@ -107,6 +107,7 @@ pub(super) fn update_nav(
     if let Some(volumes_control) = app.nav.active_data::<VolumesControl>()
         && let Some(btrfs_state) = &volumes_control.btrfs_state
         && let Some(mount_point) = &btrfs_state.mount_point
+        && let Some(block_path) = &btrfs_state.block_path
     {
         let mut tasks = Vec::new();
 
@@ -114,6 +115,7 @@ pub(super) fn update_nav(
         if btrfs_state.subvolumes.is_none() && !btrfs_state.loading {
             tasks.push(Task::done(
                 Message::BtrfsLoadSubvolumes {
+                    block_path: block_path.clone(),
                     mount_point: mount_point.clone(),
                 }
                 .into(),
@@ -121,9 +123,10 @@ pub(super) fn update_nav(
         }
 
         // Load usage info if not already loaded/loading
-        if btrfs_state.usage_info.is_none() && !btrfs_state.loading_usage {
+        if btrfs_state.used_space.is_none() && !btrfs_state.loading_usage {
             tasks.push(Task::done(
                 Message::BtrfsLoadUsage {
+                    block_path: block_path.clone(),
                     mount_point: mount_point.clone(),
                 }
                 .into(),

@@ -1,5 +1,5 @@
 use cosmic::Task;
-use disks_dbus::DriveModel;
+use disks_dbus::{BtrfsFilesystem, DiskManager, DriveModel, OwnedObjectPath};
 
 use crate::app::Message;
 use crate::fl;
@@ -9,7 +9,6 @@ use crate::ui::dialogs::state::{
 };
 use crate::ui::error::{UiErrorContext, log_error_and_show_dialog};
 use crate::ui::volumes::VolumesControl;
-use crate::utils::btrfs;
 
 pub(super) fn open_create_subvolume(
     control: &mut VolumesControl,
@@ -19,7 +18,7 @@ pub(super) fn open_create_subvolume(
         return Task::none();
     }
 
-    // Get mount point from BTRFS state
+    // Get mount point and block path from BTRFS state
     let Some(btrfs_state) = &control.btrfs_state else {
         return Task::none();
     };
@@ -28,9 +27,14 @@ pub(super) fn open_create_subvolume(
         return Task::none();
     };
 
+    let Some(block_path) = &btrfs_state.block_path else {
+        return Task::none();
+    };
+
     *dialog = Some(ShowDialog::BtrfsCreateSubvolume(
         BtrfsCreateSubvolumeDialog {
             mount_point: mount_point.clone(),
+            block_path: block_path.clone(),
             name: String::new(),
             running: false,
             error: None,
@@ -82,12 +86,17 @@ pub(super) fn btrfs_create_subvolume_message(
             state.running = true;
             state.error = None;
 
-            let mount_point = state.mount_point.clone();
+            let block_path = state.block_path.clone();
             let name = name.to_string();
 
             return Task::perform(
                 async move {
-                    btrfs::create_subvolume(&mount_point, &name).await?;
+                    let manager = DiskManager::new().await?;
+                    let connection = manager.connection();
+                    let block_obj_path: OwnedObjectPath = block_path.as_str().try_into()?;
+                    let btrfs = BtrfsFilesystem::new(connection, block_obj_path);
+
+                    btrfs.create_subvolume(&name).await?;
                     DriveModel::get_drives().await
                 },
                 |result| match result {
@@ -117,7 +126,7 @@ pub(super) fn open_create_snapshot(
         return Task::none();
     }
 
-    // Get BTRFS state with subvolumes
+    // Get mount point and block path from BTRFS state
     let Some(btrfs_state) = &control.btrfs_state else {
         return Task::none();
     };
@@ -126,8 +135,12 @@ pub(super) fn open_create_snapshot(
         return Task::none();
     };
 
+    let Some(block_path) = &btrfs_state.block_path else {
+        return Task::none();
+    };
+
     // Get subvolumes list
-    let subvolumes = match &btrfs_state.subvolumes {
+    let subvolumes: Vec<disks_dbus::BtrfsSubvolume> = match &btrfs_state.subvolumes {
         Some(Ok(subvols)) if !subvols.is_empty() => subvols.clone(),
         _ => {
             // No subvolumes available
@@ -137,6 +150,7 @@ pub(super) fn open_create_snapshot(
 
     *dialog = Some(ShowDialog::BtrfsCreateSnapshot(BtrfsCreateSnapshotDialog {
         mount_point: mount_point.clone(),
+        block_path: block_path.clone(),
         subvolumes,
         selected_source_index: 0,
         snapshot_name: String::new(),
@@ -196,18 +210,24 @@ pub(super) fn btrfs_create_snapshot_message(
                 return Task::none();
             }
 
-            // Get source path
-            let source_subvol = &state.subvolumes[state.selected_source_index];
-            let source = format!("{}/{}", state.mount_point, source_subvol.path);
-            let dest = format!("{}/{}", state.mount_point, name);
-            let read_only = state.read_only;
-
             state.running = true;
             state.error = None;
 
+            // Get source subvolume path
+            let source_subvol = &state.subvolumes[state.selected_source_index];
+            let source = source_subvol.path.clone();
+            let dest = name.to_string();
+            let read_only = state.read_only;
+            let block_path = state.block_path.clone();
+
             return Task::perform(
                 async move {
-                    btrfs::create_snapshot(&source, &dest, read_only).await?;
+                    let manager = DiskManager::new().await?;
+                    let connection = manager.connection();
+                    let block_obj_path: OwnedObjectPath = block_path.as_str().try_into()?;
+                    let btrfs = BtrfsFilesystem::new(connection, block_obj_path);
+
+                    btrfs.create_snapshot(&source, &dest, read_only).await?;
                     DriveModel::get_drives().await
                 },
                 |result| match result {

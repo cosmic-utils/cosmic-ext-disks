@@ -6,6 +6,9 @@ mod partition_types;
 mod udisks_block_config;
 mod usage;
 
+// Re-export commonly used zbus types
+pub use zbus::zvariant::OwnedObjectPath;
+
 // Explicit exports from dbus module (DBus byte string encoding/decoding)
 pub use dbus::bytestring::{
     bytestring_owned_value, decode_c_string_bytes, decode_mount_points, encode_bytestring,
@@ -14,11 +17,12 @@ pub use dbus::bytestring::{
 
 // Explicit exports from disks module (main domain models and operations)
 pub use disks::{
-    ByteRange, CreatePartitionInfo, DeviceEvent, DeviceEventStream, DiskError, DiskManager,
-    DriveModel, EncryptionOptionsSettings, GPT_ALIGNMENT_BYTES, KillResult, LvmLogicalVolumeInfo,
-    MountOptionsSettings, ProcessInfo, SmartInfo, SmartSelfTestKind, VolumeKind, VolumeModel,
-    VolumeNode, VolumeType, fallback_gpt_usable_range_bytes, find_processes_using_mount,
-    kill_processes, list_lvs_for_pv, loop_setup, mount_filesystem,
+    BtrfsFilesystem, BtrfsSubvolume, ByteRange, CreatePartitionInfo, DeviceEvent,
+    DeviceEventStream, DiskError, DiskManager, DriveModel, EncryptionOptionsSettings,
+    GPT_ALIGNMENT_BYTES, KillResult, LvmLogicalVolumeInfo, MountOptionsSettings, ProcessInfo,
+    SmartInfo, SmartSelfTestKind, VolumeKind, VolumeModel, VolumeNode, VolumeType,
+    fallback_gpt_usable_range_bytes, find_processes_using_mount, kill_processes, list_lvs_for_pv,
+    loop_setup, mount_filesystem,
 };
 
 // Explicit exports from format module (byte formatting utilities)

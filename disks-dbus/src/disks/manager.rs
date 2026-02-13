@@ -68,6 +68,11 @@ impl DiskManager {
         Ok(Self { connection })
     }
 
+    /// Get a reference to the D-Bus connection
+    pub fn connection(&self) -> &Connection {
+        &self.connection
+    }
+
     /// A signal-based event stream for block device add/remove.
     ///
     /// Uses `org.freedesktop.DBus.ObjectManager` on the UDisks2 root object and

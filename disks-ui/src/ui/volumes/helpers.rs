@@ -87,18 +87,38 @@ pub(crate) fn detect_btrfs_in_node(node: &VolumeNode) -> Option<Option<String>> 
 
 /// Check if a VolumeModel (from volumes_flat) is or contains a BTRFS filesystem.
 /// Looks up the corresponding VolumeNode tree to check through LUKS containers.
-/// Returns Some(mount_point_option) if BTRFS is found.
+/// Returns Some((mount_point_option, block_path)) if BTRFS is found.
 pub(crate) fn detect_btrfs_for_volume(
     volumes: &[VolumeNode],
     volume: &VolumeModel,
-) -> Option<Option<String>> {
+) -> Option<(Option<String>, String)> {
     if volume.id_type.to_lowercase() == "btrfs" {
-        return Some(volume.mount_points.first().cloned());
+        let mount_point = volume.mount_points.first().cloned();
+        let block_path = volume.path.to_string();
+        return Some((mount_point, block_path));
     }
 
     if let Some(node) = find_volume_node_for_partition(volumes, volume) {
-        return detect_btrfs_in_node(node);
+        if let Some(mp) = detect_btrfs_in_node(node) {
+            // Find the BTRFS block device path by looking for the BTRFS child
+            if let Some(btrfs_child) = find_btrfs_child(node) {
+                return Some((mp, btrfs_child.object_path.to_string()));
+            }
+        }
     }
 
+    None
+}
+
+/// Helper to find BTRFS child node
+fn find_btrfs_child(node: &VolumeNode) -> Option<&VolumeNode> {
+    for child in &node.children {
+        if child.id_type.to_lowercase() == "btrfs" {
+            return Some(child);
+        }
+        if let Some(found) = find_btrfs_child(child) {
+            return Some(found);
+        }
+    }
     None
 }

@@ -71,25 +71,30 @@ pub enum Message {
 
     // BTRFS management
     BtrfsLoadSubvolumes {
+        block_path: String,
         mount_point: String,
     },
     BtrfsSubvolumesLoaded {
         mount_point: String,
-        result: Result<Vec<crate::utils::btrfs::Subvolume>, String>,
+        result: Result<Vec<disks_dbus::BtrfsSubvolume>, String>,
     },
     BtrfsDeleteSubvolume {
+        block_path: String,
+        mount_point: String,
         path: String,
     },
     BtrfsDeleteSubvolumeConfirm {
+        block_path: String,
+        mount_point: String,
         path: String,
     },
     BtrfsLoadUsage {
+        block_path: String,
         mount_point: String,
     },
     BtrfsUsageLoaded {
         mount_point: String,
-        usage_result: Result<crate::utils::btrfs::UsageInfo, String>,
-        compression_result: Result<Option<String>, String>,
+        used_space: Result<u64, String>,
     },
 }
 

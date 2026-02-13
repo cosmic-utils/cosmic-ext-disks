@@ -4,14 +4,16 @@ use crate::fl;
 use crate::ui::dialogs::state::{ConfirmActionDialog, FilesystemTarget, ShowDialog};
 use crate::ui::error::{UiErrorContext, log_error_and_show_dialog};
 use crate::ui::volumes::VolumesControl;
-use crate::utils::btrfs;
 use cosmic::app::Task;
-use disks_dbus::DriveModel;
+use disks_dbus::{BtrfsFilesystem, DiskManager, DriveModel, OwnedObjectPath};
 
 /// Handle BTRFS management messages
 pub(super) fn handle_btrfs_message(app: &mut AppModel, message: Message) -> Task<Message> {
     match message {
-        Message::BtrfsLoadSubvolumes { mount_point } => {
+        Message::BtrfsLoadSubvolumes {
+            block_path,
+            mount_point,
+        } => {
             // Set loading state
             if let Some(volumes_control) = app.nav.active_data_mut::<VolumesControl>()
                 && let Some(btrfs_state) = &mut volumes_control.btrfs_state
@@ -19,18 +21,23 @@ pub(super) fn handle_btrfs_message(app: &mut AppModel, message: Message) -> Task
                 btrfs_state.loading = true;
             }
 
-            // Spawn async task to load subvolumes
+            // Spawn async task to load subvolumes via D-Bus
             let mount_point_for_async = mount_point.clone();
             Task::perform(
                 async move {
-                    match btrfs::list_subvolumes(&mount_point_for_async).await {
-                        Ok(subvolumes) => Ok(subvolumes),
-                        Err(e) => Err(format!("{:#}", e)),
-                    }
+                    let manager = DiskManager::new().await?;
+                    let connection = manager.connection();
+                    let block_obj_path: OwnedObjectPath = block_path.as_str().try_into()?;
+                    let btrfs = BtrfsFilesystem::new(connection, block_obj_path);
+
+                    // Get all subvolumes (not just snapshots)
+                    let subvolumes = btrfs.get_subvolumes(false).await?;
+                    Ok(subvolumes)
                 },
-                move |result| {
+                move |result: anyhow::Result<Vec<disks_dbus::BtrfsSubvolume>>| {
+                    let result = result.map_err(|e| format!("{:#}", e));
                     Message::BtrfsSubvolumesLoaded {
-                        mount_point: mount_point.clone(),
+                        mount_point: mount_point_for_async.clone(),
                         result,
                     }
                     .into()
@@ -53,7 +60,11 @@ pub(super) fn handle_btrfs_message(app: &mut AppModel, message: Message) -> Task
             Task::none()
         }
 
-        Message::BtrfsDeleteSubvolume { path } => {
+        Message::BtrfsDeleteSubvolume {
+            block_path,
+            mount_point,
+            path,
+        } => {
             // Show confirmation dialog
             let subvol_name = path.rsplit('/').next().unwrap_or(&path).to_string();
 
@@ -79,23 +90,36 @@ pub(super) fn handle_btrfs_message(app: &mut AppModel, message: Message) -> Task
                 title: fl!("btrfs-delete-subvolume"),
                 body: fl!("btrfs-delete-confirm", name = subvol_name.as_str()),
                 target,
-                ok_message: Message::BtrfsDeleteSubvolumeConfirm { path },
+                ok_message: Message::BtrfsDeleteSubvolumeConfirm {
+                    block_path,
+                    mount_point,
+                    path,
+                },
                 running: false,
             }));
 
             Task::none()
         }
 
-        Message::BtrfsDeleteSubvolumeConfirm { path } => {
+        Message::BtrfsDeleteSubvolumeConfirm {
+            block_path,
+            mount_point: _,
+            path,
+        } => {
             // Set dialog to running state
             if let Some(ShowDialog::ConfirmAction(state)) = &mut app.dialog {
                 state.running = true;
             }
 
-            // Perform the actual delete
+            // Perform the actual delete via D-Bus
             Task::perform(
                 async move {
-                    btrfs::delete_subvolume(&path).await?;
+                    let manager = DiskManager::new().await?;
+                    let connection = manager.connection();
+                    let block_obj_path: OwnedObjectPath = block_path.as_str().try_into()?;
+                    let btrfs = BtrfsFilesystem::new(connection, block_obj_path);
+
+                    btrfs.remove_subvolume(&path).await?;
                     DriveModel::get_drives().await
                 },
                 |result| match result {
@@ -112,7 +136,10 @@ pub(super) fn handle_btrfs_message(app: &mut AppModel, message: Message) -> Task
             )
         }
 
-        Message::BtrfsLoadUsage { mount_point } => {
+        Message::BtrfsLoadUsage {
+            block_path,
+            mount_point,
+        } => {
             // Set loading state
             if let Some(volumes_control) = app.nav.active_data_mut::<VolumesControl>()
                 && let Some(btrfs_state) = &mut volumes_control.btrfs_state
@@ -120,25 +147,23 @@ pub(super) fn handle_btrfs_message(app: &mut AppModel, message: Message) -> Task
                 btrfs_state.loading_usage = true;
             }
 
-            // Spawn async task to load usage info and compression
+            // Spawn async task to load usage info via D-Bus
             let mount_point_for_async = mount_point.clone();
             Task::perform(
                 async move {
-                    let usage = btrfs::get_filesystem_usage(&mount_point_for_async)
-                        .await
-                        .map_err(|e| format!("{:#}", e));
+                    let manager = DiskManager::new().await?;
+                    let connection = manager.connection();
+                    let block_obj_path: OwnedObjectPath = block_path.as_str().try_into()?;
+                    let btrfs = BtrfsFilesystem::new(connection, block_obj_path);
 
-                    let compression = btrfs::get_compression(&mount_point_for_async)
-                        .await
-                        .map_err(|e| format!("{:#}", e));
-
-                    (usage, compression)
+                    let used_space = btrfs.get_used_space().await?;
+                    Ok(used_space)
                 },
-                move |(usage_result, compression_result)| {
+                move |result: anyhow::Result<u64>| {
+                    let used_space = result.map_err(|e| format!("{:#}", e));
                     Message::BtrfsUsageLoaded {
-                        mount_point: mount_point.clone(),
-                        usage_result,
-                        compression_result,
+                        mount_point: mount_point_for_async.clone(),
+                        used_space,
                     }
                     .into()
                 },
@@ -147,8 +172,7 @@ pub(super) fn handle_btrfs_message(app: &mut AppModel, message: Message) -> Task
 
         Message::BtrfsUsageLoaded {
             mount_point,
-            usage_result,
-            compression_result,
+            used_space,
         } => {
             // Update state with loaded usage info
             if let Some(volumes_control) = app.nav.active_data_mut::<VolumesControl>()
@@ -156,8 +180,7 @@ pub(super) fn handle_btrfs_message(app: &mut AppModel, message: Message) -> Task
                 && btrfs_state.mount_point.as_deref() == Some(&mount_point)
             {
                 btrfs_state.loading_usage = false;
-                btrfs_state.usage_info = Some(usage_result);
-                btrfs_state.compression = Some(compression_result.ok().flatten());
+                btrfs_state.used_space = Some(used_space);
             }
             Task::none()
         }
