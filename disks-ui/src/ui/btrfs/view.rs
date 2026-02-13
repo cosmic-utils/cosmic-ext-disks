@@ -146,7 +146,15 @@ pub fn btrfs_management_section<'a>(
                 content_items.push(button_row.into());
 
                 if subvolumes.is_empty() {
-                    content_items.push(widget::text::caption("No subvolumes found").into());
+                    content_items.push(
+                        widget::text::caption("No subvolumes found")
+                            .into(),
+                    );
+                    content_items.push(
+                        widget::text::caption("This BTRFS volume may be newly created or not yet have any subvolumes.")
+                            .size(11)
+                            .into(),
+                    );
                 } else {
                     // Build hierarchical view
                     let subvol_list = build_subvolume_hierarchy(subvolumes, state);

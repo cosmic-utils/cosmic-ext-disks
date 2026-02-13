@@ -283,7 +283,9 @@ impl BtrfsHelper {
             .context("Helper output is not valid UTF-8")?;
 
         serde_json::from_str(&stdout)
-            .context("Failed to parse helper JSON output")
+            .with_context(|| format!("Failed to parse helper JSON output. Received {} bytes: {:?}", 
+                stdout.len(), 
+                stdout.chars().take(200).collect::<String>()))
     }
 }
 

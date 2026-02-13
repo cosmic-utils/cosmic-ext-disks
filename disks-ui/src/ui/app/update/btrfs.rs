@@ -23,18 +23,21 @@ pub(super) fn handle_btrfs_message(app: &mut AppModel, message: Message) -> Task
             }
 
             // Spawn async task to load subvolumes via btrfsutil
-            let mount_point_for_async = mount_point.clone();
+            let mount_point_for_callback = mount_point.clone();
             Task::perform(
                 async move {
                     let mount_path = PathBuf::from(&mount_point);
-                    let btrfs = BtrfsFilesystem::new(mount_path).await?;
+                    let btrfs = BtrfsFilesystem::new(mount_path.clone()).await?;
                     let subvolumes = btrfs.list_subvolumes().await?;
                     Ok(subvolumes)
                 },
                 move |result: anyhow::Result<Vec<disks_dbus::BtrfsSubvolume>>| {
+                    if let Err(ref e) = result {
+                        tracing::error!("Failed to load BTRFS subvolumes: {:#}", e);
+                    }
                     let result = result.map_err(|e| format!("{:#}", e));
                     Message::BtrfsSubvolumesLoaded {
-                        mount_point: mount_point_for_async.clone(),
+                        mount_point: mount_point_for_callback.clone(),
                         result,
                     }
                     .into()
@@ -280,7 +283,6 @@ pub(super) fn handle_btrfs_message(app: &mut AppModel, message: Message) -> Task
 
             if let Some((path, current_readonly)) = subvol_info {
                 let new_readonly = !current_readonly;
-                let mount_point_for_async = mount_point.clone();
                 let mount_point_for_closure = mount_point.clone();
                 Task::perform(
                     async move {

@@ -110,12 +110,28 @@ struct SubvolumeOutput {
 }
 
 fn main() -> Result<()> {
+    // Initialize tracing to stderr (so it doesn't interfere with JSON stdout)
+    tracing_subscriber::fmt()
+        .with_writer(std::io::stderr)
+        .with_env_filter(
+            tracing_subscriber::EnvFilter::try_from_default_env()
+                .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("debug"))
+        )
+        .init();
+
     let cli = Cli::parse();
 
     match cli.command {
         Commands::List { mount_point } => {
-            let subvolumes = list_subvolumes(&mount_point)?;
-            let default_id = get_default(&mount_point)?;
+            let subvolumes = list_subvolumes(&mount_point).map_err(|e| {
+                tracing::error!("Failed to list subvolumes: {}", e);
+                e
+            })?;
+            // Get default ID, fallback to 5 (BTRFS root) if it fails
+            let default_id = get_default(&mount_point).unwrap_or_else(|e| {
+                tracing::warn!("Failed to get default subvolume, using 5: {}", e);
+                5
+            });
             let output = ListSubvolumesOutput {
                 subvolumes,
                 default_id,
@@ -173,40 +189,74 @@ fn main() -> Result<()> {
 
 /// List all subvolumes in a BTRFS filesystem
 fn list_subvolumes(mount_point: &PathBuf) -> Result<Vec<SubvolumeOutput>> {
-    use btrfsutil::subvolume::{Subvolume, SubvolumeIterator};
+    // Use btrfs command-line tool instead of btrfsutil iterator
+    // The iterator fails with "Could not statfs" when running via pkexec
+    use std::process::Command;
+    
+    let output = Command::new("btrfs")
+        .args(&["subvolume", "list", "-a", "-u", "-q", "-R"])
+        .arg(mount_point)
+        .output()
+        .map_err(|e| anyhow::anyhow!("Failed to run btrfs command: {}", e))?;
 
-    // Get the filesystem root
-    let root = Subvolume::try_from(mount_point.as_path())
-        .map_err(|e| anyhow::anyhow!("Failed to open BTRFS filesystem at {}: {}", mount_point.display(), e))?;
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        anyhow::bail!("btrfs command failed: {}", stderr);
+    }
 
-    // Create iterator for all subvolumes
-    let iter = SubvolumeIterator::try_from(&root)
-        .map_err(|e| anyhow::anyhow!("Failed to create subvolume iterator: {}", e))?;
-
+    let stdout = String::from_utf8_lossy(&output.stdout);
     let mut subvolumes = Vec::new();
+    
+    // Parse output: ID 256 gen 89534 parent 5 top level 5 parent_uuid - received_uuid - uuid ... path ...
+    for line in stdout.lines() {
+        let parts: Vec<&str> = line.split_whitespace().collect();
+        if parts.len() < 11 || parts[0] != "ID" {
+            continue;
+        }
 
-    for item in iter {
-        let subvol = item.map_err(|e| anyhow::anyhow!("Failed to iterate subvolume: {}", e))?;
-        let info = subvol.info().map_err(|e| anyhow::anyhow!("Failed to get subvolume info: {}", e))?;
+        let id = parts[1].parse::<u64>().ok();
+        let generation = parts[3].parse::<u64>().ok();
+        
+        // Find "path" keyword and take everything after it
+        let path_idx = parts.iter().position(|&p| p == "path");
+        let path = if let Some(idx) = path_idx {
+            parts[idx + 1..].join(" ")
+        } else {
+            continue;
+        };
 
-        subvolumes.push(SubvolumeOutput {
-            id: info.id,
-            path: subvol.path().to_string_lossy().to_string(),
-            parent_id: info.parent_id,
-            uuid: info.uuid.to_string(),
-            parent_uuid: info.parent_uuid.map(|u| u.to_string()),
-            received_uuid: info.received_uuid.map(|u| u.to_string()),
-            generation: info.generation,
-            ctransid: info.ctransid,
-            otransid: info.otransid,
-            stransid: info.stransid,
-            rtransid: info.rtransid,
-            ctime: info.ctime.timestamp(),
-            otime: info.otime.timestamp(),
-            stime: info.stime.map(|t| t.timestamp()),
-            rtime: info.rtime.map(|t| t.timestamp()),
-            flags: info.flags,
-        });
+        //Find UUID field (after "uuid" keyword)
+        let uuid_idx = parts.iter().position(|&p| p == "uuid");
+        let uuid = if let Some(idx) = uuid_idx {
+            parts.get(idx + 1).map(|s| s.to_string()).unwrap_or_else(|| String::from("00000000-0000-0000-0000-000000000000"))
+        } else {
+            String::from("00000000-0000-0000-0000-000000000000")
+        };
+
+        if let (Some(id), Some(generation)) = (id, generation) {
+            subvolumes.push(SubvolumeOutput {
+                id,
+                path,
+                parent_id: None,  // Not critical for UI
+                uuid,
+                parent_uuid: None,
+                received_uuid: None,
+                generation,
+                ctransid: generation,  // Approximate
+                otransid: generation,  // Approximate
+                stransid: None,
+                rtransid: None,
+                ctime: 0,  // Not available from list command
+                otime: 0,  // Not available from list command
+                stime: None,
+                rtime: None,
+                flags: 0,
+            });
+        }
+    }
+
+    if subvolumes.is_empty() {
+        tracing::warn!("No subvolumes found - output may not have been parsed correctly");
     }
 
     Ok(subvolumes)
