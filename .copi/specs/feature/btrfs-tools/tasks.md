@@ -11,21 +11,96 @@
 ```
 Prerequisites: None (using existing overlay dialogs)
 
-Task 1 (Detection)
+Task 0 (FsTools + EnableModules button) ─┐
+                                         │
+Task 1 (Detection) <─────────────────────┘
     ↓
 Task 2 (UI scaffold)
     ↓
-Task 3 (CLI module)
+Task 3 (D-Bus BTRFS module) <── REFACTORED to use UDisks2 interface
     ↓
 Task 4 (Subvolume list)
     ↓
-Task 5 (Create subvolume) ─┐
-Task 6 (Delete subvolume) ──┤
-Task 7 (Snapshot creation) ─┤ Can be parallel
-Task 8 (Usage breakdown) ───┘
+Task 5 (Create subvolume) ─┬┐
+Task 6 (Delete subvolume) ──├ Can be parallel
+Task 7 (Snapshot creation) ─├ Can be parallel  
+Task 8 (Usage Property) ───┘
     ↓
 Task 9 (Polish & localization)
 ```
+
+---
+
+## Task 0: FsTools Integration + Settings EnableModules Button
+
+**Scope:** Add `udisks2-btrfs` to filesystem tools detection and create settings button to enable UDisks2 modules.
+
+**Files/Areas:**
+- `disks-ui/src/utils/fs_tools.rs` (add udisks2-btrfs detection)
+- `disks-ui/src/views/settings.rs` (add EnableModules button)
+- `disks-dbus/src/disks/manager.rs` (add EnableModules D-Bus call)
+- `disks-ui/i18n/en/cosmic_ext_disks.ftl` (i18n strings)
+
+**Steps:**
+1. Add `udisks2-btrfs` to `FS_TOOL_REQUIREMENTS` in `fs_tools.rs`:
+   ```rust
+   FsToolInfo {
+       fs_type: "btrfs_udisks",
+       fs_name: "UDisks2 BTRFS Module",
+       command: "udisksctl",  // Check via module list
+       package_hint: "udisks2-btrfs",
+       available: false,  // Will check via D-Bus
+   },
+   ```
+2. Create helper function to check module availability:
+   ```rust
+   pub async fn check_udisks_btrfs_available() -> bool {
+       // Try to call Manager.EnableModules or check interface existence
+       // Return true if udisks2-btrfs is installed
+   }
+   ```
+3. In `disks-dbus/src/disks/manager.rs`, add method:
+   ```rust
+   pub async fn enable_modules(&self) -> Result<()> {
+       let proxy = self.manager_proxy().await?;
+       proxy.call("EnableModules", &(true,)).await?;
+       Ok(())
+   }
+   ```
+4. In `settings.rs`, add button after fs tools warning section:
+   ```rust
+   if !udisks_btrfs_available {
+       button::text("Try Enable UDisks2 BTRFS")
+           .on_press(Message::EnableUDisksBtrfs)
+   }
+   ```
+5. Add message handler that calls `manager.enable_modules()` in Task
+6. Add i18n strings:
+   ```fluent
+   settings-enable-udisks-btrfs = Try Enable UDisks2 BTRFS
+   settings-udisks-btrfs-missing = UDisks2 BTRFS module not detected. Install udisks2-btrfs package.
+   settings-udisks-btrfs-enabled = UDisks2 BTRFS module enabled successfully.
+   ```
+7. Test: Click button, verify `EnableModules` is called
+8. Test: Mount BTRFS filesystem, verify interface appears
+
+**Test Plan:**
+- Button appears when `udisks2-btrfs` not detected
+- Clicking button enables modules (no error)
+- After enable, BTRFS interface available on mounted filesystems
+- Button disabled/hidden when module already enabled
+- Clear error message if `udisks2-btrfs` package not installed
+
+**Done When:**
+- [ ] `udisks2-btrfs` added to FsTools detection
+- [ ] "Try Enable UDisks2 BTRFS" button in settings
+- [ ] `EnableModules` D-Bus method implemented
+- [ ] Button triggers module enablement
+- [ ] Warning shown if package not installed
+- [ ] i18n strings added
+- [ ] Code compiles without warnings
+
+**Estimated effort:** 2-3 hours
 
 ---
 
@@ -126,78 +201,143 @@ Task 9 (Polish & localization)
 
 ---
 
-## Task 3: BTRFS CLI Wrapper Module
+## Task 3: UDisks2 BTRFS D-Bus Module (REFACTORED)
 
-**Scope:** Create utility module for executing `btrfs` commands and parsing output.
+**Scope:** Create D-Bus wrapper for UDisks2 BTRFS interface operations.
 
 **Files/Areas:**
-- New file: `disks-ui/src/utils/btrfs.rs`
-- `disks-ui/src/utils/mod.rs` (module declaration and exports)
+- New file: `disks-dbus/src/disks/btrfs.rs`
+- `disks-dbus/src/disks/mod.rs` (module declaration and exports)
 
 **Steps:**
-1. Create module with structs:
+1. Create module with structs matching D-Bus signatures:
    ```rust
-   pub struct Subvolume {
+   #[derive(Debug, Clone)]
+   pub struct BtrfsSubvolume {
        pub id: u64,
+       pub parent_id: u64,
        pub path: String,
-       pub name: String,
    }
    
-   pub struct UsageInfo {
-       pub data_used: u64,
-       pub data_total: u64,
-       pub metadata_used: u64,
-       pub metadata_total: u64,
-       pub system_used: u64,
-       pub system_total: u64,
+   impl BtrfsSubvolume {
+       pub fn name(&self) -> &str {
+           self.path.rsplit('/').next().unwrap_or(&self.path)
+       }
    }
    ```
-2. Implement detection:
+2. Create BTRFS proxy wrapper:
    ```rust
-   pub fn command_exists() -> bool {
-       which::which("btrfs").is_ok()
+   pub struct BtrfsFilesystem<'a> {
+       connection: &'a zbus::Connection,
+       block_path: zbus::names::OwnedObjectPath,
+   }
+   
+   impl<'a> BtrfsFilesystem<'a> {
+       pub fn new(connection: &'a zbus::Connection, block_path: OwnedObjectPath) -> Self {
+           Self { connection, block_path }
+       }
    }
    ```
-3. Implement `list_subvolumes()`:
+3. Implement `get_subvolumes()`:
    ```rust
-   pub async fn list_subvolumes(mount_point: &str) -> Result<Vec<Subvolume>> {
-       let output = Command::new("btrfs")
-           .args(["subvolume", "list", mount_point])
-           .output()
-           .await?;
-       // Parse output: "ID <id> gen <gen> top level <level> path <path>"
-       // Return vec of Subvolume structs
+   pub async fn get_subvolumes(&self, snapshots_only: bool) -> Result<Vec<BtrfsSubvolume>> {
+       let proxy = Proxy::new(
+           self.connection,
+           "org.freedesktop.UDisks2",
+           &self.block_path,
+           "org.freedesktop.UDisks2.Filesystem.BTRFS",
+       ).await?;
+       
+       let options: HashMap<String, zbus::zvariant::Value> = HashMap::new();
+       let (subvols, _count): (Vec<(u64, u64, String)>, i32) =
+           proxy.call("GetSubvolumes", &(snapshots_only, options)).await?;
+       
+       Ok(subvols
+           .into_iter()
+           .map(|(id, parent_id, path)| BtrfsSubvolume { id, parent_id, path })
+           .collect())
    }
    ```
 4. Implement `create_subvolume()`:
    ```rust
-   pub async fn create_subvolume(mount_point: &str, name: &str) -> Result<()> {
-       let path = format!("{}/{}", mount_point, name);
-       Command::new("btrfs")
-           .args(["subvolume", "create", &path])
-           .output()
-           .await?;
+   pub async fn create_subvolume(&self, name: &str) -> Result<()> {
+       let proxy = self.btrfs_proxy().await?;
+       let options: HashMap<String, zbus::zvariant::Value> = HashMap::new();
+       proxy.call("CreateSubvolume", &(name, options)).await?;
        Ok(())
    }
    ```
-5. Implement `delete_subvolume()`:
+5. Implement `remove_subvolume()`:
    ```rust
-   pub async fn delete_subvolume(path: &str) -> Result<()> {
-       Command::new("btrfs")
-           .args(["subvolume", "delete", path])
-           .output()
-           .await?;
+   pub async fn remove_subvolume(&self, name: &str) -> Result<()> {
+       let proxy = self.btrfs_proxy().await?;
+       let options: HashMap<String, zbus::zvariant::Value> = HashMap::new();
+       proxy.call("RemoveSubvolume", &(name, options)).await?;
        Ok(())
    }
    ```
-6. Implement `get_filesystem_usage()`:
+6. Implement `create_snapshot()`:
    ```rust
-   pub async fn get_filesystem_usage(mount_point: &str) -> Result<UsageInfo> {
-       let output = Command::new("btrfs")
-           .args(["filesystem", "usage", mount_point])
-           .output()
-           .await?;
-       // Parse "Data,single:" and "Metadata,single:" lines
+   pub async fn create_snapshot(
+       &self,
+       source: &str,
+       dest: &str,
+       read_only: bool,
+   ) -> Result<()> {
+       let proxy = self.btrfs_proxy().await?;
+       let options: HashMap<String, zbus::zvariant::Value> = HashMap::new();
+       proxy.call("CreateSnapshot", &(source, dest, read_only, options)).await?;
+       Ok(())
+   }
+   ```
+7. Add property accessors:
+   ```rust
+   pub async fn get_used_space(&self) -> Result<u64> {
+       let proxy = self.btrfs_proxy().await?;
+       proxy.get_property("used").await
+   }
+   
+   pub async fn get_label(&self) -> Result<String> {
+       let proxy = self.btrfs_proxy().await?;
+       proxy.get_property("label").await
+   }
+   ```
+8. Add interface availability check:
+   ```rust
+   pub async fn is_available(&self) -> bool {
+       // Try to introspect and check if BTRFS interface exists
+       Proxy::new(self.connection, "org.freedesktop.UDisks2", &self.block_path, "")
+           .await
+           .and_then(|p| p.introspect())
+           .ok()
+           .map(|xml| xml.contains("org.freedesktop.UDisks2.Filesystem.BTRFS"))
+           .unwrap_or(false)
+   }
+   ```
+9. Add unit tests for struct parsing
+10. Test with actual D-Bus daemon (integration test)
+
+**Test Plan:**
+- Create test BTRFS filesystem and mount it
+- Call `get_subvolumes()`, verify returns array
+- Call `create_subvolume("test")`, verify subvolume created
+- Call `remove_subvolume("test")`, verify subvolume deleted
+- Call `create_snapshot()`, verify snapshot created
+- Verify polkit prompt appears (manual test)
+- Verify error handling when BTRFS interface not available
+
+**Done When:**
+- [ ] Module structure created
+- [ ] All D-Bus methods implemented
+- [ ] Properties accessible
+- [ ] Interface availability check works
+- [ ] Error handling comprehensive
+- [ ] Integration tests pass
+- [ ] Code compiles without warnings
+
+**Estimated effort:** 4-6 hours
+
+**Note:** This completely replaces the CLI subprocess approach with proper D-Bus integration, matching the architecture of existing disk operations (mount, format, etc.).
        // Extract used/total values
    }
    ```
@@ -226,7 +366,7 @@ Task 9 (Polish & localization)
 
 ## Task 4: Subvolume List Display
 
-**Scope:** Populate subvolume list with real data from BTRFS CLI.
+**Scope:** Populate subvolume list with real data from UDisks2 BTRFS D-Bus interface.
 
 **Files/Areas:**
 - `disks-ui/src/ui/btrfs/view.rs`
@@ -239,24 +379,25 @@ Task 9 (Polish & localization)
 1. Define BTRFS state in `state.rs`:
    ```rust
    pub struct BtrfsState {
-       pub subvolumes: Vec<Subvolume>,
+       pub subvolumes: Vec<BtrfsSubvolume>,
        pub loading: bool,
        pub error: Option<String>,
    }
    ```
-2. Add to AppModel or per-volume state (decide based on architecture)
+2. Add to per-volume state (similar to existing volume state management)
 3. Create message for loading subvolumes:
    ```rust
    pub enum Message {
-       LoadBtrfsSubvolumes(String),  // mount_point
-       BtrfsSubvolumesLoaded(Result<Vec<Subvolume>>),
+       LoadBtrfsSubvolumes(OwnedObjectPath),  // block_path
+       BtrfsSubvolumesLoaded(Result<Vec<BtrfsSubvolume>>),
        ...
    }
    ```
-4. When section expands, trigger load:
-   - Send `Message::LoadBtrfsSubvolumes(mount_point)`
+4. When section expands (or BTRFS tab clicked), trigger load:
+   - Send `Message::LoadBtrfsSubvolumes(block_path)`
 5. In update handler:
-   - Call `btrfs::list_subvolumes(mount_point).await`
+   - Create `BtrfsFilesystem` from block_path
+   - Call `btrfs_filesystem.get_subvolumes(false).await`  // false = all subvolumes, not just snapshots
    - Send result via `BtrfsSubvolumesLoaded` message
 6. Update `btrfs_management_section()` to display list:
    - Scrollable list/table widget
@@ -509,66 +650,56 @@ Task 9 (Polish & localization)
 
 ---
 
-## Task 8: Usage Breakdown Display
+## Task 8: Usage Property Display (SIMPLIFIED)
 
-**Scope:** Show BTRFS data/metadata/system allocation and compression info.
+**Scope:** Display BTRFS used space via D-Bus property.
 
 **Files/Areas:**
 - `disks-ui/src/ui/btrfs/view.rs`
-- `disks-ui/src/utils/btrfs.rs` (`get_filesystem_usage()` from Task 3)
+- `disks-dbus/src/disks/btrfs.rs` (property accessor from Task 3)
 - `disks-ui/i18n/en/cosmic_ext_disks.ftl`
 
 **Steps:**
-1. Add `get_compression()` function to btrfs module:
-   ```rust
-   pub async fn get_compression(mount_point: &str) -> Result<Option<String>> {
-       let output = Command::new("btrfs")
-           .args(["property", "get", mount_point, "compression"])
-           .output()
-           .await?;
-       // Parse output: "compression=zstd" or "compression="
-       Ok(/* parsed value */)
-   }
-   ```
-2. Load usage info when BTRFS section expands:
-   - Send message: `LoadBtrfsUsage(mount_point)`
-3. In update handler:
-   - Call `get_filesystem_usage()` and `get_compression()`
+1. Load BTRFS properties when section expands:
+   - Send message: `LoadBtrfsProperties(block_path)`
+2. In update handler:
+   - Call `btrfs_filesystem.get_used_space().await` (returns u64 bytes)
+   - Call `btrfs_filesystem.get_label().await` (returns String)
    - Store in state
-4. Display usage in section:
-   - Option A: Horizontal bar chart (if widget available)
-   - Option B: Text summary:
-     ```
-     Data: 45.2 GB / 100 GB (45%)
-     Metadata: 2.1 GB / 5 GB (42%)
-     System: 16 MB / 32 MB (50%)
-     Compression: zstd
-     ```
-5. Add i18n keys:
-   ```fluent
-   btrfs-usage = Usage Breakdown
-   btrfs-data = Data
-   btrfs-metadata = Metadata
-   btrfs-system = System
-   btrfs-compression = Compression
-   btrfs-compression-disabled = disabled
+3. Display usage in section:
+   ```rust
+   // Simple text display:
+   text(format!("Used: {} / {} ({}%)", 
+       format_size(used), 
+       format_size(total), 
+       percent))
    ```
+4. Add i18n keys:
+   ```fluent
+   btrfs-usage = Used Space
+   btrfs-label = Label
+   btrfs-uuid = UUID
+   ```
+5. **Note on detailed allocation:** UDisks2 BTRFS interface only provides total `used` property, not detailed data/metadata/system breakdown. For detailed breakdown:
+   - Future enhancement: Could add CLI fallback for `btrfs filesystem usage`
+   - Or: Request feature addition to udisks2-btrfs upstream
+   - For V1: Simple "Used" display is sufficient
 
 **Test Plan:**
 - Select BTRFS volume
 - Expand BTRFS section
-- Verify usage breakdown loads
-- Verify values roughly match `btrfs filesystem usage <mount>` CLI output
-- Verify compression info shown (test on FS with compression enabled and disabled)
+- Verify used space loads and displays
+- Verify label shown
+- Compare with `df -h` or `btrfs filesystem usage` for accuracy
 
 **Done When:**
-- [ ] Usage info loads asynchronously
-- [ ] Data/metadata/system displayed clearly
-- [ ] Compression info shown (algorithm name or "disabled")
+- [ ] Used space property loads asynchronously
+- [ ] Value displayed clearly with formatting
+- [ ] Label shown
 - [ ] Loading indicator while fetching
-- [ ] Error handling if commands fail
+- [ ] Error handling if property unavailable
 
-**Estimated effort:** 2-3 hours
+**Estimated effort:** 1-2 hours (simplified from original CLI parsing approach)
 
 ---
 

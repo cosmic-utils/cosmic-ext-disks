@@ -72,47 +72,54 @@ This represents a significant gap compared to GNOME Disks and other disk utiliti
 
 ---
 
-### B) BTRFS CLI Wrapper Module
+### B) UDisks2 BTRFS D-Bus Interface (REFACTORED)
 
-**Location:** New module `disks-ui/src/utils/btrfs.rs` or `disks-dbus/src/btrfs.rs`
+**Discovery:** The `udisks2-btrfs` package provides `org.freedesktop.UDisks2.Filesystem.BTRFS` interface on mounted BTRFS filesystems. This provides all needed operations with automatic polkit integration, eliminating the need for CLI subprocess management and pkexec wrappers.
 
-**Functions:**
-```rust
-pub async fn list_subvolumes(mount_point: &str) -> Result<Vec<Subvolume>>;
-pub async fn create_subvolume(mount_point: &str, name: &str) -> Result<()>;
-pub async fn delete_subvolume(path: &str) -> Result<()>;
-pub async fn get_filesystem_usage(mount_point: &str) -> Result<UsageInfo>;
-pub async fn get_compression(mount_point: &str) -> Result<Option<String>>;
-pub fn command_exists() -> bool;
+**Location:** `disks-dbus/src/disks/btrfs.rs` (new module)
 
-pub struct Subvolume {
-    pub id: u64,
-    pub path: String,
-    pub name: String,
-}
+**Key Findings:**
+- Interface appears on block device paths (e.g., `/org/freedesktop/UDisks2/block_devices/sda2`) when mounted
+- Module must be explicitly enabled via `Manager.EnableModules(true)` on systems with `modules_load_preference=ondemand`
+- Provides complete BTRFS management matching CLI capabilities
+- Uses same polkit auth pattern as existing disk operations (mount, format, etc.)
 
-pub struct UsageInfo {
-    pub data_used: u64,
-    pub data_total: u64,
-    pub metadata_used: u64,
-    pub metadata_total: u64,
-    pub system_used: u64,
-    pub system_total: u64,
-}
+**Available D-Bus Methods:**
+```
+org.freedesktop.UDisks2.Filesystem.BTRFS:
+  - GetSubvolumes(snapshots_only: bool) → array of (id: u64, parent_id: u64, path: string)
+  - CreateSubvolume(name: string, options: dict)
+  - RemoveSubvolume(name: string, options: dict)
+  - CreateSnapshot(source: string, dest: string, read_only: bool, options: dict)
+  - GetDefaultSubvolumeID(options: dict) → uint64
+  - SetDefaultSubvolumeID(id: uint64, options: dict)
+  - SetLabel(label: string, options: dict)
+  - Repair(options: dict)
+  - Resize(size: uint64, options: dict)
+  - AddDevice(device: object_path, options: dict)
+  - RemoveDevice(device: object_path, options: dict)
+
+Properties:
+  - label: string
+  - uuid: string
+  - num_devices: uint64
+  - used: uint64
 ```
 
-**Commands used:**
-- `btrfs subvolume list <mount_point>` — enumerate subvolumes
-- `btrfs subvolume create <path>` — create subvolume
-- `btrfs subvolume delete <path>` — delete subvolume
-- `btrfs subvolume snapshot [-r] <source> <dest>` — create snapshot
-- `btrfs filesystem usage <mount_point>` — usage breakdown
-- `btrfs property get <mount_point> compression` — compression setting
+**Module Enablement:**
+On systems with `modules_load_preference=ondemand` (default on many distros), the BTRFS interface must be explicitly enabled via:
+```rust
+// Call on app startup or via settings button
+manager_proxy.call("EnableModules", &(true,)).await?;
+```
+
+After enablement, the interface immediately appears on all mounted BTRFS filesystems.
 
 **Error handling:**
-- Command not found: "BTRFS tools not installed. Install btrfs-progs package."
-- Permission denied: "Permission denied. Root access required for this operation."
-- Parsing failure: "Unable to parse BTRFS output. Please report this issue."
+- Package not installed: "UDisks2 BTRFS module not installed. Install udisks2-btrfs package."
+- Module not enabled: "BTRFS module not enabled. Click 'Try Enable UDisks2 BTRFS' in settings."
+- Permission denied: Polkit handles auth automatically (same as mount, format operations)
+- D-Bus errors: Propagate error names/messages from UDisks2 for debugging
 
 ---
 
@@ -142,7 +149,7 @@ pub struct UsageInfo {
 
 ### D) Dialogs for BTRFS Operations
 
-**Note:** This spec assumes modal dialog windows have been implemented (feature/modal-dialogs branch). All BTRFS dialogs will be modal windows.
+**Note:** This spec uses the existing overlay dialog system (`Application::dialog()`) as the modal-dialogs feature has been deferred pending upstream libcosmic support.
 
 **Dialogs needed:**
 1. **Create Subvolume**: Text input for name, Create/Cancel buttons
@@ -158,15 +165,15 @@ pub enum ShowDialog {
 }
 
 pub struct BtrfsCreateSubvolumeDialog {
-    pub mount_point: String,
+    pub block_path: OwnedObjectPath,
     pub name: String,
     pub running: bool,
     pub error: Option<String>,
 }
 
 pub struct BtrfsCreateSnapshotDialog {
-    pub mount_point: String,
-    pub subvolumes: Vec<Subvolume>,
+    pub block_path: OwnedObjectPath,
+    pub subvolumes: Vec<BtrfsSubvolume>,
     pub selected_source_index: usize,
     pub snapshot_name: String,
     pub read_only: bool,
@@ -177,18 +184,31 @@ pub struct BtrfsCreateSnapshotDialog {
 
 ---
 
-### E) Permissions and Polkit
+### E) UDisks2 D-Bus Integration
 
-**Challenge:** BTRFS operations typically require root or appropriate capabilities.
+**Architecture:** Consistent with existing disk operations (mount, format, partition creation).
 
-**Approaches:**
-1. **UDisks2 integration** (preferred): Check if UDisks2 exposes BTRFS D-Bus methods
-2. **Direct CLI with polkit** (fallback): Run `btrfs` commands via pkexec or polkit rules
-3. **Read-only operations**: Listing subvolumes may work without elevation
+**Pattern:**
+1. User triggers operation (button click)
+2. App calls D-Bus method on `org.freedesktop.UDisks2.Filesystem.BTRFS` interface
+3. UDisks2 daemon checks polkit policy
+4. If auth needed, polkit prompt appears (handled by system)
+5. Operation executes with elevated privileges
+6. Result returned via D-Bus response
+7. App updates UI based on success/error
 
-**Implementation:**
-- If UDisks2 lacks BTRFS support, document required polkit rules for packagers
-- Provide clear error messages when operations fail due to permissions
+**Polkit Integration:**
+- Automatic via UDisks2's existing policies
+- No custom polkit rules needed
+- Auth cached per polkit session (typically 5 minutes)
+- Same UX as mounting, formatting, or creating partitions
+
+**Benefits:**
+- ✅ No subprocess management (CLI calls, pipes, parsing)
+- ✅ No pkexec wrappers or custom polkit rules
+- ✅ Structured error handling (D-Bus errors, not stderr parsing)
+- ✅ Works in sandboxed environments (Flatpak, Snap)
+- ✅ Consistent with existing codebase architecture
 
 ---
 
@@ -205,29 +225,29 @@ pub struct BtrfsCreateSnapshotDialog {
 
 ### Flow 2: User Creates BTRFS Subvolume
 1. From BTRFS Management section, user clicks "Create Subvolume"
-2. **Modal dialog** opens asking for subvolume name
+2. **Overlay dialog** opens asking for subvolume name
 3. User enters name (e.g., "mydata"), clicks "Create"
-4. System runs `btrfs subvolume create /mnt/btrfs_mount/mydata`
-5. If permission needed, polkit prompt appears
+4. App calls `CreateSubvolume` D-Bus method on BTRFS interface
+5. Polkit prompt appears for authentication
 6. On success, dialog closes, subvolume list refreshes automatically
 7. New subvolume appears in list
 
 ### Flow 3: User Deletes BTRFS Subvolume
 1. User hovers over subvolume in list, clicks delete icon (trash can)
-2. **Modal confirmation dialog** appears: "Delete subvolume 'mydata'? This cannot be undone."
+2. **Overlay confirmation dialog** appears: "Delete subvolume 'mydata'? This cannot be undone."
 3. User confirms
-4. System runs `btrfs subvolume delete /mnt/btrfs_mount/mydata`
+4. App calls `RemoveSubvolume` D-Bus method on BTRFS interface
 5. Operation completes, list refreshes, subvolume removed
 
 ### Flow 4: User Creates BTRFS Snapshot
 1. User clicks "Create Snapshot" button in BTRFS section
-2. **Modal dialog** opens with:
+2. **Overlay dialog** opens with:
    - Source subvolume dropdown (populated from subvolume list)
    - Snapshot name input
    - "Read-only" checkbox (checked by default)
 3. User selects source (e.g., @home), enters name (e.g., "home-backup-2026-02-12"), leaves read-only checked
 4. User clicks "Create"
-5. System runs `btrfs subvolume snapshot -r /mnt/btrfs_mount/@home /mnt/btrfs_mount/home-backup-2026-02-12`
+5. App calls `CreateSnapshot` D-Bus method with parameters (source, dest, read_only=true)
 6. Snapshot appears in subvolume list (snapshots are subvolumes in BTRFS)
 
 ### Flow 5: User Views BTRFS Usage Breakdown
@@ -241,24 +261,30 @@ pub struct BtrfsCreateSnapshotDialog {
 
 ## Risks & Mitigations
 
-### Risk 1: BTRFS Command Parsing Fragility
-**Risk:** `btrfs` command output format changes between versions, causing parsing errors.
+### Risk 1: Schema Changes in UDisks2 BTRFS Interface (**LOW RISK**)
+**Risk:** Future versions of udisks2-btrfs might change D-Bus method signatures or property names.
 
 **Mitigation:**
-- Use stable command formats (same ones GNOME Disks uses)
-- Extensive error handling with fallback to "raw output" display
-- Unit tests for parsing known output samples from different btrfs-progs versions
-- Graceful degradation: if parsing fails, show "Unable to parse BTRFS info" with raw output in details
+- D-Bus interfaces are more stable than CLI output formats
+- UDisks2 follows semantic versioning and deprecation policies
+- Interface introspection allows runtime capability detection
+- Unit tests verify expected interface structure matches
+- Graceful degradation: if method not found, show "BTRFS management unavailable" with version mismatch note
 
-### Risk 2: BTRFS Operations Require Root
-**Risk:** All BTRFS subvolume operations may require root, leading to constant polkit prompts.
+### Risk 2: BTRFS Module Not Enabled (**RESOLVED**)
+**Risk:** UDisks2 BTRFS module may not be loaded on user's system, preventing D-Bus interface from appearing.
 
-**Mitigation:**
-- Research polkit rules for BTRFS operations
-- Check if UDisks2 already provides some D-Bus interfaces (unlikely but worth checking)
-- Document required polkit rules for users/packagers
-- Consider read-only subvolume listing without elevation (test if supported)
-- Provide clear error messages when operations fail due to permissions
+**Resolution:**
+- Detected that `udisks2-btrfs` requires explicit module enablement on systems with `modules_load_preference=ondemand`
+- Module can be enabled via `Manager.EnableModules(true)` D-Bus call
+- Once enabled, interface appears immediately on mounted BTRFS filesystems
+- Polkit handles authentication seamlessly like other disk operations
+
+**Mitigation Strategy:**
+- Add `udisks2-btrfs` to FsTools detection module with package warnings
+- Provide "Try Enable UDisks2 BTRFS" button in settings that calls `EnableModules(true)`
+- Show clear error if `udisks2-btrfs` not installed with package installation instructions
+- Gracefully disable BTRFS management UI if interface unavailable
 
 ### Risk 3: Complex BTRFS Setups
 **Risk:** Nested subvolumes, multiple devices, RAID profiles could produce unexpected UI states.
@@ -269,62 +295,73 @@ pub struct BtrfsCreateSnapshotDialog {
 - Incremental feature support (ship basic subvolume CRUD first, enhance later)
 - Test on various BTRFS configurations
 
-### Risk 4: Dependency on Modal Dialogs Feature
-**Risk:** This feature assumes modal dialog windows are implemented. If that feature is delayed or blocked, BTRFS dialogs cannot be created.
+### Risk 4: Overlay Dialog Limitations (**MITIGATED**)
+**Risk:** Using overlay dialogs instead of true modal windows may allow accidental background interactions.
+
+**Resolution:**
+- Overlay system is well-tested in existing codebase (format, delete, mount options dialogs)
+- Modal-dialogs feature deferred pending upstream libcosmic support
+- BTRFS dialogs follow same patterns as existing overlay dialogs
+- Future migration to modal windows will require minimal changes (same state structures)
+
+### Risk 5: UDisks2 BTRFS Package Not Installed (**UPDATED**)
+**Risk:** Users may not have `udisks2-btrfs` package installed, preventing D-Bus interface from existing.
 
 **Mitigation:**
-- Implement modal dialogs first (feature/modal-dialogs branch)
-- If blocked, could temporarily use overlay dialogs for BTRFS (not ideal but allows progress)
-- Coordinate implementation: merge modal dialogs before starting BTRFS work
-
-### Risk 5: BTRFS Tools Not Installed
-**Risk:** Users may not have `btrfs-progs` package installed, breaking all features.
-
-**Mitigation:**
-- Detect `btrfs` command availability at startup
-- Show clear message in BTRFS section: "BTRFS tools not installed. Install btrfs-progs package."
-- Don't crash or show errors, just gracefully disable features
-- Add detection to existing fs_tools.rs module
+- Add `udisks2-btrfs` detection to `disks-ui/src/utils/fs_tools.rs` alongside other filesystem tools
+- Show clear warning in settings: "UDisks2 BTRFS module not installed. Install udisks2-btrfs package."
+- Gracefully disable BTRFS management section if interface not available
+- Provide fallback message in BTRFS section with installation instructions
+- Note: `btrfs-progs` still needed (provides `mkfs.btrfs` for formatting), but BTRFS management only requires `udisks2-btrfs`
 
 ---
 
 ## Acceptance Criteria
 
+### Package & Module Detection
+- [ ] `udisks2-btrfs` package detection added to FsTools module
+- [ ] Warning shown in settings if `udisks2-btrfs` not installed
+- [ ] "Try Enable UDisks2 BTRFS" button appears in settings
+- [ ] Button triggers `Manager.EnableModules(true)` D-Bus call
+- [ ] Success/error feedback shown after enabling
+- [ ] Button disabled or hidden when module already enabled
+
 ### Detection & UI
 - [ ] BTRFS filesystems are detected (check `id_type == "btrfs"`)
 - [ ] "BTRFS Management" section appears in volume detail view only for BTRFS volumes
 - [ ] Section does not appear for non-BTRFS filesystems
-- [ ] Section is collapsible/expandable
+- [ ] Section gracefully handles missing BTRFS interface (shows install instructions)
 
-### Subvolume Management
+### Subvolume Management (via D-Bus)
 - [ ] Subvolume list displays with columns: name/path, ID
-- [ ] "Create Subvolume" button opens modal dialog
+- [ ] "Create Subvolume" button opens overlay dialog
 - [ ] Create subvolume dialog has name input field and validation (non-empty, no slashes)
-- [ ] Subvolume creation succeeds andlist refreshes
+- [ ] Subvolume creation succeeds via `CreateSubvolume` D-Bus method
+- [ ] Subvolume list refreshes after creation
 - [ ] Delete subvolume icon shows on each row
-- [ ] Delete shows confirmation modal dialog
-- [ ] Subvolume deletion succeeds and list refreshes
-- [ ] Cannot delete mounted subvolumes (error or disabled button)
+- [ ] Delete shows confirmation overlay dialog
+- [ ] Subvolume deletion succeeds via `RemoveSubvolume` D-Bus method
+- [ ] List refreshes after deletion
 
-### Snapshot Management
-- [ ] "Create Snapshot" button opens modal dialog
+### Snapshot Management (via D-Bus)
+- [ ] "Create Snapshot" button opens overlay dialog
 - [ ] Dialog has source dropdown populated from subvolume list
 - [ ] Dialog has snapshot name input field
 - [ ] Dialog has "Read-only" checkbox
-- [ ] Snapshot creation succeeds for read-only snapshots
-- [ ] Snapshot creation succeeds for writable snapshots
+- [ ] Snapshot creation succeeds via `CreateSnapshot` D-Bus method (both modes)
 - [ ] Snapshots appear in subvolume list after creation
 
-### Usage Breakdown
-- [ ] Usage info loads asynchronously when section expands
-- [ ] Data/metadata/system allocation displayed clearly (text or chart)
-- [ ] Values match `btrfs filesystem usage <mount>` output
-- [ ] Compression info displayed (algorithm name or "disabled")
+### Usage Display
+- [ ] Used space property loads from D-Bus (`used` property)
+- [ ] Value displayed clearly with size formatting
+- [ ] Label and UUID shown
+- [ ] Graceful handling if properties unavailable
 
 ### Error Handling
-- [ ] All BTRFS operations show appropriate errors for permission failures
-- [ ] Clear error message if `btrfs` command not installed
-- [ ] Parsing errors handled gracefully (don't crash, show friendly message)
+- [ ] Polkit auth prompt appears for write operations (create, delete, snapshot)
+- [ ] Clear error message if `udisks2-btrfs` package not installed
+- [ ] Clear error message if BTRFS module not enabled
+- [ ] D-Bus errors handled gracefully (don't crash, show friendly message)
 - [ ] Operations refresh relevant UI sections on completion
 
 ### Localization & Quality
@@ -336,19 +373,21 @@ pub struct BtrfsCreateSnapshotDialog {
 
 ### Documentation
 - [ ] README updated to show V1 goal #3 as completed (✅)
-- [ ] In-code comments explain BTRFS CLI integration
+- [ ] In-code comments explain UDisks2 BTRFS D-Bus integration
+- [ ] Package requirements documented (udisks2-btrfs)
 - [ ] Error messages are user-friendly and actionable
 
 ---
 
 ## Open Questions
 
-### Q1: UDisks2 BTRFS Support
+### Q1: UDisks2 BTRFS Support (**RESOLVED**)
 **Question:** Does UDisks2 expose BTRFS-specific D-Bus methods, or do we need direct CLI calls?
 
-**Action:** Check UDisks2 docs, introspect running daemon  
-**Decision:** If no D-Bus support, use CLI with polkit rules for elevation  
-**Impact:** Determines implementation complexity and permission model
+**Answer:** ✅ YES! The `udisks2-btrfs` package provides complete `org.freedesktop.UDisks2.Filesystem.BTRFS` interface  
+**Discovery:** Interface verified on Arch Linux with `busctl introspect` — all subvolume, snapshot, and management operations available  
+**Decision:** Use D-Bus interface exclusively (no CLI subprocess calls needed)  
+**Impact:** Significantly simpler implementation, automatic polkit integration, consistent with existing architecture
 
 ### Q2: BTRFS Subvolume Mount State
 **Question:** How to determine if a subvolume is mounted separately (vs. accessed via parent mount)?
@@ -376,21 +415,28 @@ pub struct BtrfsCreateSnapshotDialog {
 ## Related Work
 
 - **README V1 Goal #3**: Feature directly implements "1st class BTRFS support"
-- **Feature: modal-dialogs**: All BTRFS dialogs depend on modal dialog windows being implemented first
-- **Feature: filesystem-tools-detection**: BTRFS tool detection (`btrfs` command) should integrate with existing detection system
+- **Feature: filesystem-tools-detection**: `udisks2-btrfs` package detection integrates with existing FsTools system
+- **UDisks2 Architecture**: All disk operations (mount, format, partition) use UDisks2 D-Bus; BTRFS operations now follow same pattern
 - **GNOME Disks**: Reference implementation for BTRFS subvolume/snapshot UI patterns
 
 ---
 
 ## Implementation Order
 
-**Prerequisite:** feature/modal-dialogs must be merged to main
+**Prerequisites:** `udisks2-btrfs` package must be installable (available in user's distro repos)
 
 **Recommended task order:**
-1. Detection and UI section scaffold (Task 1-2)
-2. CLI wrapper module (Task 3)
-3. Subvolume listing (Task 4)
-4. Create/delete subvolume (Task 5-6)
-5. Snapshot creation (Task 7)
-6. Usage breakdown (Task 8)
-7. Polish and localization (Task 9)
+1. FsTools integration + EnableModules button (Task 0) — prepares environment
+2. Detection and UI section scaffold (Task 1-2) — visual framework
+3. D-Bus BTRFS module (Task 3) — core functionality
+4. Subvolume listing (Task 4) — basic read operations
+5. Create/delete subvolume (Task 5-6) — write operations
+6. Snapshot creation (Task 7) — advanced write operations
+7. Usage property display (Task 8) — read-only info
+8. Polish and localization (Task 9) — final touches
+
+**Testing Strategy:**
+- Each task includes unit tests where applicable
+- Integration testing requires real BTRFS filesystem (loop device or spare partition)
+- Manual polkit testing (confirm auth prompts work)
+- Test matrix: enabled/disabled modules, installed/missing package
