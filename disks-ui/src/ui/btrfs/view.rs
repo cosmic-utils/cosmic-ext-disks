@@ -10,12 +10,28 @@ pub fn btrfs_management_section<'a>(
     volume: &'a disks_dbus::VolumeModel,
     state: &'a BtrfsState,
 ) -> Element<'a, Message> {
-    let header = widget::text(fl!("btrfs-management"))
-        .size(13.0)
-        .font(cosmic::iced::font::Font {
-            weight: cosmic::iced::font::Weight::Semibold,
-            ..Default::default()
-        });
+    // Clickable header with expand/collapse icon
+    let icon_name = if state.expanded {
+        "go-down-symbolic"
+    } else {
+        "go-next-symbolic"
+    };
+    
+    let header = widget::button::custom(
+        iced_widget::row![
+            widget::icon::from_name(icon_name).size(16),
+            widget::text(fl!("btrfs-management"))
+                .size(13.0)
+                .font(cosmic::iced::font::Font {
+                    weight: cosmic::iced::font::Weight::Semibold,
+                    ..Default::default()
+                }),
+        ]
+        .spacing(8)
+        .align_y(cosmic::iced::Alignment::Center)
+    )
+    .padding(0)
+    .on_press(Message::BtrfsToggleExpanded);
 
     if !state.expanded {
         // Show collapsed header only

@@ -23,7 +23,7 @@ impl BtrfsState {
     /// Create a new state for the given mount point
     pub fn new(mount_point: Option<String>) -> Self {
         Self {
-            expanded: false,
+            expanded: true, // Start expanded by default for better UX
             loading: false,
             subvolumes: None,
             mount_point,
