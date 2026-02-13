@@ -5,7 +5,7 @@ use crate::ui::btrfs::{BtrfsState, btrfs_management_section};
 use crate::ui::dialogs::state::{DeletePartitionDialog, ShowDialog};
 use crate::ui::dialogs::view as dialogs;
 use crate::ui::sidebar;
-use crate::ui::volumes::{VolumesControl, VolumesControlMessage, disk_header, helpers};
+use crate::ui::volumes::{DetailTab, VolumesControl, VolumesControlMessage, disk_header, helpers};
 use crate::utils::DiskSegmentKind;
 use crate::views::settings::settings;
 use cosmic::app::context_drawer as cosmic_context_drawer;
@@ -262,21 +262,19 @@ pub(crate) fn view(app: &AppModel) -> Element<'_, Message> {
             // Bottom section: Volume-specific detail view (2/3 of height)
             let bottom_section = volume_detail_view(volumes_control, segment);
 
-            // Split layout: header shrinks to fit, detail view fills remaining space
-            iced_widget::column![
-                widget::container(top_section)
-                    .padding(20)
-                    .width(Length::Fill)
-                    .height(Length::Shrink),
-                widget::scrollable(
+            // Full layout wrapped in a single scrollable
+            widget::scrollable(
+                iced_widget::column![
+                    widget::container(top_section)
+                        .padding(20)
+                        .width(Length::Fill),
                     widget::container(bottom_section)
                         .padding(20)
-                        .width(Length::Fill)
-                )
+                        .width(Length::Fill),
+                ]
+                .spacing(0)
                 .width(Length::Fill)
-                .height(Length::Fill)
-            ]
-            .spacing(0)
+            )
             .width(Length::Fill)
             .height(Length::Fill)
             .into()
@@ -304,16 +302,91 @@ fn volume_detail_view<'a>(
         )
     });
 
-    // Build the info section (mirroring disk header layout)
-
-    if let Some(v) = selected_volume_node {
-        build_volume_node_info(v, volumes_control, segment, selected_volume)
-    } else if let Some(ref p) = segment.volume {
-        build_partition_info(p, selected_volume, volumes_control, segment)
+    // Determine if this segment contains a BTRFS filesystem (directly or inside LUKS)
+    let has_btrfs = if let Some(v) = selected_volume_node {
+        helpers::detect_btrfs_in_node(v).is_some()
+    } else if let Some(v) = selected_volume {
+        helpers::detect_btrfs_in_node(v).is_some()
     } else {
-        build_free_space_info(segment)
+        false
+    };
+
+    // Build the tab bar if BTRFS is present
+    let tab_bar: Option<Element<'a, Message>> = if has_btrfs {
+        let active_tab = volumes_control.detail_tab;
+
+        let info_tab = if active_tab == DetailTab::VolumeInfo {
+            widget::button::standard(fl!("volume-info"))
+        } else {
+            widget::button::standard(fl!("volume-info"))
+                .on_press(Message::VolumesMessage(
+                    VolumesControlMessage::SelectDetailTab(DetailTab::VolumeInfo),
+                ))
+        };
+
+        let btrfs_tab = if active_tab == DetailTab::BtrfsManagement {
+            widget::button::standard(fl!("btrfs-management"))
+        } else {
+            widget::button::standard(fl!("btrfs-management"))
+                .on_press(Message::VolumesMessage(
+                    VolumesControlMessage::SelectDetailTab(DetailTab::BtrfsManagement),
+                ))
+        };
+
+        Some(
+            iced_widget::row![info_tab, btrfs_tab]
+                .spacing(8)
+                .into(),
+        )
+    } else {
+        None
+    };
+
+    // Build the tab content
+    let tab_content: Element<'a, Message> =
+        if has_btrfs && volumes_control.detail_tab == DetailTab::BtrfsManagement {
+            // BTRFS Management tab
+            let btrfs_state = volumes_control
+                .btrfs_state
+                .as_ref()
+                .unwrap_or(&DEFAULT_BTRFS_STATE);
+
+            if let Some(volume) = &segment.volume {
+                btrfs_management_section(volume, btrfs_state)
+            } else {
+                widget::text("No volume data available").into()
+            }
+        } else {
+            // Volume Info tab (default)
+            if let Some(v) = selected_volume_node {
+                build_volume_node_info(v, volumes_control, segment, selected_volume)
+            } else if let Some(ref p) = segment.volume {
+                build_partition_info(p, selected_volume, volumes_control, segment)
+            } else {
+                build_free_space_info(segment)
+            }
+        };
+
+    // Assemble the final layout
+    if let Some(tabs) = tab_bar {
+        iced_widget::column![tabs, tab_content]
+            .spacing(12)
+            .width(Length::Fill)
+            .into()
+    } else {
+        tab_content
     }
 }
+
+// Static default BTRFS state used when no state is available
+const DEFAULT_BTRFS_STATE: BtrfsState = BtrfsState {
+    loading: false,
+    subvolumes: None,
+    mount_point: None,
+    usage_info: None,
+    compression: None,
+    loading_usage: false,
+};
 
 /// Aggregate children's used space for LUKS containers
 fn aggregate_children_usage(node: &disks_dbus::VolumeNode) -> u64 {
@@ -327,7 +400,7 @@ fn aggregate_children_usage(node: &disks_dbus::VolumeNode) -> u64 {
 /// Build info display for a volume node (child filesystem/LV) - mirrors disk header layout
 fn build_volume_node_info<'a>(
     v: &'a disks_dbus::VolumeNode,
-    volumes_control: &'a VolumesControl,
+    _volumes_control: &'a VolumesControl,
     segment: &'a crate::ui::volumes::Segment,
     _selected_volume: Option<&'a disks_dbus::VolumeNode>,
 ) -> Element<'a, Message> {
@@ -553,50 +626,11 @@ fn build_volume_node_info<'a>(
         .into(),
     );
 
-    // Build info_and_actions with conditional BTRFS management section
-    // Check through LUKS containers for an inner BTRFS filesystem
-    let has_btrfs = helpers::detect_btrfs_in_node(v).is_some();
-
-    // Use a static default state to avoid lifetime issues
-    const DEFAULT_BTRFS_STATE: BtrfsState = BtrfsState {
-        loading: false,
-        subvolumes: None,
-        mount_point: None,
-        usage_info: None,
-        compression: None,
-        loading_usage: false,
-    };
-
-    let info_and_actions = if has_btrfs {
-        // Get BTRFS state from volumes_control, or use default
-        let btrfs_state = volumes_control
-            .btrfs_state
-            .as_ref()
-            .unwrap_or(&DEFAULT_BTRFS_STATE);
-
-        // Use the segment's volume if available for the management section
-        if let Some(volume) = &segment.volume {
-            iced_widget::column![
-                text_column,
-                widget::Row::from_vec(action_buttons).spacing(4),
-                btrfs_management_section(volume, btrfs_state)
-            ]
-            .spacing(8)
-        } else {
-            // Fallback if no volume model available
-            iced_widget::column![
-                text_column,
-                widget::Row::from_vec(action_buttons).spacing(4)
-            ]
-            .spacing(8)
-        }
-    } else {
-        iced_widget::column![
-            text_column,
-            widget::Row::from_vec(action_buttons).spacing(4)
-        ]
-        .spacing(8)
-    };
+    let info_and_actions = iced_widget::column![
+        text_column,
+        widget::Row::from_vec(action_buttons).spacing(4)
+    ]
+    .spacing(8);
 
     // Row layout: info_and_actions | pie_chart (aligned right, shrink to fit)
     iced_widget::Row::new()
@@ -961,44 +995,11 @@ fn build_partition_info<'a>(
         );
     }
 
-    // Build info_and_actions with conditional BTRFS management section
-    // Check through LUKS containers for an inner BTRFS filesystem
-    let has_btrfs = if let Some(node) = volume_node {
-        helpers::detect_btrfs_in_node(node).is_some()
-    } else {
-        p.id_type.to_lowercase() == "btrfs"
-    };
-
-    // Use a static default state to avoid lifetime issues
-    const DEFAULT_BTRFS_STATE: BtrfsState = BtrfsState {
-        loading: false,
-        subvolumes: None,
-        mount_point: None,
-        usage_info: None,
-        compression: None,
-        loading_usage: false,
-    };
-
-    let info_and_actions = if has_btrfs {
-        // Get BTRFS state from volumes_control, or use default
-        let btrfs_state = volumes_control
-            .btrfs_state
-            .as_ref()
-            .unwrap_or(&DEFAULT_BTRFS_STATE);
-
-        iced_widget::column![
-            text_column,
-            widget::Row::from_vec(action_buttons).spacing(4),
-            btrfs_management_section(p, btrfs_state)
-        ]
-        .spacing(8)
-    } else {
-        iced_widget::column![
-            text_column,
-            widget::Row::from_vec(action_buttons).spacing(4)
-        ]
-        .spacing(8)
-    };
+    let info_and_actions = iced_widget::column![
+        text_column,
+        widget::Row::from_vec(action_buttons).spacing(4)
+    ]
+    .spacing(8);
 
     // Row layout: info_and_actions | pie_chart (aligned right, shrink to fit)
     iced_widget::Row::new()

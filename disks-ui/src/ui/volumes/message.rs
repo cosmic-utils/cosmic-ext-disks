@@ -5,10 +5,12 @@ use crate::ui::dialogs::message::{
     EditMountOptionsMessage, EditPartitionMessage, ResizePartitionMessage, TakeOwnershipMessage,
     UnlockMessage,
 };
+use super::state::DetailTab;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum VolumesControlMessage {
     SegmentSelected(usize),
+    SelectDetailTab(DetailTab),
     SelectVolume {
         segment_index: usize,
         object_path: String,

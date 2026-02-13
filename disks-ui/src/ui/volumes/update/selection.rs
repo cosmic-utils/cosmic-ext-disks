@@ -6,6 +6,7 @@ use crate::ui::dialogs::state::ShowDialog;
 use crate::ui::volumes::helpers;
 
 use crate::ui::volumes::VolumesControl;
+use crate::ui::volumes::state::DetailTab;
 
 pub(super) fn segment_selected(
     control: &mut VolumesControl,
@@ -24,6 +25,7 @@ pub(super) fn segment_selected(
         let index = index.min(last_index);
         control.selected_segment = index;
         control.selected_volume = None;
+        control.detail_tab = DetailTab::VolumeInfo;
         control.segments.iter_mut().for_each(|s| s.state = false);
         if let Some(segment) = control.segments.get_mut(index) {
             segment.state = true;
@@ -107,6 +109,7 @@ pub(super) fn select_volume(
         let segment_index = segment_index.min(last_index);
         control.selected_segment = segment_index;
         control.selected_volume = Some(object_path.clone());
+        control.detail_tab = DetailTab::VolumeInfo;
         control.segments.iter_mut().for_each(|s| s.state = false);
         if let Some(segment) = control.segments.get_mut(segment_index) {
             segment.state = true;

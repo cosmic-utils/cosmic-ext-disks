@@ -6,6 +6,14 @@ use crate::{
 };
 use disks_dbus::{CreatePartitionInfo, DriveModel, VolumeModel, VolumeNode};
 
+/// Which detail tab is active below the drive header
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum DetailTab {
+    #[default]
+    VolumeInfo,
+    BtrfsManagement,
+}
+
 pub struct VolumesControl {
     pub selected_segment: usize,
     pub selected_volume: Option<String>,
@@ -14,6 +22,8 @@ pub struct VolumesControl {
     pub(crate) model: DriveModel,
     /// BTRFS management state for the currently selected volume (if BTRFS)
     pub btrfs_state: Option<BtrfsState>,
+    /// Which detail tab is currently displayed
+    pub detail_tab: DetailTab,
 }
 
 #[derive(Clone, Debug)]
@@ -310,6 +320,7 @@ impl VolumesControl {
             segments,
             show_reserved,
             btrfs_state: None,
+            detail_tab: DetailTab::default(),
         }
     }
 
