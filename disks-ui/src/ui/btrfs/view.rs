@@ -22,7 +22,7 @@ pub fn btrfs_management_section<'a>(
     state: &'a BtrfsState,
 ) -> Element<'a, Message> {
     let header = widget::text(fl!("btrfs-management"))
-        .size(13.0)
+        .size(14.0)
         .font(cosmic::iced::font::Font {
             weight: cosmic::iced::font::Weight::Semibold,
             ..Default::default()
@@ -47,8 +47,7 @@ pub fn btrfs_management_section<'a>(
 
         if state.loading_usage {
             content_items.push(
-                widget::text("Loading usage information...")
-                    .size(11.0)
+                widget::text::caption("Loading usage information...")
                     .into(),
             );
         } else if let Some(used_space_result) = &state.used_space {
@@ -72,19 +71,17 @@ pub fn btrfs_management_section<'a>(
 
                     // Display used space
                     content_items.push(
-                        widget::text(format!(
+                        widget::text::caption(format!(
                             "{}: {}",
                             fl!("btrfs-used-space"),
                             format_bytes(*used_bytes)
                         ))
-                        .size(10.0)
                         .into(),
                     );
                 }
                 Err(error) => {
                     content_items.push(
-                        widget::text(format!("Usage error: {}", error))
-                            .size(11.0)
+                        widget::text::caption(format!("Usage error: {}", error))
                             .into(),
                     );
                 }
@@ -105,7 +102,7 @@ pub fn btrfs_management_section<'a>(
         if let Some(_mp) = mount_point {
             // Note: This will trigger on every render until loaded
             // A better approach would be to trigger once, but this works for now
-            content_items.push(widget::text("Loading subvolumes...").size(11.0).into());
+            content_items.push(widget::text::caption("Loading subvolumes...").into());
 
             // Send message to load (will be handled in update)
             // For now, just show loading state
@@ -114,20 +111,18 @@ pub fn btrfs_management_section<'a>(
             if volume.has_filesystem {
                 // Filesystem exists but not detected as mounted
                 content_items.push(
-                    widget::text("BTRFS filesystem not mounted (try refreshing)")
-                        .size(11.0)
+                    widget::text::caption("BTRFS filesystem not mounted (try refreshing)")
                         .into(),
                 );
             } else {
                 content_items.push(
-                    widget::text("BTRFS filesystem not mounted")
-                        .size(11.0)
+                    widget::text::caption("BTRFS filesystem not mounted")
                         .into(),
                 );
             }
         }
     } else if state.loading {
-        content_items.push(widget::text("Loading subvolumes...").size(11.0).into());
+        content_items.push(widget::text::caption("Loading subvolumes...").into());
     } else if let Some(result) = &state.subvolumes {
         match result {
             Ok(subvolumes) => {
@@ -155,7 +150,7 @@ pub fn btrfs_management_section<'a>(
                 content_items.push(button_row.into());
 
                 if subvolumes.is_empty() {
-                    content_items.push(widget::text("No subvolumes found").size(11.0).into());
+                    content_items.push(widget::text::caption("No subvolumes found").into());
                 } else {
                     // Build hierarchical view
                     let subvol_list = build_subvolume_hierarchy(subvolumes, state);
@@ -163,7 +158,7 @@ pub fn btrfs_management_section<'a>(
                 }
             }
             Err(error) => {
-                content_items.push(widget::text(format!("Error: {}", error)).size(11.0).into());
+                content_items.push(widget::text::caption(format!("Error: {}", error)).into());
             }
         }
     }
@@ -173,7 +168,6 @@ pub fn btrfs_management_section<'a>(
 
     iced_widget::column(content_items)
         .spacing(8)
-        .padding(8)
         .into()
 }
 
@@ -251,6 +245,7 @@ fn render_subvolume_row<'a>(
     // Path (normal text size, fills space)
     row_items.push(
         widget::text(&subvol.path)
+            .size(13.0)
             .width(cosmic::iced::Length::Fill)
             .into(),
     );
