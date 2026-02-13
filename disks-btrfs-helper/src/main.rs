@@ -79,6 +79,11 @@ enum Commands {
         /// Mount point of the BTRFS filesystem
         mount_point: PathBuf,
     },
+    /// Get filesystem usage information
+    Usage {
+        /// Mount point of the BTRFS filesystem
+        mount_point: PathBuf,
+    },
 }
 
 /// Response for list command including default subvolume ID
@@ -86,6 +91,12 @@ enum Commands {
 struct ListSubvolumesOutput {
     subvolumes: Vec<SubvolumeOutput>,
     default_id: u64,
+}
+
+/// Response for usage command
+#[derive(Debug, Serialize, Deserialize)]
+struct UsageOutput {
+    used_bytes: u64,
 }
 
 /// Serializable output format for subvolume info
@@ -182,6 +193,11 @@ fn main() -> Result<()> {
             let json = serde_json::to_string(&deleted)?;
             println!("{}", json);
         }
+        Commands::Usage { mount_point } => {
+            let usage = get_usage(&mount_point)?;
+            let json = serde_json::to_string(&usage)?;
+            println!("{}", json);
+        }
     }
 
     Ok(())
@@ -219,18 +235,51 @@ fn list_subvolumes(mount_point: &PathBuf) -> Result<Vec<SubvolumeOutput>> {
         
         // Find "path" keyword and take everything after it
         let path_idx = parts.iter().position(|&p| p == "path");
-        let path = if let Some(idx) = path_idx {
+        let mut path = if let Some(idx) = path_idx {
             parts[idx + 1..].join(" ")
         } else {
             continue;
         };
 
-        //Find UUID field (after "uuid" keyword)
+        // Strip "<FS_TREE>/" prefix from paths (comes from -a flag)
+        if path.starts_with("<FS_TREE>/") {
+            path = path.strip_prefix("<FS_TREE>/").unwrap().to_string();
+        }
+
+        // Find UUID field (after "uuid" keyword)
         let uuid_idx = parts.iter().position(|&p| p == "uuid");
         let uuid = if let Some(idx) = uuid_idx {
             parts.get(idx + 1).map(|s| s.to_string()).unwrap_or_else(|| String::from("00000000-0000-0000-0000-000000000000"))
         } else {
             String::from("00000000-0000-0000-0000-000000000000")
+        };
+
+        // Find parent_uuid field (after "parent_uuid" keyword)
+        let parent_uuid_idx = parts.iter().position(|&p| p == "parent_uuid");
+        let parent_uuid = if let Some(idx) = parent_uuid_idx {
+            parts.get(idx + 1).and_then(|s| {
+                if *s == "-" {
+                    None  // "-" means no parent (original subvolume)
+                } else {
+                    Some(s.to_string())
+                }
+            })
+        } else {
+            None
+        };
+
+        // Find received_uuid field (after "received_uuid" keyword)
+        let received_uuid_idx = parts.iter().position(|&p| p == "received_uuid");
+        let received_uuid = if let Some(idx) = received_uuid_idx {
+            parts.get(idx + 1).and_then(|s| {
+                if *s == "-" {
+                    None
+                } else {
+                    Some(s.to_string())
+                }
+            })
+        } else {
+            None
         };
 
         if let (Some(id), Some(generation)) = (id, generation) {
@@ -239,8 +288,8 @@ fn list_subvolumes(mount_point: &PathBuf) -> Result<Vec<SubvolumeOutput>> {
                 path,
                 parent_id: None,  // Not critical for UI
                 uuid,
-                parent_uuid: None,
-                received_uuid: None,
+                parent_uuid,
+                received_uuid,
                 generation,
                 ctransid: generation,  // Approximate
                 otransid: generation,  // Approximate
@@ -412,4 +461,36 @@ fn list_deleted(mount_point: &PathBuf) -> Result<Vec<SubvolumeOutput>> {
     }
 
     Ok(deleted)
+}
+
+/// Get filesystem usage information
+fn get_usage(mount_point: &PathBuf) -> Result<UsageOutput> {
+    use std::ffi::CString;
+    use std::mem::MaybeUninit;
+    
+    // Convert path to CString
+    let c_path = CString::new(mount_point.to_string_lossy().as_bytes())
+        .map_err(|e| anyhow::anyhow!("Invalid mount point path: {}", e))?;
+    
+    // Call statvfs
+    let mut stat: MaybeUninit<libc::statvfs> = MaybeUninit::uninit();
+    let result = unsafe {
+        libc::statvfs(c_path.as_ptr(), stat.as_mut_ptr())
+    };
+    
+    if result != 0 {
+        let err = std::io::Error::last_os_error();
+        anyhow::bail!("Failed to get filesystem stats for {}: {}", mount_point.display(), err);
+    }
+    
+    let stat = unsafe { stat.assume_init() };
+    
+    // Calculate used space
+    // f_blocks = total blocks, f_bfree = free blocks
+    // f_frsize = fragment size (preferred for calculations)
+    let total_bytes = stat.f_blocks * stat.f_frsize;
+    let free_bytes = stat.f_bfree * stat.f_frsize;
+    let used_bytes = total_bytes - free_bytes;
+    
+    Ok(UsageOutput { used_bytes })
 }

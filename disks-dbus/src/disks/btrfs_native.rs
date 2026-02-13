@@ -217,6 +217,24 @@ impl BtrfsFilesystem {
             .context("Failed to convert deleted subvolume data")
     }
 
+    /// Get filesystem usage information
+    pub async fn get_usage(&self) -> Result<u64> {
+        let operation = Operation::GetUsage {
+            mount_point: self.mount_point.clone(),
+        };
+
+        let output = self.helper.execute(operation).await
+            .context("Failed to get filesystem usage")?;
+
+        // Parse the usage response
+        let usage: serde_json::Value = output;
+        let used_bytes = usage["used_bytes"]
+            .as_u64()
+            .ok_or_else(|| anyhow::anyhow!("Invalid usage response format"))?;
+
+        Ok(used_bytes)
+    }
+
     /// Check if a path is a subvolume
     pub async fn is_subvolume(&self, path: &Path) -> Result<bool> {
         // Try to get subvolume info - if it succeeds, it's a subvolume
@@ -370,6 +388,12 @@ impl Operation {
                     mount_point.to_string_lossy().to_string(),
                 ]
             }
+            Operation::GetUsage { mount_point } => {
+                vec![
+                    "usage".to_string(),
+                    mount_point.to_string_lossy().to_string(),
+                ]
+            }
         }
     }
 }
@@ -409,6 +433,9 @@ enum Operation {
         mount_point: PathBuf,
     },
     ListDeleted {
+        mount_point: PathBuf,
+    },
+    GetUsage {
         mount_point: PathBuf,
     },
 }

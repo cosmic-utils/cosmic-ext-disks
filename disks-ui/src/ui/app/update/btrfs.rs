@@ -135,20 +135,51 @@ pub(super) fn handle_btrfs_message(app: &mut AppModel, message: Message) -> Task
         }
 
         Message::BtrfsLoadUsage {
-            block_path: _,
-            mount_point: _,
+            block_path,
+            mount_point,
         } => {
-            // TODO: Implement BTRFS usage info via alternative method
-            // The old get_used_space() was UDisks2-specific
-            // Could use statvfs() or subprocess call to `btrfs filesystem usage`
-            Task::none()
+            // Mark as loading in state
+            if let Some(volumes_control) = app.nav.active_data_mut::<VolumesControl>() {
+                if let Some(btrfs_state) = &mut volumes_control.btrfs_state {
+                    btrfs_state.loading_usage = true;
+                }
+            }
+
+            // Load usage in background task
+            return Task::perform(
+                async move {
+                    let btrfs = match BtrfsFilesystem::new(PathBuf::from(&mount_point)).await {
+                        Ok(btrfs) => btrfs,
+                        Err(e) => {
+                            return Message::BtrfsUsageLoaded {
+                                mount_point,
+                                used_space: Err(format!("Failed to initialize BTRFS: {}", e)),
+                            };
+                        }
+                    };
+                    
+                    let result = btrfs.get_usage().await
+                        .map_err(|e| format!("Failed to get usage: {}", e));
+                    
+                    Message::BtrfsUsageLoaded {
+                        mount_point,
+                        used_space: result,
+                    }
+                },
+                |msg| msg.into(),
+            );
         }
 
         Message::BtrfsUsageLoaded {
-            mount_point: _,
-            used_space: _,
+            mount_point,
+            used_space,
         } => {
-            // TODO: Removed temporarily - needs alternative implementation
+            if let Some(volumes_control) = app.nav.active_data_mut::<VolumesControl>() {
+                if let Some(btrfs_state) = &mut volumes_control.btrfs_state {
+                    btrfs_state.loading_usage = false;
+                    btrfs_state.used_space = Some(used_space);
+                }
+            }
             Task::none()
         }
 

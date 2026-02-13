@@ -8,6 +8,7 @@ use crate::ui::app::message::Message;
 use crate::ui::volumes::usage_pie;
 use disks_dbus::BtrfsSubvolume;
 use std::collections::HashMap;
+use uuid::Uuid;
 
 /// Helper to get expander icon name
 fn expander_icon(expanded: bool) -> &'static str {
@@ -180,14 +181,15 @@ fn build_subvolume_hierarchy<'a>(
     subvolumes: &'a [BtrfsSubvolume],
     state: &'a BtrfsState,
 ) -> Element<'a, Message> {
-    // Group subvolumes: find root subvolumes and their snapshots
-    let mut children_map: HashMap<u64, Vec<&BtrfsSubvolume>> = HashMap::new();
+    // Group snapshots by their source subvolume UUID
+    // snapshots_map: source UUID -> list of snapshots
+    let mut snapshots_map: HashMap<Uuid, Vec<&BtrfsSubvolume>> = HashMap::new();
     
     for subvol in subvolumes {
-        // Only group by parent_id if it exists
-        if let Some(parent_id) = subvol.parent_id {
-            children_map
-                .entry(parent_id)
+        // If this subvolume has a parent_uuid, it's a snapshot
+        if let Some(parent_uuid) = subvol.parent_uuid {
+            snapshots_map
+                .entry(parent_uuid)
                 .or_default()
                 .push(subvol);
         }
@@ -195,20 +197,12 @@ fn build_subvolume_hierarchy<'a>(
 
     let mut list = iced_widget::column![].spacing(4);
 
-    // Find root subvolumes (typically parent_id == 5 or 0)
-    // We'll display all subvolumes at the top level, then check if they have children
+    // Display all subvolumes that are NOT snapshots (don't have parent_uuid)
+    // These are the original subvolumes
     for subvol in subvolumes {
-        // Only show subvolumes that are not children of another displayed subvolume
-        // A heuristic: if this subvolume's parent_id appears in our list, skip it here
-        let parent_exists = if let Some(parent_id) = subvol.parent_id {
-            subvolumes.iter().any(|sv| sv.id == parent_id)
-        } else {
-            false
-        };
-        
-        if !parent_exists {
-            // This is a root-level subvolume
-            list = list.push(render_subvolume_row(subvol, &children_map, state, 0));
+        if subvol.parent_uuid.is_none() {
+            // This is an original subvolume (not a snapshot)
+            list = list.push(render_subvolume_row(subvol, &snapshots_map, state, 0));
         }
     }
 
@@ -218,12 +212,12 @@ fn build_subvolume_hierarchy<'a>(
 /// Render a single subvolume row with optional child snapshots
 fn render_subvolume_row<'a>(
     subvol: &'a BtrfsSubvolume,
-    children_map: &HashMap<u64, Vec<&'a BtrfsSubvolume>>,
+    snapshots_map: &HashMap<Uuid, Vec<&'a BtrfsSubvolume>>,
     state: &'a BtrfsState,
     indent_level: u16,
 ) -> Element<'a, Message> {
     let mount_point = state.mount_point.as_ref();
-    let snapshots = children_map.get(&subvol.id);
+    let snapshots = snapshots_map.get(&subvol.uuid);
     let has_snapshots = snapshots.is_some_and(|s| !s.is_empty());
     let is_expanded = state.expanded_subvolumes.get(&subvol.id).copied().unwrap_or(false);
 
@@ -295,7 +289,7 @@ fn render_subvolume_row<'a>(
             for snapshot in snapshot_list.iter() {
                 col = col.push(render_subvolume_row(
                     snapshot,
-                    children_map,
+                    snapshots_map,
                     state,
                     indent_level + 1,
                 ));

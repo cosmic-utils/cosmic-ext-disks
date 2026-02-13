@@ -24,4 +24,5 @@ num-format.workspace = true
 anyhow.workspace = true
 disks-dbus.workspace = true
 which.workspace = true
+uuid.workspace = true
 
