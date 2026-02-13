@@ -100,6 +100,45 @@ pub enum Message {
         mount_point: String,
         subvolume_id: u64,
     },
+    BtrfsLoadDefaultSubvolume {
+        mount_point: String,
+    },
+    BtrfsDefaultSubvolumeLoaded {
+        mount_point: String,
+        result: Result<disks_dbus::BtrfsSubvolume, String>,
+    },
+    BtrfsSetDefaultSubvolume {
+        mount_point: String,
+        subvolume_id: u64,
+    },
+    BtrfsToggleReadonly {
+        mount_point: String,
+        subvolume_id: u64,
+    },
+    BtrfsReadonlyToggled {
+        mount_point: String,
+        result: Result<(), String>,
+    },
+    BtrfsShowProperties {
+        mount_point: String,
+        subvolume_id: u64,
+    },
+    BtrfsCloseProperties {
+        mount_point: String,
+    },
+    BtrfsLoadDeletedSubvolumes {
+        mount_point: String,
+    },
+    BtrfsDeletedSubvolumesLoaded {
+        mount_point: String,
+        result: Result<Vec<disks_dbus::BtrfsSubvolume>, String>,
+    },
+    BtrfsToggleShowDeleted {
+        mount_point: String,
+    },
+    BtrfsRefreshAll {
+        mount_point: String,
+    },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

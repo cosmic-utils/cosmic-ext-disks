@@ -18,6 +18,16 @@ pub struct BtrfsState {
     pub loading_usage: bool,
     /// Expander state: maps subvolume ID to expanded state (true = expanded)
     pub expanded_subvolumes: HashMap<u64, bool>,
+    /// Default subvolume ID
+    pub default_subvolume_id: Option<u64>,
+    /// List of deleted subvolumes pending cleanup
+    pub deleted_subvolumes: Option<Vec<BtrfsSubvolume>>,
+    /// Whether to show deleted subvolumes in the UI
+    pub show_deleted: bool,
+    /// Currently selected subvolume (for properties/operations)
+    pub selected_subvolume: Option<BtrfsSubvolume>,
+    /// Whether to show the properties dialog
+    pub show_properties_dialog: bool,
 }
 
 impl BtrfsState {
@@ -31,6 +41,11 @@ impl BtrfsState {
             used_space: None,
             loading_usage: false,
             expanded_subvolumes: HashMap::new(),
+            default_subvolume_id: None,
+            deleted_subvolumes: None,
+            show_deleted: false,
+            selected_subvolume: None,
+            show_properties_dialog: false,
         }
     }
 }
