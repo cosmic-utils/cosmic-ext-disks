@@ -324,7 +324,7 @@ fn aggregate_children_usage(node: &disks_dbus::VolumeNode) -> u64 {
 /// Build info display for a volume node (child filesystem/LV) - mirrors disk header layout
 fn build_volume_node_info<'a>(
     v: &'a disks_dbus::VolumeNode,
-    _volumes_control: &'a VolumesControl,
+    volumes_control: &'a VolumesControl,
     segment: &'a crate::ui::volumes::Segment,
     _selected_volume: Option<&'a disks_dbus::VolumeNode>,
 ) -> Element<'a, Message> {
@@ -554,15 +554,41 @@ fn build_volume_node_info<'a>(
     let is_btrfs = v.id_type.to_lowercase() == "btrfs"
         || (v.has_filesystem && v.id_type.to_lowercase() == "btrfs");
 
+    // Use a static default state to avoid lifetime issues
+    const DEFAULT_BTRFS_STATE: BtrfsState = BtrfsState {
+        expanded: false,
+        loading: false,
+        subvolumes: None,
+        mount_point: None,
+        usage_info: None,
+        compression: None,
+        loading_usage: false,
+    };
+
     let info_and_actions = if is_btrfs {
-        // For Task 2 scaffold: keep simple placeholder for VolumeNode
-        // Will integrate properly with state in Task 4
-        iced_widget::column![
-            text_column,
-            widget::Row::from_vec(action_buttons).spacing(4),
-            widget::text("BTRFS Management (coming soon)").size(12.0)
-        ]
-        .spacing(8)
+        // Get BTRFS state from volumes_control, or use default
+        let btrfs_state = volumes_control
+            .btrfs_state
+            .as_ref()
+            .unwrap_or(&DEFAULT_BTRFS_STATE);
+
+        // Convert VolumeNode to VolumeModel for btrfs_management_section
+        // Use the segment's volume if available
+        if let Some(volume) = &segment.volume {
+            iced_widget::column![
+                text_column,
+                widget::Row::from_vec(action_buttons).spacing(4),
+                btrfs_management_section(volume, btrfs_state)
+            ]
+            .spacing(8)
+        } else {
+            // Fallback if no volume model available
+            iced_widget::column![
+                text_column,
+                widget::Row::from_vec(action_buttons).spacing(4)
+            ]
+            .spacing(8)
+        }
     } else {
         iced_widget::column![
             text_column,
