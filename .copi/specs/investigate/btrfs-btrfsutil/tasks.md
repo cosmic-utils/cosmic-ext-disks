@@ -166,11 +166,13 @@
 **Estimated:** 1h  
 **Files:** `disks-dbus/src/disks/btrfs_native.rs`
 
-- [ ] Implement `From<SubvolumeInfo>` for BtrfsSubvolume (if using btrfsutil directly)
-- [ ] Handle Option fields properly (parent_id, parent_uuid, received_uuid)
-- [ ] Convert timestamps to Local timezone
-- [ ] Compute is_default flag (requires get_default check)
-- [ ] Add unit tests for conversion
+- [x] Implement `From<SubvolumeInfo>` for BtrfsSubvolume (if using btrfsutil directly)
+- [x] Handle Option fields properly (parent_id, parent_uuid, received_uuid)
+- [x] Convert timestamps to Local timezone
+- [x] Compute is_default flag (requires get_default check)
+- [x] Add unit tests for conversion
+
+**Status:** ✅ **Complete** - Already implemented in Phase 1 via TryFrom<SubvolumeHelperOutput>
 
 **Acceptance:** SubvolumeInfo converts correctly to BtrfsSubvolume
 
