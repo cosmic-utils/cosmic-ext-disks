@@ -68,43 +68,25 @@ impl BtrfsFilesystem {
         let output = self.helper.execute(operation).await
             .context("Failed to list subvolumes")?;
 
-        // Parse array of subvolumes
-        let helper_outputs: Vec<SubvolumeHelperOutput> = serde_json::from_value(output)
+        // Parse the response which now includes both subvolumes and default_id
+        let list_output: ListSubvolumesOutput = serde_json::from_value(output)
             .context("Failed to deserialize subvolume list")?;
 
-        // Get default subvolume ID to mark it in the list
-        let default_id = self.get_default_subvolume_id().await.ok();
+        let default_id = list_output.default_id;
 
         // Convert to BtrfsSubvolume
         let mut subvolumes = Vec::new();
-        for helper_output in helper_outputs {
+        for helper_output in list_output.subvolumes {
             let mut subvol = BtrfsSubvolume::try_from(helper_output)
                 .context("Failed to convert subvolume data")?;
 
             // Mark if this is the default subvolume
-            if let Some(default_id) = default_id {
-                subvol.is_default = subvol.id == default_id;
-            }
+            subvol.is_default = subvol.id == default_id;
 
             subvolumes.push(subvol);
         }
 
         Ok(subvolumes)
-    }
-
-    /// Get the default subvolume ID (helper method)
-    async fn get_default_subvolume_id(&self) -> Result<u64> {
-        let operation = Operation::GetDefault {
-            mount_point: self.mount_point.clone(),
-        };
-
-        let output = self.helper.execute(operation).await
-            .context("Failed to get default subvolume")?;
-
-        let id = output["id"].as_u64()
-            .context("Default subvolume response missing 'id' field")?;
-
-        Ok(id)
     }
 
     /// Create a new subvolume
@@ -192,15 +174,13 @@ impl BtrfsFilesystem {
 
     /// Get the default subvolume
     pub async fn get_default_subvolume(&self) -> Result<BtrfsSubvolume> {
-        let default_id = self.get_default_subvolume_id().await?;
-        
-        // List all subvolumes and find the default one
+        // List all subvolumes (which includes marking the default)
         let subvolumes = self.list_subvolumes().await?;
         
         subvolumes
             .into_iter()
-            .find(|s| s.id == default_id)
-            .ok_or_else(|| anyhow::anyhow!("Default subvolume (ID {}) not found", default_id))
+            .find(|s| s.is_default)
+            .ok_or_else(|| anyhow::anyhow!("Default subvolume not found"))
     }
 
     /// Set a subvolume as the default
@@ -429,6 +409,13 @@ enum Operation {
     ListDeleted {
         mount_point: PathBuf,
     },
+}
+
+/// Response from list command including default subvolume ID
+#[derive(Debug, Deserialize)]
+struct ListSubvolumesOutput {
+    subvolumes: Vec<SubvolumeHelperOutput>,
+    default_id: u64,
 }
 
 /// Helper output format (matches SubvolumeOutput in helper binary)

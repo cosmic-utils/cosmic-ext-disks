@@ -81,6 +81,13 @@ enum Commands {
     },
 }
 
+/// Response for list command including default subvolume ID
+#[derive(Debug, Serialize, Deserialize)]
+struct ListSubvolumesOutput {
+    subvolumes: Vec<SubvolumeOutput>,
+    default_id: u64,
+}
+
 /// Serializable output format for subvolume info
 #[derive(Debug, Serialize, Deserialize)]
 struct SubvolumeOutput {
@@ -108,7 +115,12 @@ fn main() -> Result<()> {
     match cli.command {
         Commands::List { mount_point } => {
             let subvolumes = list_subvolumes(&mount_point)?;
-            let json = serde_json::to_string(&subvolumes)?;
+            let default_id = get_default(&mount_point)?;
+            let output = ListSubvolumesOutput {
+                subvolumes,
+                default_id,
+            };
+            let json = serde_json::to_string(&output)?;
             println!("{}", json);
         }
         Commands::Create { mount_point, name } => {
