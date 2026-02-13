@@ -1,4 +1,4 @@
-use crate::utils::btrfs::Subvolume;
+use crate::utils::btrfs::{Subvolume, UsageInfo};
 
 /// State for BTRFS management UI
 #[derive(Debug, Clone, Default)]
@@ -11,6 +11,12 @@ pub struct BtrfsState {
     pub subvolumes: Option<Result<Vec<Subvolume>, String>>,
     /// Mount point for the BTRFS filesystem
     pub mount_point: Option<String>,
+    /// Filesystem usage information
+    pub usage_info: Option<Result<UsageInfo, String>>,
+    /// Compression algorithm (None = not loaded, Some(None) = disabled, Some(Some(algo)) = enabled)
+    pub compression: Option<Option<String>>,
+    /// Loading state for usage info
+    pub loading_usage: bool,
 }
 
 impl BtrfsState {
@@ -21,6 +27,9 @@ impl BtrfsState {
             loading: false,
             subvolumes: None,
             mount_point,
+            usage_info: None,
+            compression: None,
+            loading_usage: false,
         }
     }
 }

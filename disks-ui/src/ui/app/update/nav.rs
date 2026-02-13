@@ -100,19 +100,36 @@ pub(super) fn update_nav(
 
     app.sidebar.set_drive_entities(drive_entities);
     
-    //  Trigger BTRFS subvolume loading for activated drive
+    //  Trigger BTRFS data loading for activated drive
     if let Some(volumes_control) = app.nav.active_data::<VolumesControl>()
         && let Some(btrfs_state) = &volumes_control.btrfs_state
         && let Some(mount_point) = &btrfs_state.mount_point
-        && btrfs_state.subvolumes.is_none()
-        && !btrfs_state.loading
     {
-        return Task::done(
-            Message::BtrfsLoadSubvolumes {
-                mount_point: mount_point.clone(),
-            }
-            .into(),
-        );
+        let mut tasks = Vec::new();
+        
+        // Load subvolumes if not already loaded/loading
+        if btrfs_state.subvolumes.is_none() && !btrfs_state.loading {
+            tasks.push(Task::done(
+                Message::BtrfsLoadSubvolumes {
+                    mount_point: mount_point.clone(),
+                }
+                .into(),
+            ));
+        }
+        
+        // Load usage info if not already loaded/loading
+        if btrfs_state.usage_info.is_none() && !btrfs_state.loading_usage {
+            tasks.push(Task::done(
+                Message::BtrfsLoadUsage {
+                    mount_point: mount_point.clone(),
+                }
+                .into(),
+            ));
+        }
+        
+        if !tasks.is_empty() {
+            return Task::batch(tasks);
+        }
     }
     
     Task::none()

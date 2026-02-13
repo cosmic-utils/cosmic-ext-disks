@@ -944,6 +944,9 @@ fn build_partition_info<'a>(
         loading: false,
         subvolumes: None,
         mount_point: None,
+        usage_info: None,
+        compression: None,
+        loading_usage: false,
     };
 
     let info_and_actions = if is_btrfs {

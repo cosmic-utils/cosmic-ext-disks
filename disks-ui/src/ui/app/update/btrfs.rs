@@ -115,6 +115,56 @@ pub(super) fn handle_btrfs_message(app: &mut AppModel, message: Message) -> Task
             )
         }
 
+        Message::BtrfsLoadUsage { mount_point } => {
+            // Set loading state
+            if let Some(volumes_control) = app.nav.active_data_mut::<VolumesControl>()
+                && let Some(btrfs_state) = &mut volumes_control.btrfs_state
+            {
+                btrfs_state.loading_usage = true;
+            }
+
+            // Spawn async task to load usage info and compression
+            let mount_point_for_async = mount_point.clone();
+            Task::perform(
+                async move {
+                    let usage = btrfs::get_filesystem_usage(&mount_point_for_async)
+                        .await
+                        .map_err(|e| format!("{:#}", e));
+                    
+                    let compression = btrfs::get_compression(&mount_point_for_async)
+                        .await
+                        .map_err(|e| format!("{:#}", e));
+                    
+                    (usage, compression)
+                },
+                move |(usage_result, compression_result)| {
+                    Message::BtrfsUsageLoaded {
+                        mount_point: mount_point.clone(),
+                        usage_result,
+                        compression_result,
+                    }
+                    .into()
+                },
+            )
+        }
+
+        Message::BtrfsUsageLoaded {
+            mount_point,
+            usage_result,
+            compression_result,
+        } => {
+            // Update state with loaded usage info
+            if let Some(volumes_control) = app.nav.active_data_mut::<VolumesControl>()
+                && let Some(btrfs_state) = &mut volumes_control.btrfs_state
+                && btrfs_state.mount_point.as_deref() == Some(&mount_point)
+            {
+                btrfs_state.loading_usage = false;
+                btrfs_state.usage_info = Some(usage_result);
+                btrfs_state.compression = Some(compression_result.ok().flatten());
+            }
+            Task::none()
+        }
+
         _ => Task::none(),
     }
 }

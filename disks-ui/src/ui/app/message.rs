@@ -81,6 +81,14 @@ pub enum Message {
     BtrfsDeleteSubvolumeConfirm {
         path: String,
     },
+    BtrfsLoadUsage {
+        mount_point: String,
+    },
+    BtrfsUsageLoaded {
+        mount_point: String,
+        usage_result: Result<crate::utils::btrfs::UsageInfo, String>,
+        compression_result: Result<Option<String>, String>,
+    },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
