@@ -143,9 +143,65 @@
 
 ---
 
-## Task 5: Create Subvolume Dialog 📋
+## Task 5: Create Subvolume Dialog ✅
+**Completed:** 2026-02-13  
+**Commit:** ce18906
+
+**Changes:**
+- Added `BtrfsCreateSubvolumeMessage` enum to `dialogs/message.rs`
+  - NameUpdate, Create, Cancel variants
+- Added `BtrfsCreateSubvolumeDialog` state to `dialogs/state.rs`
+  - Fields: mount_point, name, running, error
+- Created `dialogs/view/btrfs.rs` (new file, 44 lines)
+  - Dialog view with name input, validation display
+  - Primary action: Apply button (disabled while running)
+  - Secondary action: Cancel button
+- Added `OpenBtrfsCreateSubvolume` to `VolumesControlMessage`
+- Created `volumes/update/btrfs.rs` (new file, 113 lines)
+  - `open_create_subvolume()`: Initialize dialog with mount point
+  - `btrfs_create_subvolume_message()`: Handle input and creation
+- Modified `volumes/update.rs`
+  - Added btrfs module integration
+  - Routed OpenBtrfsCreateSubvolume and BtrfsCreateSubvolumeMessage
+- Modified `volumes/update/create.rs`
+  - Added BtrfsCreateSubvolume pattern to match statement
+- Modified `btrfs/view.rs`
+  - Added "Create Subvolume" button above list
+- Modified `app/view.rs`
+  - Added BtrfsCreateSubvolume dialog rendering
+- Modified `volumes/message.rs`
+  - Added BtrfsCreateSubvolumeMessage wrapping
+  - Added From trait implementations
+- Added i18n strings to `cosmic_ext_disks.ftl`:
+  - btrfs-create-subvolume = "Create Subvolume"
+  - btrfs-subvolume-name = "Subvolume Name"
+  - btrfs-subvolume-name-required = "Subvolume name is required"
+  - btrfs-subvolume-invalid-chars = "Subvolume name cannot contain slashes"
+  - btrfs-create-subvolume-failed = "Failed to create subvolume"
+
+**Implementation Details:**
+- Validation logic matches CLI module constraints (max 255 chars, no '/')
+- Running state disables Apply button and shows "working" text
+- Error messages displayed inline in dialog
+- Success triggers drive list refresh via Message::UpdateNav
+- Subvolume list auto-reloads via nav update mechanism
+- Used `cosmic::Task` (not `cosmic::app::Task`) for type compatibility
+- Returns `Task<cosmic::Action<Message>>` matching volumes API pattern
+
+**Testing:**
+- Compilation successful: `cargo check --workspace`
+- Clippy clean: `cargo clippy --workspace --all-features -- -D warnings`
+
+**Challenges Resolved:**
+- Fixed Task import (cosmic::Task vs cosmic::app::Task causing double-wrap)
+- Added BtrfsCreateSubvolume to all dialog pattern matches
+- Used text widget directly instead of non-existent caption helper
+
+---
+
+## Task 6: Delete Subvolume Confirmation 📋
 **Status:** Not started  
-**Next:** Implement dialog UI and integration
+**Next:** Implement delete confirmation and integration
 - Add BtrfsMessage variants (LoadSubvolumes, SubvolumesLoaded)
 - Integrate into AppModel message handling
 - Update btrfs_management_section() to display list in scrollable widget

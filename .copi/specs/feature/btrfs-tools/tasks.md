@@ -350,12 +350,12 @@ Task 9 (Polish & localization)
 - Test validation: name with slash shows error
 
 **Done When:**
-- [ ] Dialog opens in separate window (modal, per modal-dialogs feature)
-- [ ] Name input field works
-- [ ] Validation prevents invalid names
-- [ ] Subvolume creation succeeds
-- [ ] List refreshes after creation
-- [ ] Error handling works (permission denied, invalid name, etc.)
+- [x] Dialog opens in separate window (modal, per modal-dialogs feature)
+- [x] Name input field works
+- [x] Validation prevents invalid names
+- [x] Subvolume creation succeeds
+- [x] List refreshes after creation
+- [x] Error handling works (permission denied, invalid name, etc.)
 
 **Estimated effort:** 3-4 hours
 
