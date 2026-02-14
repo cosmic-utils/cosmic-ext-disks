@@ -30,7 +30,9 @@ pub(super) fn format_disk(app: &mut AppModel, msg: FormatDiskMessage) -> Task<Me
             let drive = state.drive.clone();
             let block_path = drive.block_path().to_string();
             let drive_path = drive.device().to_string();
-            let erase = state.erase_index == 1;
+            let block_path_for_closure = block_path.clone();
+            let drive_path_for_closure = drive_path.clone();
+            let _erase = state.erase_index == 1;
             let format_type = match state.partitioning_index {
                 0 => "dos",
                 1 => "gpt",
@@ -46,13 +48,13 @@ pub(super) fn format_disk(app: &mut AppModel, msg: FormatDiskMessage) -> Task<Me
                     load_all_drives().await.map_err(|e| e.into())
                 },
                 move |res: Result<Vec<UiDrive>, anyhow::Error>| match res {
-                    Ok(drives) => Message::UpdateNav(drives, Some(block_path.clone())).into(),
+                    Ok(drives) => Message::UpdateNav(drives, Some(block_path_for_closure.clone())).into(),
                     Err(e) => {
                         let ctx = UiErrorContext {
                             operation: "format_disk",
-                            object_path: Some(drive_path.as_str()),
-                            device: Some(block_path.as_str()),
-                            drive_path: Some(drive_path.as_str()),
+                            object_path: Some(drive_path_for_closure.as_str()),
+                            device: Some(block_path_for_closure.as_str()),
+                            drive_path: Some(drive_path_for_closure.as_str()),
                         };
                         log_error_and_show_dialog(fl!("format-disk-failed"), e.into(), ctx).into()
                     }
@@ -75,6 +77,8 @@ pub(super) fn eject(app: &mut AppModel) -> Task<Message> {
 pub(super) fn eject_drive(drive: UiDrive) -> Task<Message> {
     let drive_path = drive.device().to_string();
     let block_path = drive.block_path().to_string();
+    let block_path_for_closure = block_path.clone();
+    let drive_path_for_closure = drive_path.clone();
 
     Task::perform(
         async move {
@@ -95,9 +99,9 @@ pub(super) fn eject_drive(drive: UiDrive) -> Task<Message> {
             Err(e) => {
                 let ctx = UiErrorContext {
                     operation: "eject_or_remove",
-                    object_path: Some(drive_path.as_str()),
-                    device: Some(block_path.as_str()),
-                    drive_path: Some(drive_path.as_str()),
+                    object_path: Some(drive_path_for_closure.as_str()),
+                    device: Some(block_path_for_closure.as_str()),
+                    drive_path: Some(drive_path_for_closure.as_str()),
                 };
                 log_error_and_show_dialog(fl!("eject-failed"), e, ctx).into()
             }
@@ -116,6 +120,8 @@ pub(super) fn power_off(app: &mut AppModel) -> Task<Message> {
 pub(super) fn power_off_drive(drive: UiDrive) -> Task<Message> {
     let drive_path = drive.device().to_string();
     let block_path = drive.block_path().to_string();
+    let block_path_for_closure = block_path.clone();
+    let drive_path_for_closure = drive_path.clone();
 
     Task::perform(
         async move {
@@ -136,9 +142,9 @@ pub(super) fn power_off_drive(drive: UiDrive) -> Task<Message> {
             Err(e) => {
                 let ctx = UiErrorContext {
                     operation: "power_off",
-                    object_path: Some(drive_path.as_str()),
-                    device: Some(block_path.as_str()),
-                    drive_path: Some(drive_path.as_str()),
+                    object_path: Some(drive_path_for_closure.as_str()),
+                    device: Some(block_path_for_closure.as_str()),
+                    drive_path: Some(drive_path_for_closure.as_str()),
                 };
                 log_error_and_show_dialog(fl!("power-off-failed"), e, ctx).into()
             }
@@ -213,6 +219,8 @@ pub(super) fn standby_now(app: &mut AppModel) -> Task<Message> {
 pub(super) fn standby_now_drive(drive: UiDrive) -> Task<Message> {
     let drive_path = drive.device().to_string();
     let device = drive.block_path().to_string();
+    let device_for_closure = device.clone();
+    let drive_path_for_closure = drive_path.clone();
 
     Task::perform(
         async move { 
@@ -230,9 +238,9 @@ pub(super) fn standby_now_drive(drive: UiDrive) -> Task<Message> {
             Err(e) => {
                 let ctx = UiErrorContext {
                     operation: "standby_now",
-                    object_path: Some(drive_path.as_str()),
-                    device: Some(device.as_str()),
-                    drive_path: Some(drive_path.as_str()),
+                    object_path: Some(drive_path_for_closure.as_str()),
+                    device: Some(device_for_closure.as_str()),
+                    drive_path: Some(drive_path_for_closure.as_str()),
                 };
                 log_error_and_show_dialog(fl!("standby-failed"), e.into(), ctx).into()
             }
@@ -251,6 +259,8 @@ pub(super) fn wakeup(app: &mut AppModel) -> Task<Message> {
 pub(super) fn wakeup_drive(drive: UiDrive) -> Task<Message> {
     let drive_path = drive.device().to_string();
     let device = drive.block_path().to_string();
+    let device_for_closure = device.clone();
+    let drive_path_for_closure = drive_path.clone();
 
     Task::perform(async move { 
         DisksClient::new().await
@@ -266,9 +276,9 @@ pub(super) fn wakeup_drive(drive: UiDrive) -> Task<Message> {
         Err(e) => {
             let ctx = UiErrorContext {
                 operation: "wakeup",
-                object_path: Some(drive_path.as_str()),
-                device: Some(device.as_str()),
-                drive_path: Some(drive_path.as_str()),
+                object_path: Some(drive_path_for_closure.as_str()),
+                device: Some(device_for_closure.as_str()),
+                drive_path: Some(drive_path_for_closure.as_str()),
             };
             log_error_and_show_dialog(fl!("wake-up-failed"), e, ctx).into()
         }

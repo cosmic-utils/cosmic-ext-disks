@@ -423,15 +423,17 @@ pub(crate) fn update(app: &mut AppModel, message: Message) -> Task<Message> {
                 return Task::none();
             };
 
+            let Some(device_to_unmount) = node.device().map(|s| s.to_string()) else {
+                return Task::none();
+            };
+            let object_path_for_closure = object_path.clone();
             let device = drive_model.device().to_string();
 
             return Task::perform(
                 async move {
                     let fs_client = FilesystemsClient::new().await
                         .map_err(|e| anyhow::anyhow!("Failed to create filesystems client: {}", e))?;
-                    let device_to_unmount = node.device()
-                        .ok_or_else(|| anyhow::anyhow!("Node has no device path"))?;
-                    fs_client.unmount(device_to_unmount, false, false).await
+                    fs_client.unmount(&device_to_unmount, false, false).await
                         .map_err(|e| anyhow::anyhow!("Failed to unmount: {}", e))?;
                     load_all_drives().await
                         .map_err(|e| anyhow::anyhow!("Failed to reload drives: {}", e))
@@ -441,7 +443,7 @@ pub(crate) fn update(app: &mut AppModel, message: Message) -> Task<Message> {
                     Err(e) => {
                         let ctx = UiErrorContext {
                             operation: "sidebar_volume_unmount",
-                            object_path: Some(object_path.as_str()),
+                            object_path: Some(object_path_for_closure.as_str()),
                             device: Some(device.as_str()),
                             drive_path: None,
                         };
@@ -551,11 +553,12 @@ pub(crate) fn update(app: &mut AppModel, message: Message) -> Task<Message> {
                                         }
                                     }
                                 } else if !unmount_result.blocking_processes.is_empty() {
+                                    let device_for_tuple = device.clone();
                                     Err(Some((
-                                        device,
+                                        device_for_tuple,
                                         mount_point,
                                         unmount_result.blocking_processes,
-                                        device.clone(),
+                                        device,
                                     )))
                                 } else {
                                     if let Some(err) = unmount_result.error {
@@ -567,7 +570,7 @@ pub(crate) fn update(app: &mut AppModel, message: Message) -> Task<Message> {
                             move |result| match result {
                                 Ok(drives) => Message::UpdateNavWithChildSelection(
                                     drives,
-                                    Some(device_path_for_selection),
+                                    Some(device_path_for_selection.clone()),
                                 )
                                 .into(),
                                 Err(Some((device, mount_point, processes, device_path))) => {

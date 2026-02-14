@@ -453,7 +453,7 @@ pub(super) fn edit_encryption_options_message(
                     Ok(drives) => Message::UpdateNav(drives, None).into(),
                     Err(e) => {
                         let ctx = UiErrorContext::new("edit_encryption_options");
-                        log_error_and_show_dialog(fl!("edit-encryption-options-failed"), e.into(), ctx).into()
+                        log_error_and_show_dialog(fl!("edit-encryption-options"), e.into(), ctx).into()
                     }
                 },
             )
