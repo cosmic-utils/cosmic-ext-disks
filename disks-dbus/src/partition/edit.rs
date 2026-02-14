@@ -6,7 +6,7 @@ use std::collections::HashMap;
 use enumflags2::BitFlags;
 use udisks2::partition::{PartitionFlags, PartitionProxy};
 use zbus::{Connection, zvariant::{OwnedObjectPath, Value}};
-use crate::disks::DiskError;
+use crate::error::DiskError;
 
 /// Set partition type
 pub async fn set_partition_type(

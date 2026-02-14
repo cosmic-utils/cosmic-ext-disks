@@ -5,7 +5,7 @@
 use std::collections::HashMap;
 use udisks2::filesystem::FilesystemProxy;
 use zbus::{Connection, zvariant::{OwnedObjectPath, Value}};
-use crate::disks::DiskError;
+use crate::error::DiskError;
 
 /// Check and repair a filesystem
 ///

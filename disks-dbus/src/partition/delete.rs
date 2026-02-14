@@ -5,7 +5,7 @@
 use std::collections::HashMap;
 use udisks2::partition::PartitionProxy;
 use zbus::{Connection, zvariant::{OwnedObjectPath, Value}};
-use crate::disks::DiskError;
+use crate::error::DiskError;
 
 /// Delete a partition
 /// 
@@ -21,7 +21,7 @@ pub async fn delete_partition(partition_path: &str) -> Result<(), DiskError> {
     
     // Try to unmount first (ignore errors - might not be mounted)
     // This logic merged from volume_model implementation
-    let _ = crate::operations::filesystems::unmount_filesystem(partition_path, false).await;
+    let _ = crate::filesystem::unmount_filesystem(partition_path, false).await;
     
     // Delete the partition
     let partition_proxy = PartitionProxy::builder(&connection)

@@ -5,7 +5,7 @@
 use std::collections::HashMap;
 use udisks2::partition::PartitionProxy;
 use zbus::{Connection, zvariant::{OwnedObjectPath, Value}};
-use crate::disks::DiskError;
+use crate::error::DiskError;
 
 /// Resize a partition
 pub async fn resize_partition(

@@ -1,11 +1,12 @@
 mod dbus;
-mod disks;
-mod operations;
 mod options;
 mod udisks_block_config;
 mod usage;
 
-// New domain-based modules (GAP-001.b)
+// Error types
+pub mod error;
+
+// Domain-based modules (GAP-001.b)
 pub mod disk;
 pub mod partition;
 pub mod filesystem;
@@ -55,12 +56,14 @@ pub use disk::model::DriveModel;
 pub use manager::{DiskManager, DeviceEvent, DeviceEventStream};
 pub use smart::{SmartInfo, SmartSelfTestKind};
 pub use btrfs::{BtrfsFilesystem, BtrfsSubvolume};
+pub use volume::node::VolumeNode;
 
-// Re-export disks module types for backwards compatibility
-pub use disks::{
-    DiskError, EncryptionOptionsSettings, MountOptionsSettings,
-    VolumeModel, VolumeNode,
-};
+// Re-export error types
+pub use error::DiskError;
+
+// Re-export configuration types  
+pub use filesystem::config::MountOptionsSettings;
+pub use encryption::config::EncryptionOptionsSettings;
 
 // Re-export operations from new domain modules
 pub use gpt::{fallback_gpt_usable_range_bytes, probe_gpt_usable_range_bytes};
@@ -108,10 +111,3 @@ pub use udisks_block_config::{ConfigurationItem, UDisks2BlockConfigurationProxy}
 
 // Explicit exports from usage module (filesystem usage statistics)
 pub use usage::{Usage, usage_for_mount_point};
-
-// Legacy: Re-export old operations module for backwards compatibility
-// (These now delegate to new domain modules)
-#[deprecated(note = "Use operations from domain modules (partition::*, filesystem::*, etc.) instead")]
-pub mod legacy_operations {
-    pub use crate::operations::*;
-}

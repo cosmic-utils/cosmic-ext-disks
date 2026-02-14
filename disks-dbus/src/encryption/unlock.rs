@@ -5,7 +5,7 @@
 use std::collections::HashMap;
 use udisks2::encrypted::EncryptedProxy;
 use zbus::{Connection, zvariant::{OwnedObjectPath, Value}};
-use crate::disks::DiskError;
+use crate::error::DiskError;
 
 /// Unlock a LUKS container
 ///

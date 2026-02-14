@@ -4,7 +4,7 @@ use udisks2::encrypted::EncryptedProxy;
 use zbus::Connection;
 
 use super::model::DriveModel;
-use crate::disks::{BlockIndex, volume::VolumeNode};
+use crate::volume::{BlockIndex, VolumeNode};
 
 impl DriveModel {
     pub(super) async fn build_volume_nodes_for_drive(

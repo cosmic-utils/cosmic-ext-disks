@@ -6,7 +6,7 @@ use udisks2::{
 };
 use zbus::{Connection, zvariant::OwnedObjectPath};
 
-use crate::disks::{VolumeModel, volume::VolumeNode};
+use crate::volume::{VolumeNode, BlockIndex};
 
 #[derive(Debug, Clone)]
 pub struct DriveModel {
@@ -29,7 +29,6 @@ pub struct DriveModel {
     pub block_path: String,
     pub is_loop: bool,
     pub backing_file: Option<String>,
-    pub volumes_flat: Vec<VolumeModel>,
     pub volumes: Vec<VolumeNode>,
     pub path: String,
     pub partition_table_type: Option<String>,

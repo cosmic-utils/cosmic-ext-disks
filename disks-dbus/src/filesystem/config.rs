@@ -6,7 +6,21 @@
 //! stored in fstab configuration via UDisks2.
 
 use anyhow::Result;
-use crate::disks::MountOptionsSettings;
+
+/// Mount options configuration settings
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct MountOptionsSettings {
+    pub identify_as: String,
+    pub mount_point: String,
+    pub filesystem_type: String,
+    pub mount_at_startup: bool,
+    pub require_auth: bool,
+    pub show_in_ui: bool,
+    pub other_options: String,
+    pub display_name: String,
+    pub icon_name: String,
+    pub symbolic_icon_name: String,
+}
 
 // Note: This functionality requires access to UDisks2BlockConfigurationProxy
 // and depends on helper functions from the options module.

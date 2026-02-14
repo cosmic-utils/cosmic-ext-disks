@@ -7,10 +7,10 @@ use zbus::zvariant::OwnedObjectPath;
 
 /// Open a drive for backup (read-only access to block device)
 pub async fn open_for_backup(block_path: OwnedObjectPath) -> Result<std::os::fd::OwnedFd> {
-    crate::disks::image::open_for_backup(block_path).await
+    crate::image::open_for_backup(block_path).await
 }
 
 /// Open a drive for restore (read-write access to block device)
 pub async fn open_for_restore(block_path: OwnedObjectPath) -> Result<std::os::fd::OwnedFd> {
-    crate::disks::image::open_for_restore(block_path).await
+    crate::image::open_for_restore(block_path).await
 }

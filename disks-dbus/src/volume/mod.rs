@@ -2,6 +2,9 @@
 //!
 //! This module provides types for representing volume hierarchies:
 //! - VolumeNode (tree structure)
-//! - VolumeModel (data-only model)
-//! - BlockIndex (device tracking)
+ //! - BlockIndex (device tracking)
+
+pub mod node;
+
+pub use node::{VolumeNode, BlockIndex};
 

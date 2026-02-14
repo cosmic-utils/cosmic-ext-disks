@@ -6,7 +6,15 @@
 //! stored in crypttab configuration via UDisks2.
 
 use anyhow::Result;
-use crate::disks::EncryptionOptionsSettings;
+
+/// Encryption options configuration settings
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct EncryptionOptionsSettings {
+    pub name: String,
+    pub unlock_at_startup: bool,
+    pub require_auth: bool,
+    pub other_options: String,
+}
 
 // Note: This functionality requires access to UDisks2BlockConfigurationProxy
 // and depends on helper functions from the options module.

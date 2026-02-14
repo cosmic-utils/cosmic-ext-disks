@@ -5,7 +5,7 @@
 use std::collections::HashMap;
 use udisks2::block::BlockProxy;
 use zbus::{Connection, zvariant::{OwnedObjectPath, Value}};
-use crate::disks::DiskError;
+use crate::error::DiskError;
 
 /// Format a device as LUKS encrypted container
 pub async fn format_luks(

@@ -567,12 +567,12 @@ impl VolumeNode {
 
     /// Open this partition/volume for backup (read-only raw block access)
     pub async fn open_for_backup(&self) -> Result<std::os::fd::OwnedFd> {
-        crate::disks::image::open_for_backup(self.object_path.clone()).await
+        crate::image::open_for_backup(self.object_path.clone()).await
     }
 
     /// Open this partition/volume for restore (write raw block access)
     pub async fn open_for_restore(&self) -> Result<std::os::fd::OwnedFd> {
-        crate::disks::image::open_for_restore(self.object_path.clone()).await
+        crate::image::open_for_restore(self.object_path.clone()).await
     }
 }
 

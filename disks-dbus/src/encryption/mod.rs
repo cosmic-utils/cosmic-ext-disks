@@ -18,4 +18,5 @@ pub use unlock::unlock_luks;
 pub use lock::lock_luks;
 pub use passphrase::change_luks_passphrase;
 pub use list::list_luks_devices;
+pub use config::EncryptionOptionsSettings;
 

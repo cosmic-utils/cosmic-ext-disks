@@ -5,7 +5,7 @@
 use storage_models::{LuksInfo, LuksVersion};
 use udisks2::{block::BlockProxy, encrypted::EncryptedProxy};
 use zbus::Connection;
-use crate::disks::DiskError;
+use crate::error::DiskError;
 
 /// List all LUKS encrypted devices
 pub async fn list_luks_devices() -> Result<Vec<LuksInfo>, DiskError> {

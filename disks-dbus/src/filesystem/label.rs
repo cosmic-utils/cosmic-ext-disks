@@ -5,7 +5,7 @@
 use std::collections::HashMap;
 use udisks2::{block::BlockProxy, filesystem::FilesystemProxy};
 use zbus::{Connection, zvariant::{OwnedObjectPath, Value}};
-use crate::disks::DiskError;
+use crate::error::DiskError;
 
 /// Helper function to find UDisks2 block object path for a device
 async fn find_block_object_path(device_path: &str) -> Result<OwnedObjectPath, DiskError> {

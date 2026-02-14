@@ -8,7 +8,7 @@ use udisks2::{
     partitiontable::PartitionTableProxy,
 };
 use zbus::{Connection, zvariant::{OwnedObjectPath, Value}};
-use crate::disks::DiskError;
+use crate::error::DiskError;
 
 /// Create a partition table on a disk
 pub async fn create_partition_table(
