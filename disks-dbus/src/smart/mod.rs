@@ -6,5 +6,9 @@
 //! - SMART data types
 
 pub mod types;
+pub mod info;
+pub mod test;
 
 pub use types::*;
+pub use info::get_drive_smart_info;
+pub use test::{start_drive_smart_selftest, abort_drive_smart_selftest};
