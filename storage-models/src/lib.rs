@@ -31,6 +31,7 @@ pub mod filesystem;
 pub mod lvm;
 pub mod partition;
 pub mod partition_types;
+pub mod smart;
 pub mod volume;
 
 // Re-export all public types
@@ -42,4 +43,5 @@ pub use filesystem::*;
 pub use lvm::*;
 pub use partition::*;
 pub use partition_types::*;
+pub use smart::*;
 pub use volume::*;

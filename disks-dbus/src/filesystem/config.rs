@@ -19,20 +19,8 @@ use crate::options::{
 };
 use crate::udisks_block_config::{ConfigurationItem, UDisks2BlockConfigurationProxy};
 
-/// Mount options configuration settings
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
-pub struct MountOptionsSettings {
-    pub identify_as: String,
-    pub mount_point: String,
-    pub filesystem_type: String,
-    pub mount_at_startup: bool,
-    pub require_auth: bool,
-    pub show_in_ui: bool,
-    pub other_options: String,
-    pub display_name: String,
-    pub icon_name: String,
-    pub symbolic_icon_name: String,
-}
+// Re-export from storage-models (canonical domain model)
+pub use storage_models::MountOptionsSettings;
 
 fn extract_prefixed_value(tokens: &[String], prefix: &str) -> String {
     tokens

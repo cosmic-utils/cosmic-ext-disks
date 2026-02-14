@@ -7,7 +7,9 @@ use std::os::fd::OwnedFd;
 use std::path::PathBuf;
 use std::os::unix::fs::FileTypeExt;
 use anyhow::{Context, Result};
-use zbus::{Connection, Proxy, zvariant::{OwnedFd as ZOwnedFd, OwnedObjectPath, Value}};
+use zbus::zvariant::{OwnedFd as ZOwnedFd, OwnedObjectPath, Value};
+
+use crate::image::udisks_call::call_udisks_raw;
 
 fn file_type_for_display(file_type: &std::fs::FileType) -> &'static str {
     if file_type.is_file() {
@@ -57,45 +59,9 @@ async fn open_image_readonly_fd(image_path: &str) -> Result<OwnedFd> {
     .context("Image file open task panicked or was cancelled")?
 }
 
-fn device_for_display(object_path: &OwnedObjectPath) -> String {
-    object_path.to_string()
-}
-
-async fn call_udisks_raw<R, B>(
-    connection: &Connection,
-    path: &OwnedObjectPath,
-    interface: &str,
-    method: &str,
-    args: &B,
-) -> Result<R>
-where
-    R: serde::de::DeserializeOwned + zbus::zvariant::Type,
-    B: serde::ser::Serialize + zbus::zvariant::DynamicType,
-{
-    let proxy = Proxy::new(connection, "org.freedesktop.UDisks2", path, interface).await?;
-
-    match proxy.call_method(method, args).await {
-        Ok(reply) => Ok(reply.body().deserialize()?),
-        Err(err) => {
-            if let zbus::Error::MethodError(name, msg, _info) = &err {
-                let device = device_for_display(path);
-                let msg = msg.as_deref().unwrap_or("");
-                anyhow::bail!(
-                    "UDisks2 {interface}.{method} failed for {device}: {}{}{}",
-                    name.as_str(),
-                    if msg.is_empty() { "" } else { ": " },
-                    msg
-                );
-            }
-
-            Err(err.into())
-        }
-    }
-}
-
 /// Set up a loop device for an image file
 pub async fn loop_setup(image_path: &str) -> Result<OwnedObjectPath> {
-    let connection = Connection::system().await?;
+    let connection = zbus::Connection::system().await?;
 
     let manager_path: OwnedObjectPath = "/org/freedesktop/UDisks2/Manager".try_into()?;
 

@@ -7,6 +7,7 @@
 
 pub mod loop_setup;
 pub mod backup;
+pub(crate) mod udisks_call;
 
 pub use loop_setup::*;
 pub use backup::*;

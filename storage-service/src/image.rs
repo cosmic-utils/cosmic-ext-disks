@@ -14,7 +14,6 @@ use tokio::task::JoinHandle;
 use tokio_util::sync::CancellationToken;
 use zbus::{interface, Connection};
 use zbus::object_server::SignalEmitter;
-use zbus::zvariant::OwnedObjectPath;
 
 /// Operation type for tracking
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -73,21 +72,9 @@ impl ImageHandler {
         uuid::Uuid::new_v4().to_string()
     }
 
-    /// Find block device object path from device identifier (drive or partition)
-    async fn find_block_object_path(device: &str) -> Result<OwnedObjectPath, String> {
-        let device_path = if device.starts_with("/dev/") {
-            device.to_string()
-        } else {
-            format!("/dev/{}", device)
-        };
-        disks_dbus::block_object_path_for_device(&device_path)
-            .await
-            .map_err(|e| format!("Device not found: {e}"))
-    }
-
     /// Background task for backup operation
     async fn backup_task(
-        block_path: OwnedObjectPath,
+        device_path: String,
         output_path: String,
         cancel_token: CancellationToken,
         progress: Arc<Mutex<ProgressInfo>>,
@@ -98,7 +85,7 @@ impl ImageHandler {
         }
 
         // Open source device (privileged) via disks-dbus
-        let source_fd = disks_dbus::open_for_backup(block_path)
+        let source_fd = disks_dbus::open_for_backup_by_device(&device_path)
             .await
             .map_err(|e| format!("Failed to open source device: {e}"))?;
 
@@ -160,7 +147,7 @@ impl ImageHandler {
     /// Background task for restore operation
     async fn restore_task(
         input_path: String,
-        block_path: OwnedObjectPath,
+        device_path: String,
         cancel_token: CancellationToken,
         progress: Arc<Mutex<ProgressInfo>>,
     ) -> Result<(), String> {
@@ -182,7 +169,7 @@ impl ImageHandler {
         }
 
         // Open destination device (privileged) via disks-dbus
-        let dest_fd = disks_dbus::open_for_restore(block_path)
+        let dest_fd = disks_dbus::open_for_restore_by_device(&device_path)
             .await
             .map_err(|e| format!("Failed to open destination device: {e}"))?;
 
@@ -263,10 +250,12 @@ impl ImageHandler {
             }
         }
 
-        // Find block device
-        let block_path = Self::find_block_object_path(&device)
-            .await
-            .map_err(|e| zbus::fdo::Error::Failed(e))?;
+        // Normalize device path
+        let device_path = if device.starts_with("/dev/") {
+            device.clone()
+        } else {
+            format!("/dev/{}", device)
+        };
 
         // Generate operation ID
         let operation_id = Self::generate_operation_id();
@@ -286,10 +275,11 @@ impl ImageHandler {
         let task_cancel = cancel_token.clone();
         let task_progress = progress.clone();
         let task_output_path = output_path.clone();
+        let task_device_path = device_path.clone();
 
         let handle = tokio::spawn(async move {
             Self::backup_task(
-                block_path,
+                task_device_path,
                 task_output_path,
                 task_cancel,
                 task_progress,
@@ -353,10 +343,12 @@ impl ImageHandler {
             }
         }
 
-        // Find block device
-        let block_path = Self::find_block_object_path(&device)
-            .await
-            .map_err(|e| zbus::fdo::Error::Failed(e))?;
+        // Normalize device path
+        let device_path = if device.starts_with("/dev/") {
+            device.clone()
+        } else {
+            format!("/dev/{}", device)
+        };
 
         let operation_id = Self::generate_operation_id();
 
@@ -372,10 +364,11 @@ impl ImageHandler {
         let task_progress = progress.clone();
         let task_cancel = cancel_token.clone();
         let task_output_path = output_path.clone();
+        let task_device_path = device_path.clone();
 
         let handle = tokio::spawn(async move {
             Self::backup_task(
-                block_path,
+                task_device_path,
                 task_output_path,
                 task_cancel,
                 task_progress,
@@ -434,10 +427,12 @@ impl ImageHandler {
             ));
         }
 
-        // Find block device
-        let block_path = Self::find_block_object_path(&device)
-            .await
-            .map_err(|e| zbus::fdo::Error::Failed(e))?;
+        // Normalize device path
+        let device_path = if device.starts_with("/dev/") {
+            device.clone()
+        } else {
+            format!("/dev/{}", device)
+        };
 
         let operation_id = Self::generate_operation_id();
 
@@ -453,11 +448,12 @@ impl ImageHandler {
         let task_progress = progress.clone();
         let task_cancel = cancel_token.clone();
         let task_image_path = image_path.clone();
+        let task_device_path = device_path.clone();
 
         let handle = tokio::spawn(async move {
             Self::restore_task(
                 task_image_path,
-                block_path,
+                task_device_path,
                 task_cancel,
                 task_progress,
             )
@@ -515,10 +511,12 @@ impl ImageHandler {
             ));
         }
 
-        // Find block device
-        let block_path = Self::find_block_object_path(&device)
-            .await
-            .map_err(|e| zbus::fdo::Error::Failed(e))?;
+        // Normalize device path
+        let device_path = if device.starts_with("/dev/") {
+            device.clone()
+        } else {
+            format!("/dev/{}", device)
+        };
 
         let operation_id = Self::generate_operation_id();
 
@@ -534,11 +532,12 @@ impl ImageHandler {
         let task_progress = progress.clone();
         let task_cancel = cancel_token.clone();
         let task_image_path = image_path.clone();
+        let task_device_path = device_path.clone();
 
         let handle = tokio::spawn(async move {
             Self::restore_task(
                 task_image_path,
-                block_path,
+                task_device_path,
                 task_cancel,
                 task_progress,
             )
@@ -593,18 +592,16 @@ impl ImageHandler {
             ));
         }
 
-        // Call disks-dbus loop_setup
-        let loop_object_path = disks_dbus::loop_setup(&image_path)
+        // Call disks-dbus loop_setup_device_path (returns device path directly)
+        let device_path = disks_dbus::loop_setup_device_path(&image_path)
             .await
             .map_err(|e| {
                 tracing::error!("Loop setup failed: {e}");
                 zbus::fdo::Error::Failed(format!("Loop setup failed: {e}"))
             })?;
 
-        // Extract device name from object path
-        // /org/freedesktop/UDisks2/block_devices/loop0 → loop0
-        let device_name = loop_object_path
-            .as_str()
+        // Extract device name from path (e.g., "/dev/loop0" -> "loop0")
+        let device_name = device_path
             .rsplit('/')
             .next()
             .unwrap_or("unknown");

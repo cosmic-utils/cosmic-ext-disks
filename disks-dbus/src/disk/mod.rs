@@ -1,14 +1,16 @@
 //! Disk-level operations
-//! 
+//!
 //! This module provides operations that work at the disk/drive level:
 //! - Discovery and enumeration
 //! - Formatting (creating partition tables)
 //! - Power management (eject, standby, etc.)
+//! - Device-path convenience APIs for storage-service
 
 pub mod discovery;
 pub mod power;
 pub mod format;
 pub mod image;
+pub mod device_apis;
 pub(crate) mod block_index;
 pub(crate) mod resolve;
 pub(crate) mod volume_tree;
@@ -24,3 +26,4 @@ pub use power::{
 };
 pub use format::format_disk;
 pub use image::{open_for_backup, open_for_restore};
+pub use device_apis::{open_for_backup_by_device, open_for_restore_by_device, loop_setup_device_path};
