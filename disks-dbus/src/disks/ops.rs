@@ -6,7 +6,7 @@ use udisks2::block::BlockProxy;
 use zbus::zvariant::Value;
 use zbus::{Connection, Proxy, zvariant::OwnedObjectPath};
 
-use super::ByteRange;
+use storage_models::ByteRange;
 use crate::{COMMON_DOS_TYPES, COMMON_GPT_TYPES, CreatePartitionInfo, PartitionTypeInfo};
 
 #[derive(Clone, PartialEq, Eq)]

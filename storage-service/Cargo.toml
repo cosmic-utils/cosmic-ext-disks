@@ -35,3 +35,4 @@ libc.workspace = true
 # Internal dependencies
 disks-btrfs = { path = "../disks-btrfs" }
 disks-dbus.workspace = true
+storage-models.workspace = true

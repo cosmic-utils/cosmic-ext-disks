@@ -1,0 +1,11 @@
+[package]
+name = "storage-models"
+version = "0.1.0"
+edition = "2024"
+license = "GPL-3.0-only"
+description = "Shared data types for COSMIC storage service and clients"
+
+[dependencies]
+serde.workspace = true
+uuid.workspace = true
+chrono.workspace = true

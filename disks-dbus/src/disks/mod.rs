@@ -15,9 +15,7 @@ mod volume_model;
 pub use btrfs_native::{BtrfsFilesystem, BtrfsSubvolume};
 pub use create_partition_info::CreatePartitionInfo;
 pub use drive::DriveModel;
-pub use gpt::{
-    ByteRange, GPT_ALIGNMENT_BYTES, fallback_gpt_usable_range_bytes, probe_gpt_usable_range_bytes,
-};
+pub use gpt::{GPT_ALIGNMENT_BYTES, fallback_gpt_usable_range_bytes, probe_gpt_usable_range_bytes};
 pub use image::{loop_setup, mount_filesystem};
 pub use lvm::{LvmLogicalVolumeInfo, list_lvs_for_pv};
 pub use manager::{DeviceEvent, DeviceEventStream, DiskManager};

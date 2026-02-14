@@ -6,15 +6,16 @@
 //! operations including creation, deletion, snapshots, and metadata queries.
 
 pub mod error;
-pub mod types;
 pub mod subvolume;
 pub mod usage;
 
 // Re-export commonly used types
 pub use error::{BtrfsError, Result};
-pub use types::{BtrfsSubvolume, FilesystemUsage, SubvolumeList};
 pub use subvolume::SubvolumeManager;
 pub use usage::get_filesystem_usage;
+
+// Re-export shared models
+pub use storage_models::btrfs::*;
 
 // Re-export btrfsutil types for convenience
 pub use btrfsutil;

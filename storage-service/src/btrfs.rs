@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-only
 
 use crate::auth::require_authorization;
-use disks_btrfs::{SubvolumeList, SubvolumeManager};
+use disks_btrfs::SubvolumeManager;
+use storage_models::btrfs::SubvolumeList;
 use std::path::PathBuf;
 use zbus::{interface, Connection};
 use zbus::message::Header as MessageHeader;

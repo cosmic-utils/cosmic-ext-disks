@@ -1,11 +1,12 @@
 use anyhow::Result;
+use storage_models::{ByteRange, DiskInfo};
 use udisks2::{
     block::BlockProxy,
     drive::{DriveProxy, RotationRate},
 };
 use zbus::{Connection, zvariant::OwnedObjectPath};
 
-use crate::disks::{ByteRange, VolumeModel, VolumeNode};
+use crate::disks::{VolumeModel, VolumeNode};
 
 #[derive(Debug, Clone)]
 pub struct DriveModel {
@@ -151,4 +152,81 @@ impl DriveModel {
         // rotation_rate: -1 = unknown, 0 = SSD/NVMe, >0 = HDD
         self.rotation_rate > 0
     }
+}
+
+/// Convert DriveModel to storage-models DiskInfo (extracts domain data, drops connection)
+impl From<DriveModel> for DiskInfo {
+    fn from(drive: DriveModel) -> Self {
+        // Infer connection bus from drive properties
+        let connection_bus = infer_connection_bus(&drive);
+        
+        // Convert rotation_rate (-1/0/rpm) to Option<u16>
+        let rotation_rate = if drive.rotation_rate > 0 {
+            Some(drive.rotation_rate as u16)
+        } else {
+            None
+        };
+        
+        DiskInfo {
+            // Identity
+            device: drive.block_path,
+            id: drive.id,
+            model: drive.model,
+            serial: drive.serial,
+            vendor: drive.vendor,
+            revision: drive.revision,
+            
+            // Physical properties
+            size: drive.size,
+            connection_bus,
+            rotation_rate,
+            
+            // Media properties
+            removable: drive.removable,
+            ejectable: drive.ejectable,
+            media_removable: drive.media_removable,
+            media_available: drive.media_available,
+            optical: drive.optical,
+            optical_blank: drive.optical_blank,
+            can_power_off: drive.can_power_off,
+            
+            // Loop device
+            is_loop: drive.is_loop,
+            backing_file: drive.backing_file,
+            
+            // Partitioning
+            partition_table_type: drive.partition_table_type,
+            gpt_usable_range: drive.gpt_usable_range,
+        }
+    }
+}
+
+/// Infer connection bus type from drive properties
+fn infer_connection_bus(drive: &DriveModel) -> String {
+    if drive.is_loop {
+        return "loop".to_string();
+    }
+    
+    let path_lower = drive.block_path.to_lowercase();
+    let model_lower = drive.model.to_lowercase();
+    let vendor_lower = drive.vendor.to_lowercase();
+    
+    // Check block device path patterns
+    if path_lower.contains("nvme") {
+        return "nvme".to_string();
+    }
+    if path_lower.contains("mmc") || path_lower.contains("mmcblk") {
+        return "mmc".to_string();
+    }
+    if path_lower.contains("sr") || drive.optical {
+        return "optical".to_string();
+    }
+    
+    // Check vendor/model for USB indicators
+    if model_lower.contains("usb") || vendor_lower.contains("usb") {
+        return "usb".to_string();
+    }
+    
+    // Default to ata/sata for traditional disks (sd*)
+    "ata".to_string()
 }

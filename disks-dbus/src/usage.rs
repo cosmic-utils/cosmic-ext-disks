@@ -1,15 +1,8 @@
 use anyhow::{Context, Result};
 use std::{ffi::CString, mem::MaybeUninit};
 
-#[derive(Debug, Clone)]
-pub struct Usage {
-    pub filesystem: String,
-    pub blocks: u64,
-    pub used: u64,
-    pub available: u64,
-    pub percent: u32,
-    pub mount_point: String,
-}
+// Re-export Usage from storage-models
+pub use storage_models::Usage;
 
 pub fn usage_for_mount_point(mount_point: &str, filesystem: Option<&str>) -> Result<Usage> {
     let mount_point_c = CString::new(mount_point)

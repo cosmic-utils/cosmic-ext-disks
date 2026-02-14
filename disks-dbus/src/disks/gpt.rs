@@ -1,29 +1,12 @@
 use std::{collections::HashMap, fs, io, path::Path};
 
 use anyhow::{Context, Result};
+use storage_models::ByteRange;
 use tracing::{debug, warn};
 use udisks2::block::BlockProxy;
 use zbus::zvariant::Value;
 
 pub const GPT_ALIGNMENT_BYTES: u64 = 1024 * 1024;
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct ByteRange {
-    pub start: u64,
-    pub end: u64,
-}
-
-impl ByteRange {
-    pub fn is_valid_for_disk(&self, disk_size: u64) -> bool {
-        self.start < self.end && self.end <= disk_size
-    }
-
-    pub fn clamp_to_disk(&self, disk_size: u64) -> Self {
-        let start = self.start.min(disk_size);
-        let end = self.end.min(disk_size);
-        Self { start, end }
-    }
-}
 
 fn parse_c_string_bytes(bytes: &[u8]) -> String {
     let nul_pos = bytes.iter().position(|b| *b == 0).unwrap_or(bytes.len());

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 
 use crate::error::{BtrfsError, Result};
-use crate::types::FilesystemUsage;
+use storage_models::btrfs::FilesystemUsage;
 use std::ffi::CString;
 use std::mem::MaybeUninit;
 use std::path::PathBuf;

@@ -6,6 +6,9 @@ mod partition_types;
 mod udisks_block_config;
 mod usage;
 
+// Re-export storage-models types (canonical domain models)
+pub use storage_models;
+
 // Re-export commonly used zbus types
 pub use zbus::zvariant::OwnedObjectPath;
 
@@ -17,13 +20,16 @@ pub use dbus::bytestring::{
 
 // Explicit exports from disks module (main domain models and operations)
 pub use disks::{
-    BtrfsFilesystem, BtrfsSubvolume, ByteRange, CreatePartitionInfo, DeviceEvent,
-    DeviceEventStream, DiskError, DiskManager, DriveModel, EncryptionOptionsSettings,
-    GPT_ALIGNMENT_BYTES, KillResult, LvmLogicalVolumeInfo, MountOptionsSettings, ProcessInfo,
-    SmartInfo, SmartSelfTestKind, VolumeKind, VolumeModel, VolumeNode, VolumeType,
+    BtrfsFilesystem, BtrfsSubvolume, CreatePartitionInfo, DeviceEvent, DeviceEventStream,
+    DiskError, DiskManager, DriveModel, EncryptionOptionsSettings, GPT_ALIGNMENT_BYTES,
+    KillResult, LvmLogicalVolumeInfo, MountOptionsSettings, ProcessInfo, SmartInfo,
+    SmartSelfTestKind, VolumeKind, VolumeModel, VolumeNode, VolumeType,
     fallback_gpt_usable_range_bytes, find_processes_using_mount, kill_processes, list_lvs_for_pv,
-    loop_setup, mount_filesystem,
+    loop_setup, mount_filesystem, probe_gpt_usable_range_bytes,
 };
+
+// Re-export ByteRange from storage-models (for backwards compatibility)
+pub use storage_models::ByteRange;
 
 // Explicit exports from format module (byte formatting utilities)
 pub use format::{bytes_to_pretty, get_numeric, get_step, pretty_to_bytes};

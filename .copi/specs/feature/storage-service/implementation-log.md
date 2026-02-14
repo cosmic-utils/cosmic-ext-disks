@@ -220,3 +220,195 @@ target/debug/cosmic-storage-service --help
 
 **Ready for Phase 2:** D-Bus client wrapper + UI integration testing
 
+---
+
+### 2026-02-13 23:35 UTC — Idle Timeout Removed ✅
+
+**Decision:** Removed idle timeout entirely from storage-service.
+
+**Rationale:**
+- System services should run indefinitely once started
+- Socket activation handles on-demand starting
+- No reason to artificially shut down when idle
+- Minimal resource usage when inactive
+- Lifecycle managed by systemd
+
+**Changes:**
+- `storage-service/src/main.rs`:
+  - Removed Arc<RwLock<Instant>> tracking
+  - Removed idle timeout loop (300s check)
+  - Simplified to: wait for Ctrl+C signal
+- `storage-service/src/btrfs.rs`:
+  - Removed last_activity field from BtrfsHandler struct
+  - Removed activity timestamp updates from all 9 methods
+- `storage-service/src/service.rs`:
+  - Removed last_activity field from StorageService struct
+  - Removed activity timestamp updates from properties
+
+**Build Results:**
+```
+✅ cargo build -p storage-service
+   Finished `dev` profile [unoptimized + debuginfo] target(s) in 1.60s
+```
+
+**Testing:**
+```bash
+# Service running and responding
+busctl --system call org.cosmic.ext.StorageService \
+  /org/cosmic/ext/StorageService/btrfs \
+  org.cosmic.ext.StorageService.Btrfs \
+  ListSubvolumes s "/"
+# Returns: 20KB of subvolume JSON data ✅
+```
+
+**Phase 1 Status:** ✅ FULLY COMPLETE
+
+---
+
+## Phase 2: D-Bus Client Wrapper
+
+### 2026-02-13 23:45 UTC — Task 2.2: D-Bus Client Wrapper ✅
+
+**Summary:** Created D-Bus client module in disks-ui for communicating with storage-service.
+
+**Files Created:**
+- `disks-ui/src/client/mod.rs` — Module exports (BtrfsClient, ClientError)
+- `disks-ui/src/client/error.rs` — ClientError enum with zbus::Error conversion
+- `disks-ui/src/client/btrfs.rs` — BtrfsClient with zbus proxy for all 9 operations
+
+**Client API:**
+```rust
+pub struct BtrfsClient {
+    proxy: BtrfsInterfaceProxy<'static>,
+}
+
+impl BtrfsClient {
+    pub async fn new() -> Result<Self, ClientError>;
+    pub async fn list_subvolumes(&self, mountpoint: &str) -> Result<SubvolumeList, ClientError>;
+    pub async fn create_subvolume(&self, mountpoint: &str, name: &str) -> Result<(), ClientError>;
+    pub async fn create_snapshot(&self, mountpoint: &str, source_path: &str, dest_path: &str, readonly: bool) -> Result<(), ClientError>;
+    pub async fn delete_subvolume(&self, mountpoint: &str, path: &str, recursive: bool) -> Result<(), ClientError>;
+    pub async fn set_readonly(&self, mountpoint: &str, path: &str, readonly: bool) -> Result<(), ClientError>;
+    pub async fn set_default(&self, mountpoint: &str, path: &str) -> Result<(), ClientError>;
+    pub async fn get_default(&self, mountpoint: &str) -> Result<u64, ClientError>;
+    pub async fn list_deleted(&self, mountpoint: &str) -> Result<Vec<DeletedSubvolume>, ClientError>;
+    pub async fn get_usage(&self, mountpoint: &str) -> Result<FilesystemUsage, ClientError>;
+}
+```
+
+**Error Handling:**
+- `ClientError::Connection` — D-Bus connection/proxy creation failures
+- `ClientError::MethodCall` — D-Bus method invocation errors
+- `ClientError::ServiceNotAvailable` — Service not running (socket activation will start it)
+- `ClientError::PermissionDenied` — Polkit authorization failed
+- `ClientError::OperationFailed` — Backend operation error
+- `ClientError::ParseError` — JSON deserialization failed
+
+**Dependencies Added:**
+```toml
+zbus.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+```
+
+**Type Matching:**
+- Client types mirror `disks-btrfs` library types
+- Service returns JSON strings for complex types
+- Client deserializes JSON → Rust structs
+
+**Build Results:**
+```
+✅ cargo build -p cosmic-ext-disks
+   Finished `dev` profile [unoptimized + debuginfo] target(s) in 16.70s
+```
+
+**Warnings (Expected):**
+- Client types/methods marked unused (will be used in Phase 3 UI integration)
+- No integration yet — this is just the foundation
+
+**Next Steps (Phase 3):**
+1. Initialize BtrfsClient in app on startup
+2. Replace pkexec calls with async D-Bus client calls
+3. Update error handling in UI
+4. Add progress reporting support
+5. Test end-to-end: UI → D-Bus → storage-service → BTRFS
+
+**Phase 2 Status:** ✅ Task 2.2 COMPLETE (Task 2.1 was already done in Phase 1)
+
+---
+
+### 2026-02-13 23:55 UTC — Storage Models Refactor ✅
+
+**Decision:** Extract shared data types into separate `storage-models` crate.
+
+**Rationale:**
+- Eliminate type duplication between service and client
+- Single source of truth for data structures
+- Type safety across D-Bus boundary
+- Compile-time guarantee of schema matching
+
+**New Crate Structure:**
+```
+storage-models/
+  ├── Cargo.toml (minimal deps: serde, uuid, chrono)
+  ├── src/
+      ├── lib.rs (exports btrfs module)
+      └── btrfs.rs (all BTRFS types)
+```
+
+**Types Moved:**
+- `BtrfsSubvolume` — Subvolume metadata
+- `FilesystemUsage` — Usage statistics
+- `SubvolumeList` — List result with default ID
+- `DeletedSubvolume` — Pending cleanup entry
+
+**Dependency Updates:**
+```toml
+# Workspace Cargo.toml
+storage-models = { path = "storage-models", version = "0.1.0" }
+
+# disks-btrfs/Cargo.toml
+storage-models.workspace = true
+
+# storage-service/Cargo.toml
+storage-models.workspace = true
+
+# disks-ui/Cargo.toml
+storage-models.workspace = true
+```
+
+**Code Changes:**
+- `disks-btrfs/src/lib.rs` — Re-exports `storage_models::btrfs::*`
+- `disks-btrfs/src/subvolume.rs` — Uses `storage_models::btrfs::BtrfsSubvolume`
+- `disks-btrfs/src/usage.rs` — Uses `storage_models::btrfs::FilesystemUsage`
+- `disks-btrfs/src/bin/cli.rs` — Imports from storage_models
+- `storage-service/src/btrfs.rs` — Uses storage_models types
+- `disks-ui/src/client/btrfs.rs` — Removed duplicate type definitions, imports from storage_models
+
+**Old File Removal:**
+- `disks-btrfs/src/types.rs` — No longer needed (kept for now, unused)
+
+**Build Results:**
+```
+✅ cargo build --workspace
+   Finished `dev` profile [unoptimized + debuginfo] target(s) in 2.27s
+```
+
+**Architecture Now:**
+```
+storage-models (shared types)
+     ↑         ↑         ↑
+     │         │         │
+disks-btrfs  storage-  disks-ui
+              service   (client)
+```
+
+**Benefits Achieved:**
+- No more type duplication
+- Single update point for schema changes
+- Compile errors if service/client types mismatch
+- Clear separation of concerns
+
+**Phase 2 Status:** ✅ FULLY COMPLETE (Client + Shared Models)
+

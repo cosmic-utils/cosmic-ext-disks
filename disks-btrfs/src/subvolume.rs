@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 
 use crate::error::{BtrfsError, Result};
-use crate::types::BtrfsSubvolume;
+use storage_models::btrfs::BtrfsSubvolume;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use btrfsutil::subvolume::{Subvolume, DeleteFlags, SnapshotFlags};

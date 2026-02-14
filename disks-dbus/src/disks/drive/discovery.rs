@@ -456,4 +456,14 @@ impl DriveModel {
 
         Ok(drives)
     }
+
+    /// Get disk information as canonical storage-models types (public API).
+    /// 
+    /// This is the recommended method for clients to retrieve disk information.
+    /// Returns storage_models::DiskInfo with all domain data, excluding internal
+    /// connection handles.
+    pub async fn get_disks() -> Result<Vec<storage_models::DiskInfo>> {
+        let drives = Self::get_drives().await?;
+        Ok(drives.into_iter().map(Into::into).collect())
+    }
 }
