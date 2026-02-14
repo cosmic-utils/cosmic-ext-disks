@@ -10,11 +10,11 @@ Started: 2026-02-13
 
 ### 2026-02-13 22:56 UTC — Phase 1 Complete ✅
 
-**Summary:** Successfully created disks-btrfs library and storage-service D-Bus daemon with socket activation support.
+**Summary:** Successfully created storage-btrfs library and storage-service D-Bus daemon with socket activation support.
 
-**Task 1.1: disks-btrfs Library Conversion**
+**Task 1.1: storage-btrfs Library Conversion**
 
-Created new `disks-btrfs/` crate (v0.2.0) as library alongside existing helper:
+Created new `storage-btrfs/` crate (v0.2.0) as library alongside existing helper:
 - ✅ `Cargo.toml` — Library config with optional CLI feature
 - ✅ `src/lib.rs` — Public API exports (error, types, subvolume, usage modules)
 - ✅ `src/error.rs` — BtrfsError enum with comprehensive error types
@@ -34,7 +34,7 @@ Created new `disks-btrfs/` crate (v0.2.0) as library alongside existing helper:
 
 **Build Results:**
 ```
-✅ cargo build -p disks-btrfs
+✅ cargo build -p storage-btrfs
    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.45s
 ```
 
@@ -157,7 +157,7 @@ Created new `storage-service/` crate (v0.1.0) with full D-Bus implementation:
 **Files Changed:**
 
 *New Files:*
-- disks-btrfs/ (8 files, ~600 LoC)
+- storage-btrfs/ (8 files, ~600 LoC)
 - storage-service/ (7 files, ~800 LoC)
 - data/systemd/ (2 files)
 - data/dbus-1/ (1 file)
@@ -174,7 +174,7 @@ Created new `storage-service/` crate (v0.1.0) with full D-Bus implementation:
 3. Test all D-Bus methods: `just test-btrfs-list /`, create/delete operations
 4. Fix TODO in auth.rs: Extract real caller UID for authorization
 5. Fix TODO in main.rs: Implement proper idle timeout with activity tracking
-6. Create D-Bus client wrapper in disks-ui/src/client/
+6. Create D-Bus client wrapper in storage-ui/src/client/
 7. Begin Phase 3: UI refactor to use D-Bus client
 
 ---
@@ -182,8 +182,8 @@ Created new `storage-service/` crate (v0.1.0) with full D-Bus implementation:
 ## Commands Run
 
 ```bash
-# Build disks-btrfs library
-cargo build -p disks-btrfs
+# Build storage-btrfs library
+cargo build -p storage-btrfs
 
 # Build storage-service (iterative fixes)
 cargo build -p storage-service
@@ -206,11 +206,11 @@ target/debug/cosmic-storage-service --help
 **Status:** ✅ COMPLETE  
 **Time:** 1 day (accelerated from 2-week estimate)  
 **LoC Added:** ~1,600 lines  
-**Crates Created:** 2 (disks-btrfs, storage-service)  
+**Crates Created:** 2 (storage-btrfs, storage-service)  
 **System Files:** 4 (systemd, D-Bus, Polkit, justfile)  
 
 **Acceptance Criteria Met:**
-- ✅ disks-btrfs library compiles and exports clean API
+- ✅ storage-btrfs library compiles and exports clean API
 - ✅ storage-service compiles with zbus 5.x + tokio
 - ✅ All BTRFS operations implemented in D-Bus interface
 - ✅ Polkit authorization integrated
@@ -269,12 +269,12 @@ busctl --system call org.cosmic.ext.StorageService \
 
 ### 2026-02-13 23:45 UTC — Task 2.2: D-Bus Client Wrapper ✅
 
-**Summary:** Created D-Bus client module in disks-ui for communicating with storage-service.
+**Summary:** Created D-Bus client module in storage-ui for communicating with storage-service.
 
 **Files Created:**
-- `disks-ui/src/client/mod.rs` — Module exports (BtrfsClient, ClientError)
-- `disks-ui/src/client/error.rs` — ClientError enum with zbus::Error conversion
-- `disks-ui/src/client/btrfs.rs` — BtrfsClient with zbus proxy for all 9 operations
+- `storage-ui/src/client/mod.rs` — Module exports (BtrfsClient, ClientError)
+- `storage-ui/src/client/error.rs` — ClientError enum with zbus::Error conversion
+- `storage-ui/src/client/btrfs.rs` — BtrfsClient with zbus proxy for all 9 operations
 
 **Client API:**
 ```rust
@@ -313,7 +313,7 @@ thiserror.workspace = true
 ```
 
 **Type Matching:**
-- Client types mirror `disks-btrfs` library types
+- Client types mirror `storage-btrfs` library types
 - Service returns JSON strings for complex types
 - Client deserializes JSON → Rust structs
 
@@ -368,26 +368,26 @@ storage-models/
 # Workspace Cargo.toml
 storage-models = { path = "storage-models", version = "0.1.0" }
 
-# disks-btrfs/Cargo.toml
+# storage-btrfs/Cargo.toml
 storage-models.workspace = true
 
 # storage-service/Cargo.toml
 storage-models.workspace = true
 
-# disks-ui/Cargo.toml
+# storage-ui/Cargo.toml
 storage-models.workspace = true
 ```
 
 **Code Changes:**
-- `disks-btrfs/src/lib.rs` — Re-exports `storage_models::btrfs::*`
-- `disks-btrfs/src/subvolume.rs` — Uses `storage_models::btrfs::BtrfsSubvolume`
-- `disks-btrfs/src/usage.rs` — Uses `storage_models::btrfs::FilesystemUsage`
-- `disks-btrfs/src/bin/cli.rs` — Imports from storage_models
+- `storage-btrfs/src/lib.rs` — Re-exports `storage_models::btrfs::*`
+- `storage-btrfs/src/subvolume.rs` — Uses `storage_models::btrfs::BtrfsSubvolume`
+- `storage-btrfs/src/usage.rs` — Uses `storage_models::btrfs::FilesystemUsage`
+- `storage-btrfs/src/bin/cli.rs` — Imports from storage_models
 - `storage-service/src/btrfs.rs` — Uses storage_models types
-- `disks-ui/src/client/btrfs.rs` — Removed duplicate type definitions, imports from storage_models
+- `storage-ui/src/client/btrfs.rs` — Removed duplicate type definitions, imports from storage_models
 
 **Old File Removal:**
-- `disks-btrfs/src/types.rs` — No longer needed (kept for now, unused)
+- `storage-btrfs/src/types.rs` — No longer needed (kept for now, unused)
 
 **Build Results:**
 ```
@@ -400,7 +400,7 @@ storage-models.workspace = true
 storage-models (shared types)
      ↑         ↑         ↑
      │         │         │
-disks-btrfs  storage-  disks-ui
+storage-btrfs  storage-  storage-ui
               service   (client)
 ```
 
@@ -428,7 +428,7 @@ disks-btrfs  storage-  disks-ui
 - `storage-models/src/lvm.rs` (created) — `VolumeGroupInfo`, `LogicalVolumeInfo`, `PhysicalVolumeInfo`
 - `storage-models/src/encryption.rs` (created) — `LuksInfo`, `LuksVersion`
 - `storage-models/src/common.rs` (created) — `ByteRange`, `Usage`
-- `storage-models/src/ops.rs` (created) — `ProcessInfo`, `KillResult` (moved from disks-dbus)
+- `storage-models/src/ops.rs` (created) — `ProcessInfo`, `KillResult` (moved from storage-dbus)
 - `storage-models/src/image.rs` (created) — `ImageFormat`, `ImageInfo`, `RestoreProgress`
 - `storage-models/Cargo.toml` (updated) — Added dependencies: `chrono`, `num-format`, `anyhow`, `toml`
 
@@ -541,7 +541,7 @@ pub struct ImageInfo {
 **Summary:** Implemented disk imaging operations (backup, restore, loop device management).
 
 **Background:**
-Disk imaging was originally planned for Phase 4, but was accelerated after discovering that disks-dbus already had image operations exposed to disks-ui that needed to be wrapped by the service.
+Disk imaging was originally planned for Phase 4, but was accelerated after discovering that storage-dbus already had image operations exposed to storage-ui that needed to be wrapped by the service.
 
 **Operations Implemented:**
 
@@ -575,7 +575,7 @@ Disk imaging was originally planned for Phase 4, but was accelerated after disco
 - `storage-service/src/image.rs` (created) — ImageHandler D-Bus interface
 - `storage-service/src/main.rs` — Added ImageHandler to D-Bus service
 - `storage-service/data/polkit-1/actions/org.cosmic.ext.storage-service.policy` — Added 5 imaging policies
-- `disks-ui/src/client/image.rs` (created) — ImageClient wrapper
+- `storage-ui/src/client/image.rs` (created) — ImageClient wrapper
 
 **D-Bus API:**
 ```rust
@@ -667,22 +667,22 @@ async fn verify_image(
 
 ### 2026-02-14 — Type Migration: Shared Constants & Utilities ✅
 
-**Summary:** Moved shared constants, enums, and utilities from disks-dbus to storage-models.
+**Summary:** Moved shared constants, enums, and utilities from storage-dbus to storage-models.
 
 **Rationale:**
-After gap analysis showing disks-ui imports 79 items directly from disks-dbus, we discovered that many pure utility functions and constants should live in storage-models for proper architectural separation.
+After gap analysis showing storage-ui imports 79 items directly from storage-dbus, we discovered that many pure utility functions and constants should live in storage-models for proper architectural separation.
 
 **Goal:**
 - Move all constants, enum types shared between service and client to storage-models
 - Move utilities that DON'T do D-Bus calls to storage-models
-- Maintain backward compatibility via re-exports from disks-dbus
+- Maintain backward compatibility via re-exports from storage-dbus
 
 **Types/Utilities Migrated:**
 
 **1. Format Utilities** → `storage-models/src/common.rs`
 - `bytes_to_pretty(bytes: &u64, add_bytes: bool) -> String`
   - Converts bytes to human-readable format: "1.50 GB"
-  - Used 20+ times in disks-ui for size display
+  - Used 20+ times in storage-ui for size display
 - `pretty_to_bytes(pretty: &str) -> Result<u64>`
   - Parses "1.5 GB" → 1610612736 bytes
   - Used in partition creation dialogs
@@ -690,20 +690,20 @@ After gap analysis showing disks-ui imports 79 items directly from disks-dbus, w
   - Extracts numeric value for UI sliders: "1.5 GB" → 1.5
 - `get_step(bytes: &u64) -> f64`
   - Calculates slider step size based on magnitude
-- **Source:** disks-dbus/src/format.rs (now unused)
+- **Source:** storage-dbus/src/format.rs (now unused)
 - **Dep added:** `num-format` for thousand separators
 
 **2. Constants** → `storage-models/src/common.rs`
 - `GPT_ALIGNMENT_BYTES: u64 = 1024 * 1024` (1 MiB)
   - Used for partition boundary alignment calculations
-- **Source:** disks-dbus/src/disks/gpt.rs
+- **Source:** storage-dbus/src/disks/gpt.rs
 
 **3. Volume Enums** → `storage-models/src/volume.rs`
 - `VolumeType` enum: Container | Partition | Filesystem
-  - Was in: disks-dbus/src/disks/volume_model/mod.rs
+  - Was in: storage-dbus/src/disks/volume_model/mod.rs
   - Usage: 5+ occurrences in UI for type classification
 - `VolumeKind` enum: Partition | CryptoContainer | Filesystem | LvmPhysicalVolume | LvmLogicalVolume | Block
-  - Was in: disks-dbus/src/disks/volume.rs
+  - Was in: storage-dbus/src/disks/volume.rs
   - Usage: 10+ pattern matches in UI
   - Note: Already existed in storage-models, consolidated imports
 
@@ -711,7 +711,7 @@ After gap analysis showing disks-ui imports 79 items directly from disks-dbus, w
 - `CreatePartitionInfo` struct (22 fields)
   - Partition creation wizard state
   - Fields: name, size, max_size, offset, erase, selected_type, password_protected, etc.
-  - Was in: disks-dbus/src/disks/create_partition_info.rs (now unused)
+  - Was in: storage-dbus/src/disks/create_partition_info.rs (now unused)
 
 **5. Partition Type Catalog** → `storage-models/src/partition_types.rs` (NEW MODULE)
 - `PartitionTypeInfoFlags` enum: None | Swap | Raid | Hidden | CreateOnly | System
@@ -724,17 +724,17 @@ After gap analysis showing disks-ui imports 79 items directly from disks-dbus, w
   - `PARTITION_TYPES: LazyLock<Vec<PartitionTypeInfo>>`
   - `COMMON_GPT_TYPES: LazyLock<Vec<PartitionTypeInfo>>`
   - `COMMON_DOS_TYPES: LazyLock<Vec<PartitionTypeInfo>>`
-- **Data source:** Loads from `disks-dbus/data/*.toml` at compile-time:
+- **Data source:** Loads from `storage-dbus/data/*.toml` at compile-time:
   ```rust
-  const GPT_TOML: &str = include_str!("../../disks-dbus/data/gpt_types.toml");
-  const DOS_TOML: &str = include_str!("../../disks-dbus/data/dos_types.toml");
-  const APM_TOML: &str = include_str!("../../disks-dbus/data/apm_types.toml");
-  const COMMON_GPT_TOML: &str = include_str!("../../disks-dbus/data/common_gpt_types.toml");
-  const COMMON_DOS_TOML: &str = include_str!("../../disks-dbus/data/common_dos_types.toml");
+  const GPT_TOML: &str = include_str!("../../storage-dbus/data/gpt_types.toml");
+  const DOS_TOML: &str = include_str!("../../storage-dbus/data/dos_types.toml");
+  const APM_TOML: &str = include_str!("../../storage-dbus/data/apm_types.toml");
+  const COMMON_GPT_TOML: &str = include_str!("../../storage-dbus/data/common_gpt_types.toml");
+  const COMMON_DOS_TOML: &str = include_str!("../../storage-dbus/data/common_dos_types.toml");
   ```
 - **Parsing:** Uses `toml::from_str()` with `LazyLock` for deferred parsing
 - **Usage:** UI partition type dropdowns (4+ call sites)
-- **Was in:** disks-dbus/src/partition_types.rs (now unused, warnings present)
+- **Was in:** storage-dbus/src/partition_types.rs (now unused, warnings present)
 - **Dep added:** `toml` for TOML parsing
 
 **Dependencies Added to storage-models/Cargo.toml:**
@@ -746,7 +746,7 @@ toml.workspace = true
 
 **Backward Compatibility (Re-exports):**
 
-Updated `disks-dbus/src/lib.rs`:
+Updated `storage-dbus/src/lib.rs`:
 ```rust
 // Re-export format utilities from storage-models
 pub use storage_models::{
@@ -765,22 +765,22 @@ pub use storage_models::{
 
 **Import Path Updates:**
 
-Updated internal disks-dbus imports to use storage_models:
-- `disks-dbus/src/disks/mod.rs`:
+Updated internal storage-dbus imports to use storage_models:
+- `storage-dbus/src/disks/mod.rs`:
   ```rust
   pub use storage_models::{CreatePartitionInfo, GPT_ALIGNMENT_BYTES, VolumeKind, VolumeType};
   ```
-- `disks-dbus/src/disks/volume.rs`:
+- `storage-dbus/src/disks/volume.rs`:
   ```rust
   use storage_models::VolumeKind;
   // Removed local enum definition (26 lines)
   ```
-- `disks-dbus/src/disks/volume_model/mod.rs`:
+- `storage-dbus/src/disks/volume_model/mod.rs`:
   ```rust
   use storage_models::VolumeType;
   // Removed local enum definition (6 lines)
   ```
-- `disks-dbus/src/disks/drive/volume_tree.rs`:
+- `storage-dbus/src/disks/drive/volume_tree.rs`:
   ```rust
   use storage_models::VolumeKind;
   use crate::disks::{BlockIndex, volume::VolumeNode};
@@ -793,23 +793,23 @@ Updated internal disks-dbus imports to use storage_models:
 - `storage-models/src/partition_types.rs` — NEW MODULE (168 lines)
 - `storage-models/src/lib.rs` — Added `pub mod partition_types; pub use partition_types::*;`
 - `storage-models/Cargo.toml` — Added anyhow, num-format, toml
-- `disks-dbus/src/lib.rs` — Re-exports from storage_models
-- `disks-dbus/src/disks/mod.rs` — Uses storage_models types
-- `disks-dbus/src/disks/volume.rs` — Imports VolumeKind from storage_models
-- `disks-dbus/src/disks/volume_model/mod.rs` — Imports VolumeType from storage_models
-- `disks-dbus/src/disks/drive/volume_tree.rs` — Imports VolumeKind from storage_models
+- `storage-dbus/src/lib.rs` — Re-exports from storage_models
+- `storage-dbus/src/disks/mod.rs` — Uses storage_models types
+- `storage-dbus/src/disks/volume.rs` — Imports VolumeKind from storage_models
+- `storage-dbus/src/disks/volume_model/mod.rs` — Imports VolumeType from storage_models
+- `storage-dbus/src/disks/drive/volume_tree.rs` — Imports VolumeKind from storage_models
 
 **Old Files (Now Unused, Can Be Removed):**
-- `disks-dbus/src/partition_types.rs` — Duplicate catalog (warnings present)
-- `disks-dbus/src/format.rs` — Duplicate utilities
-- `disks-dbus/src/disks/create_partition_info.rs` — Duplicate struct
+- `storage-dbus/src/partition_types.rs` — Duplicate catalog (warnings present)
+- `storage-dbus/src/format.rs` — Duplicate utilities
+- `storage-dbus/src/disks/create_partition_info.rs` — Duplicate struct
 
 **Build Results:**
 ```
 ✅ cargo build -p storage-models
    Finished `dev` profile [unoptimized + debuginfo] target(s) in 1.89s
 
-✅ cargo build -p cosmic-ext-disks-dbus
+✅ cargo build -p cosmic-ext-storage-dbus
    Finished `dev` profile [unoptimized + debuginfo] target(s) in 1.47s
    ⚠️  Warnings: Unused static types in old partition_types.rs module (expected)
 
@@ -822,24 +822,24 @@ Updated internal disks-dbus imports to use storage_models:
 
 **Before:**
 ```
-disks-ui → disks-dbus (types + D-Bus + utilities)
-storage-service → disks-dbus (types + D-Bus)
+storage-ui → storage-dbus (types + D-Bus + utilities)
+storage-service → storage-dbus (types + D-Bus)
 ```
 
 **After:**
 ```
-disks-ui ─────┐
+storage-ui ─────┐
               ├──→ storage-models (types + utilities)
 storage-service┘          │
                            ↓
-                      disks-dbus (D-Bus adapters only)
+                      storage-dbus (D-Bus adapters only)
 ```
 
 **Benefits:**
-1. **Clean dependency graph:** disks-ui can import types from storage-models without pulling in D-Bus dependencies
-2. **Service isolation:** storage-service uses storage-models types, never touches disks-dbus internals
+1. **Clean dependency graph:** storage-ui can import types from storage-models without pulling in D-Bus dependencies
+2. **Service isolation:** storage-service uses storage-models types, never touches storage-dbus internals
 3. **Testability:** Pure utility functions in storage-models can be unit-tested without D-Bus
-4. **Future CLI:** A CLI tool can use storage-models types and storage-service client without linking disks-dbus
+4. **Future CLI:** A CLI tool can use storage-models types and storage-service client without linking storage-dbus
 5. **Single source of truth:** Domain types live in one place, no duplication
 
 **Verification:**
@@ -851,11 +851,11 @@ storage-service┘          │
 **Type Migration Status:** ✅ COMPLETE
 
 **Cleanup Completed:**
-- ✅ Removed `disks-dbus/src/partition_types.rs` (now in storage-models)
-- ✅ Removed `disks-dbus/src/format.rs` (now in storage-models)
-- ✅ Removed `disks-dbus/src/disks/create_partition_info.rs` (now in storage-models)
-- ✅ Removed module declarations from disks-dbus/src/lib.rs
-- ✅ Removed module declaration from disks-dbus/src/disks/mod.rs
+- ✅ Removed `storage-dbus/src/partition_types.rs` (now in storage-models)
+- ✅ Removed `storage-dbus/src/format.rs` (now in storage-models)
+- ✅ Removed `storage-dbus/src/disks/create_partition_info.rs` (now in storage-models)
+- ✅ Removed module declarations from storage-dbus/src/lib.rs
+- ✅ Removed module declaration from storage-dbus/src/disks/mod.rs
 - ✅ Full workspace compiles: 0 errors, 0.65s
 
 **Phase 3A Status:** ✅ Type Migration COMPLETE
@@ -867,7 +867,7 @@ storage-service┘          │
 **Completed Work:**
 - ✅ Created comprehensive storage-models type system (Tasks 1-5)
 - ✅ Implemented disk imaging operations (5 methods)
-- ✅ Migrated shared types from disks-dbus to storage-models
+- ✅ Migrated shared types from storage-dbus to storage-models
 - ✅ Partition type catalog with compile-time TOML loading
 - ✅ Format utilities centralized
 - ✅ Backward compatibility maintained
@@ -876,23 +876,23 @@ storage-service┘          │
 - storage-models/src/disk.rs (157 lines)
 - storage-models/src/partition_types.rs (168 lines)
 - storage-service/src/image.rs (350+ lines)
-- disks-ui/src/client/image.rs (120+ lines)
+- storage-ui/src/client/image.rs (120+ lines)
 
 **Files Modified:**
 - storage-models/: common.rs, volume.rs, partition.rs, lib.rs, Cargo.toml
-- disks-dbus/: lib.rs, disks/mod.rs, disks/volume.rs, disks/volume_model/mod.rs, disks/drive/volume_tree.rs
+- storage-dbus/: lib.rs, disks/mod.rs, disks/volume.rs, disks/volume_model/mod.rs, disks/drive/volume_tree.rs
 - storage-service/: main.rs, polkit policy file
 
 **Build Status:**
 - ✅ storage-models: 0 errors
-- ✅ disks-dbus: 0 errors (warnings: old unused files)
+- ✅ storage-dbus: 0 errors (warnings: old unused files)
 - ✅ storage-service: 0 errors
-- ✅ disks-ui: 0 errors
+- ✅ storage-ui: 0 errors
 - ✅ Full workspace: "Finished dev profile" — all packages compile
 
 **Next Phase:**
 - Phase 3B: Implement remaining disk operations (partition, filesystem, LVM, SMART)
-- Phase 4: UI refactor to use storage-service client instead of direct disks-dbus
+- Phase 4: UI refactor to use storage-service client instead of direct storage-dbus
 
 **Phase 2 Status:** ✅ FULLY COMPLETE (Client + Shared Models)
 
@@ -902,13 +902,13 @@ storage-service┘          │
 
 ### 2026-02-14 18:30-19:00 UTC — Infrastructure & Refactoring (IN PROGRESS)
 
-**Summary:** Implementing GAP-001 fix to remove direct UDisks2 operations from storage-service by creating abstraction layers in disks-dbus and storage-sys.
+**Summary:** Implementing GAP-001 fix to remove direct UDisks2 operations from storage-service by creating abstraction layers in storage-dbus and storage-sys.
 
-**Context:** Audit (.copi/audits/2026-02-14T17-00-36Z.md) identified GAP-001: storage-service performs 30+ direct UDisks2 proxy creations and D-Bus method calls instead of delegating to disks-dbus. This violates single responsibility and makes the service untestable.
+**Context:** Audit (.copi/audits/2026-02-14T17-00-36Z.md) identified GAP-001: storage-service performs 30+ direct UDisks2 proxy creations and D-Bus method calls instead of delegating to storage-dbus. This violates single responsibility and makes the service untestable.
 
 **Architecture Pattern:**  
 Layer 1: storage-service (auth + delegate + signal)  
-Layer 2: disks-dbus (UDisks2 D-Bus operations) + storage-sys (direct syscalls)  
+Layer 2: storage-dbus (UDisks2 D-Bus operations) + storage-sys (direct syscalls)  
 Layer 3: udisks2 daemon + kernel
 
 ---
@@ -929,25 +929,25 @@ Layer 3: udisks2 daemon + kernel
 
 ---
 
-### Task 3B.2: Create disks-dbus Operations Module ✅
+### Task 3B.2: Create storage-dbus Operations Module ✅
 
 **Files Created:**
-- `disks-dbus/src/operations/mod.rs`
-- `disks-dbus/src/operations/partitions.rs` — 7 operations
-- `disks-dbus/src/operations/filesystems.rs` — 5 operations
-- `disks-dbus/src/operations/luks.rs` — 3 operations
+- `storage-dbus/src/operations/mod.rs`
+- `storage-dbus/src/operations/partitions.rs` — 7 operations
+- `storage-dbus/src/operations/filesystems.rs` — 5 operations
+- `storage-dbus/src/operations/luks.rs` — 3 operations
 
 **Files Modified:**
-- `disks-dbus/src/lib.rs` — Exported operations
-- `disks-dbus/src/disks/mod.rs` — Extended DiskError enum (+5 variants)
+- `storage-dbus/src/lib.rs` — Exported operations
+- `storage-dbus/src/disks/mod.rs` — Extended DiskError enum (+5 variants)
 
-**Build Results:** ✅ `cargo check --package disks-dbus` succeeded
+**Build Results:** ✅ `cargo check --package storage-dbus` succeeded
 
 ---
 
 ### Task 3B.3: Refactor storage-service/src/partitions.rs ✅
 
-**Status:** COMPLETE — All 6 methods refactored to delegate to disks-dbus
+**Status:** COMPLETE — All 6 methods refactored to delegate to storage-dbus
 - Removed: HashMap, udisks2::*, zvariant::* imports
 - Pattern: auth → delegate → signal (< 20 lines each)
 - Complexity: 90% reduction in operation code
@@ -957,7 +957,7 @@ Layer 3: udisks2 daemon + kernel
 ### Task 3B.4: Refactor storage-service/src/filesystems.rs ⚠️ PARTIAL
 
 **Status:** 3/6 methods refactored (50%)
-- ✅ format(), mount(), unmount() delegating to disks-dbus
+- ✅ format(), mount(), unmount() delegating to storage-dbus
 - ❌ list_filesystems(), check(), set_label() — still use proxies directly
 
 ---
@@ -974,7 +974,7 @@ Layer 3: udisks2 daemon + kernel
 ```bash
 cargo check --workspace
 ```
-**Result:** ✅ SUCCESS — 0 errors, 29 warnings (pre-existing in disks-ui)
+**Result:** ✅ SUCCESS — 0 errors, 29 warnings (pre-existing in storage-ui)
 
 ---
 
@@ -983,7 +983,7 @@ cargo check --workspace
 **Task 3B.6:** Refactor remaining filesystem operations (list_filesystems, take_ownership, helper methods)
 
 **Changes:**
-1. Added 3 new operations to `disks-dbus/src/operations/filesystems.rs`:
+1. Added 3 new operations to `storage-dbus/src/operations/filesystems.rs`:
    - `get_filesystem_label(device)` — Query filesystem label via BlockProxy
    - `take_filesystem_ownership(device, recursive)` — Take ownership via FilesystemProxy
    - `get_mount_point(device)` — Get mount point for mounted device
@@ -997,17 +997,17 @@ cargo check --workspace
    - Removed entire helper impl block (85 lines deleted):
      - `find_block_path()` — No longer needed
      - `find_block_path_by_mount()` — No longer needed
-     - `get_mount_point()` — Replaced by disks-dbus operation
+     - `get_mount_point()` — Replaced by storage-dbus operation
 
 3. Cleanup:
    - Removed all UDisks2 imports from filesystems.rs (`BlockProxy`, `FilesystemProxy`)
    - Removed unused imports (`HashMap`, `Value`, `OwnedObjectPath`)
-   - Updated `disks-dbus/src/operations/mod.rs` to export new operations
-   - Updated `disks-dbus/src/lib.rs` to re-export new operations
+   - Updated `storage-dbus/src/operations/mod.rs` to export new operations
+   - Updated `storage-dbus/src/lib.rs` to re-export new operations
 
 **Statistics:**
 - Lines removed from storage-service: ~95 (helper methods + proxy code)
-- Lines added to disks-dbus/operations: ~95 (3 new operations + helper)
+- Lines added to storage-dbus/operations: ~95 (3 new operations + helper)
 - Methods refactored: 4 (list_filesystems, take_ownership, unmount, get_blocking_processes)
 - Total filesystems.rs methods refactored: 9/11 interface methods (82%)
 
@@ -1018,9 +1018,9 @@ cargo build --workspace
 **Result:** ✅ SUCCESS — 0 errors, 7 warnings in storage-service (unused variables)
 
 **Files Modified:**
-- `disks-dbus/src/operations/filesystems.rs` (+95 lines)
-- `disks-dbus/src/operations/mod.rs` (+3 exports)
-- `disks-dbus/src/lib.rs` (+3 exports)
+- `storage-dbus/src/operations/filesystems.rs` (+95 lines)
+- `storage-dbus/src/operations/mod.rs` (+3 exports)
+- `storage-dbus/src/lib.rs` (+3 exports)
 - `storage-service/src/filesystems.rs` (-95 lines, all UDisks2 imports removed)
 
 **Remaining in filesystems.rs:**
@@ -1028,7 +1028,7 @@ cargo build --workspace
 - `get_usage()` — Calls `disks_dbus::usage_for_mount_point()` (no refactor needed)
 - `get_mount_options()`, `default_mount_options()`, `edit_mount_options()` — Option management (no UDisks2 ops)
 
-**Result:** ✅ filesystems.rs 100% refactored — All UDisks2 proxy operations delegated to disks-dbus
+**Result:** ✅ filesystems.rs 100% refactored — All UDisks2 proxy operations delegated to storage-dbus
 
 ---
 
@@ -1036,7 +1036,7 @@ cargo build --workspace
 
 **Completed:** ~60%
 - ✅ storage-sys crate
-- ✅ disks-dbus operations module (8 operations)
+- ✅ storage-dbus operations module (8 operations)
 - ✅ partitions.rs fully refactored (100%)
 - ✅ filesystems.rs fully refactored (100%)
 - ✅ Workspace compiles
@@ -1059,7 +1059,7 @@ Immediate: Task 3B.7 — Refactor storage-service/src/luks.rs (lock, unlock, cha
 **Task 3B.7:** Refactor LUKS encryption operations (format, unlock, lock, change_passphrase, list)
 
 **Changes:**
-1. Added 2 new operations to `disks-dbus/src/operations/luks.rs`:
+1. Added 2 new operations to `storage-dbus/src/operations/luks.rs`:
    - `format_luks(device, passphrase, version)` — Format device as LUKS container (luks1/luks2)
    - `list_luks_devices()` — List all LUKS encrypted devices with status, version, cipher info
    - (unlock, lock, change_passphrase already existed)
@@ -1074,14 +1074,14 @@ Immediate: Task 3B.7 — Refactor storage-service/src/luks.rs (lock, unlock, cha
    - Removed `EncryptedProxy` import (no longer needed)
 
 3. Cleanup:
-   - Updated `disks-dbus/src/operations/mod.rs` to export new operations
-   - Updated `disks-dbus/src/lib.rs` to re-export new operations
+   - Updated `storage-dbus/src/operations/mod.rs` to export new operations
+   - Updated `storage-dbus/src/lib.rs` to re-export new operations
    - Kept `device_to_path()` helper (used by crypttab management methods)
    - Kept BlockProxy import (still needed for crypttab configuration methods)
 
 **Statistics:**
 - Lines removed from storage-service: ~153 (proxy code for 5 methods + helper)
-- Lines added to disks-dbus/operations: ~150 (2 new operations)
+- Lines added to storage-dbus/operations: ~150 (2 new operations)
 - Methods refactored: 5/8 (format, unlock, lock, change_passphrase, list)
 - Remaining methods: 3/8 (get/set/default_encryption_options for crypttab management - use VolumeModel abstraction, not direct UDisks2 encryption ops)
 
@@ -1092,9 +1092,9 @@ cargo build --workspace
 **Result:** ✅ SUCCESS — 0 errors, 9 warnings in storage-service (unused code)
 
 **Files Modified:**
-- `disks-dbus/src/operations/luks.rs` (+150 lines, 2 new operations)
-- `disks-dbus/src/operations/mod.rs` (+2 exports)
-- `disks-dbus/src/lib.rs` (+2 exports)
+- `storage-dbus/src/operations/luks.rs` (+150 lines, 2 new operations)
+- `storage-dbus/src/operations/mod.rs` (+2 exports)
+- `storage-dbus/src/lib.rs` (+2 exports)
 - `storage-service/src/luks.rs` (-153 lines, removed EncryptedProxy import)
 
 **Remaining in luks.rs:**
@@ -1102,7 +1102,7 @@ cargo build --workspace
 - `set_encryption_options()` — Writes crypttab via BlockProxy + ConfigurationProxy (system config, not encryption)
 - `default_encryption_options()` — Removes crypttab entry via ConfigurationProxy (system config)
 
-**Result:** ✅ All LUKS encryption operations (format, unlock, lock, change_passphrase, list) delegated to disks-dbus
+**Result:** ✅ All LUKS encryption operations (format, unlock, lock, change_passphrase, list) delegated to storage-dbus
 
 ---
 
@@ -1110,7 +1110,7 @@ cargo build --workspace
 
 **Completed:** ~70%
 - ✅ storage-sys crate (100%)
-- ✅ disks-dbus operations module (15 operations: 8 filesystem, 7 partition, 5 LUKS)
+- ✅ storage-dbus operations module (15 operations: 8 filesystem, 7 partition, 5 LUKS)
 - ✅ partitions.rs fully refactored (100%)
 - ✅ filesystems.rs fully refactored (100%)
 - ✅ luks.rs encryption operations refactored (100% of encryption ops)
@@ -1214,7 +1214,7 @@ tokio::task::spawn_blocking(move || {
 
 **Completed:** ~80%
 - ✅ storage-sys crate (100%)
-- ✅ disks-dbus operations module (15 operations: 8 filesystem, 7 partition, 5 LUKS)
+- ✅ storage-dbus operations module (15 operations: 8 filesystem, 7 partition, 5 LUKS)
 - ✅ partitions.rs fully refactored (100%)
 - ✅ filesystems.rs fully refactored (100%)
 - ✅ luks.rs encryption operations refactored (100%)
@@ -1222,7 +1222,7 @@ tokio::task::spawn_blocking(move || {
 - ✅ Workspace compiles with 0 errors
 
 **Remaining Work:**
-1. Optional: Verify btrfs.rs doesn't use UDisks2 proxies directly (expected clean - uses disks-btrfs library)
+1. Optional: Verify btrfs.rs doesn't use UDisks2 proxies directly (expected clean - uses storage-btrfs library)
 2. Final verification: Search all storage-service files for remaining Proxy::builder patterns
 3. Cleanup: Remove unused imports flagged by warnings
 
@@ -1246,7 +1246,7 @@ grep -E "Proxy::|udisks2::" storage-service/src/btrfs.rs
 
 **Analysis:**
 - btrfs.rs correctly uses `disks_btrfs::SubvolumeManager` library (created in Phase 1)
-- All BTRFS operations delegate to the disks-btrfs abstraction
+- All BTRFS operations delegate to the storage-btrfs abstraction
 - No direct proxy usage required
 
 ---
@@ -1282,19 +1282,19 @@ File: `storage-service/src/luks.rs`
 **Architecture Achieved:**
 ```
 storage-service/
-├── partitions.rs    ✅ 100% delegated to disks-dbus operations
-├── filesystems.rs   ✅ 100% delegated to disks-dbus operations
+├── partitions.rs    ✅ 100% delegated to storage-dbus operations
+├── filesystems.rs   ✅ 100% delegated to storage-dbus operations
 ├── luks.rs          ✅ 100% encryption ops delegated; crypttab mgmt uses Config API (correct)
 ├── image.rs         ✅ 100% delegated to storage-sys
-├── btrfs.rs         ✅ 100% delegated to disks-btrfs library
+├── btrfs.rs         ✅ 100% delegated to storage-btrfs library
 └── Other files      ✅ No proxy usage
 ```
 
 **Final Statistics:**
 - Total operations abstracted: 20+ operations
-- disks-dbus operations: 15 operations (8 filesystem, 7 partition, 5 LUKS)
+- storage-dbus operations: 15 operations (8 filesystem, 7 partition, 5 LUKS)
 - storage-sys operations: 2 operations (copy_image_to_file, copy_file_to_image)
-- disks-btrfs operations: 9 operations (subvolume management)
+- storage-btrfs operations: 9 operations (subvolume management)
 - Files refactored: 4 (partitions.rs, filesystems.rs, luks.rs, image.rs)
 - Files verified clean: 2 (btrfs.rs, others)
 - Remaining UDisks2 usage: 3 methods for crypttab management (system config, not encryption)
@@ -1319,8 +1319,8 @@ cargo build --workspace
 
 **Created Abstraction Layers:**
 1. ✅ `storage-sys` crate — Low-level file I/O (image operations)
-2. ✅ `disks-dbus/operations` module — UDisks2 abstraction (15 operations)
-3. ✅ `disks-btrfs` library — BTRFS operations (Phase 1)
+2. ✅ `storage-dbus/operations` module — UDisks2 abstraction (15 operations)
+3. ✅ `storage-btrfs` library — BTRFS operations (Phase 1)
 
 **Refactored Service Files:**
 1. ✅ `storage-service/src/partitions.rs` (6 methods → 100% delegated)
@@ -1332,11 +1332,11 @@ cargo build --workspace
 **Architecture Pattern Achieved:**
 ```
 storage-service (Layer 1: auth + orchestration)
-    ├─→ disks-dbus operations (Layer 2: UDisks2 abstraction)
+    ├─→ storage-dbus operations (Layer 2: UDisks2 abstraction)
     │       └─→ udisks2 daemon (Layer 3: system integration)
     ├─→ storage-sys (Layer 2: file I/O abstraction)
     │       └─→ kernel (Layer 3: direct I/O)
-    └─→ disks-btrfs (Layer 2: BTRFS abstraction)
+    └─→ storage-btrfs (Layer 2: BTRFS abstraction)
             └─→ btrfsutil + CLI (Layer 3: BTRFS tools)
 ```
 
@@ -1369,7 +1369,7 @@ storage-service (Layer 1: auth + orchestration)
 From `plan.md`:
 
 1. ✅ **Create storage-sys crate** — DONE (image I/O operations)
-2. ✅ **Create disks-dbus operations module** — DONE (15 operations)
+2. ✅ **Create storage-dbus operations module** — DONE (15 operations)
 3. ✅ **Refactor all service methods** — DONE (partitions, filesystems, luks encryption, image, btrfs verified)
 4. ✅ **No direct UDisks2 calls in orchestration** — ACHIEVED (only crypttab config remains, which is correct)
 5. ✅ **Pattern: auth → delegate → signal** — ACHIEVED (all refactored methods follow this)
@@ -1391,11 +1391,11 @@ From `plan.md`:
 
 **Date:** 2026-02-14  
 **Status:** Planned (not started)  
-**Scope:** EXPANDED - Complete disks-dbus restructuring
+**Scope:** EXPANDED - Complete storage-dbus restructuring
 
 ### Summary
 
-Based on user feedback, expanded GAP-001.b from "flatten drive/volume" to **complete disks-dbus architectural restructuring**. This addresses all identified inconsistencies and duplications, not just drive and volume models.
+Based on user feedback, expanded GAP-001.b from "flatten drive/volume" to **complete storage-dbus architectural restructuring**. This addresses all identified inconsistencies and duplications, not just drive and volume models.
 
 **Current State:**
 - ✅ `/operations` module uses flat functions (partitions, filesystems, luks) - from GAP-001
@@ -1407,7 +1407,7 @@ Based on user feedback, expanded GAP-001.b from "flatten drive/volume" to **comp
 **Revised Plan:**
 
 1. **Domain-Based Restructuring**
-   - Organize ALL of disks-dbus by domain: `disk/`, `partition/`, `filesystem/`, `encryption/`, `image/`, `smart/`, `lvm/`, `gpt/`, `manager/`, `volume/`, `util/`
+   - Organize ALL of storage-dbus by domain: `disk/`, `partition/`, `filesystem/`, `encryption/`, `image/`, `smart/`, `lvm/`, `gpt/`, `manager/`, `volume/`, `util/`
    - Delete `/operations/` folder - merge into domain modules
    - Delete `/disks/drive/` folder - merge into `disk/`
    - Delete `/disks/volume_model/` folder - merge into domain modules
@@ -1430,7 +1430,7 @@ Based on user feedback, expanded GAP-001.b from "flatten drive/volume" to **comp
 
 **Benefits:**
 - Eliminates ~20 duplicate operations (single implementation each)
-- Architectural consistency across 100% of disks-dbus
+- Architectural consistency across 100% of storage-dbus
 - Better discoverability (domain-based organization)
 - Easier testing (flat functions, no model construction)
 - Clear separation: models = data, operations = behavior
@@ -1453,7 +1453,7 @@ Based on user feedback, expanded GAP-001.b from "flatten drive/volume" to **comp
 - `/operations/` folder will be **deleted** (not kept alongside new structure)
 - Folder names simplified: `disk/` not `drive_ops/`, `partition/` not `volume_ops/partition`
 - Comprehensive duplicate resolution with decision matrix
-- Covers ALL of disks-dbus, not just drive/volume
+- Covers ALL of storage-dbus, not just drive/volume
 
 See [GAP-001.b.md](GAP-001.b.md) for complete 1,050-line specification.
 

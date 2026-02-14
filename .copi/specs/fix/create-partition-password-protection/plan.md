@@ -9,11 +9,11 @@ The UI exposes a **Password protected** checkbox and passphrase fields in the cr
 
 Evidence (current behavior):
 - UI collects the flag + passphrase via `CreatePartitionInfo`: `password_protected`, `password`, `confirmed_password`.
-  - `disks-ui/src/ui/dialogs/view/partition.rs`
-  - `disks-ui/src/ui/volumes/update/create.rs`
-  - `disks-dbus/src/disks/create_partition_info.rs`
+  - `storage-ui/src/ui/dialogs/view/partition.rs`
+  - `storage-ui/src/ui/volumes/update/create.rs`
+  - `storage-dbus/src/disks/create_partition_info.rs`
 - DBus/ops layer always calls UDisks2 `CreatePartitionAndFormat` without any encryption-related options.
-  - `disks-dbus/src/disks/ops.rs` (`RealDiskBackend::create_partition_and_format`, `build_create_partition_and_format_args`)
+  - `storage-dbus/src/disks/ops.rs` (`RealDiskBackend::create_partition_and_format`, `build_create_partition_and_format_args`)
 
 ## Goals
 - When **Password protected** is enabled, creating a partition results in an encrypted LUKS container (discoverable as `VolumeKind::CryptoContainer` after refresh).

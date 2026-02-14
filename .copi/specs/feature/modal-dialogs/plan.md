@@ -36,9 +36,9 @@ The application currently implements dialogs using `cosmic::widget::dialog`, whi
 This represents a gap between the application's current state and parity with established disk utilities like GNOME Disks, where critical operations (partition creation, formatting, etc.) open in proper modal dialogs.
 
 **Referenced Documentation:**
-- Current dialog implementation: [disks-ui/src/ui/dialogs/view/common.rs](../../../disks-ui/src/ui/dialogs/view/common.rs)
-- Dialog state enum: [disks-ui/src/ui/dialogs/state.rs](../../../disks-ui/src/ui/dialogs/state.rs) (17 dialog types)
-- Dialog rendering: [disks-ui/src/ui/app/view.rs](../../../disks-ui/src/ui/app/view.rs#L28-L119)
+- Current dialog implementation: [storage-ui/src/ui/dialogs/view/common.rs](../../../storage-ui/src/ui/dialogs/view/common.rs)
+- Dialog state enum: [storage-ui/src/ui/dialogs/state.rs](../../../storage-ui/src/ui/dialogs/state.rs) (17 dialog types)
+- Dialog rendering: [storage-ui/src/ui/app/view.rs](../../../storage-ui/src/ui/app/view.rs#L28-L119)
 - README V1 goal #1: [README.md](../../../README.md#L26)
 - Related audit finding: [GAP-004 Dialog State Management](.copi/audits/2026-02-06T17-26-25Z.md#L276) (internal refactoring, out of scope here)
 
@@ -169,16 +169,16 @@ pub struct AppModel {
 ### D) Files Likely Touched
 
 **Core application:**
-- `disks-ui/src/ui/app/state.rs` — dialog window tracking
-- `disks-ui/src/ui/app/message.rs` — window spawn/close messages
-- `disks-ui/src/ui/app/update/mod.rs` — window lifecycle handlers
-- `disks-ui/src/ui/app/mod.rs` — Application trait impl (multi-window support)
-- `disks-ui/src/ui/app/view.rs` — remove `fn dialog()` override
+- `storage-ui/src/ui/app/state.rs` — dialog window tracking
+- `storage-ui/src/ui/app/message.rs` — window spawn/close messages
+- `storage-ui/src/ui/app/update/mod.rs` — window lifecycle handlers
+- `storage-ui/src/ui/app/mod.rs` — Application trait impl (multi-window support)
+- `storage-ui/src/ui/app/view.rs` — remove `fn dialog()` override
 
 **Dialog modules:**
-- `disks-ui/src/ui/dialogs/view/*.rs` — adapt all 17 dialog types for window context
-- `disks-ui/src/ui/dialogs/window.rs` (new) — dialog window view dispatcher
-- `disks-ui/src/ui/app/update/dialogs.rs` (new) — dialog window lifecycle helpers
+- `storage-ui/src/ui/dialogs/view/*.rs` — adapt all 17 dialog types for window context
+- `storage-ui/src/ui/dialogs/window.rs` (new) — dialog window view dispatcher
+- `storage-ui/src/ui/app/update/dialogs.rs` (new) — dialog window lifecycle helpers
 
 **Tests:**
 - Update integration tests if they relied on dialog overlay behavior

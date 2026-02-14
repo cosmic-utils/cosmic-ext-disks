@@ -13,36 +13,36 @@ This document breaks down Phase 3 into commit/small-PR sized tasks. Each task sh
 **CRITICAL: Phase 3A Must Complete First**
 
 Phase 3 is split into two major parts:
-- **Phase 3A (Tasks 1-15):** Refactor disks-dbus to use storage-models as return types (PREREQUISITE)
-- **Phase 3B (Tasks 16-72):** Implement D-Bus service that exposes disks-dbus operations
+- **Phase 3A (Tasks 1-15):** Refactor storage-dbus to use storage-models as return types (PREREQUISITE)
+- **Phase 3B (Tasks 16-72):** Implement D-Bus service that exposes storage-dbus operations
 
 **Why Phase 3A is Required:**
-- Current: disks-dbus has DriveModel/VolumeNode → would need conversion to/from storage-models (circular)
-- Correct: storage-models is single source of truth → disks-dbus returns storage-models types directly
+- Current: storage-dbus has DriveModel/VolumeNode → would need conversion to/from storage-models (circular)
+- Correct: storage-models is single source of truth → storage-dbus returns storage-models types directly
 - This eliminates double conversion and creates clean architecture
 
 **Estimated Total:** 72 tasks over 10-12 weeks (15 tasks for Phase 3A, 57 for Phase 3B)
 
 ---
 
-## Phase 3A: Refactor disks-dbus to Use storage-models (Tasks 1-15)
+## Phase 3A: Refactor storage-dbus to Use storage-models (Tasks 1-15)
 
-**Goal:** Make storage-models the single source of truth by having disks-dbus return these types directly.
+**Goal:** Make storage-models the single source of truth by having storage-dbus return these types directly.
 
 ---
 
-## Phase 3A: Refactor disks-dbus to Use storage-models (Tasks 1-15)
+## Phase 3A: Refactor storage-dbus to Use storage-models (Tasks 1-15)
 
-**Goal:** Make storage-models the single source of truth by having disks-dbus return these types directly.
+**Goal:** Make storage-models the single source of truth by having storage-dbus return these types directly.
 
-### Task 1: Analyze Current disks-dbus Models
+### Task 1: Analyze Current storage-dbus Models
 
-**Scope:** Understand what data current disks-dbus types contain
+**Scope:** Understand what data current storage-dbus types contain
 
 **Files:**
-- `disks-dbus/src/disks/drive/model.rs` (read)
-- `disks-dbus/src/disks/volume.rs` (read)
-- `disks-dbus/src/disks/volume_model/mod.rs` (read)
+- `storage-dbus/src/disks/drive/model.rs` (read)
+- `storage-dbus/src/disks/volume.rs` (read)
+- `storage-dbus/src/disks/volume_model/mod.rs` (read)
 
 **Steps:**
 1. Read DriveModel struct - identify all fields
@@ -50,13 +50,13 @@ Phase 3 is split into two major parts:
 3. Read VolumeModel struct - identify all fields
 4. Categorize fields:
    - Pure domain data (device path, size, type, etc.) → goes to storage-models
-   - Connection/proxy handles → internal to disks-dbus
-   - UI state (selection, etc.) → should move to disks-ui later
+   - Connection/proxy handles → internal to storage-dbus
+   - UI state (selection, etc.) → should move to storage-ui later
 5. Create list of types needed in storage-models:
    - DiskInfo (from DriveModel domain fields)
    - VolumeInfo (from Volume Node domain fields)
    - PartitionInfo, FilesystemInfo, etc.
-6. Document which disks-dbus methods need API changes
+6. Document which storage-dbus methods need API changes
 
 **Test Plan:**
 - N/A (analysis task)
@@ -157,7 +157,7 @@ Phase 3 is split into two major parts:
 **Steps:**
 1. Create `Filesystem Info` struct (device, fs_type, label, uuid, mount_points, size, available)
 2. Add `FormatOptions`, `MountOptions`, `CheckResult`, `UnmountResult` structs
-3. Move ProcessInfo and KillResult from disks-dbus to storage-models:
+3. Move ProcessInfo and KillResult from storage-dbus to storage-models:
    - Copy definitions
    - Add `#[derive(Serialize, Deserialize)]`
 4. Create `VolumeGroupInfo`, `LogicalVolumeInfo`, `PhysicalVolumeInfo` for LVM
@@ -206,15 +206,15 @@ Phase 3 is split into two major parts:
 
 ### Task 6: Refactor DiskManager to Return DiskInfo
 
-**Scope:** Update disks-dbus DiskManager to return storage-models types
+**Scope:** Update storage-dbus DiskManager to return storage-models types
 
 **Files:**
-- `disks-dbus/src/disks/manager.rs` (modify)
-- `disks-dbus/src/disks/drive/model.rs` (modify or keep internal)
-- `disks-dbus/Cargo.toml` (add storage-models dep)
+- `storage-dbus/src/disks/manager.rs` (modify)
+- `storage-dbus/src/disks/drive/model.rs` (modify or keep internal)
+- `storage-dbus/Cargo.toml` (add storage-models dep)
 
 **Steps:**
-1. Add `storage-models` workspace dependency to disks-dbus/Cargo.toml
+1. Add `storage-models` workspace dependency to storage-dbus/Cargo.toml
 2. In manager.rs, change method signatures:
    - Before: Returns DriveModel or internal types
    - After: Returns `storage_models::DiskInfo`
@@ -225,7 +225,7 @@ Phase 3 is split into two major parts:
 5. Ensure connection logic stays internal
 
 **Test Plan:**
-- Compile disks-dbus
+- Compile storage-dbus
 - Existing tests still pass (may need updates)
 
 **Done When:**
@@ -245,8 +245,8 @@ Phase 3 is split into two major parts:
 **Scope:** Update Volume Node to return storage-models types
 
 **Files:**
-- `disks-dbus/src/disks/volume.rs` (modify)
-- `disks-dbus/src/disks/volume_model/mod.rs` (modify or remove)
+- `storage-dbus/src/disks/volume.rs` (modify)
+- `storage-dbus/src/disks/volume_model/mod.rs` (modify or remove)
 
 **Steps:**
 1. Change VolumeNode methods to return `storage_models::VolumeInfo`
@@ -254,11 +254,11 @@ Phase 3 is split into two major parts:
    a. Keep VolumeNode internal for tree structure, add conversion to VolumeInfo
    b. Or refactor to use VolumeInfo directly in tree
 3. Update all public methods
-4. Remove or privatize VolumeModel (if it's just UI state, it should move to disks-ui later)
+4. Remove or privatize VolumeModel (if it's just UI state, it should move to storage-ui later)
 5. Ensure tree traversal still works
 
 **Test Plan:**
-- Compile disks-dbus
+- Compile storage-dbus
 - Test volume operations still work
 
 **Done When:**
@@ -268,7 +268,7 @@ Phase 3 is split into two major parts:
 - [x] Created `DriveModel::get_partitions()` public method returning `Vec<PartitionInfo>`
 - [x] Internal implementation works with transitional API
 - [x] Tests pass (workspace compiles, 0 errors)
-- **Status:** ✅ COMPLETE - All conversions implemented, public API methods added. Legacy types temporarily exposed for disks-ui (will remove in Task 12)
+- **Status:** ✅ COMPLETE - All conversions implemented, public API methods added. Legacy types temporarily exposed for storage-ui (will remove in Task 12)
 
 ---
 
@@ -277,7 +277,7 @@ Phase 3 is split into two major parts:
 **Scope:** Refactor partition methods
 
 **Files:**
-- `disks-dbus/src/disks/ops.rs` (modify)
+- `storage-dbus/src/disks/ops.rs` (modify)
 - Partition-related modules
 
 **Steps:**
@@ -301,7 +301,7 @@ Phase 3 is split into two major parts:
 **Scope:** Refactor filesystem methods
 
 **Files:**
-- `disks-dbus/src/disks/` filesystem-related modules
+- `storage-dbus/src/disks/` filesystem-related modules
 
 **Steps:**
 1. Change filesystem listing to return `Vec<storage_models::FilesystemInfo>`
@@ -326,7 +326,7 @@ Phase 3 is split into two major parts:
 **Scope:** Refactor LVM methods
 
 **Files:**
-- `disks-dbus/src/disks/lvm.rs` (modify)
+- `storage-dbus/src/disks/lvm.rs` (modify)
 
 **Steps:**
 1. Change LVM listing methods to return storage-models LVM types
@@ -349,7 +349,7 @@ Phase 3 is split into two major parts:
 **Scope:** Refactor encryption methods
 
 **Files:**
-- Encryption-related modules in disks-dbus
+- Encryption-related modules in storage-dbus
 
 **Steps:**
 1. Change LUKS methods to return `storage_models::LuksInfo`
@@ -366,22 +366,22 @@ Phase 3 is split into two major parts:
 
 ---
 
-### Task 12: Update disks-ui to Import from storage-models
+### Task 12: Update storage-ui to Import from storage-models
 
 **⚠️ DEFERRED to Phase 3B Context**
 
 **Scope:** Change UI to use storage-models types
 
 **Original Plan:**
-- Find all imports of disks-dbus types (grep for DriveModel, VolumeNode, etc.)
+- Find all imports of storage-dbus types (grep for DriveModel, VolumeNode, etc.)
 - Change to import from storage-models instead
 - If UI has VolumeModel with app state, update it to wrap `storage_models::VolumeInfo`
-- Update all call sites to match new disks-dbus API
+- Update all call sites to match new storage-dbus API
 
 **Why Deferred:**
 This task creates an awkward hybrid architecture:
 - UI would use storage-models for display (good)
-- But still import disks-dbus DriveModel for operations (requires zbus::Connection)
+- But still import storage-dbus DriveModel for operations (requires zbus::Connection)
 - Violates separation of concerns
 - Will be rewritten when storage-service is implemented
 
@@ -392,8 +392,8 @@ This task creates an awkward hybrid architecture:
    - Service manages zbus connections internally
    - Service returns storage-models types
    - Service exposes operations as D-Bus methods
-3. **Then: Update disks-ui** (combines Tasks 12-15)
-   - Replace `disks-dbus` dependency with storage-service D-Bus client
+3. **Then: Update storage-ui** (combines Tasks 12-15)
+   - Replace `storage-dbus` dependency with storage-service D-Bus client
    - Use only storage-models types
    - Call service D-Bus methods for operations
    - Clean architecture, no hybrid state
@@ -404,13 +404,13 @@ This task creates an awkward hybrid architecture:
 
 ---
 
-### Task 13: Clean Up disks-dbus Public API
+### Task 13: Clean Up storage-dbus Public API
 
 **⚠️ DEFERRED to Phase 3B Context**
 
 **Scope:** Remove or privatize old model types
 
-**Why Deferred:** Same rationale as Task 12 - disks-ui still needs DriveModel for operations until storage-service exists.
+**Why Deferred:** Same rationale as Task 12 - storage-ui still needs DriveModel for operations until storage-service exists.
 
 **Done When:**
 - [ ] Deferred to Phase 3B
@@ -418,11 +418,11 @@ This task creates an awkward hybrid architecture:
 
 ---
 
-### Task 14: Integration Testing of Refactored disks-dbus
+### Task 14: Integration Testing of Refactored storage-dbus
 
 **⚠️ DEFERRED to Phase 3B Context**
 
-**Scope:** Verify refactored disks-dbus works end-to-end
+**Scope:** Verify refactored storage-dbus works end-to-end
 
 **Why Deferred:** Will be tested as part of storage-service integration.
 
@@ -453,10 +453,10 @@ This task creates an awkward hybrid architecture:
 
 **✅ COMPLETE** (2026-02-14) — **Post Phase 3A Architecture Improvement**
 
-**Scope:** Migrate shared constants, enums, and pure utility functions from disks-dbus to storage-models.
+**Scope:** Migrate shared constants, enums, and pure utility functions from storage-dbus to storage-models.
 
 **Rationale:**
-After gap analysis showing disks-ui imports 79 items directly from disks-dbus, discovered that many pure utility functions and constants should live in storage-models for proper architectural separation.
+After gap analysis showing storage-ui imports 79 items directly from storage-dbus, discovered that many pure utility functions and constants should live in storage-models for proper architectural separation.
 
 **Types/Utilities Migrated:**
 
@@ -465,78 +465,78 @@ After gap analysis showing disks-ui imports 79 items directly from disks-dbus, d
 - `pretty_to_bytes(pretty: &str) -> Result<u64>`
 - `get_numeric(bytes: &u64) -> f64`
 - `get_step(bytes: &u64) -> f64`
-- Source: disks-dbus/src/format.rs (now unused)
-- Usage: 20+ call sites in disks-ui
+- Source: storage-dbus/src/format.rs (now unused)
+- Usage: 20+ call sites in storage-ui
 
 **2. Constants** → `storage-models/src/common.rs`
 - `GPT_ALIGNMENT_BYTES: u64 = 1024 * 1024` (1 MiB alignment)
-- Source: disks-dbus/src/disks/gpt.rs
+- Source: storage-dbus/src/disks/gpt.rs
 
 **3. Volume Enums** → `storage-models/src/volume.rs`
-- `VolumeType` (moved from disks-dbus/src/disks/volume_model/mod.rs)
+- `VolumeType` (moved from storage-dbus/src/disks/volume_model/mod.rs)
 - `VolumeKind` (consolidated, already existed in storage-models)
 
 **4. Partition Types** → `storage-models/src/partition.rs`
 - `CreatePartitionInfo` struct (22 fields)
-- Source: disks-dbus/src/disks/create_partition_info.rs (now unused)
+- Source: storage-dbus/src/disks/create_partition_info.rs (now unused)
 
 **5. Partition Type Catalog** → `storage-models/src/partition_types.rs` (NEW MODULE)
 - `PartitionTypeInfoFlags` enum
 - `PartitionTypeInfo` struct
 - Functions: `get_valid_partition_names()`, `get_all_partition_type_infos()`
 - Static data: `PARTITION_TYPES`, `COMMON_GPT_TYPES`, `COMMON_DOS_TYPES`
-- Data loaded from `disks-dbus/data/*.toml` at compile-time
-- Source: disks-dbus/src/partition_types.rs (now unused)
+- Data loaded from `storage-dbus/data/*.toml` at compile-time
+- Source: storage-dbus/src/partition_types.rs (now unused)
 
 **Dependencies Added:**
 - storage-models/Cargo.toml: `anyhow`, `num-format`, `toml`
 
 **Backward Compatibility:**
-- Updated disks-dbus/src/lib.rs to re-export all types from storage_models
+- Updated storage-dbus/src/lib.rs to re-export all types from storage_models
 - Existing code using `disks_dbus::bytes_to_pretty` continues to work
 - Maintains compatibility while centralizing definitions
 
 **Import Path Updates:**
-- disks-dbus/src/disks/mod.rs → uses storage_models types
-- disks-dbus/src/disks/volume.rs → imports VolumeKind from storage_models
-- disks-dbus/src/disks/volume_model/mod.rs → imports VolumeType from storage_models
-- disks-dbus/src/disks/drive/volume_tree.rs → imports VolumeKind from storage_models
+- storage-dbus/src/disks/mod.rs → uses storage_models types
+- storage-dbus/src/disks/volume.rs → imports VolumeKind from storage_models
+- storage-dbus/src/disks/volume_model/mod.rs → imports VolumeType from storage_models
+- storage-dbus/src/disks/drive/volume_tree.rs → imports VolumeKind from storage_models
 
 **Build Results:**
 ```
 ✅ cargo build -p storage-models - 0 errors, 1.89s
-✅ cargo build -p cosmic-ext-disks-dbus - 0 errors, 1.47s (warnings: unused old files)
+✅ cargo build -p cosmic-ext-storage-dbus - 0 errors, 1.47s (warnings: unused old files)
 ✅ cargo build --workspace - 0 errors, 0.80s
 ```
 
 **Architecture Impact:**
 **Before:**
 ```
-disks-ui → disks-dbus (types + D-Bus + utilities)
-storage-service → disks-dbus (types + D-Bus)
+storage-ui → storage-dbus (types + D-Bus + utilities)
+storage-service → storage-dbus (types + D-Bus)
 ```
 
 **After:**
 ```
-disks-ui ─────┐
+storage-ui ─────┐
               ├──→ storage-models (types + utilities)
 storage-service┘          │
                            ↓
-                      disks-dbus (D-Bus adapters only)
+                      storage-dbus (D-Bus adapters only)
 ```
 
 **Benefits:**
 1. Clean dependency graph - UI can import types without D-Bus dependencies
-2. Service isolation - uses storage-models types, not disks-dbus internals
+2. Service isolation - uses storage-models types, not storage-dbus internals
 3. Testability - pure functions can be unit-tested without D-Bus
 4. Future CLI support - can use types independently
 5. Single source of truth - domain types in one place
 
 **Cleanup Completed:**
-- ✅ Removed disks-dbus/src/partition_types.rs (now in storage-models)
-- ✅ Removed disks-dbus/src/format.rs (now in storage-models)
-- ✅ Removed disks-dbus/src/disks/create_partition_info.rs (now in storage-models)
-- ✅ Removed module declarations from disks-dbus
+- ✅ Removed storage-dbus/src/partition_types.rs (now in storage-models)
+- ✅ Removed storage-dbus/src/format.rs (now in storage-models)
+- ✅ Removed storage-dbus/src/disks/create_partition_info.rs (now in storage-models)
+- ✅ Removed module declarations from storage-dbus
 
 **Done When:**
 - [x] Format utilities moved to storage-models/src/common.rs
@@ -546,8 +546,8 @@ storage-service┘          │
 - [x] Partition type catalog created in new storage-models/src/partition_types.rs
 - [x] TOML data loading at compile-time working
 - [x] Dependencies added (anyhow, num-format, toml)
-- [x] Re-exports added to disks-dbus for backward compatibility
-- [x] All import paths updated in disks-dbus modules
+- [x] Re-exports added to storage-dbus for backward compatibility
+- [x] All import paths updated in storage-dbus modules
 - [x] Full workspace compiles with 0 errors
 - [x] Documentation updated in implementation-log.md
 
@@ -557,7 +557,7 @@ storage-service┘          │
 
 ## Phase 3A Summary
 
-**Goal:** Make storage-models the single source of truth by having disks-dbus return these types directly.
+**Goal:** Make storage-models the single source of truth by having storage-dbus return these types directly.
 
 **Status:** ✅ **COMPLETE** (Tasks 1-11 core implementation + Task 15 documentation + Additional type migration)
 
@@ -575,32 +575,32 @@ storage-service┘          │
 11. ✅ **Additional:** Shared types & utilities migration (format utilities, constants, partition catalog)
 
 ### Additional Architecture Improvements (Beyond Original Spec)
-- ✅ **Type Migration:** Moved shared constants, enums, utilities from disks-dbus → storage-models
+- ✅ **Type Migration:** Moved shared constants, enums, utilities from storage-dbus → storage-models
   - Format utilities: `bytes_to_pretty`, `pretty_to_bytes`, `get_numeric`, `get_step`
   - Constants: `GPT_ALIGNMENT_BYTES`
   - Enums: `VolumeType`, `VolumeKind` (consolidated)
   - Partition types: `CreatePartitionInfo`, partition type catalog
 - ✅ **Partition Type Catalog:** New storage-models/src/partition_types.rs module
-  - Compile-time TOML loading from disks-dbus/data/*.toml
+  - Compile-time TOML loading from storage-dbus/data/*.toml
   - Static catalogs: `COMMON_GPT_TYPES`, `COMMON_DOS_TYPES`
   - Functions: `get_valid_partition_names()`, `get_all_partition_type_infos()`
-- ✅ **Backward Compatibility:** Re-exports in disks-dbus maintain existing API
-- ✅ **Clean Layering:** storage-models (types+utils) → disks-dbus (D-Bus adapters) → storage-service
+- ✅ **Backward Compatibility:** Re-exports in storage-dbus maintain existing API
+- ✅ **Clean Layering:** storage-models (types+utils) → storage-dbus (D-Bus adapters) → storage-service
 
 ### Build Verification
 ```
 ✅ cargo check --workspace - SUCCESS (0.80s)
 ✅ storage-models: 0 errors
-✅ disks-dbus: 0 errors (warnings: old unused files - cleanup deferred)
+✅ storage-dbus: 0 errors (warnings: old unused files - cleanup deferred)
 ✅ storage-service: 0 errors
-✅ disks-ui: 0 errors
+✅ storage-ui: 0 errors
 ```
 
 ### Architecture Result
 ```
 UDisks2 D-Bus API
     ↓
-disks-dbus (internal: DriveModel/VolumeNode + public: storage-models)
+storage-dbus (internal: DriveModel/VolumeNode + public: storage-models)
     ├─ get_drives() → Vec<DriveModel> (operational)
     ├─ get_disks() → Vec<DiskInfo> (display/transport)
     └─ Re-exports: types, utilities, constants from storage-models
@@ -621,7 +621,7 @@ Ready for Phase 3B: storage-service D-Bus interface
 
 ## Phase 3B: Implement Storage Service D-Bus Interface (Tasks 16-72)
 
-**Prerequisites:** Phase 3A complete ✅ (disks-dbus returns storage-models types)
+**Prerequisites:** Phase 3A complete ✅ (storage-dbus returns storage-models types)
 
 **Status:** IN PROGRESS (Tasks 16-17 complete)
 
@@ -631,19 +631,19 @@ Ready for Phase 3B: storage-service D-Bus interface
 
 **Goal:** Expose disk discovery and SMART operations via storage-service D-Bus interface
 
-### Task 16: Integrate disks-dbus into storage-service ✅
+### Task 16: Integrate storage-dbus into storage-service ✅
 
-**Scope:** Add disks-dbus dependency and setup
+**Scope:** Add storage-dbus dependency and setup
 
 **Files:**
 - `storage-service/Cargo.toml` (update)
 - `storage-service/src/lib.rs` (if needed)
 
 **Steps:**
-1. Add `disks-dbus` to storage-service dependencies
-2. Add workspace dependency for `disks-dbus` in root Cargo.toml if not present
-3. Verify disks-dbus re-exports needed types (DiskManager, DeviceEventStream, etc.)
-4. Create helper module for converting disks-dbus types → storage-models types
+1. Add `storage-dbus` to storage-service dependencies
+2. Add workspace dependency for `storage-dbus` in root Cargo.toml if not present
+3. Verify storage-dbus re-exports needed types (DiskManager, DeviceEventStream, etc.)
+4. Create helper module for converting storage-dbus types → storage-models types
 5. Test that DiskManager can be instantiated from storage-service
 
 **Test Plan:**
@@ -652,7 +652,7 @@ Ready for Phase 3B: storage-service D-Bus interface
 - Verify conversion helpers work
 
 **Done When:**
-- [x] disks-dbus dependency added (already present)
+- [x] storage-dbus dependency added (already present)
 - [x] Can create DiskManager instance
 - [x] Conversion helpers defined (use Phase 3A From impls)
 - [x] No build errors
@@ -685,22 +685,22 @@ Ready for Phase 3B: storage-service D-Bus interface
 **Test Plan:**
 - `busctl call ... ListDisks` returns JSON array
 - Verify all system disks appear in output
-- Compare with direct disks-dbus usage (should be identical data)
+- Compare with direct storage-dbus usage (should be identical data)
 - Test on system with NVMe, SATA, USB devices
 
 **Done When:**
 - [x] ListDisks() D-Bus method callable
-- [x] Returns accurate disk information (same as disks-dbus)
+- [x] Returns accurate disk information (same as storage-dbus)
 - [x] JSON format matches DiskInfo schema
 - [x] Works with multiple disk types
 - [x] GetDiskInfo() also implemented for single disk lookup
 - **Status:** ✅ COMPLETE
 
 ---
-1. Find all imports of disks-dbus types (grep for DriveModel, VolumeNode, etc.)
+1. Find all imports of storage-dbus types (grep for DriveModel, VolumeNode, etc.)
 2. Change to import from storage-models instead
 3. If UI has VolumeModel with app state, update it to wrap `storage_models::VolumeInfo`
-4. Update all call sites to match new disks-dbus API
+4. Update all call sites to match new storage-dbus API
 
 **Test Plan:**
 - UI compiles
@@ -709,29 +709,29 @@ Ready for Phase 3B: storage-service D-Bus interface
 
 **Done When:**
 - [ ] UI uses storage-models types
-- [ ] No direct imports of old disks-dbus model types
+- [ ] No direct imports of old storage-dbus model types
 - [ ] UI compiles and runs
 - [ ] All disk operations work
 
 ---
 
-### Task 13: Clean Up disks-dbus Public API
+### Task 13: Clean Up storage-dbus Public API
 
 **Scope:** Remove or privatize old model types
 
 **Files:**
-- `disks-dbus/src/disks/mod.rs` (update exports)
-- Various disks-dbus modules
+- `storage-dbus/src/disks/mod.rs` (update exports)
+- Various storage-dbus modules
 
 **Steps:**
-1. Review what's still exported from disks-dbus
+1. Review what's still exported from storage-dbus
 2. Remove exports of DriveModel, VolumeModel if not needed
 3. Or mark as deprecated/internal
 4. Ensure only storage-models types in public API
-5. Update disks-dbus README if exists
+5. Update storage-dbus README if exists
 
 **Test Plan:**
-- disks-dbus compiles
+- storage-dbus compiles
 - Only intended types are public
 
 **Done When:**
@@ -741,15 +741,15 @@ Ready for Phase 3B: storage-service D-Bus interface
 
 ---
 
-### Task 14: Integration Testing of Refactored disks-dbus
+### Task 14: Integration Testing of Refactored storage-dbus
 
-**Scope:** Verify refactored disks-dbus works end-to-end
+**Scope:** Verify refactored storage-dbus works end-to-end
 
 **Files:**
-- Test suites in disks-dbus and disks-ui
+- Test suites in storage-dbus and storage-ui
 
 **Steps:**
-1. Run all disks-dbus tests
+1. Run all storage-dbus tests
 2. Run UI in test environment
 3. Test all major operations:
    - List disks
@@ -764,7 +764,7 @@ Ready for Phase 3B: storage-service D-Bus interface
 - Manual testing shows no regressions
 
 **Done When:**
-- [ ] All disks-dbus tests pass
+- [ ] All storage-dbus tests pass
 - [ ] UI functional testing complete
 - [ ] No regressions identified
 - [ ] Data integrity verified
@@ -777,14 +777,14 @@ Ready for Phase 3B: storage-service D-Bus interface
 
 **Files:**
 - `storage-models/README.md` (create or update)
-- `disks-dbus/README.md` (update)
+- `storage-dbus/README.md` (update)
 - Implementation log
 
 **Steps:**
 1. Document storage-models public API
 2. Add examples of each type
-3. Update disks-dbus README to reflect new architecture
-4. Document that disks-dbus returns storage-models types
+3. Update storage-dbus README to reflect new architecture
+4. Document that storage-dbus returns storage-models types
 5. Update implementation log with Phase 3A completion
 6. Create summary of changes for review
 
@@ -794,7 +794,7 @@ Ready for Phase 3B: storage-service D-Bus interface
 
 **Done When:**
 - [ ] storage-models API documented
-- [ ] disks-dbus architecture documented
+- [ ] storage-dbus architecture documented
 - [ ] Implementation log updated
 - [ ] Ready to start Phase 3B
 
@@ -802,23 +802,23 @@ Ready for Phase 3B: storage-service D-Bus interface
 
 ## Phase 3B.1: Disk Discovery D-Bus Service (Tasks 16-23)
 
-**Prerequisites:** Phase 3A complete (disks-dbus returns storage-models types)
+**Prerequisites:** Phase 3A complete (storage-dbus returns storage-models types)
 
 **Goal:** Expose disk discovery and SMART operations via storage-service D-Bus interface
 
-### Task 16: Integrate disks-dbus into storage-service
+### Task 16: Integrate storage-dbus into storage-service
 
-**Scope:** Add disks-dbus dependency and setup
+**Scope:** Add storage-dbus dependency and setup
 
 **Files:**
 - `storage-service/Cargo.toml` (update)
 - `storage-service/src/lib.rs` (if needed)
 
 **Steps:**
-1. Add `disks-dbus` to storage-service dependencies
-2. Add workspace dependency for `disks-dbus` in root Cargo.toml if not present
-3. Verify disks-dbus re-exports needed types (DiskManager, DeviceEventStream, etc.)
-4. Create helper module for converting disks-dbus types → storage-models types
+1. Add `storage-dbus` to storage-service dependencies
+2. Add workspace dependency for `storage-dbus` in root Cargo.toml if not present
+3. Verify storage-dbus re-exports needed types (DiskManager, DeviceEventStream, etc.)
+4. Create helper module for converting storage-dbus types → storage-models types
 5. Test that DiskManager can be instantiated from storage-service
 
 **Test Plan:**
@@ -827,7 +827,7 @@ Ready for Phase 3B: storage-service D-Bus interface
 - Verify conversion helpers work
 
 **Done When:**
-- [x] disks-dbus dependency added
+- [x] storage-dbus dependency added
 - [x] Can create DiskManager instance
 - [x] Conversion helpers defined
 - [x] No build errors
@@ -861,12 +861,12 @@ Ready for Phase 3B: storage-service D-Bus interface
 **Test Plan:**
 - `busctl call ... ListDisks` returns JSON array
 - Verify all system disks appear in output
-- Compare with direct disks-dbus usage (should be identical data)
+- Compare with direct storage-dbus usage (should be identical data)
 - Test on system with NVMe, SATA, USB devices
 
 **Done When:**
 - [x] ListDisks() D-Bus method callable
-- [x] Returns accurate disk information (same as disks-dbus)
+- [x] Returns accurate disk information (same as storage-dbus)
 - [x] JSON format matches DiskInfo schema
 - [x] Works with multiple disk types
 
@@ -1577,12 +1577,12 @@ Ready for Phase 3B: storage-service D-Bus interface
 1. Add `unmount(device_or_mount: String, force: bool, kill_processes: bool)` method
 2. Check Polkit: `filesystems-mount` (or `filesystems-kill-processes` if kill_processes=true)
 3. Get mount point from device (if device path provided)
-4. Wrap VolumeNode unmount operation from disks-dbus
+4. Wrap VolumeNode unmount operation from storage-dbus
 5. If unmount fails with EBUSY:
-   a. Call `find_processes_using_mount()` from disks-dbus
+   a. Call `find_processes_using_mount()` from storage-dbus
    b. If kill_processes=true:
       - Check Polkit: `filesystems-kill-processes`
-      - Call `kill_processes()` from disks-dbus
+      - Call `kill_processes()` from storage-dbus
       - Retry unmount
    c. If kill_processes=false:
       - Return UnmountResult with success=false and blocking_processes list
@@ -1619,7 +1619,7 @@ Ready for Phase 3B: storage-service D-Bus interface
 1. Add `get_blocking_processes(device_or_mount: String)` method
 2. Check Polkit: `filesystems-read`
 3. Get mount point from device (if device path provided)
-4. Call `find_processes_using_mount()` from disks-dbus
+4. Call `find_processes_using_mount()` from storage-dbus
 5. Convert Vec<ProcessInfo> to JSON
 6. Return JSON string
 
@@ -1649,7 +1649,7 @@ Ready for Phase 3B: storage-service D-Bus interface
 **Steps:**
 1. Add `kill_processes(pids: Vec<i32>)` method
 2. Check Polkit: `filesystems-kill-processes` (auth_admin_keep)
-3. Call `kill_processes()` from disks-dbus
+3. Call `kill_processes()` from storage-dbus
 4. Convert Vec<KillResult> to JSON
 5. Return JSON string
 6. Add Polkit action: `filesystems-kill-processes`
@@ -2352,8 +2352,8 @@ Ready for Phase 3B: storage-service D-Bus interface
 **Scope:** D-Bus client wrapper for disk operations
 
 **Files:**
-- `disks-ui/src/client/disks.rs` (new)
-- `disks-ui/src/client/mod.rs` (update)
+- `storage-ui/src/client/disks.rs` (new)
+- `storage-ui/src/client/mod.rs` (update)
 
 **Steps:**
 1. Create `disks.rs` with `DisksClient` struct
@@ -2382,8 +2382,8 @@ Ready for Phase 3B: storage-service D-Bus interface
 **Scope:** D-Bus client for partition operations
 
 **Files:**
-- `disks-ui/src/client/partitions.rs` (new)
-- `disks-ui/src/client/mod.rs` (update)
+- `storage-ui/src/client/partitions.rs` (new)
+- `storage-ui/src/client/mod.rs` (update)
 
 **Steps:**
 1. Create `partitions.rs` with `PartitionsClient` struct
@@ -2411,8 +2411,8 @@ Ready for Phase 3B: storage-service D-Bus interface
 **Scope:** D-Bus client for filesystem operations
 
 **Files:**
-- `disks-ui/src/client/filesystems.rs` (new)
-- `disks-ui/src/client/mod.rs` (update)
+- `storage-ui/src/client/filesystems.rs` (new)
+- `storage-ui/src/client/mod.rs` (update)
 
 **Steps:**
 1. Create `filesystems.rs` with `FilesystemsClient` struct
@@ -2440,8 +2440,8 @@ Ready for Phase 3B: storage-service D-Bus interface
 **Scope:** D-Bus client for LVM operations
 
 **Files:**
-- `disks-ui/src/client/lvm.rs` (new)
-- `disks-ui/src/client/mod.rs` (update)
+- `storage-ui/src/client/lvm.rs` (new)
+- `storage-ui/src/client/mod.rs` (update)
 
 **Steps:**
 1. Create `lvm.rs` with `LvmClient` struct
@@ -2468,8 +2468,8 @@ Ready for Phase 3B: storage-service D-Bus interface
 **Scope:** D-Bus client for encryption operations
 
 **Files:**
-- `disks-ui/src/client/encryption.rs` (new)
-- `disks-ui/src/client/mod.rs` (update)
+- `storage-ui/src/client/encryption.rs` (new)
+- `storage-ui/src/client/mod.rs` (update)
 
 **Steps:**
 1. Create `encryption.rs` with `EncryptionClient` struct
@@ -2677,11 +2677,11 @@ Ready for Phase 3B: storage-service D-Bus interface
 - **Tasks:** 63-67 (5/5 complete)
 - **Status:** All client wrappers implemented
 - **Client Files:**
-  - [disks-ui/src/client/disks.rs](disks-ui/src/client/disks.rs) - DisksClient
-  - [disks-ui/src/client/partitions.rs](disks-ui/src/client/partitions.rs) - PartitionsClient
-  - [disks-ui/src/client/filesystems.rs](disks-ui/src/client/filesystems.rs) - FilesystemsClient
-  - [disks-ui/src/client/lvm.rs](disks-ui/src/client/lvm.rs) - LvmClient
-  - [disks-ui/src/client/luks.rs](disks-ui/src/client/luks.rs) - LuksClient
+  - [storage-ui/src/client/disks.rs](storage-ui/src/client/disks.rs) - DisksClient
+  - [storage-ui/src/client/partitions.rs](storage-ui/src/client/partitions.rs) - PartitionsClient
+  - [storage-ui/src/client/filesystems.rs](storage-ui/src/client/filesystems.rs) - FilesystemsClient
+  - [storage-ui/src/client/lvm.rs](storage-ui/src/client/lvm.rs) - LvmClient
+  - [storage-ui/src/client/luks.rs](storage-ui/src/client/luks.rs) - LuksClient
 - **Pattern:** Each client wraps D-Bus proxy with type-safe async methods
 - **Signal Access:** Via `client.proxy()` accessor for direct signal subscriptions
 - **Error Handling:** ClientError enum with conversion from zbus::Error
@@ -2762,7 +2762,7 @@ Ready for Phase 3B: storage-service D-Bus interface
 
 **Phase 3 Complete When:**
 - ✅ All 72 tasks completed (15 Phase 3A refactoring + 57 Phase 3B implementation)
-- ✅ Phase 3A: disks-dbus refactored to return storage-models types
+- ✅ Phase 3A: storage-dbus refactored to return storage-models types
 - ✅ Phase 3B: All D-Bus methods callable and working
 - ✅ All client wrappers implemented
 - ✅ Integration tests passing

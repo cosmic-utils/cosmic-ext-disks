@@ -4,7 +4,7 @@ Branch: feature/volume-commands-actionbar
 Source: Brief (2026-01-25)
 
 ## Context
-The Volumes view currently supports a small subset of actions (mount/unmount, unlock/lock for LUKS containers, delete). Several volume-level operations exist as stubs in the DBus layer (`VolumeModel` methods in `disks-dbus/src/disks/partition.rs`) and are not represented in the UI.
+The Volumes view currently supports a small subset of actions (mount/unmount, unlock/lock for LUKS containers, delete). Several volume-level operations exist as stubs in the DBus layer (`VolumeModel` methods in `storage-dbus/src/disks/partition.rs`) and are not represented in the UI.
 
 This spec adds a consistent “volume commands” actionbar (buttons with tooltips) under the volumes list/tiles, and implements the missing command plumbing end-to-end:
 - UI action buttons + dialogs
@@ -36,7 +36,7 @@ This spec adds a consistent “volume commands” actionbar (buttons with toolti
 
 ## Proposed Approach
 ### 1) UI: add Volume Commands actionbar
-- In `disks-ui/src/views/volumes.rs`, extend the existing action bar row to:
+- In `storage-ui/src/views/volumes.rs`, extend the existing action bar row to:
   - Continue rendering existing mount/unmount, unlock/lock, delete, create (free space) actions.
   - Add a new group/section for “volume commands” buttons based on the *selected target*:
     - If a child `VolumeNode` is selected, volume commands apply to the child where relevant.
@@ -45,7 +45,7 @@ This spec adds a consistent “volume commands” actionbar (buttons with toolti
 - Add new `VolumesControlMessage` variants for each command and for dialog field updates.
 
 ### 2) Dialogs
-Add new dialog states (likely in `disks-ui/src/app.rs` alongside existing dialogs) and view renderers (in `disks-ui/src/views/dialogs.rs`) for:
+Add new dialog states (likely in `storage-ui/src/app.rs` alongside existing dialogs) and view renderers (in `storage-ui/src/views/dialogs.rs`) for:
 
 **2.1 Format Partition (all `VolumeType`s)**
 - Opens the existing Create Partition dialog UI but in “format existing” mode:
@@ -102,8 +102,8 @@ Add new dialog states (likely in `disks-ui/src/app.rs` alongside existing dialog
   - Warning text: recursive applies ownership to directories and files within.
 - On confirm: call `VolumeModel::take_ownership(recursive)`.
 
-### 3) DBus layer (disks-dbus)
-Implement the currently-stubbed methods in `disks-dbus/src/disks/partition.rs` using the `udisks2` crate proxies:
+### 3) DBus layer (storage-dbus)
+Implement the currently-stubbed methods in `storage-dbus/src/disks/partition.rs` using the `udisks2` crate proxies:
 
 - `edit_partition(partition_type, name, flags)`
   - Use `udisks2::partition::PartitionProxy`:
@@ -132,7 +132,7 @@ Implement the currently-stubbed methods in `disks-dbus/src/disks/partition.rs` u
   - Use `udisks2::encrypted::EncryptedProxy::change_passphrase(current, new, options)`.
 
 ### 4) Partition type list: exhaustive
-- Add a helper in `disks-dbus` to expose the full catalog for a given table type:
+- Add a helper in `storage-dbus` to expose the full catalog for a given table type:
   - Either return `Vec<(id, display_name)>` or a structured list with grouping.
   - Filter out `CreateOnly` types for “Edit Partition” (optional; if included, ensure UDisks errors are handled gracefully).
 - UI dropdown shows the exhaustive list (may include group headings or a flat list).

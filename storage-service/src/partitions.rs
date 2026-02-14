@@ -296,7 +296,7 @@ impl PartitionsHandler {
         // Find partition path from device
         let partition_path = self.find_partition_path(&partition).await?;
 
-        // Delegate to disks-dbus operation
+        // Delegate to storage-dbus operation
         disks_dbus::delete_partition(&partition_path.to_string())
             .await
             .map_err(|e| {
@@ -339,7 +339,7 @@ impl PartitionsHandler {
         // Find partition path
         let partition_path = self.find_partition_path(&partition).await?;
 
-        // Delegate to disks-dbus operation
+        // Delegate to storage-dbus operation
         disks_dbus::resize_partition(&partition_path.to_string(), new_size)
             .await
             .map_err(|e| {
@@ -382,7 +382,7 @@ impl PartitionsHandler {
         // Find partition path
         let partition_path = self.find_partition_path(&partition).await?;
 
-        // Delegate to disks-dbus operation
+        // Delegate to storage-dbus operation
         disks_dbus::set_partition_type(&partition_path.to_string(), &type_id)
             .await
             .map_err(|e| {
@@ -425,7 +425,7 @@ impl PartitionsHandler {
         // Find partition path
         let partition_path = self.find_partition_path(&partition).await?;
 
-        // Delegate to disks-dbus operation
+        // Delegate to storage-dbus operation
         disks_dbus::set_partition_flags(&partition_path.to_string(), flags)
             .await
             .map_err(|e| {
@@ -477,7 +477,7 @@ impl PartitionsHandler {
         // Find partition path
         let partition_path = self.find_partition_path(&partition).await?;
 
-        // Delegate to disks-dbus operation
+        // Delegate to storage-dbus operation
         disks_dbus::set_partition_name(&partition_path.to_string(), &name)
             .await
             .map_err(|e| {

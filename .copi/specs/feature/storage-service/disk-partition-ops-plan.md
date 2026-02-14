@@ -21,20 +21,20 @@ Expand `storage-service` D-Bus daemon to provide comprehensive disk management o
 - **LVM operations**: Volume group and logical volume management
 - **Encryption operations**: LUKS setup, unlock, lock
 
-**Strategy:** Refactor `disks-dbus` to use `storage-models` as its return types, eliminating double conversion. The service then exposes these operations via D-Bus with Polkit authorization.
+**Strategy:** Refactor `storage-dbus` to use `storage-models` as its return types, eliminating double conversion. The service then exposes these operations via D-Bus with Polkit authorization.
 
 **Critical Architectural Decision:**
 - **storage-models** = Single source of truth for ALL domain models (DiskInfo, PartitionInfo, FilesystemInfo, etc.)
-- **disks-dbus** = Thin UDisks2 adapter that returns `storage-models` types directly
+- **storage-dbus** = Thin UDisks2 adapter that returns `storage-models` types directly
   - Refactor existing DriveModel, VolumeNode to use/return storage-models types
   - Internal implementation details can stay, but public API must return storage-models
-- **storage-service** = Receives storage-models from disks-dbus, serializes to JSON for D-Bus transport
-- **disks-ui/VolumeModel** = Optional UI-specific wrapper over storage-models (if needed for app state)
-- Process killing: Expose existing `find_processes_using_mount` and `kill_processes` from disks-dbus
+- **storage-service** = Receives storage-models from storage-dbus, serializes to JSON for D-Bus transport
+- **storage-ui/VolumeModel** = Optional UI-specific wrapper over storage-models (if needed for app state)
+- Process killing: Expose existing `find_processes_using_mount` and `kill_processes` from storage-dbus
 
 **Data Flow (No Double Conversion):**
 ```
-UDisks2 → disks-dbus → storage_models::DiskInfo → storage-service → JSON →
+UDisks2 → storage-dbus → storage_models::DiskInfo → storage-service → JSON →
 client → storage_models::DiskInfo → (optional) UI wrapper
 ```
 
@@ -44,25 +44,25 @@ client → storage_models::DiskInfo → (optional) UI wrapper
 
 **CRITICAL: Phase 3A Must Complete Before Phase 3B**
 
-### Phase 3A: Refactor disks-dbus (2-3 weeks)
+### Phase 3A: Refactor storage-dbus (2-3 weeks)
 
 **This is essential prerequisite work before implementing the D-Bus service.**
 
 1. **Define complete storage-models API:**
-   - Analyze current DriveModel, VolumeNode, and all disks-dbus types
+   - Analyze current DriveModel, VolumeNode, and all storage-dbus types
    - Extract pure domain data (no Connection, no UI state)
    - Create storage-models types: DiskInfo, PartitionInfo, FilesystemInfo, VolumeInfo, LvmInfo, LuksInfo
    - Add serde derives for D-Bus transport
    - Re-export ProcessInfo and KillResult with serde derives
 
-2. **Refactor disks-dbus public API (breaking change):**
+2. **Refactor storage-dbus public API (breaking change):**
    - Change method signatures to return `storage_models::*`
    - Example: `DiskManager::list_disks() → Result<Vec<storage_models::DiskInfo>>`
    - Keep internal DriveModel/VolumeNode if useful, but convert at API boundary
    - Update all public methods in: manager.rs, volume.rs, drive/, ops.rs, etc.
 
-3. **Update disks-ui to use storage-models:**
-   - Import types from storage-models instead of disks-dbus
+3. **Update storage-ui to use storage-models:**
+   - Import types from storage-models instead of storage-dbus
    - Create UI-specific wrappers if needed (e.g., VolumeModel with selection state)
    - This is a refactor of existing code, not new functionality
 
@@ -72,8 +72,8 @@ client → storage_models::DiskInfo → (optional) UI wrapper
    - All tests pass
 
 **Expected Result:**
-- disks-dbus returns storage-models types
-- disks-ui uses storage-models types
+- storage-dbus returns storage-models types
+- storage-ui uses storage-models types
 - storage-service can now use storage-models without conversion
 
 ### Phase 3B: Implement D-Bus Service (After Phase 3A)
@@ -144,13 +144,13 @@ Only after Phase 3A is complete can we proceed with the D-Bus service implementa
 ### Current State
 
 **Phase 1-2 Completed:**
-- ✅ BTRFS operations via `disks-btrfs` library
+- ✅ BTRFS operations via `storage-btrfs` library
 - ✅ D-Bus service architecture established
 - ✅ `storage-models` crate for shared types
 - ✅ Polkit authorization framework
 - ✅ BtrfsClient wrapper in UI
 
-**Existing Infrastructure in disks-dbus:**
+**Existing Infrastructure in storage-dbus:**
 - ✅ Complete UDisks2 integration (BlockProxy, PartitionProxy, FilesystemProxy, etc.)
 - ✅ VolumeNode abstraction (core disk/partition tree structure)
 - ✅ Process finder (identify processes blocking unmount)
@@ -159,42 +159,42 @@ Only after Phase 3A is complete can we proceed with the D-Bus service implementa
 - ✅ LVM support via udisks2 crate
 
 **Current Architectural Issues:**
-- ❌ disks-dbus has its own model types (DriveModel, VolumeNode) separate from storage-models
+- ❌ storage-dbus has its own model types (DriveModel, VolumeNode) separate from storage-models
 - ❌ Would require conversion: DriveModel → DiskInfo → JSON → DiskInfo → DriveModel (circular)
-- ❌ UI still uses `disks-dbus` directly (no privilege separation)
+- ❌ UI still uses `storage-dbus` directly (no privilege separation)
 - ❌ No centralized authorization policy for disk operations
 - ❌ Process killing on busy unmount not exposed via API
 
 **Refactoring Required:**
-- Migrate disks-dbus to use storage-models as return types (DriveModel internals can stay, but return DiskInfo)
+- Migrate storage-dbus to use storage-models as return types (DriveModel internals can stay, but return DiskInfo)
 - This enables clean flow: UDisks2 → storage-models → service → JSON → client → storage-models
 
 ### Architecture Strategy
 
-**Phase 3A: Refactor disks-dbus to Use storage-models (Prerequisite)**
+**Phase 3A: Refactor storage-dbus to Use storage-models (Prerequisite)**
 
-Before implementing the D-Bus service, we must refactor disks-dbus:
+Before implementing the D-Bus service, we must refactor storage-dbus:
 
 1. **Move base models to storage-models:**
    - Define core domain types: DiskInfo, PartitionInfo, FilesystemInfo, VolumeInfo, etc.
    - These are pure data structures (no Connection handles, no async methods)
    - Include all fields currently in DriveModel, VolumeNode that are domain data
 
-2. **Refactor disks-dbus public API:**
+2. **Refactor storage-dbus public API:**
    - Methods return `storage_models::*` types instead of custom types
    - Example: `list_disks() → Vec<storage_models::DiskInfo>` not `Vec<DriveModel>`
    - Internal implementation can keep DriveModel/VolumeNode, but convert at boundary
-   - This is a breaking change for disks-dbus, but necessary for clean architecture
+   - This is a breaking change for storage-dbus, but necessary for clean architecture
 
-3. **UI-specific state moves to disks-ui:**
-   - If current VolumeModel has UI-specific concerns (selection state, UI flags), those stay in disks-ui
-   - Create disks-ui wrapper type if needed: `struct VolumeModel { base: storage_models::VolumeInfo, ui_state: ... }`
+3. **UI-specific state moves to storage-ui:**
+   - If current VolumeModel has UI-specific concerns (selection state, UI flags), those stay in storage-ui
+   - Create storage-ui wrapper type if needed: `struct VolumeModel { base: storage_models::VolumeInfo, ui_state: ... }`
 
 **Phase 3B: Implement D-Bus Service (After Refactor)**
 
 **Service Layer Responsibilities:**
-- Receive storage-models types from disks-dbus (no conversion needed!)
-- Polkit authorization before calling disks-dbus
+- Receive storage-models types from storage-dbus (no conversion needed!)
+- Polkit authorization before calling storage-dbus
 - Serialize storage-models types to JSON for D-Bus transport
 - Deserialize JSON back to storage-models types
 - Progress signals for long operations
@@ -204,7 +204,7 @@ Before implementing the D-Bus service, we must refactor disks-dbus:
 ```
 UDisks2 raw data
     ↓
-disks-dbus (extracts data, creates storage_models::DiskInfo)
+storage-dbus (extracts data, creates storage_models::DiskInfo)
     ↓
 storage-service (receives storage_models::DiskInfo, serializes to JSON)
     ↓
@@ -212,7 +212,7 @@ D-Bus (JSON string transport)
     ↓
 client (deserializes JSON to storage_models::DiskInfo)
     ↓
-disks-ui (uses storage_models::DiskInfo directly, or wraps in VolumeModel for UI state)
+storage-ui (uses storage_models::DiskInfo directly, or wraps in VolumeModel for UI state)
 ```
 
 No circular conversion, storage-models is single source of truth.
@@ -304,21 +304,21 @@ org.cosmic.ext.StorageService
 
 **Architecture Layers:**
 ```
-[disks-ui]
+[storage-ui]
     ↓ uses storage-models types
     ↓ calls D-Bus client
-[D-Bus Client (disks-ui/src/client/)]
+[D-Bus Client (storage-ui/src/client/)]
     ↓ JSON over D-Bus
 [storage-service]
-    ↓ calls disks-dbus
+    ↓ calls storage-dbus
     ↓ receives storage-models types
-[disks-dbus] ← refactored to return storage-models
+[storage-dbus] ← refactored to return storage-models
     ↓ calls UDisks2
 [UDisks2 D-Bus API]
 ```
 
 **Backend Integration:**
-- **disks-dbus** (workspace crate): UDisks2 adapter, returns storage-models types
+- **storage-dbus** (workspace crate): UDisks2 adapter, returns storage-models types
   - Uses udisks2 crate for D-Bus proxies
   - Extracts data from UDisks2 and constructs storage-models types
 - **UDisks2 D-Bus API** (org.freedesktop.UDisks2): System service
@@ -334,14 +334,14 @@ org.cosmic.ext.StorageService
 - `zbus_polkit 5.x`: Authorization (existing)
 - `tokio`: Async runtime (existing)
 - `storage-models`: **Domain model types** (existing, will be expanded)
-- `disks-dbus`: UDisks2 adapter (existing, will be refactored)
-- `udisks2` crate: UDisks2 D-Bus proxies (used by disks-dbus)
+- `storage-dbus`: UDisks2 adapter (existing, will be refactored)
+- `udisks2` crate: UDisks2 D-Bus proxies (used by storage-dbus)
 
 **Data Models (storage-models crate):**
 
 *Note: These are THE domain models, not transport-only types. All layers use these as the canonical representation.*
 
-*Phase 3A will define these by extracting pure domain data from current disks-dbus types (DriveModel, VolumeNode).*
+*Phase 3A will define these by extracting pure domain data from current storage-dbus types (DriveModel, VolumeNode).*
 
 ```rust
 // storage-models/src/disk.rs
@@ -428,7 +428,7 @@ pub struct UnmountResult {
     pub blocking_processes: Vec<ProcessInfo>,
 }
 
-// Re-export from disks-dbus (already exists)
+// Re-export from storage-dbus (already exists)
 pub struct ProcessInfo {
     pub pid: i32,
     pub command: String,
@@ -487,24 +487,24 @@ pub struct LuksInfo {
 ### Phase 3B.1: Disk Discovery & SMART (Week 1-2 after Phase 3A)
 
 **Prerequisites:**
-- Phase 3A complete: disks-dbus returns `storage_models::DiskInfo`
+- Phase 3A complete: storage-dbus returns `storage_models::DiskInfo`
 
 **Objectives:**
-- Expose disks-dbus disk discovery via D-Bus interface
+- Expose storage-dbus disk discovery via D-Bus interface
 - Add Polkit authorization layer
 - Serialize storage-models to JSON for D-Bus transport
 
 **Tasks:**
 1. Create `storage-service/src/handlers/disks.rs`
-2. Instantiate DiskManager from disks-dbus
+2. Instantiate DiskManager from storage-dbus
 3. Implement D-Bus methods that:
-   - Call disks-dbus methods
+   - Call storage-dbus methods
    - Receive `storage_models::DiskInfo` directly (no conversion!)
    - Check Polkit authorization
    - Serialize to JSON for D-Bus response
 4. Implement hotplug monitoring (wrap existing DeviceEventStream)
 5. Add Polkit actions: `disks-read` (allow_active), `disks-modify` (auth_admin_keep)
-6. Create `disks-ui/src/client/disks.rs` D-Bus client wrapper
+6. Create `storage-ui/src/client/disks.rs` D-Bus client wrapper
 7. Write integration tests
 
 **Acceptance Criteria:**
@@ -518,7 +518,7 @@ pub struct LuksInfo {
 ### Phase 3B.2: Partition Management (Week 3-4 after Phase 3A)
 
 **Prerequisites:**
-- Phase 3A complete: disks-dbus returns `storage_models::PartitionInfo`
+- Phase 3A complete: storage-dbus returns `storage_models::PartitionInfo`
 
 **Objectives:**
 - Expose partition operations via D-Bus
@@ -526,11 +526,11 @@ pub struct LuksInfo {
 
 **Tasks:**
 1. Create `storage-service/src/handlers/partitions.rs`
-2. Call disks-dbus partition operations (already return storage-models types)
+2. Call storage-dbus partition operations (already return storage-models types)
 3. Add Polkit checks before operations
 4. Serialize responses to JSON
 5. Emit signals for partition changes
-6. Create `disks-ui/src/client/partitions.rs`
+6. Create `storage-ui/src/client/partitions.rs`
 7. Integration tests
 
 **Acceptance Criteria:**
@@ -545,7 +545,7 @@ pub struct LuksInfo {
 ### Phase 3B.3: Filesystem Operations (Week 5-6 after Phase 3A)
 
 **Prerequisites:**
-- Phase 3A complete: disks-dbus returns `storage_models::FilesystemInfo`
+- Phase 3A complete: storage-dbus returns `storage_models::FilesystemInfo`
 - ProcessInfo and KillResult in storage-models with serde derives
 
 **Objectives:**
@@ -555,16 +555,16 @@ pub struct LuksInfo {
 
 **Tasks:**
 1. Create `storage-service/src/handlers/filesystems.rs`
-2. Call disks-dbus filesystem operations
+2. Call storage-dbus filesystem operations
 3. Implement format operation with progress signals
 4. Implement mount/unmount operations
-5. **Add GetBlockingProcesses() method** (calls find_processes_using_mount from disks-dbus)
-6. **Add KillProcesses() method** (calls kill_processes from disks-dbus)
+5. **Add GetBlockingProcesses() method** (calls find_processes_using_mount from storage-dbus)
+6. **Add KillProcesses() method** (calls kill_processes from storage-dbus)
 7. **Extend Unmount() with kill_processes parameter**
 8. Implement filesystem check/repair
 9. Implement label setting
 10. Add Polkit actions: `filesystems-read`, `filesystems-format`, `filesystems-mount`, `filesystems-kill-processes`
-11. Create `disks-ui/src/client/filesystems.rs`
+11. Create `storage-ui/src/client/filesystems.rs`
 12. Integration tests including busy unmount recovery
 
 **Acceptance Criteria:**
@@ -579,16 +579,16 @@ pub struct LuksInfo {
 ### Phase 3B.4: LVM Operations (Week 7-8 after Phase 3A)
 
 **Prerequisites:**
-- Phase 3A complete: disks-dbus returns `storage_models::LvmInfo` types
+- Phase 3A complete: storage-dbus returns `storage_models::LvmInfo` types
 
 **Objectives:**
 - Expose LVM management via D-Bus
 
 **Tasks:**
 1. Create `storage-service/src/handlers/lvm.rs`
-2. Call disks-dbus LVM operations
+2. Call storage-dbus LVM operations
 3. Add Polkit checks
-4. Create `disks-ui/src/client/lvm.rs`
+4. Create `storage-ui/src/client/lvm.rs`
 5. Integration tests
 
 **Acceptance Criteria:**
@@ -603,16 +603,16 @@ pub struct LuksInfo {
 ### Phase 3B.5: Encryption Support (Week 9-10 after Phase 3A)
 
 **Prerequisites:**
-- Phase 3A complete: disks-dbus returns `storage_models::LuksInfo`
+- Phase 3A complete: storage-dbus returns `storage_models::LuksInfo`
 
 **Objectives:**
 - Expose LUKS encryption operations via D-Bus
 
 **Tasks:**
 1. Create `storage-service/src/handlers/encryption.rs`
-2. Call disks-dbus encryption operations
+2. Call storage-dbus encryption operations
 3. Add Polkit checks
-4. Create `disks-ui/src/client/encryption.rs`
+4. Create `storage-ui/src/client/encryption.rs`
 5. Design passphrase prompt mechanism
 6. Integration tests
 
@@ -690,9 +690,9 @@ impl From<ServiceError> for zbus::fdo::Error {
 }
 ```
 
-**Client Error Types (disks-ui):**
+**Client Error Types (storage-ui):**
 ```rust
-// disks-ui/src/client/error.rs (extend existing)
+// storage-ui/src/client/error.rs (extend existing)
 #[derive(Debug, Error)]
 pub enum ClientError {
     // ... existing variants ...
@@ -953,8 +953,8 @@ pub enum ClientError {
 ## Dependencies
 
 ### Runtime Dependencies
-- **udisks2** (≥2.9.0): Core storage management service (already used by disks-dbus)
-- **disks-dbus** (workspace): Existing UDisks2 integration layer
+- **udisks2** (≥2.9.0): Core storage management service (already used by storage-dbus)
+- **storage-dbus** (workspace): Existing UDisks2 integration layer
 - **smartmontools**: SMART monitoring
 - **e2fsprogs**: ext2/ext3/ext4 tools
 - **xfsprogs**: XFS tools
@@ -965,7 +965,7 @@ pub enum ClientError {
 - **lvm2**: LVM tools
 - **cryptsetup**: LUKS tools
 
-**Note:** Most tools already required by disks-dbus
+**Note:** Most tools already required by storage-dbus
 
 ### Development Dependencies
 - **Rust crates:**
@@ -975,12 +975,12 @@ pub enum ClientError {
   - `serde` (existing)
   - `thiserror` (existing)
   - `storage-models` (existing - will be expanded in Phase 3A)
-  - `disks-dbus` (existing - will be refactored in Phase 3A)
-  - `udisks2` (existing in disks-dbus)
+  - `storage-dbus` (existing - will be refactored in Phase 3A)
+  - `udisks2` (existing in storage-dbus)
   
 **Phase 3A Deliverable:**
 - storage-models contains complete domain model API
-- disks-dbus public methods return storage-models types
+- storage-dbus public methods return storage-models types
 
 ### System Requirements
 - Linux kernel ≥5.10 (modern block layer)
@@ -1174,7 +1174,7 @@ cosmic-ext-disks/
 │   │       └── encryption.rs (Phase 3.5)
 │   └── Cargo.toml
 │
-├── disks-ui/
+├── storage-ui/
 │   ├── src/
 │   │   ├── client/
 │   │   │   ├── mod.rs
@@ -1188,7 +1188,7 @@ cosmic-ext-disks/
 │   │   └── ...
 │   └── Cargo.toml
 │
-└── disks-btrfs/            (existing - Phase 1-2)
+└── storage-btrfs/            (existing - Phase 1-2)
 ```
 
 ---

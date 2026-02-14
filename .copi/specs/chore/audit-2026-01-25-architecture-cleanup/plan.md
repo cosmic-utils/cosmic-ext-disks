@@ -10,8 +10,8 @@ Scope focus: **Abstractions, naming, hierarchy, separation of concerns, file len
 
 The repo is currently functional but concentrated into a few very large “god files” in both the UI and DBus crates:
 
-- UI: `disks-ui/src/app.rs` (~1780 LOC), `disks-ui/src/views/volumes.rs` (~2750 LOC), `disks-ui/src/views/dialogs.rs` (~980 LOC)
-- DBus: `disks-dbus/src/disks/drive.rs` (~1150 LOC), `disks-dbus/src/disks/partition.rs` (~988 LOC), `disks-dbus/src/disks/volume.rs` (~672 LOC), `disks-dbus/src/partition_type.rs` (~2070 LOC)
+- UI: `storage-ui/src/app.rs` (~1780 LOC), `storage-ui/src/views/volumes.rs` (~2750 LOC), `storage-ui/src/views/dialogs.rs` (~980 LOC)
+- DBus: `storage-dbus/src/disks/drive.rs` (~1150 LOC), `storage-dbus/src/disks/partition.rs` (~988 LOC), `storage-dbus/src/disks/volume.rs` (~672 LOC), `storage-dbus/src/partition_type.rs` (~2070 LOC)
 
 This spec proposes a refactor that **does not add new features** and is primarily about reducing coupling, clarifying ownership boundaries, and making changes safer.
 
@@ -38,37 +38,37 @@ This section is the canonical “map” of what moves where. Each node lists:
 - **New name / location**
 - **Notes** (ownership boundary + why)
 
-### UI crate (`disks-ui`)
+### UI crate (`storage-ui`)
 
 | Node | Old | New | Notes |
 |---|---|---|---|
-| App root | `AppModel` in `disks-ui/src/app.rs` | `ui/app/mod.rs` + submodules | Keep `ui/app/mod.rs` as glue; move state/messages/update/view out. |
-| App messages | `enum Message` in `disks-ui/src/app.rs` | `disks-ui/src/ui/app/message.rs` | Conversions (`From<...>`) live next to message types. |
-| App state | `AppModel` fields + dialog fields in `disks-ui/src/app.rs` | `disks-ui/src/ui/app/state.rs` | State-only; no async IO. |
-| App update | `fn update(...)` in `disks-ui/src/app.rs` | `disks-ui/src/ui/app/update.rs` | `match Message` routing; delegates to feature modules. |
-| App view | `fn view(...)` in `disks-ui/src/app.rs` | `disks-ui/src/ui/app/view.rs` | Must be “pure view”: no unwrap-based invariants; no disk IO. |
-| App subscriptions | device + config subscriptions in `disks-ui/src/app.rs` | `disks-ui/src/ui/app/subscriptions.rs` | Encapsulate `DiskManager` wiring and config watch. |
-| Dialog state | `ShowDialog` + dialog state structs in `disks-ui/src/app.rs` | `disks-ui/src/ui/dialogs/state.rs` | Dialog ownership becomes the dialogs module, not AppModel. |
-| Dialog messages | multiple `*DialogMessage` enums in `disks-ui/src/app.rs` | `disks-ui/src/ui/dialogs/message.rs` | Moves dialog message types under dialogs; `Message` wraps them. |
-| Dialog rendering | functions in `disks-ui/src/views/dialogs.rs` | `disks-ui/src/ui/dialogs/view/*.rs` | Split per dialog or per domain (image, format, encryption, etc). |
-| Volumes view+logic | huge file `disks-ui/src/views/volumes.rs` | `disks-ui/src/ui/volumes/{mod.rs,state.rs,message.rs,update.rs,view.rs,actions.rs}` | Separate view/state/update/actions; make message handling composable. |
-| Volumes control | `VolumesControl` in `disks-ui/src/views/volumes.rs` | `disks-ui/src/ui/volumes/state.rs` | Pure state + helpers; no direct `eprintln!`. |
-| Volumes messages | `VolumesControlMessage` + submessages in `disks-ui/src/views/volumes.rs` | `disks-ui/src/ui/volumes/message.rs` | Fix naming typos during migration (see “Naming”). |
-| Segmentation | `compute_disk_segments` in `disks-ui/src/utils/segments.rs` | unchanged (for now) | This is already reasonably cohesive; just update imports if module paths change. |
-| Byte formatting | `disks-ui/src/utils/format.rs` (dup) | remove; import from `disks-dbus` | DBus crate remains canonical; no new shared/common crate. |
+| App root | `AppModel` in `storage-ui/src/app.rs` | `ui/app/mod.rs` + submodules | Keep `ui/app/mod.rs` as glue; move state/messages/update/view out. |
+| App messages | `enum Message` in `storage-ui/src/app.rs` | `storage-ui/src/ui/app/message.rs` | Conversions (`From<...>`) live next to message types. |
+| App state | `AppModel` fields + dialog fields in `storage-ui/src/app.rs` | `storage-ui/src/ui/app/state.rs` | State-only; no async IO. |
+| App update | `fn update(...)` in `storage-ui/src/app.rs` | `storage-ui/src/ui/app/update.rs` | `match Message` routing; delegates to feature modules. |
+| App view | `fn view(...)` in `storage-ui/src/app.rs` | `storage-ui/src/ui/app/view.rs` | Must be “pure view”: no unwrap-based invariants; no disk IO. |
+| App subscriptions | device + config subscriptions in `storage-ui/src/app.rs` | `storage-ui/src/ui/app/subscriptions.rs` | Encapsulate `DiskManager` wiring and config watch. |
+| Dialog state | `ShowDialog` + dialog state structs in `storage-ui/src/app.rs` | `storage-ui/src/ui/dialogs/state.rs` | Dialog ownership becomes the dialogs module, not AppModel. |
+| Dialog messages | multiple `*DialogMessage` enums in `storage-ui/src/app.rs` | `storage-ui/src/ui/dialogs/message.rs` | Moves dialog message types under dialogs; `Message` wraps them. |
+| Dialog rendering | functions in `storage-ui/src/views/dialogs.rs` | `storage-ui/src/ui/dialogs/view/*.rs` | Split per dialog or per domain (image, format, encryption, etc). |
+| Volumes view+logic | huge file `storage-ui/src/views/volumes.rs` | `storage-ui/src/ui/volumes/{mod.rs,state.rs,message.rs,update.rs,view.rs,actions.rs}` | Separate view/state/update/actions; make message handling composable. |
+| Volumes control | `VolumesControl` in `storage-ui/src/views/volumes.rs` | `storage-ui/src/ui/volumes/state.rs` | Pure state + helpers; no direct `eprintln!`. |
+| Volumes messages | `VolumesControlMessage` + submessages in `storage-ui/src/views/volumes.rs` | `storage-ui/src/ui/volumes/message.rs` | Fix naming typos during migration (see “Naming”). |
+| Segmentation | `compute_disk_segments` in `storage-ui/src/utils/segments.rs` | unchanged (for now) | This is already reasonably cohesive; just update imports if module paths change. |
+| Byte formatting | `storage-ui/src/utils/format.rs` (dup) | remove; import from `storage-dbus` | DBus crate remains canonical; no new shared/common crate. |
 
-### DBus crate (`disks-dbus`)
+### DBus crate (`storage-dbus`)
 
 | Node | Old | New | Notes |
 |---|---|---|---|
-| Disk module root | `disks-dbus/src/disks/mod.rs` re-exports many types | `disks-dbus/src/disks/mod.rs` with clearer submodule exports | Keep a stable public API, but stop re-exporting ambiguous aliases. |
-| Drive model | `DriveModel` in `disks-dbus/src/disks/drive.rs` | `disks-dbus/src/disks/drive/{mod.rs,model.rs,discovery.rs,actions.rs,smart.rs,volume_tree.rs}` | Split by responsibility: discovery, actions, SMART, tree building. |
-| Flat volume model (multi-role) | `VolumeModel` in `disks-dbus/src/disks/partition.rs` and alias `pub type PartitionModel = VolumeModel` | Keep **`VolumeModel`** (canonical name) but move to `disks-dbus/src/disks/volume_model.rs` (or `volume_model/mod.rs`); **remove the `PartitionModel` alias** | `VolumeModel` can represent container/partition/filesystem; the alias is what introduces ambiguity. Rename the file/module to match the type. |
-| Volume tree node | `VolumeNode` in `disks-dbus/src/disks/volume.rs` | `disks-dbus/src/disks/volume_tree/node.rs` (name optional) | Separate “tree presentation + nested operations” from flat partition type. |
-| Ops backend | `disks-dbus/src/disks/ops.rs` | `disks-dbus/src/disks/backend/{mod.rs,real.rs,trait.rs}` | Keep `DiskBackend` trait but move + name it as a backend boundary. |
-| Bytestring helpers | duplicated in partition + volume modules | `disks-dbus/src/dbus/bytestring.rs` | Single helper for decode/encode/mountpoint decode; used everywhere. |
-| Partition types catalog | `disks-dbus/src/partition_type.rs` giant array | `disks-dbus/src/partition_types/{mod.rs,gpt.rs,dos.rs}` (Rust modules) | Split by table type as an immediate size/maintainability win; keep a single API surface that merges both.
-| Byte formatting | `disks-dbus/src/format.rs` + UI dup | keep DBus as canonical | No new shared/common crate; UI imports `disks_dbus::bytes_to_pretty` etc. |
+| Disk module root | `storage-dbus/src/disks/mod.rs` re-exports many types | `storage-dbus/src/disks/mod.rs` with clearer submodule exports | Keep a stable public API, but stop re-exporting ambiguous aliases. |
+| Drive model | `DriveModel` in `storage-dbus/src/disks/drive.rs` | `storage-dbus/src/disks/drive/{mod.rs,model.rs,discovery.rs,actions.rs,smart.rs,volume_tree.rs}` | Split by responsibility: discovery, actions, SMART, tree building. |
+| Flat volume model (multi-role) | `VolumeModel` in `storage-dbus/src/disks/partition.rs` and alias `pub type PartitionModel = VolumeModel` | Keep **`VolumeModel`** (canonical name) but move to `storage-dbus/src/disks/volume_model.rs` (or `volume_model/mod.rs`); **remove the `PartitionModel` alias** | `VolumeModel` can represent container/partition/filesystem; the alias is what introduces ambiguity. Rename the file/module to match the type. |
+| Volume tree node | `VolumeNode` in `storage-dbus/src/disks/volume.rs` | `storage-dbus/src/disks/volume_tree/node.rs` (name optional) | Separate “tree presentation + nested operations” from flat partition type. |
+| Ops backend | `storage-dbus/src/disks/ops.rs` | `storage-dbus/src/disks/backend/{mod.rs,real.rs,trait.rs}` | Keep `DiskBackend` trait but move + name it as a backend boundary. |
+| Bytestring helpers | duplicated in partition + volume modules | `storage-dbus/src/dbus/bytestring.rs` | Single helper for decode/encode/mountpoint decode; used everywhere. |
+| Partition types catalog | `storage-dbus/src/partition_type.rs` giant array | `storage-dbus/src/partition_types/{mod.rs,gpt.rs,dos.rs}` (Rust modules) | Split by table type as an immediate size/maintainability win; keep a single API surface that merges both.
+| Byte formatting | `storage-dbus/src/format.rs` + UI dup | keep DBus as canonical | No new shared/common crate; UI imports `disks_dbus::bytes_to_pretty` etc. |
 
 ### Naming + typos to fix as part of migration
 
@@ -115,7 +115,7 @@ This section is the canonical “map” of what moves where. Each node lists:
 - **Risk: refactor breaks message wiring**
   - Mitigation: perform a series of small moves; keep compilation green per task.
 
-- **Risk: public API break in `disks-dbus`**
+- **Risk: public API break in `storage-dbus`**
   - Mitigation: staged rename with temporary `pub use` re-exports and clear removal task.
 
 - **Risk: large diff makes PR review hard**
@@ -123,7 +123,7 @@ This section is the canonical “map” of what moves where. Each node lists:
 
 ## Acceptance Criteria (covers all audit gaps)
 
-- [x] GAP-001 (UI god file): `disks-ui/src/app.rs` is reduced via `ui/app/*` split; no single module remains > ~400 LOC without justification.
+- [x] GAP-001 (UI god file): `storage-ui/src/app.rs` is reduced via `ui/app/*` split; no single module remains > ~400 LOC without justification.
 - [x] GAP-002 (volumes god file): `views/volumes.rs` split into state/message/update/view/actions modules.
 - [x] GAP-003 (dialogs coupling): dialog state + messages moved under `ui/dialogs/*`; dialogs do not depend on volumes message enums.
 - [x] GAP-004 (DriveModel mixing): drive code split by domain (discovery/actions/smart/tree).
@@ -141,13 +141,13 @@ The original scope is implemented, but two UI areas remain significantly oversiz
 
 ### Context
 
-- `disks-ui/src/ui/volumes/update.rs` remains a large, monolithic `match` handler (~1655 LOC).
-- Dialog rendering remains in a large legacy module `disks-ui/src/views/dialogs.rs` (~975 LOC) while dialog state/messages live under `disks-ui/src/ui/dialogs/`.
+- `storage-ui/src/ui/volumes/update.rs` remains a large, monolithic `match` handler (~1655 LOC).
+- Dialog rendering remains in a large legacy module `storage-ui/src/views/dialogs.rs` (~975 LOC) while dialog state/messages live under `storage-ui/src/ui/dialogs/`.
 
 ### Goals
 
-- Split dialog rendering into `disks-ui/src/ui/dialogs/view/*` modules (grouped by domain) and reduce or retire `disks-ui/src/views/dialogs.rs`.
-- Split `VolumesControl::update` handling into focused submodules under `disks-ui/src/ui/volumes/update/` (selection, mount/unmount, encryption, partition ops, dialogs, etc.).
+- Split dialog rendering into `storage-ui/src/ui/dialogs/view/*` modules (grouped by domain) and reduce or retire `storage-ui/src/views/dialogs.rs`.
+- Split `VolumesControl::update` handling into focused submodules under `storage-ui/src/ui/volumes/update/` (selection, mount/unmount, encryption, partition ops, dialogs, etc.).
 
 ### Non-goals
 
@@ -156,6 +156,6 @@ The original scope is implemented, but two UI areas remain significantly oversiz
 
 ### Updated acceptance criteria (addendum)
 
-- [x] `disks-ui/src/ui/volumes/update.rs` becomes a thin dispatcher (or is reduced to < ~400 LOC) with domain-focused submodules.
-- [x] Dialog rendering code lives under `disks-ui/src/ui/dialogs/view/` (or equivalent) and `disks-ui/src/views/dialogs.rs` is either removed or reduced to a compatibility shim.
+- [x] `storage-ui/src/ui/volumes/update.rs` becomes a thin dispatcher (or is reduced to < ~400 LOC) with domain-focused submodules.
+- [x] Dialog rendering code lives under `storage-ui/src/ui/dialogs/view/` (or equivalent) and `storage-ui/src/views/dialogs.rs` is either removed or reduced to a compatibility shim.
 - [x] App view continues to treat views as “pure view” (no IO, no panicking invariants) while importing dialogs from the `ui` hierarchy.

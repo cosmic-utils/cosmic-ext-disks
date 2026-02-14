@@ -14,5 +14,5 @@
 - After confirming the failing system was just in a stale kernel/userspace disk state (fixed via `wipefs -n` + `partprobe`/`partx`/`udevadm settle` and recreating the partition), simplified `Partition.Delete` again: removed retries and verbose debug context, keeping only preserved D-Bus error name/message plus minimal context (device + object path).
 
 - `cargo test --workspace --all-features`
-- `disks-ui/i18n/sv/cosmic_ext_disks.ftl`
+- `storage-ui/i18n/sv/cosmic_ext_disks.ftl`
 - `.copi/specs/fix/luks-delete-preflight/tasks.md`

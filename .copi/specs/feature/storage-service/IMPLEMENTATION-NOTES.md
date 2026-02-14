@@ -1,4 +1,4 @@
-# Implementation Notes for disks-ui Migration
+# Implementation Notes for storage-ui Migration
 
 ## Work Completed So Far
 
@@ -170,7 +170,7 @@ Initialize all clients on app startup, handle connection errors gracefully.
 
 ### Phase 8: Cleanup
 
-1. Remove `disks-dbus` dependency from disks-ui/Cargo.toml
+1. Remove `storage-dbus` dependency from storage-ui/Cargo.toml
 2. Verify no remaining `use disks_dbus::` imports (except maybe DiskError?)
 3. Final integration testing
 
@@ -183,7 +183,7 @@ Initialize all clients on app startup, handle connection errors gracefully.
 
 2. **Error Handling**: ClientError vs DiskError - need unified error handling
 
-3. **Type Mismatches**: storage-models BtrfsSubvolume has String fields where disks-dbus had PathBuf and Uuid
+3. **Type Mismatches**: storage-models BtrfsSubvolume has String fields where storage-dbus had PathBuf and Uuid
 
 4. **Signal Subscriptions**: DisksClient needs additional methods for device events
 

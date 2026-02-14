@@ -5,9 +5,9 @@
 //! This crate defines the single source of truth for all storage domain types.
 //! These models are used throughout the stack:
 //!
-//! - **disks-dbus**: Returns these types directly from its public API
+//! - **storage-dbus**: Returns these types directly from its public API
 //! - **storage-service**: Serializes/deserializes these types for D-Bus transport
-//! - **disks-ui**: Consumes these types, optionally wrapping them for UI state
+//! - **storage-ui**: Consumes these types, optionally wrapping them for UI state
 //!
 //! ## Architecture
 //!

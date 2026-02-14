@@ -1,8 +1,8 @@
-# Type Migration Plan: disks-dbus → storage-models
+# Type Migration Plan: storage-dbus → storage-models
 
 ## Executive Summary
 
-This document maps all uses of `DriveModel`, `VolumeModel`, and `VolumeNode` in disks-ui and proposes the migration strategy to storage-models types with minimal UI-specific wrappers.
+This document maps all uses of `DriveModel`, `VolumeModel`, and `VolumeNode` in storage-ui and proposes the migration strategy to storage-models types with minimal UI-specific wrappers.
 
 **Key Principles:**
 1. **Service returns flat lists** - UI builds hierarchies from `parent_path` references
@@ -15,7 +15,7 @@ This document maps all uses of `DriveModel`, `VolumeModel`, and `VolumeNode` in 
 ## Current Types Overview
 
 ### 1. DriveModel (50+ uses)
-**Source:** `disks-dbus/src/disks/drive/model.rs`
+**Source:** `storage-dbus/src/disks/drive/model.rs`
 
 **Structure:**
 ```rust
@@ -71,7 +71,7 @@ pub struct DriveModel {
 - UI stores `Vec<DriveModel>` in multiple places
 
 ### 2. VolumeNode (43+ uses)
-**Source:** `disks-dbus/src/disks/volume.rs`
+**Source:** `storage-dbus/src/disks/volume.rs`
 
 **Structure:**
 ```rust
@@ -101,7 +101,7 @@ pub struct VolumeNode {
 - Mount/unmount operations (via methods)
 
 ### 3. VolumeModel (23+ uses)
-**Source:** `disks-dbus/src/disks/volume_model/mod.rs`
+**Source:** `storage-dbus/src/disks/volume_model/mod.rs`
 
 **Structure:**
 ```rust
@@ -447,7 +447,7 @@ pub struct PartitionInfo {
 
 ### Phase 1: Add UI Models with Owned Clients
 ```
-disks-ui/src/models/
+storage-ui/src/models/
 ├── mod.rs           # Re-export UiDrive, UiVolume
 ├── drive.rs         # UiDrive with DisksClient
 └── volume.rs        # UiVolume with children array, FilesystemsClient
@@ -515,10 +515,10 @@ async fn after_partition_operation(drive: &mut UiDrive) -> Result<()> {
 
 **Key simplification:** Each model owns its client and knows how to refresh itself!
 
-### Phase 5: Remove disks-dbus Dependency
-- Remove `disks-dbus = { path = "../disks-dbus" }` from `disks-ui/Cargo.toml`
+### Phase 5: Remove storage-dbus Dependency
+- Remove `storage-dbus = { path = "../storage-dbus" }` from `storage-ui/Cargo.toml`
 - Remove all `use disks_dbus::` imports
-- Keep `disks-dbus` as standalone crate for backward compatibility (if needed)
+- Keep `storage-dbus` as standalone crate for backward compatibility (if needed)
 
 ---
 
@@ -592,7 +592,7 @@ impl PartitionsClient {
 ### Helper Functions (UI-Side)
 
 ```rust
-// In disks-ui/src/models/volume.rs
+// In storage-ui/src/models/volume.rs
 
 /// Build volume tree from flat list with parent_path references
 fn build_volume_tree(
@@ -695,8 +695,8 @@ fn build_volume_tree(
 - `storage-models/src/volume.rs`: Added `parent_path: Option<String>` field
 - `storage-models/src/partition.rs`: Renamed `parent_device` → `parent_path`
 - `storage-service/src/disks.rs`: Added `list_volumes()` and `get_volume_info()` methods
-- `disks-dbus/src/disks/volume.rs`: Updated VolumeNode→VolumeInfo conversion
-- `disks-dbus/src/disks/volume_model/mod.rs`: Updated PartitionInfo conversion to use parent_path
+- `storage-dbus/src/disks/volume.rs`: Updated VolumeNode→VolumeInfo conversion
+- `storage-dbus/src/disks/volume_model/mod.rs`: Updated PartitionInfo conversion to use parent_path
 
 **Key Implementation Details:**
 - `list_volumes()` recursively flattens volume trees from all drives, populating parent_path at each level
@@ -705,8 +705,8 @@ fn build_volume_tree(
 - Parent references: partition→disk, unlocked LUKS→locked partition, etc.
 - All changes compile successfully with zero new warnings
 
-### Required New Code (disks-ui) ✅ **PHASE 1 COMPLETE**
-- [x] Create `disks-ui/src/models/` module ✅
+### Required New Code (storage-ui) ✅ **PHASE 1 COMPLETE**
+- [x] Create `storage-ui/src/models/` module ✅
 - [x] Implement `UiDrive` with owned `DisksClient` and `refresh()` ✅
 - [x] Implement `UiVolume` with `children: Vec<UiVolume>` and owned `FilesystemsClient` ✅
 - [x] Implement `build_volume_tree()` helper to construct hierarchy from parent_path ✅
@@ -718,11 +718,11 @@ fn build_volume_tree(
 - [ ] Remove any UDisks2 direct calls from UI code - **PHASE 2**
 
 **Files Created in Phase 1:**
-- `disks-ui/src/models/mod.rs`: Module exports
-- `disks-ui/src/models/ui_drive.rs`: UiDrive with owned DisksClient and PartitionsClient
-- `disks-ui/src/models/ui_volume.rs`: UiVolume with owned FilesystemsClient
-- `disks-ui/src/models/helpers.rs`: build_volume_tree() and validate_tree()
-- `disks-ui/src/client/disks.rs`: Added list_volumes() and get_volume_info() methods
+- `storage-ui/src/models/mod.rs`: Module exports
+- `storage-ui/src/models/ui_drive.rs`: UiDrive with owned DisksClient and PartitionsClient
+- `storage-ui/src/models/ui_volume.rs`: UiVolume with owned FilesystemsClient
+- `storage-ui/src/models/helpers.rs`: build_volume_tree() and validate_tree()
+- `storage-ui/src/client/disks.rs`: Added list_volumes() and get_volume_info() methods
 
 **Key Implementation Details:**
 - UiDrive owns DisksClient and PartitionsClient for independent data refresh
@@ -764,8 +764,8 @@ fn build_volume_tree(
 - [ ] Remove `use disks_dbus::DriveModel`
 - [ ] Remove `use disks_dbus::VolumeModel`
 - [ ] Remove `use disks_dbus::VolumeNode`
-- [ ] Remove disks-dbus dependency from disks-ui/Cargo.toml
-- [ ] Add `storage_models` dependency to disks-ui/Cargo.toml
+- [ ] Remove storage-dbus dependency from storage-ui/Cargo.toml
+- [ ] Add `storage_models` dependency to storage-ui/Cargo.toml
 - [ ] Update imports to use `storage_models::{DiskInfo, VolumeInfo, PartitionInfo}`
 - [ ] Remove any direct zbus/UDisks2 calls from UI code
 
@@ -799,7 +799,7 @@ fn build_volume_tree(
   - ✅ Implemented flat list_volumes() with parent references
   - ✅ Implemented get_volume_info() for atomic updates
   - ✅ Ensured all methods accept device paths (not UDisks2 paths)
-  - ✅ Updated disks-dbus conversions to populate parent_path
+  - ✅ Updated storage-dbus conversions to populate parent_path
 - **Phase 1** (UI Models): ✅ **COMPLETE** (1 day)
   - ✅ Created models/ module with UiDrive, UiVolume, helpers
   - ✅ Implemented owned clients (DisksClient, FilesystemsClient, PartitionsClient)
@@ -866,7 +866,7 @@ fn build_volume_tree(
 
 ### 1. Cleaner Separation of Concerns
 - **storage-service**: Returns flat lists with `parent_path` references, accepts device paths
-- **disks-ui**: Builds trees, owns display logic, manages client lifecycle
+- **storage-ui**: Builds trees, owns display logic, manages client lifecycle
 
 ### 2. Simplified Client Management
 ```rust
@@ -994,7 +994,7 @@ impl Disks {
     
 **UI-Side Tree Building:**
 ```rust
-// In disks-ui - build tree from flat list
+// In storage-ui - build tree from flat list
 async fn build_volume_tree(disk: &str) -> Result<Vec<UiVolume>> {
     let client = DisksClient::new().await?;
     let volumes = client.list_volumes().await?;

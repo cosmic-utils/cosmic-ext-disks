@@ -24,7 +24,7 @@ The Volumes UI supports nested volumes for LUKS containers (cleartext filesystem
 
 ## Proposed Approach
 ### 1) UI: Add “delete preflight” for encrypted containers
-In [disks-ui/src/views/volumes.rs](../../../../disks-ui/src/views/volumes.rs), in the `VolumesControlMessage::Delete` handler:
+In [storage-ui/src/views/volumes.rs](../../../../storage-ui/src/views/volumes.rs), in the `VolumesControlMessage::Delete` handler:
 
 - Determine the selected partition (already available via `Segment.partition`).
 - Determine whether the selected partition corresponds to a `VolumeNode` of kind `CryptoContainer`.
@@ -47,7 +47,7 @@ Still in `VolumesControlMessage::Delete`, replace the `println!("{e}")` + `Messa
 This should apply to all delete failures, not only LUKS.
 
 ### 3) UI: Hide Delete button when a child volume is selected
-In [disks-ui/src/views/volumes.rs](../../../../disks-ui/src/views/volumes.rs), the action bar currently always renders delete for `DiskSegmentKind::Partition`.
+In [storage-ui/src/views/volumes.rs](../../../../storage-ui/src/views/volumes.rs), the action bar currently always renders delete for `DiskSegmentKind::Partition`.
 
 Change the delete-button visibility rules:
 - If a child volume is selected (`self.selected_volume.is_some()` or `selected_child_volume.is_some()`), do not render the delete button.
@@ -83,4 +83,3 @@ This matches the existing UX rule: mount/unmount changes meaning when a child is
 - [x] Delete failures (any partition) show an Info dialog with the error string.
 - [x] When a child filesystem/LV inside a LUKS container is selected, the Delete button is not present in the action bar.
 - [ ] Manual validation: run through unlocked + mounted child, unlocked + unmounted child, and locked container scenarios.
-

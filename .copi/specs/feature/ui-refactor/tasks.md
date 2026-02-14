@@ -2,7 +2,7 @@
 
 ## Task 1: Confirm tree model + categorization rules
 - Scope: make the treeview node types + grouping rules explicit and implementable.
-- Files/areas: `disks-ui/src/ui/app/update/nav.rs` (reference), `disks-dbus` model fields (reference).
+- Files/areas: `storage-ui/src/ui/app/update/nav.rs` (reference), `storage-dbus` model fields (reference).
 - Steps:
   - Define node kinds we will show in the sidebar: Drive/Image/Container/Volume/Partition (and what each maps to in current data).
   - Define initial mapping into sections: Logical / Internal / External / Images.
@@ -17,8 +17,8 @@
 ## Task 2: Add a sidebar tree view module (static prototype)
 - Scope: create a UI component that renders section headers + a treeview row layout.
 - Files/areas:
-  - `disks-ui/src/ui/app/view.rs`
-  - New: `disks-ui/src/ui/sidebar/` (or similar)
+  - `storage-ui/src/ui/app/view.rs`
+  - New: `storage-ui/src/ui/sidebar/` (or similar)
 - Steps:
   - Add new module for sidebar widgets (section headers, tree rows).
   - Implement tree row rendering:
@@ -35,8 +35,8 @@
 ## Task 3: Build the top-level tree from DriveModel list
 - Scope: populate the sidebar from the same drive list used by `Message::UpdateNav`.
 - Files/areas:
-  - `disks-ui/src/ui/app/update/nav.rs`
-  - `disks-ui/src/ui/app/state.rs`
+  - `storage-ui/src/ui/app/update/nav.rs`
+  - `storage-ui/src/ui/app/state.rs`
 - Steps:
   - Introduce sidebar state in `AppModel` (or derive view-model on the fly): sections, nodes, expanded flags.
   - Rebuild top-level nodes (drives/images) on refresh.
@@ -48,9 +48,9 @@
 ## Task 4: Implement expand/collapse + selection semantics
 - Scope: tree interactions without breaking existing navigation behavior.
 - Files/areas:
-  - `disks-ui/src/ui/app/message.rs`
-  - `disks-ui/src/ui/app/update/mod.rs`
-  - `disks-ui/src/ui/sidebar/*`
+  - `storage-ui/src/ui/app/message.rs`
+  - `storage-ui/src/ui/app/update/mod.rs`
+  - `storage-ui/src/ui/sidebar/*`
 - Steps:
   - Add message(s) for toggling expansion per node.
   - Add message(s) for selecting a node.
@@ -63,9 +63,9 @@
 ## Task 5: Add row primary action button (Eject/Unmount)
 - Scope: implement the dedicated trailing action button per row.
 - Files/areas:
-  - `disks-ui/src/ui/app/message.rs`
-  - `disks-ui/src/ui/sidebar/*`
-  - `disks-ui/src/ui/app/update/drive.rs` and/or volumes update handlers
+  - `storage-ui/src/ui/app/message.rs`
+  - `storage-ui/src/ui/sidebar/*`
+  - `storage-ui/src/ui/app/update/drive.rs` and/or volumes update handlers
 - Steps:
   - Add messages for Eject and Unmount actions.
   - Render the primary action conditionally:
@@ -79,10 +79,10 @@
 ## Task 6: Add kebab popup menu mirroring “Disk” menu actions
 - Scope: kebab opens a contextual popup menu with Disk actions.
 - Files/areas:
-  - `disks-ui/src/views/menu.rs` (as the source of truth for actions)
-  - `disks-ui/src/ui/sidebar/*`
-  - `disks-ui/src/ui/app/message.rs`
-  - `disks-ui/src/ui/app/update/drive.rs`
+  - `storage-ui/src/views/menu.rs` (as the source of truth for actions)
+  - `storage-ui/src/ui/sidebar/*`
+  - `storage-ui/src/ui/app/message.rs`
+  - `storage-ui/src/ui/app/update/drive.rs`
 - Steps:
   - Define the menu items to match Disk menu: Eject, Power Off, Format Disk, SMART Data/Self Tests, Standby Now, Wake Up.
   - Implement popup menu UI attached to the kebab button.
@@ -95,9 +95,9 @@
 ## Task 7: Add children under drives (containers/volumes/partitions)
 - Scope: populate the tree beneath a drive with the best-available hierarchy.
 - Files/areas:
-  - `disks-ui/src/ui/volumes/*` (source of current volumes state)
-  - `disks-dbus/src/disks/*` (models)
-  - `disks-ui/src/ui/sidebar/*`
+  - `storage-ui/src/ui/volumes/*` (source of current volumes state)
+  - `storage-dbus/src/disks/*` (models)
+  - `storage-ui/src/ui/sidebar/*`
 - Steps:
   - Decide the minimal viable hierarchy we can build from existing UI state (likely drive → volumes first).
   - Add containers/partitions when the data is available without adding excessive DBus roundtrips.
@@ -110,8 +110,8 @@
 ## Task 8: Remove dependency on built-in nav bar widget (cleanup)
 - Scope: stop rendering `widget::nav_bar(...)` and consolidate to the custom sidebar.
 - Files/areas:
-  - `disks-ui/src/ui/app/view.rs`
-  - `disks-ui/src/ui/app/mod.rs` (nav hooks)
+  - `storage-ui/src/ui/app/view.rs`
+  - `storage-ui/src/ui/app/mod.rs` (nav hooks)
 - Steps:
   - Remove temporary switch.
   - Ensure condensed mode behavior remains acceptable.
@@ -129,8 +129,8 @@
 ## Task 9: Implement split layout for disk page (1/3 header, 2/3 content)
 - Scope: refactor the disk page to use a two-section layout.
 - Files/areas:
-  - `disks-ui/src/views/volumes.rs` (or equivalent disk page view)
-  - `disks-ui/src/ui/app/view.rs` (if changes needed for container/routing)
+  - `storage-ui/src/views/volumes.rs` (or equivalent disk page view)
+  - `storage-ui/src/ui/app/view.rs` (if changes needed for container/routing)
 - Steps:
   - Wrap the current disk page in a `Column` with two sections.
   - Top section: disk header component (new; see Task 10); target ~1/3 of available height using flex or fixed constraints.
@@ -145,8 +145,8 @@
 ## Task 10: Redesign disk info header (icon, name/partitioning/serial, used/total box)
 - Scope: create a new disk header component with the specified layout.
 - Files/areas:
-  - New: `disks-ui/src/ui/volumes/disk_header.rs` (or similar)
-  - `disks-ui/src/views/volumes.rs` (integrate the new header)
+  - New: `storage-ui/src/ui/volumes/disk_header.rs` (or similar)
+  - `storage-ui/src/views/volumes.rs` (integrate the new header)
 - Steps:
   - Implement header row layout:
     - Left: large icon (e.g., 64px; use existing drive icon logic).
@@ -167,8 +167,8 @@
 ## Task 11: Compact the volumes control (reduce height, simplify content)
 - Scope: modify the volumes control to reduce vertical space and remove extraneous elements.
 - Files/areas:
-  - `disks-ui/src/ui/volumes/*` (volumes control components)
-  - `disks-ui/src/views/volumes.rs` (if integration changes needed)
+  - `storage-ui/src/ui/volumes/*` (volumes control components)
+  - `storage-ui/src/views/volumes.rs` (if integration changes needed)
 - Steps:
   - Reduce per-volume row height by ~50%:
     - Remove multi-line text or extra padding.
@@ -192,9 +192,9 @@
 ## Task 12: Add color-coded usage bar below volumes control
 - Scope: implement a horizontal stacked usage bar with a legend.
 - Files/areas:
-  - New: `disks-ui/src/ui/volumes/usage_bar.rs` (or similar)
-  - `disks-ui/src/views/volumes.rs` (integrate below the volumes control)
-  - `disks-ui/src/utils/segments.rs` (if color assignment logic is needed)
+  - New: `storage-ui/src/ui/volumes/usage_bar.rs` (or similar)
+  - `storage-ui/src/views/volumes.rs` (integrate below the volumes control)
+  - `storage-ui/src/utils/segments.rs` (if color assignment logic is needed)
 - Steps:
   - Design the usage bar widget:
     - Render as a horizontal row of colored segments.
@@ -219,10 +219,10 @@
 ## Task 13: Implement volume-specific view in bottom 2/3 area (with action buttons)
 - Scope: add a detail view for the selected volume, including action buttons relocated from the volumes control, with bi-directional selection synchronization.
 - Files/areas:
-  - New: `disks-ui/src/ui/volumes/volume_detail.rs` (or similar)
-  - `disks-ui/src/views/volumes.rs` (integrate into the bottom 2/3 section)
-  - `disks-ui/src/ui/app/message.rs` (if new messages are needed)
-  - `disks-ui/src/ui/sidebar/*` (for treeview selection sync)
+  - New: `storage-ui/src/ui/volumes/volume_detail.rs` (or similar)
+  - `storage-ui/src/views/volumes.rs` (integrate into the bottom 2/3 section)
+  - `storage-ui/src/ui/app/message.rs` (if new messages are needed)
+  - `storage-ui/src/ui/sidebar/*` (for treeview selection sync)
 - Steps:
   - When a volume is selected in the volumes control OR in the treeview, render its detail view in the bottom section:
     - Display volume metadata: name, size, filesystem, mount point, usage, etc.
@@ -270,7 +270,7 @@
 ### Task 15: Fix layout sizing (shrink-to-fit header)
 - Scope: change disk header from fixed 1/3 height to shrink-to-contents; volume detail view fills remaining space.
 - Files/areas:
-  - `disks-ui/src/ui/app/view.rs`
+  - `storage-ui/src/ui/app/view.rs`
 - Steps:
   - Replace `Length::FillPortion(1)` with `Length::Shrink` for disk header container.
   - Ensure volume detail view container uses `Length::Fill` to consume remaining space.
@@ -284,8 +284,8 @@
 ### Task 16: Redesign volume detail header to match disk header layout
 - Scope: volume detail view header should mirror disk header layout, with pie chart instead of icon.
 - Files/areas:
-  - `disks-ui/src/ui/app/view.rs` (volume_detail_view function)
-  - New: `disks-ui/src/ui/volumes/usage_pie.rs` (or similar)
+  - `storage-ui/src/ui/app/view.rs` (volume_detail_view function)
+  - New: `storage-ui/src/ui/volumes/usage_pie.rs` (or similar)
 - Steps:
   - Create a volume detail header component matching disk header layout:
     - Left: thin pie chart showing usage (used vs. free) with "Used / Total" text inside.
@@ -302,7 +302,7 @@
 ### Task 17: Reduce usage bar height to 1/4
 - Scope: make usage bar more compact.
 - Files/areas:
-  - `disks-ui/src/ui/volumes/usage_bar.rs`
+  - `storage-ui/src/ui/volumes/usage_bar.rs`
 - Steps:
   - Reduce bar height to ~1/4 of current height.
   - Adjust legend spacing if needed to maintain readability.
@@ -314,8 +314,8 @@
 ### Task 18: Fix usage metrics calculation
 - Scope: usage bar currently reports total size instead of actual used space.
 - Files/areas:
-  - `disks-ui/src/ui/app/view.rs` (where `used` is calculated)
-  - Possibly `disks-dbus` volume model if usage data is missing.
+  - `storage-ui/src/ui/app/view.rs` (where `used` is calculated)
+  - Possibly `storage-dbus` volume model if usage data is missing.
 - Steps:
   - Investigate why usage calculation sums `volume.size` instead of actual used space.
   - Determine correct field/method to get actual usage per volume.
@@ -330,7 +330,7 @@
 ### Task 19: Fix treeview subitem ordering
 - Scope: treeview subitems should appear in the same order as on disk/volumes control.
 - Files/areas:
-  - `disks-ui/src/ui/sidebar/view.rs`
+  - `storage-ui/src/ui/sidebar/view.rs`
   - Possibly volume data structure if ordering metadata is missing.
 - Steps:
   - Determine correct sort key for volume nodes (likely partition offset or number).
@@ -344,8 +344,8 @@
 ### Task 20: Fix LUKS container selection sync
 - Scope: selecting a LUKS container in volumes control should select corresponding treeview node.
 - Files/areas:
-  - `disks-ui/src/ui/volumes/update/selection.rs`
-  - `disks-ui/src/ui/app/update/mod.rs` (SidebarSelectChild handler)
+  - `storage-ui/src/ui/volumes/update/selection.rs`
+  - `storage-ui/src/ui/app/update/mod.rs` (SidebarSelectChild handler)
 - Steps:
   - Debug why LUKS container selection doesn't trigger treeview sync.
   - Verify segment.volume object_path matches LUKS container node object_path.
@@ -359,10 +359,10 @@
 ### Task 21: Replace menubar with inline disk operation buttons
 - Scope: move disk operations from menubar to inline buttons; reorganize image operations.
 - Files/areas:
-  - `disks-ui/src/views/menu.rs` (remove disk operations)
-  - `disks-ui/src/ui/app/view.rs` (add disk action buttons)
-  - `disks-ui/src/ui/sidebar/view.rs` (add segmented button at bottom)
-  - `disks-ui/src/ui/app/message.rs` (verify message routing)
+  - `storage-ui/src/views/menu.rs` (remove disk operations)
+  - `storage-ui/src/ui/app/view.rs` (add disk action buttons)
+  - `storage-ui/src/ui/sidebar/view.rs` (add segmented button at bottom)
+  - `storage-ui/src/ui/app/message.rs` (verify message routing)
 - Steps:
   - Add disk operation buttons below disk header (or in a dedicated row):
     - Eject, Power Off, Format Disk, SMART Data, Standby, Wakeup.
@@ -391,7 +391,7 @@
 ### Task 22: Enhance usage pie chart styling
 - Scope: make pie chart thicker, show only percentage inside, move Used/Total text below.
 - Files/areas:
-  - `disks-ui/src/ui/volumes/usage_pie.rs`
+  - `storage-ui/src/ui/volumes/usage_pie.rs`
 - Steps:
   - Increase pie chart border width from current to 2x thicker.
   - Display only percentage (e.g., "65%") centered inside the pie circle.
@@ -407,8 +407,8 @@
 ### Task 23: Replace usage bar with pie chart in disk header
 - Scope: disk header should use pie chart instead of text-based usage display; remove usage bar entirely.
 - Files/areas:
-  - `disks-ui/src/ui/volumes/disk_header.rs`
-  - `disks-ui/src/ui/app/view.rs` (remove usage_bar from layout)
+  - `storage-ui/src/ui/volumes/disk_header.rs`
+  - `storage-ui/src/ui/app/view.rs` (remove usage_bar from layout)
 - Steps:
   - Modify disk_header to use usage_pie instead of text box for usage display.
   - Replace right-aligned "Used / Total" info box with pie chart.
@@ -423,7 +423,7 @@
 ### Task 24: Update action buttons to show icon above text label
 - Scope: action buttons should display icon above text label instead of icon-only with tooltip.
 - Files/areas:
-  - `disks-ui/src/ui/app/view.rs` (tooltip_icon_button and all button creation)
+  - `storage-ui/src/ui/app/view.rs` (tooltip_icon_button and all button creation)
 - Steps:
   - Modify button rendering to use column layout: icon on top, text label below.
   - Remove tooltip wrapper (text label makes tooltip redundant).
@@ -439,8 +439,8 @@
 ### Task 25: LUKS container usage should aggregate children
 - Scope: LUKS containers should display sum of children's used space instead of container size.
 - Files/areas:
-  - `disks-dbus/src/disks/volume_model.rs` (or wherever VolumeNode usage is computed)
-  - `disks-ui/src/ui/app/view.rs` (usage calculation for LUKS nodes)
+  - `storage-dbus/src/disks/volume_model.rs` (or wherever VolumeNode usage is computed)
+  - `storage-ui/src/ui/app/view.rs` (usage calculation for LUKS nodes)
 - Steps:
   - Identify where LUKS container usage is calculated/displayed.
   - For LUKS containers with children, sum up children's `usage.used` values.
@@ -455,7 +455,7 @@
 ### Task 26: Rename partition header builders to use "info" terminology
 - Scope: refactor function names from "header" to "info" for volume/partition detail functions.
 - Files/areas:
-  - `disks-ui/src/ui/app/view.rs`
+  - `storage-ui/src/ui/app/view.rs`
 - Steps:
   - Rename `build_volume_node_header()` → `build_volume_node_info()`
   - Rename `build_partition_header()` → `build_partition_info()`
@@ -471,7 +471,7 @@
 ### Task 27: Fix sidebar image button sizing and text wrapping
 - Scope: ensure both "New Disk Image" and "Attach Disk Image" buttons are visible with equal width.
 - Files/areas:
-  - `disks-ui/src/ui/sidebar/view.rs`
+  - `storage-ui/src/ui/sidebar/view.rs`
 - Steps:
   - Reduce text size for sidebar bottom buttons to ensure both fit.
   - Enable text wrapping so button labels wrap to multiple lines if needed.
@@ -493,7 +493,7 @@
 ### Task 28: Fix LUKS usage displaying 0 instead of children's total ✅
 - Scope: LUKS containers still showing 0 usage instead of aggregated child usage.
 - Files/areas:
-  - `disks-ui/src/ui/app/view.rs` (aggregate_children_usage function)
+  - `storage-ui/src/ui/app/view.rs` (aggregate_children_usage function)
 - Steps:
   - Debug why aggregate_children_usage returns 0.
   - Verify children actually have usage data populated.
@@ -507,7 +507,7 @@
 ### Task 29: Re-add "Mounted at:" file explorer link ✅
 - Scope: restore the clickable link to open mount point in file explorer.
 - Files/areas:
-  - `disks-ui/src/ui/app/view.rs` (build_volume_node_info, build_partition_info)
+  - `storage-ui/src/ui/app/view.rs` (build_volume_node_info, build_partition_info)
 - Steps:
   - Re-add link_info() calls for mount point display.
   - Wire up OpenPath message handler if needed.
@@ -522,8 +522,8 @@
 ### Task 30: Multi-partition usage pie with key ✅
 - Scope: pie chart should show breakdown of each partition on disk with legend below.
 - Files/areas:
-  - `disks-ui/src/ui/volumes/usage_pie.rs` (new disk_usage_pie variant)
-  - `disks-ui/src/ui/volumes/disk_header.rs`
+  - `storage-ui/src/ui/volumes/usage_pie.rs` (new disk_usage_pie variant)
+  - `storage-ui/src/ui/volumes/disk_header.rs`
 - Steps:
   - Create disk_usage_pie() function showing multi-segment pie chart.
   - Each partition gets distinct color segment proportional to size.
@@ -540,7 +540,7 @@
 ### Task 31: Shorten action button text labels ✅
 - Scope: make button labels more concise and context-appropriate.
 - Files/areas:
-  - `disks-ui/src/ui/app/view.rs` (all action_button calls)
+  - `storage-ui/src/ui/app/view.rs` (all action_button calls)
 - Proposed shortenings:
   - "Mount / Unmount" → "Mount" or "Unmount" (context-dependent)
   - "Format Partition" → "Format"
@@ -568,7 +568,7 @@
 ### Task 32: Uniform action button sizing ✅
 - Scope: all action buttons should have same width and height.
 - Files/areas:
-  - `disks-ui/src/ui/app/view.rs` (action_button function)
+  - `storage-ui/src/ui/app/view.rs` (action_button function)
 - Steps:
   - Set consistent width for all buttons (e.g., Length::Fixed(80) or similar).
   - Ensure icon and text layout fits within fixed width.
@@ -583,7 +583,7 @@
 ### Task 33: Horizontal action button layout (icon beside text) ✅
 - Scope: change button layout from vertical (icon above text) to horizontal (icon beside text).
 - Files/areas:
-  - `disks-ui/src/ui/app/view.rs` (action_button function)
+  - `storage-ui/src/ui/app/view.rs` (action_button function)
 - Steps:
   - Change from column layout to row layout.
   - Place icon on left, text on right.
@@ -598,9 +598,9 @@
 ### Task 34: Move drive actions to inline position, remove menubar, add About button ✅
 - Scope: replace menubar with drive action buttons inline with disk header, add standalone About button.
 - Files/areas:
-  - `disks-ui/src/ui/app/view.rs` (header_start function)
-  - `disks-ui/src/ui/volumes/disk_header.rs` (drive action buttons)
-  - `disks-ui/src/views/menu.rs` (remove entirely or keep only About)
+  - `storage-ui/src/ui/app/view.rs` (header_start function)
+  - `storage-ui/src/ui/volumes/disk_header.rs` (drive action buttons)
+  - `storage-ui/src/views/menu.rs` (remove entirely or keep only About)
 - Steps:
   - Add drive action buttons to disk header layout (below disk info).
   - Remove menubar rendering from header_start().
@@ -616,7 +616,7 @@
 ### Task 35: Fix usage pie free space visualization ✅
 - Scope: pie chart should show used portion as segment, not full circle.
 - Files/areas:
-  - `disks-ui/src/ui/volumes/usage_pie.rs`
+  - `storage-ui/src/ui/volumes/usage_pie.rs`
 - Steps:
   - Debug why pie shows full circle when should be partial.
   - Implement actual arc/segment drawing instead of full circle border.
@@ -632,8 +632,8 @@
 ### Task 36: Fix drive action button hover background ✅
 - Scope: drive action buttons were missing hover background that partition buttons have.
 - Files/areas:
-  - `disks-ui/src/ui/volumes/disk_header.rs`
-  - `disks-ui/src/ui/app/message.rs`
+  - `storage-ui/src/ui/volumes/disk_header.rs`
+  - `storage-ui/src/ui/app/message.rs`
 - Steps:
   - Identify why drive buttons don't show hover background.
   - Add `.on_press()` message handlers to all drive action buttons.
@@ -663,7 +663,7 @@
 ### Task 37: Add missing action buttons to LUKS child filesystem nodes
 - Scope: filesystem nodes under LUKS containers should have full filesystem action button set.
 - Files/areas:
-  - `disks-ui/src/ui/app/view.rs` (build_volume_node_info function)
+  - `storage-ui/src/ui/app/view.rs` (build_volume_node_info function)
 - Steps:
   - Identify which action buttons are missing for LUKS child filesystem nodes.
   - Add the following buttons to volume node info display:
@@ -691,7 +691,7 @@
 ### Task 38: Add missing action buttons to standard partitions
 - Scope: standard partitions should have image operations and ownership management.
 - Files/areas:
-  - `disks-ui/src/ui/app/view.rs` (build_partition_info function)
+  - `storage-ui/src/ui/app/view.rs` (build_partition_info function)
 - Steps:
   - Add the following buttons to partition info display if missing:
     - Take Ownership (icon: system-users-symbolic) - only if mounted
@@ -710,8 +710,8 @@
 ### Task 39: Fix drive power management capability detection
 - Scope: replace `can_power_off` check with proper power management detection for Standby/Wake buttons.
 - Files/areas:
-  - `disks-dbus/src/disks/drive/model.rs` (add new field or method)
-  - `disks-ui/src/ui/volumes/disk_header.rs` (update button visibility logic)
+  - `storage-dbus/src/disks/drive/model.rs` (add new field or method)
+  - `storage-ui/src/ui/volumes/disk_header.rs` (update button visibility logic)
 - Steps:
   - Research UDisks2 Drive interface for power management properties:
     - `RotationRate` property (0 = SSD/no rotation, >0 = spinning disk)
@@ -751,7 +751,7 @@
 ### Task 40: Fix treeview node alignment for expanders
 - Scope: nodes with and without expanders are not horizontally aligned in sidebar.
 - Files/areas:
-  - `disks-ui/src/ui/sidebar/view.rs` (push_volume_tree function)
+  - `storage-ui/src/ui/sidebar/view.rs` (push_volume_tree function)
 - Steps:
   - Set fixed width for expander control (e.g., 24px).
   - Always indent by expander width × 2 for child nodes:
@@ -772,8 +772,8 @@
 ### Task 41: Fix GPT usable range parsing errors
 - Scope: GPT reserved space calculations failing with "Could not parse GPT usable range" warnings.
 - Files/areas:
-  - `disks-dbus/src/disks/drive/discovery.rs` (GPT usable range parsing)
-  - `disks-dbus/src/disks/drive/mod.rs` or `gpt.rs` (GPT header parsing logic)
+  - `storage-dbus/src/disks/drive/discovery.rs` (GPT usable range parsing)
+  - `storage-dbus/src/disks/drive/mod.rs` or `gpt.rs` (GPT header parsing logic)
 - Steps:
   - Investigate errors in logs:
     - "Could not parse GPT usable range for /org/freedesktop/UDisks2/block_devices/sda"
@@ -795,10 +795,10 @@
 ### Task 42: Rename About page to Settings and add "Show Reserved" toggle
 - Scope: convert About page to Settings, add user preference for showing reserved space.
 - Files/areas:
-  - `disks-ui/src/views/about.rs` → rename to `settings.rs`
-  - `disks-ui/src/views/mod.rs` (update module name)
-  - `disks-ui/src/config.rs` (add show_reserved field using cosmic config)
-  - `disks-ui/src/utils/segments.rs` (conditional reserved space logic)
+  - `storage-ui/src/views/about.rs` → rename to `settings.rs`
+  - `storage-ui/src/views/mod.rs` (update module name)
+  - `storage-ui/src/config.rs` (add show_reserved field using cosmic config)
+  - `storage-ui/src/utils/segments.rs` (conditional reserved space logic)
 - Steps:
   - Research COSMIC config system:
     - Use cosmic::config for automatic (de)serialization
@@ -829,7 +829,7 @@
 ### Task 43: Fix edit partition icon (unset/not showing)
 - Scope: edit partition icon is missing or not displaying in UI.
 - Files/areas:
-  - `disks-ui/src/ui/app/view.rs` (build_partition_info or build_volume_node_info)
+  - `storage-ui/src/ui/app/view.rs` (build_partition_info or build_volume_node_info)
 - Steps:
   - Locate edit partition button definition.
   - Check current icon name (likely broken or non-existent).
@@ -844,9 +844,9 @@
 ### Task 44: Create application icon using drive tree node icon
 - Scope: application needs proper icon; use existing drive icon as temporary solution.
 - Files/areas:
-  - `disks-ui/resources/icons/hicolor/` (icon installation directory)
-  - `disks-ui/resources/app.desktop` (icon reference)
-  - `disks-ui/resources/app.metainfo.xml` (icon metadata)
+  - `storage-ui/resources/icons/hicolor/` (icon installation directory)
+  - `storage-ui/resources/app.desktop` (icon reference)
+  - `storage-ui/resources/app.metainfo.xml` (icon metadata)
 - Steps:
   - Identify current drive tree node icon being used in sidebar.
   - Copy/export that icon as application icon:
@@ -867,8 +867,8 @@
 ### Task 45: Match format partition icon to format disk icon
 - Scope: format partition and format disk operations should use consistent iconography.
 - Files/areas:
-  - `disks-ui/src/ui/app/view.rs` (format partition button)
-  - `disks-ui/src/ui/volumes/disk_header.rs` (format disk button - if exists)
+  - `storage-ui/src/ui/app/view.rs` (format partition button)
+  - `storage-ui/src/ui/volumes/disk_header.rs` (format disk button - if exists)
 - Steps:
   - Identify format disk icon currently in use.
   - Update format partition button to use same icon.
@@ -882,8 +882,8 @@
 ### Task 46: Preserve volume selection during mount/unmount/lock/unlock operations
 - Scope: selected volume resets to first item after state-changing operations.
 - Files/areas:
-  - `disks-ui/src/ui/app/update/mod.rs` (mount/unmount/lock/unlock message handlers)
-  - `disks-ui/src/ui/app/mod.rs` (state management)
+  - `storage-ui/src/ui/app/update/mod.rs` (mount/unmount/lock/unlock message handlers)
+  - `storage-ui/src/ui/app/mod.rs` (state management)
 - Steps:
   - Identify where selection state is stored:
     - Likely in `App` struct or nav_bar model
@@ -912,9 +912,9 @@
 ### Task 47: Add Create/Restore Partition Image buttons
 - Scope: complete implementation of partition image operations.
 - Files/areas:
-  - `disks-ui/src/ui/app/view.rs` (partition/volume action buttons)
-  - `disks-ui/src/views/dialogs.rs` (new dialogs for image operations)
-  - `disks-dbus/src/disks/image.rs` (backend implementation - already exists)
+  - `storage-ui/src/ui/app/view.rs` (partition/volume action buttons)
+  - `storage-ui/src/views/dialogs.rs` (new dialogs for image operations)
+  - `storage-dbus/src/disks/image.rs` (backend implementation - already exists)
 - Steps:
   - Add "Create Partition Image" button:
     - Icon: `document-save-as-symbolic`
@@ -950,10 +950,10 @@
 ### Task 49: Open File dialogs for image create/save/load
 - Scope: replace manual path inputs with COSMIC-native file dialogs for image operations.
 - Files/areas:
-  - `disks-ui/src/ui/dialogs/view/image.rs` (path inputs)
-  - `disks-ui/src/ui/app/update/image/*` (dialog actions)
-  - `disks-ui/src/ui/app/message.rs` (messages for dialog results)
-  - `disks-ui/src/ui/app/update/mod.rs` (message routing)
+  - `storage-ui/src/ui/dialogs/view/image.rs` (path inputs)
+  - `storage-ui/src/ui/app/update/image/*` (dialog actions)
+  - `storage-ui/src/ui/app/message.rs` (messages for dialog results)
+  - `storage-ui/src/ui/app/update/mod.rs` (message routing)
 - Steps:
   - Research what COSMIC desktop apps use for file dialogs:
     - Search libcosmic for a file dialog component or helper.
@@ -976,7 +976,7 @@
 ### Task 48: Use eject for removable drives instead of power off
 - Scope: removable drives should show eject action, not power off.
 - Files/areas:
-  - `disks-ui/src/ui/volumes/disk_header.rs` (drive action buttons)
+  - `storage-ui/src/ui/volumes/disk_header.rs` (drive action buttons)
 - Steps:
   - Review current power off button logic:
     - Uses `can_power_off` check

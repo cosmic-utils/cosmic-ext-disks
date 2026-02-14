@@ -25,7 +25,7 @@ The `btrfsutil` crate provides **significantly more functionality** than UDisks2
 ## Current Implementation (UDisks2)
 
 ### Available Operations
-From `disks-dbus/src/disks/btrfs.rs` via UDisks2 `org.freedesktop.UDisks2.Filesystem.BTRFS` interface:
+From `storage-dbus/src/disks/btrfs.rs` via UDisks2 `org.freedesktop.UDisks2.Filesystem.BTRFS` interface:
 
 #### Subvolume Operations ✅
 - `GetSubvolumes(mount_options, snapshots_only)` → `Vec<BtrfsSubvolume>`
@@ -460,7 +460,7 @@ for subvol in all_subvolumes {
 **Cons (Complexity)**:
 - Need to handle `CAP_SYS_ADMIN` ourselves (currently via UDisks2/polkit)
 - Must add new Cargo dependency
-- Need to rewrite `disks-dbus/src/disks/btrfs.rs` module
+- Need to rewrite `storage-dbus/src/disks/btrfs.rs` module
 - May need CLI fallback for quota operations (limit set/get)
 - Need to handle recursive deletion logic ourselves
 
@@ -581,7 +581,7 @@ chrono = "0.4"      # For DateTime (already used?)
 
 ### Phase 2: Core Migration (V2 Goal)
 - [ ] Add `btrfsutil` dependency
-- [ ] Create `disks-dbus/src/disks/btrfs_native.rs` (new module)
+- [ ] Create `storage-dbus/src/disks/btrfs_native.rs` (new module)
 - [ ] Reimplement basic CRUD operations
 - [ ] Add comprehensive test suite
 - [ ] Feature flag: `btrfs-btrfsutil` (optional compile)

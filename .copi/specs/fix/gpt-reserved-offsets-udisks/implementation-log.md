@@ -21,9 +21,9 @@
 - `cargo test --workspace --all-features`
 
 ### Notable files changed
-- disks-dbus/src/disks/gpt.rs
-- disks-dbus/src/disks/drive.rs
-- disks-ui/src/utils/segments.rs
-- disks-ui/src/views/volumes.rs
-- disks-ui/i18n/en/cosmic_ext_disks.ftl
-- disks-ui/i18n/sv/cosmic_ext_disks.ftl
+- storage-dbus/src/disks/gpt.rs
+- storage-dbus/src/disks/drive.rs
+- storage-ui/src/utils/segments.rs
+- storage-ui/src/views/volumes.rs
+- storage-ui/i18n/en/cosmic_ext_disks.ftl
+- storage-ui/i18n/sv/cosmic_ext_disks.ftl

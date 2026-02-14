@@ -8,7 +8,7 @@ Status: Implemented
 
 - Scope: Add a new dialog state and message flow for “Format Disk”.
 - Files/areas:
-  - `disks-ui/src/app.rs`
+  - `storage-ui/src/app.rs`
 - Steps:
   - Add `ShowDialog::FormatDisk(FormatDiskDialog)` (new struct).
   - Add a message enum for dialog updates/submit (e.g. `FormatDiskMessage`) and a `Message::FormatDisk(FormatDiskMessage)` variant.
@@ -27,7 +27,7 @@ Status: Implemented
 
 - Scope: Implement a dialog with two dropdowns and destructive confirm.
 - Files/areas:
-  - `disks-ui/src/views/dialogs.rs`
+  - `storage-ui/src/views/dialogs.rs`
 - Steps:
   - Add a new dialog constructor (e.g. `dialogs::format_disk(state)`).
   - Use `dropdown` widgets for both comboboxes.
@@ -44,8 +44,8 @@ Status: Implemented
 
 - Scope: Add Fluent strings for new UI text.
 - Files/areas:
-  - `disks-ui/i18n/en/cosmic_ext_disks.ftl`
-  - `disks-ui/i18n/sv/cosmic_ext_disks.ftl`
+  - `storage-ui/i18n/en/cosmic_ext_disks.ftl`
+  - `storage-ui/i18n/sv/cosmic_ext_disks.ftl`
 - Steps:
   - Add keys for: “Erase”, “Partitioning”, “Don’t Overwrite (Quick)”, “Overwrite (Slow)”, “Legacy Compatible (DOS/MBR)”, “Modern (GPT)”, “None”.
   - Wire the dialog to use `fl!(...)` keys.
@@ -60,18 +60,18 @@ Status: Implemented (best-effort UDisks `Block.Format` mapping; verify `empty` s
 
 - Scope: Implement (or stub with clear TODO) the async operation invoked on confirm.
 - Files/areas:
-  - `disks-ui/src/app.rs`
-  - Likely new or extended API in `disks-dbus` (e.g. `disks-dbus/src/disks/drive.rs`)
+  - `storage-ui/src/app.rs`
+  - Likely new or extended API in `storage-dbus` (e.g. `storage-dbus/src/disks/drive.rs`)
 - Steps:
   - Define request mapping: erase (quick vs overwrite) and partitioning (none/dos/gpt).
-  - If `disks-dbus` lacks a whole-disk API, add a `DriveModel` method that:
+  - If `storage-dbus` lacks a whole-disk API, add a `DriveModel` method that:
     - creates/replaces partition table for `dos`/`gpt`
     - handles `none` via the closest supported UDisks action (document final behavior)
     - supports overwrite via UDisks format options or a best-effort equivalent
   - In UI, run the async task and refresh drives/nav on success.
   - On error: show `ShowDialog::Info` with `e`.
 - Test plan:
-  - Unit tests in `disks-dbus` for mapping/argument building where feasible.
+  - Unit tests in `storage-dbus` for mapping/argument building where feasible.
   - Manual (requires permissions and a test drive): verify the expected on-disk result.
 - Done when:
   - Confirm runs an async operation and UI refreshes; errors are surfaced.
@@ -99,7 +99,7 @@ Status: Implemented
   - Delete Partition confirmation (`ShowDialog::DeletePartition` → `dialogs::confirmation`)
   - Format Disk is already implemented (`ShowDialog::FormatDisk`)
 - Steps:
-  - Refactor each dialog state to include a `running`/busy boolean (UI-side wrapper structs; avoid pushing UI-only state into `disks-dbus` data types).
+  - Refactor each dialog state to include a `running`/busy boolean (UI-side wrapper structs; avoid pushing UI-only state into `storage-dbus` data types).
   - Ensure the primary action button disables while running.
   - Add a consistent status line (reuse existing `working` i18n key).
   - Keep the dialog open until the task completes (instead of closing immediately), then close on success/refresh.

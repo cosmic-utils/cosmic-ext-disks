@@ -17,8 +17,8 @@ Added 22 new translation keys to both English and Swedish localization files:
 - 10 filesystem description keys: `fs-desc-ext4`, `fs-desc-ext3`, `fs-desc-xfs`, etc.
 
 Files modified:
-- `disks-ui/i18n/en/cosmic_ext_disks.ftl`
-- `disks-ui/i18n/sv/cosmic_ext_disks.ftl`
+- `storage-ui/i18n/en/cosmic_ext_disks.ftl`
+- `storage-ui/i18n/sv/cosmic_ext_disks.ftl`
 
 Verification: `cargo build` succeeded with all new strings accessible via `fl!()` macro.
 
@@ -29,7 +29,7 @@ Verification: `cargo build` succeeded with all new strings accessible via `fl!()
 
 Changed the "Erase" control from a toggler/switch to a checkbox with clearer labeling.
 
-Changes in `disks-ui/src/ui/dialogs/view/partition.rs`:
+Changes in `storage-ui/src/ui/dialogs/view/partition.rs`:
 - Removed `toggler` import, added `checkbox` import
 - Replaced `toggler(...)` with `checkbox(fl!("overwrite-data-slow"), ...)`
 - Updated in both `create_partition()` and `format_partition()` functions
@@ -43,7 +43,7 @@ Verification: Dialog renders correctly with checkbox, state management works as 
 
 Updated the LUKS/encryption checkbox label to include "(LUKS)" suffix for clarity.
 
-Changes in `disks-ui/src/ui/dialogs/view/partition.rs`:
+Changes in `storage-ui/src/ui/dialogs/view/partition.rs`:
 - Changed label from `fl!("password-protected")` to `fl!("password-protected-luks")`
 - Applied to both `create_partition()` and `format_partition()` dialogs
 
@@ -56,7 +56,7 @@ Result: Label now reads "Password Protected (LUKS)" making encryption type expli
 
 Made the partition name text input conditional based on partition table type.
 
-Changes in `disks-ui/src/ui/dialogs/view/partition.rs`:
+Changes in `storage-ui/src/ui/dialogs/view/partition.rs`:
 - Wrapped partition name text_input in conditional: `if create.table_type != "dos"`
 - Applied to both `create_partition()` and `format_partition()` dialogs
 
@@ -85,7 +85,7 @@ let label = match p_type.filesystem_type.as_str() {
 };
 ```
 
-Changes in `disks-ui/src/ui/dialogs/view/partition.rs`:
+Changes in `storage-ui/src/ui/dialogs/view/partition.rs`:
 - Added `text` widget import for wrapping radio labels
 - Replaced filesystem type dropdown with radio list in `create_partition()`
 - Replaced filesystem type dropdown with radio list in `format_partition()`
@@ -109,7 +109,7 @@ git commit -m "feat(ui): replace filesystem type dropdown with radio list..."
 ```
 
 **Files modified:**
-- `disks-ui/src/ui/dialogs/view/partition.rs` (68 insertions, 14 deletions)
+- `storage-ui/src/ui/dialogs/view/partition.rs` (68 insertions, 14 deletions)
 
 ---
 
@@ -200,7 +200,7 @@ Called `get_fs_tool_status()` before rendering radio list to get HashMap of tool
 
 **Module exports:** Added `get_fs_tool_status` and `detect_fs_tools` to public exports in `utils/mod.rs`.
 
-Changes in `disks-ui/src/ui/dialogs/view/partition.rs`:
+Changes in `storage-ui/src/ui/dialogs/view/partition.rs`:
 - Added `tooltip` widget import
 - Imported `get_fs_tool_status` and `detect_fs_tools` from utils
 - Modified radio list in `create_partition()` to check tool availability
@@ -225,8 +225,8 @@ git commit -m "feat(ui): integrate FSTools detection with tooltips..."
 ```
 
 **Files modified:**
-- `disks-ui/src/utils/mod.rs` (added exports)
-- `disks-ui/src/ui/dialogs/view/partition.rs` (89 insertions, 16 deletions)
+- `storage-ui/src/utils/mod.rs` (added exports)
+- `storage-ui/src/ui/dialogs/view/partition.rs` (89 insertions, 16 deletions)
 
 ---
 
@@ -245,23 +245,23 @@ Replaced slider-based size selection with text input + unit dropdown for human-f
 
 **Changes:**
 
-Modified `disks-dbus/src/disks/create_partition_info.rs`:
+Modified `storage-dbus/src/disks/create_partition_info.rs`:
 - Added `size_text` and `size_unit_index` fields (2 new fields)
 
-Modified `disks-ui/src/ui/dialogs/message.rs`:
+Modified `storage-ui/src/ui/dialogs/message.rs`:
 - Added `SizeTextUpdate(String)` and `SizeUnitUpdate(usize)` to CreateMessage
 
-Modified `disks-ui/src/ui/volumes/update/create.rs`:
+Modified `storage-ui/src/ui/volumes/update/create.rs`:
 - Imported SizeUnit
 - Implemented SizeTextUpdate handler: parse text, convert to bytes, clamp to max_size
 - Implemented SizeUnitUpdate handler: convert value from old unit to new unit, update text representation
 
-Modified `disks-ui/src/ui/volumes/state.rs`:
+Modified `storage-ui/src/ui/volumes/state.rs`:
 - Updated `get_create_info()` to initialize size_text and size_unit_index
 - Used `SizeUnit::auto_select()` to pick appropriate default unit
 - Format initial text value with 2 decimal places
 
-Modified `disks-ui/src/ui/dialogs/view/partition.rs`:
+Modified `storage-ui/src/ui/dialogs/view/partition.rs`:
 - Removed slider and labelled_spinner controls
 - Added text_input for size entry
 - Added dropdown for unit selection (B/KB/MB/GB/TB)
@@ -286,11 +286,11 @@ cargo build  # Compiles successfully
 ```
 
 **Files modified:**
-- `disks-dbus/src/disks/create_partition_info.rs` (2 new fields)
-- `disks-ui/src/ui/dialogs/message.rs` (2 new messages)
-- `disks-ui/src/ui/volumes/update/create.rs` (28 new lines, message handlers)
-- `disks-ui/src/ui/volumes/state.rs` (5 lines, init logic)
-- `disks-ui/src/ui/dialogs/view/partition.rs` (major refactor, -43 +23 lines)
+- `storage-dbus/src/disks/create_partition_info.rs` (2 new fields)
+- `storage-ui/src/ui/dialogs/message.rs` (2 new messages)
+- `storage-ui/src/ui/volumes/update/create.rs` (28 new lines, message handlers)
+- `storage-ui/src/ui/volumes/state.rs` (5 lines, init logic)
+- `storage-ui/src/ui/dialogs/view/partition.rs` (major refactor, -43 +23 lines)
 
 ---
 
@@ -349,7 +349,7 @@ Created reusable SizeUnit component with bidirectional byte conversion logic.
 
 **Implementation:**
 
-Created `disks-ui/src/utils/unit_size_input.rs` with:
+Created `storage-ui/src/utils/unit_size_input.rs` with:
 - `SizeUnit` enum: Bytes, Kilobytes, Megabytes, Gigabytes, Terabytes
 - `to_bytes(value: f64) -> u64`: Convert unit value to bytes
 - `from_bytes(bytes: u64) -> f64`: Convert bytes to unit value
@@ -368,7 +368,7 @@ Created `disks-ui/src/utils/unit_size_input.rs` with:
 All tests pass. Conversions are accurate for partition-sized values (up to multiple TB).
 
 **Changes:**
-- Added `disks-ui/src/utils/unit_size_input.rs` (195 lines)
+- Added `storage-ui/src/utils/unit_size_input.rs` (195 lines)
 - Exported `SizeUnit` from `utils/mod.rs`
 
 **Verification:**
@@ -515,7 +515,7 @@ Replaced regular `text()` widget with `caption()` for filesystem tools warning:
   returning `Style`, not `Color` directly). Plain caption with emoji is sufficient.
 
 Files modified:
-- `disks-ui/src/ui/dialogs/view/partition.rs` (both `create_partition()` and `format_partition()` functions)
+- `storage-ui/src/ui/dialogs/view/partition.rs` (both `create_partition()` and `format_partition()` functions)
 
 **Technical Challenge: Borrow Checker**
 Encountered `E0515` error: closures capturing reference `&create` from borrowed `state.info`.

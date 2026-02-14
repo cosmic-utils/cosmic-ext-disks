@@ -13,7 +13,7 @@
 Replace the current pkexec-based privilege escalation model with a proper D-Bus system service architecture for ALL disk operations (not just BTRFS).
 
 **Core Transformation:**
-1. **Rename `disks-btrfs-helper` → `disks-btrfs`** (convert CLI to library crate)
+1. **Rename `storage-btrfs-helper` → `storage-btrfs`** (convert CLI to library crate)
 2. **Create new `storage-service` crate** (D-Bus service exposing all disk operations)
 3. **Destructive UI refactor** (remove all legacy code, use D-Bus client exclusively)
 
@@ -25,7 +25,7 @@ Replace the current pkexec-based privilege escalation model with a proper D-Bus 
 
 **1. Security Model Issues:**
 - Every privileged operation requires pkexec prompt
-- Users see: "Authentication required for cosmic-ext-disks-btrfs-helper"
+- Users see: "Authentication required for cosmic-ext-storage-btrfs-helper"
 - Poor UX: multiple prompts for batch operations
 - No capability-based permissions
 - Difficult to audit what operations are allowed
@@ -60,7 +60,7 @@ Replace the current pkexec-based privilege escalation model with a proper D-Bus 
 ┌─────────────────────────────────────────────────────────────┐
 │                     cosmic-ext-disks (UI)                   │
 │  ┌─────────────────────────────────────────────────────┐   │
-│  │  disks-ui/src/                                      │   │
+│  │  storage-ui/src/                                      │   │
 │  │    ├── app.rs                                       │   │
 │  │    ├── ui/ (view layer - no privileged ops)        │   │
 │  │    └── client/ (D-Bus client wrapper) ←─────────┐  │   │
@@ -85,8 +85,8 @@ Replace the current pkexec-based privilege escalation model with a proper D-Bus 
 │  │  └── smart_handler.rs    │  │
 │  ├──────────────────────────┤  │
 │  │ Backend Libraries        │  │
-│  │  ├── disks-btrfs (lib)   │  │ ← Converted from helper
-│  │  ├── disks-dbus (lib)    │  │ ← Existing
+│  │  ├── storage-btrfs (lib)   │  │ ← Converted from helper
+│  │  ├── storage-dbus (lib)    │  │ ← Existing
 │  │  ├── libblkid            │  │
 │  │  └── libudev             │  │
 │  └──────────────────────────┘  │
@@ -98,7 +98,7 @@ Replace the current pkexec-based privilege escalation model with a proper D-Bus 
 ### Key Design Decisions
 
 **1. D-Bus Instead of Polkit Actions:**
-- **Current:** `pkexec cosmic-ext-disks-btrfs-helper snapshot ...`
+- **Current:** `pkexec cosmic-ext-storage-btrfs-helper snapshot ...`
 - **Proposed:** UI → D-Bus method call → service checks authorization → execute
 - **Benefits:**
   - Single authentication at app launch (not per-operation)
@@ -106,7 +106,7 @@ Replace the current pkexec-based privilege escalation model with a proper D-Bus 
   - Better UX: no repeated password prompts
 
 **2. Library-First Design:**
-- Convert `disks-btrfs-helper` binary → `disks-btrfs` library crate
+- Convert `storage-btrfs-helper` binary → `storage-btrfs` library crate
 - Expose Rust API for all BTRFS operations
 - Storage service uses library, not subprocess calls
 - **Benefits:**
@@ -140,7 +140,7 @@ Replace the current pkexec-based privilege escalation model with a proper D-Bus 
 ## Scope
 
 ### Phase 1: Foundation (In Scope)
-- ✅ Convert `disks-btrfs-helper` → `disks-btrfs` library crate
+- ✅ Convert `storage-btrfs-helper` → `storage-btrfs` library crate
 - ✅ Create `storage-service` crate with D-Bus skeleton
 - ✅ Implement BTRFS operations in service (migrate from helper)
 - ✅ Create D-Bus client wrapper in UI crate
@@ -330,8 +330,8 @@ zbus-polkit = "1.0"    # Polkit integration for authorization
 tokio = { version = "1.41", features = ["full"] }
 
 # Backend libraries
-disks-btrfs = { path = "../disks-btrfs" }  # Converted library
-disks-dbus = { path = "../disks-dbus" }     # Existing
+storage-btrfs = { path = "../storage-btrfs" }  # Converted library
+storage-dbus = { path = "../storage-dbus" }     # Existing
 
 # System integration
 libudev = "0.3"        # Device monitoring
@@ -555,7 +555,7 @@ WantedBy=sockets.target
 
 1. Create `storage-service` crate
 2. Implement D-Bus skeleton with zbus
-3. Convert `disks-btrfs-helper` → `disks-btrfs` library
+3. Convert `storage-btrfs-helper` → `storage-btrfs` library
 4. Implement BTRFS operations in service using library
 5. Add Polkit integration
 6. Write integration tests using D-Bus test bus
@@ -567,7 +567,7 @@ WantedBy=sockets.target
 ### Phase 2: UI Client Wrapper (1 week)
 **Goal:** Create D-Bus client API in UI crate
 
-1. Add `disks-ui/src/client/` module
+1. Add `storage-ui/src/client/` module
 2. Implement `BtrfsClient` using zbus:
    ```rust
    pub struct BtrfsClient {
@@ -594,7 +594,7 @@ WantedBy=sockets.target
    - `BtrfsMessage::LoadSubvolumes` → `client.list_subvolumes().await`
    - `BtrfsMessage::CreateSnapshot` → `client.create_snapshot(...).await`
    - etc.
-2. Remove `disks-btrfs-helper` binary crate (or mark deprecated)
+2. Remove `storage-btrfs-helper` binary crate (or mark deprecated)
 3. Remove JSON serialization code
 4. Update error handling
 5. Add async message handling in UI (use Tokio runtime)
@@ -771,8 +771,8 @@ WantedBy=sockets.target
 - `systemd` (service management)
 
 ### Internal Dependencies
-- `disks-btrfs` (new library, converted from helper)
-- `disks-dbus` (existing library)
+- `storage-btrfs` (new library, converted from helper)
+- `storage-dbus` (existing library)
 
 ---
 
@@ -828,29 +828,29 @@ See `tasks.md` for detailed implementation steps organized by phase.
 ### Progress Update (2026-02-14)
 
 **Phase 1: Complete ✅**
-- ✅ disks-btrfs library created (v0.2.0) with full BTRFS operations
+- ✅ storage-btrfs library created (v0.2.0) with full BTRFS operations
 - ✅ storage-service D-Bus daemon created with socket activation
 - ✅ Polkit authorization integration (read/modify separation)
 - ✅ systemd integration (service, socket, D-Bus config)
 
 **Phase 3B: Complete ✅ (GAP-001)**
 - ✅ Created storage-sys crate (low-level file I/O abstraction)
-- ✅ Created disks-dbus operations module (15 UDisks2 abstraction operations)
+- ✅ Created storage-dbus operations module (15 UDisks2 abstraction operations)
 - ✅ Refactored partitions.rs (100% delegated to operations)
 - ✅ Refactored filesystems.rs (100% delegated to operations)
 - ✅ Refactored luks.rs encryption operations (100% delegated)
 - ✅ Refactored image.rs backup/restore (100% delegated to storage-sys)
-- ✅ Verified btrfs.rs clean (uses disks-btrfs library)
+- ✅ Verified btrfs.rs clean (uses storage-btrfs library)
 - ✅ Architecture pattern achieved: auth → delegate → signal
 
 **Architecture Achieved:**
 ```
 storage-service (Layer 1: auth + orchestration, 5-14 lines per method)
-    ├─→ disks-dbus operations (Layer 2: UDisks2 abstraction, 15 ops)
+    ├─→ storage-dbus operations (Layer 2: UDisks2 abstraction, 15 ops)
     │       └─→ udisks2 daemon (Layer 3: system integration)
     ├─→ storage-sys (Layer 2: file I/O abstraction, 2 ops)
     │       └─→ kernel (Layer 3: direct I/O)
-    └─→ disks-btrfs (Layer 2: BTRFS abstraction, 9 ops)
+    └─→ storage-btrfs (Layer 2: BTRFS abstraction, 9 ops)
             └─→ btrfsutil + CLI (Layer 3: BTRFS tools)
 ```
 

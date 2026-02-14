@@ -27,7 +27,7 @@
 ## Commands run
 
 - `cargo build -p cosmic-ext-disks`
-- `cargo build -p cosmic-ext-disks-dbus`
+- `cargo build -p cosmic-ext-storage-dbus`
 - `cargo fmt --all --check`
 - `cargo clippy --workspace --all-features -- -D warnings`
 - `cargo test --workspace --all-features`
@@ -46,13 +46,13 @@
 
 ## Notable files changed
 
-- disks-dbus/src/disks/image.rs
-- disks-dbus/src/disks/drive.rs
-- disks-dbus/src/disks/partition.rs
-- disks-dbus/src/disks/mod.rs
-- disks-ui/src/views/menu.rs
-- disks-ui/src/views/dialogs.rs
-- disks-ui/src/app.rs
-- disks-ui/i18n/en/cosmic_ext_disks.ftl
-- disks-ui/i18n/sv/cosmic_ext_disks.ftl
-- disks-ui/README.md
+- storage-dbus/src/disks/image.rs
+- storage-dbus/src/disks/drive.rs
+- storage-dbus/src/disks/partition.rs
+- storage-dbus/src/disks/mod.rs
+- storage-ui/src/views/menu.rs
+- storage-ui/src/views/dialogs.rs
+- storage-ui/src/app.rs
+- storage-ui/i18n/en/cosmic_ext_disks.ftl
+- storage-ui/i18n/sv/cosmic_ext_disks.ftl
+- storage-ui/README.md

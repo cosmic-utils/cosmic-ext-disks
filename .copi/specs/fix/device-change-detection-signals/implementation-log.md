@@ -15,7 +15,7 @@
 
 ### Build/tooling fix (required to satisfy CI gates)
 - Resolved a build-script dependency mismatch between `vergen` and `vergen-git2` that prevented `cargo clippy --all-features` from compiling.
-- Switched the build dependency to `vergen` v8 with `git` + `git2` features and updated `disks-ui/build.rs` accordingly.
+- Switched the build dependency to `vergen` v8 with `git` + `git2` features and updated `storage-ui/build.rs` accordingly.
 
 ### Commands run
 - `cargo fmt --all --check`

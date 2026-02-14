@@ -36,10 +36,10 @@ Task 9 (Polish & localization)
 **Scope:** Add `udisks2-btrfs` to filesystem tools detection and create settings button to enable UDisks2 modules.
 
 **Files/Areas:**
-- `disks-ui/src/utils/fs_tools.rs` (add udisks2-btrfs detection)
-- `disks-ui/src/views/settings.rs` (add EnableModules button)
-- `disks-dbus/src/disks/manager.rs` (add EnableModules D-Bus call)
-- `disks-ui/i18n/en/cosmic_ext_disks.ftl` (i18n strings)
+- `storage-ui/src/utils/fs_tools.rs` (add udisks2-btrfs detection)
+- `storage-ui/src/views/settings.rs` (add EnableModules button)
+- `storage-dbus/src/disks/manager.rs` (add EnableModules D-Bus call)
+- `storage-ui/i18n/en/cosmic_ext_disks.ftl` (i18n strings)
 
 **Steps:**
 1. Add `udisks2-btrfs` to `FS_TOOL_REQUIREMENTS` in `fs_tools.rs`:
@@ -59,7 +59,7 @@ Task 9 (Polish & localization)
        // Return true if udisks2-btrfs is installed
    }
    ```
-3. In `disks-dbus/src/disks/manager.rs`, add method:
+3. In `storage-dbus/src/disks/manager.rs`, add method:
    ```rust
    pub async fn enable_modules(&self) -> Result<()> {
        let proxy = self.manager_proxy().await?;
@@ -77,9 +77,9 @@ Task 9 (Polish & localization)
 5. Add message handler that calls `manager.enable_modules()` in Task
 6. Add i18n strings:
    ```fluent
-   settings-enable-udisks-btrfs = Try Enable UDisks2 BTRFS
-   settings-udisks-btrfs-missing = UDisks2 BTRFS module not detected. Install udisks2-btrfs package.
-   settings-udisks-btrfs-enabled = UDisks2 BTRFS module enabled successfully.
+   settings-enable-ustorage-btrfs = Try Enable UDisks2 BTRFS
+   settings-ustorage-btrfs-missing = UDisks2 BTRFS module not detected. Install udisks2-btrfs package.
+   settings-ustorage-btrfs-enabled = UDisks2 BTRFS module enabled successfully.
    ```
 7. Test: Click button, verify `EnableModules` is called
 8. Test: Mount BTRFS filesystem, verify interface appears
@@ -111,7 +111,7 @@ Task 9 (Polish & localization)
 **Scope:** Detect when selected volume is BTRFS and show indicator.
 
 **Files/Areas:**
-- `disks-ui/src/ui/app/view.rs` (`build_partition_info`, `build_volume_node_info`)
+- `storage-ui/src/ui/app/view.rs` (`build_partition_info`, `build_volume_node_info`)
 
 **Steps:**
 1. In volume detail view functions, add BTRFS detection:
@@ -149,15 +149,15 @@ Task 9 (Polish & localization)
 **Scope:** Create collapsible "BTRFS Management" section with empty content.
 
 **Files/Areas:**
-- New module: `disks-ui/src/ui/btrfs/mod.rs`
-- `disks-ui/src/ui/mod.rs` (module declaration)
-- `disks-ui/src/ui/app/view.rs`
-- `disks-ui/i18n/en/cosmic_ext_disks.ftl`
+- New module: `storage-ui/src/ui/btrfs/mod.rs`
+- `storage-ui/src/ui/mod.rs` (module declaration)
+- `storage-ui/src/ui/app/view.rs`
+- `storage-ui/i18n/en/cosmic_ext_disks.ftl`
 
 **Steps:**
 1. Create module structure:
    ```
-   disks-ui/src/ui/btrfs/
+   storage-ui/src/ui/btrfs/
    ├── mod.rs (exports)
    ├── view.rs (rendering)
    ├── state.rs (state types)
@@ -208,8 +208,8 @@ Task 9 (Polish & localization)
 **Scope:** Create D-Bus wrapper for UDisks2 BTRFS interface operations.
 
 **Files/Areas:**
-- New file: `disks-dbus/src/disks/btrfs.rs`
-- `disks-dbus/src/disks/mod.rs` (module declaration and exports)
+- New file: `storage-dbus/src/disks/btrfs.rs`
+- `storage-dbus/src/disks/mod.rs` (module declaration and exports)
 
 **Steps:**
 1. Create module with structs matching D-Bus signatures:
@@ -350,11 +350,11 @@ Task 9 (Polish & localization)
 **Scope:** Populate subvolume list with real data from UDisks2 BTRFS D-Bus interface.
 
 **Files/Areas:**
-- `disks-ui/src/ui/btrfs/view.rs`
-- `disks-ui/src/ui/btrfs/state.rs`
-- `disks-ui/src/ui/btrfs/message.rs`
-- `disks-ui/src/ui/app/message.rs`
-- `disks-ui/src/ui/app/update/mod.rs`
+- `storage-ui/src/ui/btrfs/view.rs`
+- `storage-ui/src/ui/btrfs/state.rs`
+- `storage-ui/src/ui/btrfs/message.rs`
+- `storage-ui/src/ui/app/message.rs`
+- `storage-ui/src/ui/app/update/mod.rs`
 
 **Steps:**
 1. Define BTRFS state in `state.rs`:
@@ -409,12 +409,12 @@ Task 9 (Polish & localization)
 **Scope:** Add "Create Subvolume" button and modal dialog.
 
 **Files/Areas:**
-- `disks-ui/src/ui/btrfs/view.rs`
-- `disks-ui/src/ui/dialogs/state.rs` (add variant)
-- `disks-ui/src/ui/dialogs/view/btrfs.rs` (new file)
-- `disks-ui/src/ui/dialogs/message.rs`
-- `disks-ui/src/ui/app/update/mod.rs`
-- `disks-ui/i18n/en/cosmic_ext_disks.ftl`
+- `storage-ui/src/ui/btrfs/view.rs`
+- `storage-ui/src/ui/dialogs/state.rs` (add variant)
+- `storage-ui/src/ui/dialogs/view/btrfs.rs` (new file)
+- `storage-ui/src/ui/dialogs/message.rs`
+- `storage-ui/src/ui/app/update/mod.rs`
+- `storage-ui/i18n/en/cosmic_ext_disks.ftl`
 
 **Steps:**
 1. Add "Create Subvolume" button to BTRFS section
@@ -488,10 +488,10 @@ Task 9 (Polish & localization)
 **Scope:** Add delete icon to subvolume rows with confirmation dialog.
 
 **Files/Areas:**
-- `disks-ui/src/ui/btrfs/view.rs`
-- `disks-ui/src/ui/dialogs/state.rs` (use generic `ConfirmAction`)
-- `disks-ui/src/ui/app/update/mod.rs`
-- `disks-ui/i18n/en/cosmic_ext_disks.ftl`
+- `storage-ui/src/ui/btrfs/view.rs`
+- `storage-ui/src/ui/dialogs/state.rs` (use generic `ConfirmAction`)
+- `storage-ui/src/ui/app/update/mod.rs`
+- `storage-ui/i18n/en/cosmic_ext_disks.ftl`
 
 **Steps:**
 1. Add delete icon (trash can) to each subvolume row in list
@@ -552,10 +552,10 @@ Task 9 (Polish & localization)
 **Scope:** Add "Create Snapshot" button and dialog with source selection.
 
 **Files/Areas:**
-- `disks-ui/src/ui/btrfs/view.rs`
-- `disks-ui/src/ui/dialogs/state.rs` (add variant)
-- `disks-ui/src/ui/dialogs/view/btrfs.rs`
-- `disks-ui/src/utils/btrfs.rs` (add `create_snapshot()` function)
+- `storage-ui/src/ui/btrfs/view.rs`
+- `storage-ui/src/ui/dialogs/state.rs` (add variant)
+- `storage-ui/src/ui/dialogs/view/btrfs.rs`
+- `storage-ui/src/utils/btrfs.rs` (add `create_snapshot()` function)
 
 **Steps:**
 1. Add `create_snapshot()` to btrfs module:
@@ -636,9 +636,9 @@ Task 9 (Polish & localization)
 **Scope:** Display BTRFS used space via D-Bus property.
 
 **Files/Areas:**
-- `disks-ui/src/ui/btrfs/view.rs`
-- `disks-dbus/src/disks/btrfs.rs` (property accessor from Task 3)
-- `disks-ui/i18n/en/cosmic_ext_disks.ftl`
+- `storage-ui/src/ui/btrfs/view.rs`
+- `storage-dbus/src/disks/btrfs.rs` (property accessor from Task 3)
+- `storage-ui/i18n/en/cosmic_ext_disks.ftl`
 
 **Steps:**
 1. Load BTRFS properties when section expands:
@@ -689,7 +689,7 @@ Task 9 (Polish & localization)
 **Scope:** Add Swedish translations, documentation, and comprehensive testing.
 
 **Files/Areas:**
-- `disks-ui/i18n/sv/cosmic_ext_disks.ftl` (add Swedish translations)
+- `storage-ui/i18n/sv/cosmic_ext_disks.ftl` (add Swedish translations)
 - `README.md` (update V1 goal #3)
 - `.copi/specs/feature/btrfs-tools/implementation-log.md` (optional tracking doc)
 
@@ -764,10 +764,10 @@ Task 9 (Polish & localization)
 **Scope:** Address UI/UX issues and bugs discovered during manual testing.
 
 **Files/Areas:**
-- `disks-ui/src/ui/app/view.rs` (tab bar relocation)
-- `disks-ui/src/ui/btrfs/view.rs` (sizing, layout, pie chart)
-- `disks-ui/src/ui/app/state.rs` (possibly move DetailTab state)
-- `disks-ui/i18n/en/cosmic_ext_disks.ftl` (update tab labels)
+- `storage-ui/src/ui/app/view.rs` (tab bar relocation)
+- `storage-ui/src/ui/btrfs/view.rs` (sizing, layout, pie chart)
+- `storage-ui/src/ui/app/state.rs` (possibly move DetailTab state)
+- `storage-ui/i18n/en/cosmic_ext_disks.ftl` (update tab labels)
 
 **Issues Discovered:**
 

@@ -5,7 +5,7 @@ Branch: `fix/luks-delete-preflight`
 ## Task 1: Add delete preflight for unlocked LUKS containers
 - Scope: When deleting a crypto container, unmount mounted descendants and lock before delete.
 - Files/areas:
-  - `disks-ui/src/views/volumes.rs`
+  - `storage-ui/src/views/volumes.rs`
 - Steps:
   - In `VolumesControlMessage::Delete`, detect whether selected partition maps to a `VolumeKind::CryptoContainer`.
   - If container is unlocked:
@@ -23,9 +23,9 @@ Branch: `fix/luks-delete-preflight`
 ## Task 2: Surface delete errors via dialog (no stdout-only failures)
 - Scope: Replace silent failures with a user-visible dialog.
 - Files/areas:
-  - `disks-ui/src/views/volumes.rs`
-  - `disks-ui/src/app.rs` (only if new dialog title string is needed)
-  - `disks-ui/i18n/**/cosmic_ext_disks.ftl` (only if adding `delete-failed`)
+  - `storage-ui/src/views/volumes.rs`
+  - `storage-ui/src/app.rs` (only if new dialog title string is needed)
+  - `storage-ui/i18n/**/cosmic_ext_disks.ftl` (only if adding `delete-failed`)
 - Steps:
   - Replace `println!("{e}")` + `Message::None` in delete handler with `Message::Dialog(ShowDialog::Info { ... })`.
   - Decide title string:
@@ -38,7 +38,7 @@ Branch: `fix/luks-delete-preflight`
 ## Task 3: Hide Delete button when a child volume is selected
 - Scope: Prevent destructive action affordance for child volumes inside LUKS containers.
 - Files/areas:
-  - `disks-ui/src/views/volumes.rs`
+  - `storage-ui/src/views/volumes.rs`
 - Steps:
   - In the action bar render path, gate the delete button behind `selected_child_volume.is_none()`.
   - Confirm delete remains available when the container is selected.

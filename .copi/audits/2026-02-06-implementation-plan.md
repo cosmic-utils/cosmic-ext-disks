@@ -60,12 +60,12 @@ disks/volume_model/
 **Risk:** Low (mostly data transformation, well-isolated)
 
 **Current:** 
-- `disks-dbus/src/partition_types/gpt.rs` — 1503 lines of hardcoded structs
-- `disks-dbus/src/partition_types/dos.rs` — 357 lines
+- `storage-dbus/src/partition_types/gpt.rs` — 1503 lines of hardcoded structs
+- `storage-dbus/src/partition_types/dos.rs` — 357 lines
 
 **Target:**
 ```
-disks-dbus/src/partition_types/
+storage-dbus/src/partition_types/
 ├── mod.rs
 ├── types.rs (PartitionTypeInfo struct)
 ├── gpt_types.toml (data file ~500 lines)

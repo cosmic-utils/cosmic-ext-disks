@@ -9,7 +9,7 @@ This guide shows how to convert the TODO comments into actual working code.
 ### Add to AppModel
 
 ```rust
-// disks-ui/src/ui/app/state.rs
+// storage-ui/src/ui/app/state.rs
 
 use crate::client::*;
 use std::sync::Arc;
@@ -432,7 +432,7 @@ After converting each TODO:
 ## When You Get Stuck
 
 1. Check existing BtrfsClient implementations - they're complete
-2. Look at client wrapper code in disks-ui/src/client/
+2. Look at client wrapper code in storage-ui/src/client/
 3. Check storage-service D-Bus interface definitions
 4. Test with `busctl` to verify service responds correctly
 5. Check service logs: `journalctl -fu cosmic-ext-storage-service`

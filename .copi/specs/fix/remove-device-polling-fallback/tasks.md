@@ -1,10 +1,10 @@
 # fix/remove-device-polling-fallback — Tasks
 
-## Task 1: Remove polling device-event stream from `disks-dbus`
+## Task 1: Remove polling device-event stream from `storage-dbus`
 
 - Scope: Delete the legacy polling-based device event stream and any references to it.
 - Files/areas:
-  - `disks-dbus/src/disks/manager.rs`
+  - `storage-dbus/src/disks/manager.rs`
   - Any public exports or docs referencing the polling stream
 - Steps:
   - Remove `DiskManager::device_event_stream(interval: Duration)`.
@@ -12,23 +12,23 @@
   - Update doc comments to remove “fallback to polling” language.
   - Ensure `DeviceEventStream` remains valid for the signal-based stream.
 - Test plan:
-  - `cargo test -p disks-dbus --all-features`
-  - `cargo clippy -p disks-dbus --all-features -- -D warnings`
+  - `cargo test -p storage-dbus --all-features`
+  - `cargo clippy -p storage-dbus --all-features -- -D warnings`
 - Done when:
   - [x] No code compiles that provides a polling-based event stream.
-  - [x] `disks-dbus` builds cleanly and clippy passes.
+  - [x] `storage-dbus` builds cleanly and clippy passes.
 
 ## Task 2: Update UI subscription to be signals-only
 
 - Scope: Remove polling fallback logic in the UI and define behavior on subscription failure.
 - Files/areas:
-  - `disks-ui/src/app.rs`
+  - `storage-ui/src/app.rs`
 - Steps:
   - Replace the `match manager.device_event_stream_signals()` fallback branch.
   - On error, log with context (and stop the stream task), or send a one-time UI message that updates can’t be subscribed.
   - Remove the “Falling back to polling-based device updates” message.
 - Test plan:
-  - `cargo test -p disks-ui --all-features`
+  - `cargo test -p storage-ui --all-features`
   - Manual smoke: run the app and insert/remove a USB drive; confirm the list updates.
 - Done when:
   - [x] UI does not call `device_event_stream(Duration::from_secs(...))`.

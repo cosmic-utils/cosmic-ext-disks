@@ -36,9 +36,9 @@ This GAP will drive mount/unmount UI state from UDisks2-reported mount points, a
   - Continue showing usage numbers when available.
 
 Likely touched areas:
-- `disks-dbus/src/disks/partition.rs` (or related model types)
-- `disks-dbus/src/usage.rs` (replace `df` with `statvfs` helpers, or delete/repurpose)
-- `disks-ui/src/views/volumes.rs` (mount/unmount button logic)
+- `storage-dbus/src/disks/partition.rs` (or related model types)
+- `storage-dbus/src/usage.rs` (replace `df` with `statvfs` helpers, or delete/repurpose)
+- `storage-ui/src/views/volumes.rs` (mount/unmount button logic)
 
 ## User / System Flows
 - **Volumes list rendering**

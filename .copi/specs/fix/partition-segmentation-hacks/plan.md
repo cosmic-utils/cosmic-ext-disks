@@ -24,7 +24,7 @@ The audit identified that the current segmentation logic in the UI relies on heu
 - Redesigning the entire volumes UI; focus is segment computation + presentation correctness.
 
 ## Proposed Approach
-- Identify the current segment computation in `disks-ui/src/views/volumes.rs` (around the audit references) and map inputs used:
+- Identify the current segment computation in `storage-ui/src/views/volumes.rs` (around the audit references) and map inputs used:
   - Total device size used for normalization
   - Partition start offsets and sizes
   - Any special-case offset or "hidden end" handling

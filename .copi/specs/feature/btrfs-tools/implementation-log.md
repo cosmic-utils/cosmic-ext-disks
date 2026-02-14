@@ -41,10 +41,10 @@
   - Active tab: Background::Color(accent_color), on_accent_color text
   - Inactive tab: Transparent background, accent_color text
 - **Files Changed**:
-  - [disks-ui/src/ui/app/view.rs](disks-ui/src/ui/app/view.rs): Added `tab_button_class()`, `tab_button_style()`, `header_center()`
-  - [disks-ui/src/ui/app/mod.rs](disks-ui/src/ui/app/mod.rs): Added `header_center()` method
-  - [disks-ui/i18n/en/cosmic_ext_disks.ftl](disks-ui/i18n/en/cosmic_ext_disks.ftl): Added volume/btrfs translations
-  - [disks-ui/i18n/sv/cosmic_ext_disks.ftl](disks-ui/i18n/sv/cosmic_ext_disks.ftl): Added Swedish translations
+  - [storage-ui/src/ui/app/view.rs](storage-ui/src/ui/app/view.rs): Added `tab_button_class()`, `tab_button_style()`, `header_center()`
+  - [storage-ui/src/ui/app/mod.rs](storage-ui/src/ui/app/mod.rs): Added `header_center()` method
+  - [storage-ui/i18n/en/cosmic_ext_disks.ftl](storage-ui/i18n/en/cosmic_ext_disks.ftl): Added volume/btrfs translations
+  - [storage-ui/i18n/sv/cosmic_ext_disks.ftl](storage-ui/i18n/sv/cosmic_ext_disks.ftl): Added Swedish translations
 - **Commit**: af0aa5b "feat(btrfs): center tabs with accent colors"
 
 #### Issue #6: Subvolumes Grid Refinement ✅
@@ -57,12 +57,12 @@
   - Recursive rendering with indentation (20px per level)
   - Layout: Path (Fill) | ID (80px) | Actions
 - **Files Changed**:
-  - [disks-ui/src/ui/btrfs/state.rs](disks-ui/src/ui/btrfs/state.rs): Added `expanded_subvolumes: HashMap<u64, bool>`
-  - [disks-ui/src/ui/btrfs/message.rs](disks-ui/src/ui/btrfs/message.rs): Added `ToggleSubvolumeExpanded(u64)`
-  - [disks-ui/src/ui/btrfs/view.rs](disks-ui/src/ui/btrfs/view.rs): Complete rewrite with hierarchical functions
-  - [disks-ui/src/ui/app/message.rs](disks-ui/src/ui/app/message.rs): Added `BtrfsToggleSubvolumeExpanded`
-  - [disks-ui/src/ui/app/update/btrfs.rs](disks-ui/src/ui/app/update/btrfs.rs): Added toggle handler
-  - [disks-ui/src/ui/app/update/mod.rs](disks-ui/src/ui/app/update/mod.rs): Added routing
+  - [storage-ui/src/ui/btrfs/state.rs](storage-ui/src/ui/btrfs/state.rs): Added `expanded_subvolumes: HashMap<u64, bool>`
+  - [storage-ui/src/ui/btrfs/message.rs](storage-ui/src/ui/btrfs/message.rs): Added `ToggleSubvolumeExpanded(u64)`
+  - [storage-ui/src/ui/btrfs/view.rs](storage-ui/src/ui/btrfs/view.rs): Complete rewrite with hierarchical functions
+  - [storage-ui/src/ui/app/message.rs](storage-ui/src/ui/app/message.rs): Added `BtrfsToggleSubvolumeExpanded`
+  - [storage-ui/src/ui/app/update/btrfs.rs](storage-ui/src/ui/app/update/btrfs.rs): Added toggle handler
+  - [storage-ui/src/ui/app/update/mod.rs](storage-ui/src/ui/app/update/mod.rs): Added routing
 - **Commit**: 4f83bed "feat(btrfs): hierarchical subvolumes with expanders"
 
 #### Issue #2: Text Sizing ✅
@@ -72,7 +72,7 @@
   - Subvolume paths: 13.0 size (matches device paths)
   - Metadata: caption() widget (matches other sections)
 - **Files Changed**:
-  - [disks-ui/src/ui/btrfs/view.rs](disks-ui/src/ui/btrfs/view.rs): Updated all text sizing
+  - [storage-ui/src/ui/btrfs/view.rs](storage-ui/src/ui/btrfs/view.rs): Updated all text sizing
 - **Commit**: 61d4c29 "feat(btrfs): standardize text sizing"
 
 #### Issue #3: Usage Display ✅
@@ -83,7 +83,7 @@
   - 96px donut chart with centered percentage
   - Right-aligned to match Volume Info layout
 - **Files Changed**:
-  - [disks-ui/src/ui/btrfs/view.rs](disks-ui/src/ui/btrfs/view.rs): Added pie chart display
+  - [storage-ui/src/ui/btrfs/view.rs](storage-ui/src/ui/btrfs/view.rs): Added pie chart display
 - **Commit**: 376c6fb "feat(btrfs): add usage pie chart display"
 
 #### Issue #4: Padding ✅

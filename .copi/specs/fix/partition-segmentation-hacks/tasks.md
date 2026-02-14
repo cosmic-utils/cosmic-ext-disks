@@ -7,8 +7,8 @@ Source:
 ## Task 1: Baseline current segmentation behavior
 - Scope: Understand existing segmentation code and inputs.
 - Files/areas:
-  - `disks-ui/src/views/volumes.rs`
-  - Any related UI utils under `disks-ui/src/utils/`
+  - `storage-ui/src/views/volumes.rs`
+  - Any related UI utils under `storage-ui/src/utils/`
 - Steps:
   - Locate the segment computation code paths referenced in the audit.
   - Document what data is available per partition (start/size/fs type) and per drive (size).
@@ -23,7 +23,7 @@ Source:
 ## Task 2: Implement a pure segment computation helper
 - Scope: Create a deterministic function that turns disk metadata into segments.
 - Files/areas:
-  - New helper module in `disks-ui/src/utils/` (or the nearest existing utility module for volumes rendering)
+  - New helper module in `storage-ui/src/utils/` (or the nearest existing utility module for volumes rendering)
 - Steps:
   - Define segment types (partition/free/unknown) and the minimal fields the renderer needs.
   - Implement ordering + gap filling from $0$ to `disk_size`.
@@ -39,14 +39,14 @@ Source:
     - Partition end beyond disk size
     - Extremely small partitions remain visible under the existing scaling/min-width behavior
 - Done when:
-  - [x] Helper exists under `disks-ui/src/utils/` and is pure.
+  - [x] Helper exists under `storage-ui/src/utils/` and is pure.
   - [x] Unit tests cover gaps, sorting, overlaps, end-past-disk, and tiny partitions.
   - [x] No `todo!()`/`panic!()` for normal invalid-input cases.
 
 ## Task 3: Wire helper into volumes view and remove hacks
 - Scope: Replace inline heuristics with helper output.
 - Files/areas:
-  - `disks-ui/src/views/volumes.rs`
+  - `storage-ui/src/views/volumes.rs`
 - Steps:
   - Replace current offset heuristic and trailing-hide hack with helper output.
   - Ensure the UI renders free-space segments explicitly.

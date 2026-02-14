@@ -10,20 +10,20 @@ Branch: `investigate/btrfs-btrfsutil`
 
 **Changes Made**:
 
-1. **Helper Binary** (`disks-btrfs-helper/src/main.rs`):
+1. **Helper Binary** (`storage-btrfs-helper/src/main.rs`):
    - Added `Usage` command to CLI
    - Implemented `get_usage()` function using `libc::statvfs()` system call
    - Added `UsageOutput` struct with `used_bytes` field
    - Calculates used space as: `(f_blocks - f_bfree) * f_frsize`
-   - Added `libc` dependency to `disks-btrfs-helper/Cargo.toml`
+   - Added `libc` dependency to `storage-btrfs-helper/Cargo.toml`
 
-2. **Native BTRFS API** (`disks-dbus/src/disks/btrfs_native.rs`):
+2. **Native BTRFS API** (`storage-dbus/src/disks/btrfs_native.rs`):
    - Added `GetUsage` operation to `Operation` enum
    - Added `to_args()` case for `GetUsage` → `["usage", mount_point]`
    - Implemented `BtrfsFilesystem::get_usage()` → returns `u64` (bytes used)
    - Parses JSON response from helper: `{"used_bytes": 123456789}`
 
-3. **UI Message Handlers** (`disks-ui/src/ui/app/update/btrfs.rs`):
+3. **UI Message Handlers** (`storage-ui/src/ui/app/update/btrfs.rs`):
    - Implemented `BtrfsLoadUsage` handler:
      * Sets `loading_usage = true` in state
      * Spawns async task to call `BtrfsFilesystem::get_usage()`
@@ -33,11 +33,11 @@ Branch: `investigate/btrfs-btrfsutil`
      * Stores result in `btrfs_state.used_space: Option<Result<u64, String>>`
 
 4. **Existing UI Integration**:
-   - Usage display already implemented in `disks-ui/src/ui/btrfs/view.rs`:
+   - Usage display already implemented in `storage-ui/src/ui/btrfs/view.rs`:
      * Shows pie chart when `used_space: Some(Ok(bytes))`
      * Shows error message when `used_space: Some(Err(msg))`
      * Shows "Loading usage information..." when `loading_usage = true`
-   - Usage load automatically triggered in `disks-ui/src/ui/volumes/update/selection.rs`:
+   - Usage load automatically triggered in `storage-ui/src/ui/volumes/update/selection.rs`:
      * When BTRFS volume is selected
      * Batched with subvolume load
 
@@ -67,10 +67,10 @@ cargo run
 ```
 
 **Files Changed**:
-- `disks-btrfs-helper/Cargo.toml` - Added `libc.workspace = true`
-- `disks-btrfs-helper/src/main.rs` - Added Usage command, get_usage() function, UsageOutput struct
-- `disks-dbus/src/disks/btrfs_native.rs` - Added GetUsage operation, get_usage() method
-- `disks-ui/src/ui/app/update/btrfs.rs` - Implemented BtrfsLoadUsage and BtrfsUsageLoaded handlers
+- `storage-btrfs-helper/Cargo.toml` - Added `libc.workspace = true`
+- `storage-btrfs-helper/src/main.rs` - Added Usage command, get_usage() function, UsageOutput struct
+- `storage-dbus/src/disks/btrfs_native.rs` - Added GetUsage operation, get_usage() method
+- `storage-ui/src/ui/app/update/btrfs.rs` - Implemented BtrfsLoadUsage and BtrfsUsageLoaded handlers
 
 **Status**: Phase 3 (UI Enhancements) now COMPLETE ✅
 
@@ -96,9 +96,9 @@ cargo run
 4. Maps snapshot → source: `HashMap<Uuid, Vec<&BtrfsSubvolume>>`
 
 **Files Changed**:
-- `disks-ui/Cargo.toml` - Added `uuid.workspace = true` dependency
-- `disks-ui/src/ui/btrfs/view.rs` - Fixed hierarchy logic in `build_subvolume_hierarchy()`, `render_subvolume_row()`
-- `disks-btrfs-helper/src/main.rs` - Added parsing for `parent_uuid` and `received_uuid` fields, strips `<FS_TREE>/` prefix from paths
+- `storage-ui/Cargo.toml` - Added `uuid.workspace = true` dependency
+- `storage-ui/src/ui/btrfs/view.rs` - Fixed hierarchy logic in `build_subvolume_hierarchy()`, `render_subvolume_row()`
+- `storage-btrfs-helper/src/main.rs` - Added parsing for `parent_uuid` and `received_uuid` fields, strips `<FS_TREE>/` prefix from paths
 
 **Testing**: TBD - User to verify hierarchy displays correctly
 
@@ -120,12 +120,12 @@ cargo run
 - `btrfs-usage-error` - "Usage error: { $error }"
 
 **Code Updated**:
-- Replaced all hardcoded English strings in `disks-ui/src/ui/btrfs/view.rs` with `fl!()` macro calls
+- Replaced all hardcoded English strings in `storage-ui/src/ui/btrfs/view.rs` with `fl!()` macro calls
 - All BTRFS UI text now properly localized and consistent with app style
 
 **Files Changed**:
-- `disks-ui/i18n/en/cosmic_ext_disks.ftl` - Added 7 new strings
-- `disks-ui/src/ui/btrfs/view.rs` - Replaced 6 hardcoded strings with fl! calls
+- `storage-ui/i18n/en/cosmic_ext_disks.ftl` - Added 7 new strings
+- `storage-ui/src/ui/btrfs/view.rs` - Replaced 6 hardcoded strings with fl! calls
 
 **Status**: Phase 4 complete (Task 4.1 done, Task 4.2 Swedish translations skipped as optional)
 

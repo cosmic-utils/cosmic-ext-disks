@@ -225,7 +225,7 @@ impl FilesystemsHandler {
         // Parse options
         let options: FormatOptions = serde_json::from_str(&options_json).unwrap_or_default();
 
-        // Delegate to disks-dbus operation
+        // Delegate to storage-dbus operation
         disks_dbus::format_filesystem(&device, &fs_type, &label, options)
             .await
             .map_err(|e| {
@@ -277,7 +277,7 @@ impl FilesystemsHandler {
         // Parse options
         let mount_opts: MountOptions = serde_json::from_str(&options_json).unwrap_or_default();
 
-        // Delegate to disks-dbus operation
+        // Delegate to storage-dbus operation
         let actual_mount_point = disks_dbus::mount_filesystem(&device, &mount_point, mount_opts)
             .await
             .map_err(|e| {
@@ -326,7 +326,7 @@ impl FilesystemsHandler {
 
         // Determine if input is device or mount point (for finding processes later)
         let mount_point = if device_or_mount.starts_with("/dev/") {
-            // It's a device, get mount point via disks-dbus
+            // It's a device, get mount point via storage-dbus
             disks_dbus::get_mount_point(&device_or_mount)
                 .await
                 .unwrap_or_else(|_| device_or_mount.clone())
@@ -335,7 +335,7 @@ impl FilesystemsHandler {
             device_or_mount.clone()
         };
 
-        // Attempt unmount via disks-dbus operation
+        // Attempt unmount via storage-dbus operation
         let unmount_result = disks_dbus::unmount_filesystem(&device_or_mount, force).await;
 
         match unmount_result {
@@ -401,7 +401,7 @@ impl FilesystemsHandler {
                         // Wait a moment for processes to die
                         tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
 
-                        // Retry unmount via disks-dbus
+                        // Retry unmount via storage-dbus
                         match disks_dbus::unmount_filesystem(&device_or_mount, force).await {
                             Ok(_) => {
                                 tracing::info!("Successfully unmounted after killing processes");
@@ -491,7 +491,7 @@ impl FilesystemsHandler {
 
         tracing::debug!("Getting blocking processes for {}", device_or_mount);
 
-        // Determine mount point via disks-dbus
+        // Determine mount point via storage-dbus
         let mount_point = if device_or_mount.starts_with("/dev/") {
             disks_dbus::get_mount_point(&device_or_mount)
                 .await
@@ -552,7 +552,7 @@ impl FilesystemsHandler {
 
         tracing::info!("Checking filesystem on {} (repair={})", device, repair);
 
-        // Delegate to disks-dbus operation
+        // Delegate to storage-dbus operation
         let clean = disks_dbus::check_filesystem(&device, repair)
             .await
             .map_err(|e| {
@@ -603,7 +603,7 @@ impl FilesystemsHandler {
 
         tracing::info!("Setting label on {} to '{}'", device, label);
 
-        // Delegate to disks-dbus operation
+        // Delegate to storage-dbus operation
         disks_dbus::set_filesystem_label(&device, &label)
             .await
             .map_err(|e| {
@@ -825,7 +825,7 @@ impl FilesystemsHandler {
 
         tracing::info!("Taking ownership of {} (recursive={})", device, recursive);
 
-        // Delegate to disks-dbus operation
+        // Delegate to storage-dbus operation
         disks_dbus::take_filesystem_ownership(&device, recursive)
             .await
             .map_err(|e| {

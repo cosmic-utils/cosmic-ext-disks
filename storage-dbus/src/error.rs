@@ -1,4 +1,4 @@
-//! Error types for disks-dbus operations
+//! Error types for storage-dbus operations
 
 use thiserror::Error;
 

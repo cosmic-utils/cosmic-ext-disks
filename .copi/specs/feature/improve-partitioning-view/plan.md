@@ -118,10 +118,10 @@ Recent work added `FSTools` detection (showing missing tools in settings), but t
 - For all other types (especially GPT), show the partition name field
 
 **Implementation:**
-- In `disks-ui/src/ui/dialogs/view/partition.rs`:
+- In `storage-ui/src/ui/dialogs/view/partition.rs`:
   - `create_partition()`: conditionally push name field based on `create.table_type`
   - `format_partition()`: same conditional logic
-- Backend already handles this correctly in `disks-dbus/src/disks/ops.rs`:
+- Backend already handles this correctly in `storage-dbus/src/disks/ops.rs`:
   ```rust
   let create_name = if table_type == "dos" {
       ""
@@ -155,8 +155,8 @@ pub fn unit_size_input<'a, Message>(
 ```
 
 **Location:**
-- New module: `disks-ui/src/utils/unit_size_input.rs`
-- Export from `disks-ui/src/utils/mod.rs`
+- New module: `storage-ui/src/utils/unit_size_input.rs`
+- Export from `storage-ui/src/utils/mod.rs`
 
 **Usage in dialogs:**
 - Replace existing `labelled_spinner` calls for "Partition Size" and "Free Space"
@@ -178,12 +178,12 @@ pub fn unit_size_input<'a, Message>(
 ### C) Erase Control: Toggler → Checkbox
 
 **Changes:**
-- `disks-ui/src/ui/dialogs/view/partition.rs`:
+- `storage-ui/src/ui/dialogs/view/partition.rs`:
   - `create_partition()`: replace `toggler(create_clone.erase)` with `checkbox(fl!("overwrite-data-slow"), create_clone.erase)`
   - `format_partition()`: same change
 
 **i18n:**
-- Add to `disks-ui/i18n/en/cosmic_ext_disks.ftl`:
+- Add to `storage-ui/i18n/en/cosmic_ext_disks.ftl`:
   ```ftl
   overwrite-data-slow = Overwrite Data (Slow)
   ```
@@ -319,7 +319,7 @@ pub fn unit_size_input<'a, Message>(
   ```
 
 **i18n:**
-- Update `disks-ui/i18n/en/cosmic_ext_disks.ftl`:
+- Update `storage-ui/i18n/en/cosmic_ext_disks.ftl`:
   ```ftl
   password-protected-luks = Password Protected (LUKS)
   ```
@@ -460,11 +460,11 @@ pub fn unit_size_input<'a, Message>(
 
 ## Implementation Notes
 
-- `disks-ui/src/ui/dialogs/view/partition.rs` will see the most changes
-- `disks-ui/src/utils/unit_size_input.rs` is new (reusable component)
-- `disks-ui/i18n/en/cosmic_ext_disks.ftl` and `sv/` need new strings
-- FSTools integration via `disks-ui/src/utils/fs_tools.rs` (already implemented)
-- No changes to `disks-dbus` crate (backend logic unchanged)
+- `storage-ui/src/ui/dialogs/view/partition.rs` will see the most changes
+- `storage-ui/src/utils/unit_size_input.rs` is new (reusable component)
+- `storage-ui/i18n/en/cosmic_ext_disks.ftl` and `sv/` need new strings
+- FSTools integration via `storage-ui/src/utils/fs_tools.rs` (already implemented)
+- No changes to `storage-dbus` crate (backend logic unchanged)
 
 ---
 

@@ -22,8 +22,8 @@ Finally, some DBus/UDisks2 operation failures arrive as low-signal messages like
 - Fixing unrelated issues (e.g., app-id mismatches between desktop/metainfo/config), unless required for log paths.
 
 ## Proposed Approach
-### 1) File logging in `disks-ui`
-- Add a small logging bootstrap module (e.g. `disks-ui/src/logging.rs`) that configures `tracing_subscriber` as a registry with:
+### 1) File logging in `storage-ui`
+- Add a small logging bootstrap module (e.g. `storage-ui/src/logging.rs`) that configures `tracing_subscriber` as a registry with:
   - an `EnvFilter` (respects `RUST_LOG`, provides a sensible default)
   - a stdout `fmt` layer (current behavior)
   - a file `fmt` layer writing to a rolling log file (daily rotation; keep 7 days)
@@ -40,7 +40,7 @@ Finally, some DBus/UDisks2 operation failures arrive as low-signal messages like
 - Identify all places where errors are surfaced:
   - `Message::Dialog(Box::new(ShowDialog::Info { .. }))`
   - setting `state.error = Some(...)` where that value is displayed
-- Introduce a tiny helper in the UI layer (e.g. `disks-ui/src/ui/error.rs` or `disks-ui/src/utils/logging.rs`) to standardize:
+- Introduce a tiny helper in the UI layer (e.g. `storage-ui/src/ui/error.rs` or `storage-ui/src/utils/logging.rs`) to standardize:
   - `log_error_and_show_dialog(title, err, context_fields...)`
 - Prefer direct `tracing::info!/warn!/error!` calls in-line for pure logging.
 - The only exception (allowed wrapper) is `log_error_and_show_dialog(...)` since it couples logging with the UI error surface.
@@ -48,8 +48,8 @@ Finally, some DBus/UDisks2 operation failures arrive as low-signal messages like
   - User input validation errors: `tracing::warn!` (or `debug!`), not `error!`
   - Backend/DBus/UDisks errors: `tracing::error!` with `?err` and structured fields (volume id/path, operation name)
 - Target the modules with the highest concentration of `ShowDialog::Info` creation:
-  - `disks-ui/src/ui/volumes/update/*.rs`
-  - `disks-ui/src/ui/app/update/*.rs`
+  - `storage-ui/src/ui/volumes/update/*.rs`
+  - `storage-ui/src/ui/app/update/*.rs`
 
 ### 3) Preserve UDisks2 method error details
 - Extend the “raw zbus proxy” approach beyond `Partition.Delete` for operations that users trigger and that may currently lose the message:
@@ -57,7 +57,7 @@ Finally, some DBus/UDisks2 operation failures arrive as low-signal messages like
   - `Block.Format`
   - `Encrypted.Unlock`, `Encrypted.Lock`
   - `PartitionTable.CreatePartitionAndFormat`
-- Implement a shared helper in `disks-dbus` (likely in `disks-dbus/src/disks/ops.rs`) for calling a UDisks2 method that:
+- Implement a shared helper in `storage-dbus` (likely in `storage-dbus/src/disks/ops.rs`) for calling a UDisks2 method that:
   - catches `zbus::Error::MethodError(name, msg, ..)`
   - returns an `anyhow` error containing `name` + `msg` + operation + object path
   - optionally enriches with best-effort device identifiers (preferred device, device, etc.) similar to the existing `partition_delete` logic

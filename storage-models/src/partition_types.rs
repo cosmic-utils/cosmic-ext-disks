@@ -99,7 +99,7 @@ pub fn get_all_partition_type_infos(table_type: &str) -> Vec<PartitionTypeInfo> 
         .collect()
 }
 
-// Load TOML data at compile time from disks-dbus data directory
+// Load TOML data at compile time from storage-dbus data directory
 const GPT_TOML: &str = include_str!("../../data/types/gpt_types.toml");
 const DOS_TOML: &str = include_str!("../../data/types/dos_types.toml");
 const APM_TOML: &str = include_str!("../../data/types/apm_types.toml");

@@ -5,8 +5,8 @@ Branch: `feature/disk-menu-commands`
 ## Task 1: Disk menu restructure (add/move/remove items)
 - Scope: Update the menu layout to match requested Disk menu contents.
 - Files/areas:
-  - `disks-ui/src/views/menu.rs`
-  - `disks-ui/i18n/**/cosmic_ext_disks.ftl` (only if label keys change)
+  - `storage-ui/src/views/menu.rs`
+  - `storage-ui/i18n/**/cosmic_ext_disks.ftl` (only if label keys change)
 - Steps:
   - Remove `DriveSettings` from Disk menu.
   - Do not add image create/restore to Disk menu (handled in a separate PR).
@@ -22,8 +22,8 @@ Branch: `feature/disk-menu-commands`
 ## Task 2: Implement Power Off (UI → DBus) + refresh
 - Scope: Replace placeholder dialog with real drive power-off.
 - Files/areas:
-  - `disks-ui/src/app.rs`
-  - `disks-dbus/src/disks/drive.rs` (already has `power_off()`)
+  - `storage-ui/src/app.rs`
+  - `storage-dbus/src/disks/drive.rs` (already has `power_off()`)
 - Steps:
   - In `Message::PowerOff` handler, call `DriveModel::power_off()` for active drive.
   - On completion, refresh drive list via `DriveModel::get_drives()` and update nav.
@@ -37,8 +37,8 @@ Branch: `feature/disk-menu-commands`
 ## Task 3: Implement Standby Now + Wake-up via UDisks2 ATA calls
 - Scope: Add backend methods and wire them from UI.
 - Files/areas:
-  - `disks-dbus/src/disks/drive.rs` (new async methods)
-  - `disks-ui/src/app.rs`
+  - `storage-dbus/src/disks/drive.rs` (new async methods)
+  - `storage-ui/src/app.rs`
 - Steps:
   - Verify UDisks2 API availability on target system:
     - `busctl introspect org.freedesktop.UDisks2 /org/freedesktop/UDisks2/drives/... org.freedesktop.UDisks2.Drive`
@@ -54,8 +54,8 @@ Branch: `feature/disk-menu-commands`
 ## Task 4: SMART Data & Self-Tests (basic)
 - Scope: Provide a minimal SMART view and ability to start self-tests.
 - Files/areas:
-  - `disks-ui/src/app.rs` and new view under `disks-ui/src/views/`
-  - `disks-dbus` ATA SMART methods
+  - `storage-ui/src/app.rs` and new view under `storage-ui/src/views/`
+  - `storage-dbus` ATA SMART methods
 - Steps:
   - Verify UDisks2 SMART API methods and properties via introspection.
   - Add backend calls to fetch SMART attributes/status.
@@ -72,8 +72,8 @@ Branch: `feature/disk-menu-commands`
 ## Task 5: Remove Drive Settings end-to-end
 - Scope: Ensure Drive Settings is not reachable and any redundant code is removed.
 - Files/areas:
-  - `disks-ui/src/views/menu.rs`
-  - `disks-ui/src/app.rs` (remove handler/variant if appropriate)
+  - `storage-ui/src/views/menu.rs`
+  - `storage-ui/src/app.rs` (remove handler/variant if appropriate)
 - Steps:
   - Delete the menu item.
   - If no longer referenced, remove `MenuAction::DriveSettings` + `Message::DriveSettings`.

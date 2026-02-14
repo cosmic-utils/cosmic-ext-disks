@@ -25,11 +25,11 @@ The goal of this change is to remove that legacy/backup polling mechanism entire
 
 ## Proposed Approach
 
-1. Remove the polling API from `disks-dbus`:
+1. Remove the polling API from `storage-dbus`:
    - Delete `DiskManager::device_event_stream(interval: Duration)` and associated types/helpers that exist only to support polling.
    - Remove/adjust comments that describe polling or recommend falling back to polling.
 
-2. Update `disks-ui` subscription:
+2. Update `storage-ui` subscription:
    - Replace “signals-or-polling fallback” logic with “signals-only” logic.
    - If signals subscription fails, log an error and stop the subscription task (or send a one-time message to the app to surface a lightweight error state).
 
@@ -63,7 +63,7 @@ The goal of this change is to remove that legacy/backup polling mechanism entire
 ## Acceptance Criteria
 
 - [ ] No polling-based device event code remains (no periodic `GetBlockDevices` diff loop used for eventing).
-- [ ] `disks-ui` no longer falls back to polling when signal subscription fails.
+- [ ] `storage-ui` no longer falls back to polling when signal subscription fails.
 - [ ] Device insert/remove updates still occur via UDisks2 signals in normal operation.
 - [ ] `.copi/architecture.md` reflects signals-only device change detection.
 - [ ] CI quality gates are expected to pass: `cargo fmt --all --check`, `cargo clippy --workspace --all-features`, `cargo test --workspace --all-features`.

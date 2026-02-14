@@ -9,7 +9,7 @@
 
 ### Baseline
 - Ran: `cargo fmt --all --check`, `cargo clippy --workspace --all-features`, `cargo test --workspace --all-features`
-- Result: Pass (existing clippy warnings in `disks-dbus` are pre-existing).
+- Result: Pass (existing clippy warnings in `storage-dbus` are pre-existing).
 
 ### Changes
 - Implemented a pure segmentation helper that produces a full 0..disk_size coverage model (partitions + free space), with anomaly reporting for overlaps and out-of-range extents.
@@ -25,9 +25,9 @@
 - `cargo test --workspace --all-features`
 
 ### Files changed
-- `disks-ui/src/utils/segments.rs`
-- `disks-ui/src/utils/mod.rs`
-- `disks-ui/src/views/volumes.rs`
+- `storage-ui/src/utils/segments.rs`
+- `storage-ui/src/utils/mod.rs`
+- `storage-ui/src/views/volumes.rs`
 - `.copi/specs/fix/partition-segmentation-hacks/tasks.md`
 
 ### Notes / Follow-ups

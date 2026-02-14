@@ -22,7 +22,7 @@
 
 ### Task 1: Create Filesystem Tool Detection Module
 
-**File Created:** `disks-ui/src/utils/fs_tools.rs` (160 lines)
+**File Created:** `storage-ui/src/utils/fs_tools.rs` (160 lines)
 
 **Implementation details:**
 - Created module with GPL-3.0-only SPDX header
@@ -67,7 +67,7 @@
   - `test_fs_tool_structure`: Validates no empty fields in any tool
 
 **Module export:**
-- Updated `disks-ui/src/utils/mod.rs`:
+- Updated `storage-ui/src/utils/mod.rs`:
   - Added `mod fs_tools;`
   - Exported `pub use fs_tools::get_missing_tools;`
   - Did not export `FsToolInfo` struct (not needed externally, kept internal)
@@ -85,9 +85,9 @@
 ### Task 2: Expand Partition Type Catalogs
 
 **Files Modified:**
-- `disks-dbus/data/gpt_types.toml` (+24 lines)
-- `disks-dbus/data/dos_types.toml` (+32 lines)
-- `disks-dbus/src/partition_types.rs` (test updates)
+- `storage-dbus/data/gpt_types.toml` (+24 lines)
+- `storage-dbus/data/dos_types.toml` (+32 lines)
+- `storage-dbus/src/partition_types.rs` (test updates)
 
 **GPT additions** (3 new entries):
 ```toml
@@ -184,7 +184,7 @@ fn partition_type_catalog_count_is_stable() {
 
 ### Task 3: Integrate Tool Status into Settings UI
 
-**File Modified:** `disks-ui/src/views/settings.rs` (+55 lines, restructured)
+**File Modified:** `storage-ui/src/views/settings.rs` (+55 lines, restructured)
 
 **Implementation structure:**
 
@@ -292,7 +292,7 @@ fn partition_type_catalog_count_is_stable() {
      ```
    - Changed from spawning shell command to direct crate API call
 
-2. **Added dependency** (`disks-ui/Cargo.toml`):
+2. **Added dependency** (`storage-ui/Cargo.toml`):
    - Added `which.workspace = true` to dependencies
    - Uses workspace version (v8.0.0, already available)
 
@@ -349,10 +349,10 @@ fn partition_type_catalog_count_is_stable() {
 - UI: ✅ Strings display correctly with localization
 
 **Files modified:**
-- `disks-ui/src/utils/fs_tools.rs` (-2 lines, replaced import and function)
-- `disks-ui/Cargo.toml` (+1 dependency line)
-- `disks-ui/i18n/en/cosmic_ext_disks.ftl` (+7 lines with keys)
-- `disks-ui/src/views/settings.rs` (~10 lines modified for fl!() calls)
+- `storage-ui/src/utils/fs_tools.rs` (-2 lines, replaced import and function)
+- `storage-ui/Cargo.toml` (+1 dependency line)
+- `storage-ui/i18n/en/cosmic_ext_disks.ftl` (+7 lines with keys)
+- `storage-ui/src/views/settings.rs` (~10 lines modified for fl!() calls)
 
 **Build status:** Clean, no warnings, ready for commit
 
@@ -405,12 +405,12 @@ fn partition_type_catalog_count_is_stable() {
 
 **Git status review:**
 Files modified:
-- `disks-ui/src/utils/fs_tools.rs` (new)
-- `disks-ui/src/utils/mod.rs`
-- `disks-ui/src/views/settings.rs`
-- `disks-dbus/data/gpt_types.toml`
-- `disks-dbus/data/dos_types.toml`
-- `disks-dbus/src/partition_types.rs`
+- `storage-ui/src/utils/fs_tools.rs` (new)
+- `storage-ui/src/utils/mod.rs`
+- `storage-ui/src/views/settings.rs`
+- `storage-dbus/data/gpt_types.toml`
+- `storage-dbus/data/dos_types.toml`
+- `storage-dbus/src/partition_types.rs`
 
 All changes intentional and documented.
 

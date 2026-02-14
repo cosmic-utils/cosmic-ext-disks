@@ -22,11 +22,11 @@ Task dependencies:
 **Scope:** Implement runtime detection of filesystem utilities using PATH lookup.
 
 **Files/Areas:**
-- New file: `disks-ui/src/utils/fs_tools.rs`
-- `disks-ui/src/utils/mod.rs` (module declaration and exports)
+- New file: `storage-ui/src/utils/fs_tools.rs`
+- `storage-ui/src/utils/mod.rs` (module declaration and exports)
 
 **Steps:**
-1. Create `disks-ui/src/utils/fs_tools.rs` with module structure
+1. Create `storage-ui/src/utils/fs_tools.rs` with module structure
 2. Define `FsToolInfo` struct:
    ```rust
    pub struct FsToolInfo {
@@ -60,7 +60,7 @@ Task dependencies:
 6. Add unit tests:
    - Test tool detection returns expected count (7 tools)
    - Test FsToolInfo structure completeness (no empty fields)
-7. Update `disks-ui/src/utils/mod.rs`:
+7. Update `storage-ui/src/utils/mod.rs`:
    - Add `mod fs_tools;`
    - Export `get_missing_tools` function
 8. Verify compilation: `cargo check --workspace`
@@ -86,9 +86,9 @@ Task dependencies:
 **Scope:** Add missing filesystem types (Btrfs, F2FS, UDF) to GPT and DOS partition tables.
 
 **Files/Areas:**
-- `disks-dbus/data/gpt_types.toml`
-- `disks-dbus/data/dos_types.toml`
-- `disks-dbus/src/partition_types.rs` (tests)
+- `storage-dbus/data/gpt_types.toml`
+- `storage-dbus/data/dos_types.toml`
+- `storage-dbus/src/partition_types.rs` (tests)
 
 **Steps:**
 1. Edit `gpt_types.toml`:
@@ -191,7 +191,7 @@ Task dependencies:
 **Scope:** Display filesystem tool availability in the settings/about pane.
 
 **Files/Areas:**
-- `disks-ui/src/views/settings.rs`
+- `storage-ui/src/views/settings.rs`
 
 **Steps:**
 1. Add import for tool detection:
@@ -223,7 +223,7 @@ Task dependencies:
    ```
    Note: Change alignment to `Start` after center-aligned about content
 
-5. Add localization strings to `disks-ui/i18n/en/cosmic_ext_disks.ftl`:
+5. Add localization strings to `storage-ui/i18n/en/cosmic_ext_disks.ftl`:
    ```fluent
    # Filesystem tools
    fs-tools-missing-title = Missing Filesystem Tools
@@ -386,9 +386,9 @@ Task dependencies:
 **Scope:** Replace CLI `which` with Rust crate and localize all UI strings.
 
 **Files/Areas:**
-- `disks-ui/src/utils/fs_tools.rs` (detection logic)
-- `disks-ui/src/views/settings.rs` (UI strings)
-- `disks-ui/i18n/en/cosmic_ext_disks.ftl` (localization keys)
+- `storage-ui/src/utils/fs_tools.rs` (detection logic)
+- `storage-ui/src/views/settings.rs` (UI strings)
+- `storage-ui/i18n/en/cosmic_ext_disks.ftl` (localization keys)
 
 **Steps:**
 
@@ -410,7 +410,7 @@ Task dependencies:
 
 ### Part B: Localize UI strings (15 minutes)
 
-1. Add localization keys to `disks-ui/i18n/en/cosmic_ext_disks.ftl`:
+1. Add localization keys to `storage-ui/i18n/en/cosmic_ext_disks.ftl`:
    ```fluent
    # Filesystem tools detection
    fs-tools-missing-title = Missing Filesystem Tools

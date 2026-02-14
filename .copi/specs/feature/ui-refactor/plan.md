@@ -15,8 +15,8 @@ We want to refactor/replace the left sidepanel navigation to support a **treevie
 ### Investigation (current code)
 Current navigation is built on COSMIC’s built-in nav bar widget and model:
 - Model: `cosmic::widget::nav_bar::Model` stored as `app.nav`
-- Build/update: the model is rebuilt in `disks-ui/src/ui/app/update/nav.rs` via `app.nav.insert().text(...).icon(...).data(...).activate()`
-- View: `disks-ui/src/ui/app/view.rs` renders `widget::nav_bar(nav_model, ...)`.
+- Build/update: the model is rebuilt in `storage-ui/src/ui/app/update/nav.rs` via `app.nav.insert().text(...).icon(...).data(...).activate()`
+- View: `storage-ui/src/ui/app/view.rs` renders `widget::nav_bar(nav_model, ...)`.
 
 **Finding:** In this codebase, nav items are defined only by `text`, `icon`, and attached `data` (for page state). There’s no current support for:
 - Custom per-row widget content (e.g., embedded buttons)
@@ -169,7 +169,7 @@ After establishing the treeview sidebar, the next phase refines the main content
 
 ### Proposed Approach
 1. **Split layout implementation:**
-   - Refactor `disks-ui/src/views/volumes.rs` (or equivalent disk page view) to render two sections:
+   - Refactor `storage-ui/src/views/volumes.rs` (or equivalent disk page view) to render two sections:
      - Top section: disk header component (~1/3 height).
      - Bottom section: placeholder for volume-specific content view (~2/3 height).
    - Use a `Column` with appropriate spacing and fixed/flex ratios.
@@ -181,7 +181,7 @@ After establishing the treeview sidebar, the next phase refines the main content
      - Size box: right-aligned, distinct background/border, shows "Used / Total".
    - Replace the current header rendering in the disk page view.
 3. **Volumes control compaction:**
-   - Modify `disks-ui/src/ui/volumes/` components:
+   - Modify `storage-ui/src/ui/volumes/` components:
      - Reduce per-volume row height (target ~50% of current).
      - Display only name and size per row (remove other metadata).
      - Remove "Show Reserved" checkbox UI; retain the backing filter logic in state.

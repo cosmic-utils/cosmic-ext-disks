@@ -10,12 +10,12 @@
 
 ## Notable changes
 
-- `disks-dbus/src/disks/manager.rs`
+- `storage-dbus/src/disks/manager.rs`
   - Removed `DiskManager::device_event_stream(interval: Duration)`.
   - Simplified `DiskManager` to hold only a DBus connection for signal subscription.
-- `disks-ui/src/app.rs`
+- `storage-ui/src/app.rs`
   - Removed the polling fallback branch and message.
-- `README.md`, `disks-ui/README.md`
+- `README.md`, `storage-ui/README.md`
   - Documented `udisks2` dependency; updated device update behavior.
 
 ## Commands run

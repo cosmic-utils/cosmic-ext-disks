@@ -18,8 +18,8 @@ This represents a significant gap compared to GNOME Disks and other disk utiliti
 
 **Referenced Documentation:**
 - README V1 goal #3: [README.md](../../../README.md#L27) — "1st class BTRFS support - Subvolumes CRUD, and snapshotting maybe"
-- Current BTRFS support: Formatonly, via [disks-ui/src/utils/fs_tools.rs](../../../disks-ui/src/utils/fs_tools.rs) (detection) and partition type catalog
-- Volume detail view: [disks-ui/src/ui/app/view.rs](../../../disks-ui/src/ui/app/view.rs#L280-L1000) — where BTRFS section will integrate
+- Current BTRFS support: Formatonly, via [storage-ui/src/utils/fs_tools.rs](../../../storage-ui/src/utils/fs_tools.rs) (detection) and partition type catalog
+- Volume detail view: [storage-ui/src/ui/app/view.rs](../../../storage-ui/src/ui/app/view.rs#L280-L1000) — where BTRFS section will integrate
 
 **Dependency Note:** Originally blocked on modal-dialogs feature. Since that feature is now deferred pending upstream libcosmic support, this implementation will use the existing overlay dialog system (via `Application::dialog()`).
 
@@ -88,7 +88,7 @@ This represents a significant gap compared to GNOME Disks and other disk utiliti
 - Verify mount point exists (most operations require mounted filesystem)
 
 **Where:**
-- In `build_partition_info()` and `build_volume_node_info()` functions in [disks-ui/src/ui/app/view.rs](../../../disks-ui/src/ui/app/view.rs)
+- In `build_partition_info()` and `build_volume_node_info()` functions in [storage-ui/src/ui/app/view.rs](../../../storage-ui/src/ui/app/view.rs)
 
 ---
 
@@ -96,7 +96,7 @@ This represents a significant gap compared to GNOME Disks and other disk utiliti
 
 **Discovery:** The `udisks2-btrfs` package provides `org.freedesktop.UDisks2.Filesystem.BTRFS` interface on mounted BTRFS filesystems. This provides all needed operations with automatic polkit integration, eliminating the need for CLI subprocess management and pkexec wrappers.
 
-**Location:** `disks-dbus/src/disks/btrfs.rs` (new module)
+**Location:** `storage-dbus/src/disks/btrfs.rs` (new module)
 
 **Key Findings:**
 - Interface appears on block device paths (e.g., `/org/freedesktop/UDisks2/block_devices/sda2`) when mounted
@@ -162,7 +162,7 @@ After enablement, the interface immediately appears on all mounted BTRFS filesys
    - Simple text: "Compression: zstd" or "Compression: disabled"
 
 **UI module structure:**
-- New module: `disks-ui/src/ui/btrfs/` with `mod.rs`, `view.rs`, `state.rs`, `message.rs`
+- New module: `storage-ui/src/ui/btrfs/` with `mod.rs`, `view.rs`, `state.rs`, `message.rs`
 - Integration point: Called from `build_partition_info()` when BTRFS detected
 
 ---
@@ -328,7 +328,7 @@ pub struct BtrfsCreateSnapshotDialog {
 **Risk:** Users may not have `udisks2-btrfs` package installed, preventing D-Bus interface from existing.
 
 **Mitigation:**
-- Add `udisks2-btrfs` detection to `disks-ui/src/utils/fs_tools.rs` alongside other filesystem tools
+- Add `udisks2-btrfs` detection to `storage-ui/src/utils/fs_tools.rs` alongside other filesystem tools
 - Show clear warning in settings: "UDisks2 BTRFS module not installed. Install udisks2-btrfs package."
 - Gracefully disable BTRFS management section if interface not available
 - Provide fallback message in BTRFS section with installation instructions

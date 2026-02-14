@@ -20,12 +20,12 @@ Branch: `feature/disk-menu-commands`
 - `cargo test --workspace --all-features`
 
 ### Notable files changed
-- disks-ui/src/views/menu.rs
-- disks-ui/src/app.rs
-- disks-ui/src/views/dialogs.rs
-- disks-ui/src/views/volumes.rs
-- disks-ui/i18n/en/cosmic_ext_disks.ftl
-- disks-ui/i18n/sv/cosmic_ext_disks.ftl
-- disks-dbus/src/disks/drive.rs
-- disks-dbus/src/disks/smart.rs
-- disks-dbus/src/disks/mod.rs
+- storage-ui/src/views/menu.rs
+- storage-ui/src/app.rs
+- storage-ui/src/views/dialogs.rs
+- storage-ui/src/views/volumes.rs
+- storage-ui/i18n/en/cosmic_ext_disks.ftl
+- storage-ui/i18n/sv/cosmic_ext_disks.ftl
+- storage-dbus/src/disks/drive.rs
+- storage-dbus/src/disks/smart.rs
+- storage-dbus/src/disks/mod.rs

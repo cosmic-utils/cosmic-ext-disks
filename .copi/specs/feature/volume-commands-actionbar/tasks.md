@@ -4,8 +4,8 @@
 - Status: Done
 - Scope: Add message types and selection rules for which commands apply to which selected object.
 - Files/areas:
-  - `disks-ui/src/views/volumes.rs`
-  - `disks-ui/src/app.rs` (dialog state types)
+  - `storage-ui/src/views/volumes.rs`
+  - `storage-ui/src/app.rs` (dialog state types)
 - Steps:
   - Add new `VolumesControlMessage` variants for:
     - FormatPartition
@@ -29,9 +29,9 @@
 - Status: Done
 - Scope: Implement dialog UIs for each command with required validation and warnings.
 - Files/areas:
-  - `disks-ui/src/views/dialogs.rs`
-  - `disks-ui/src/app.rs` (new dialog structs + `ShowDialog` variants)
-  - `disks-ui/i18n/en/cosmic_ext_disks.ftl` (+ sv if required by repo conventions)
+  - `storage-ui/src/views/dialogs.rs`
+  - `storage-ui/src/app.rs` (new dialog structs + `ShowDialog` variants)
+  - `storage-ui/i18n/en/cosmic_ext_disks.ftl` (+ sv if required by repo conventions)
 - Steps:
   - Implement dialogs:
     - Edit Partition: type dropdown (exhaustive list), name, flags.
@@ -50,10 +50,10 @@
 
 ## Task 3: DBus: implement missing `VolumeModel` operations
 - Status: Done
-- Scope: Replace stub implementations in `disks-dbus/src/disks/partition.rs`.
+- Scope: Replace stub implementations in `storage-dbus/src/disks/partition.rs`.
 - Files/areas:
-  - `disks-dbus/src/disks/partition.rs`
-  - Potentially `disks-dbus/src/disks/ops.rs` (if new backend helpers are useful)
+  - `storage-dbus/src/disks/partition.rs`
+  - Potentially `storage-dbus/src/disks/ops.rs` (if new backend helpers are useful)
 - Steps:
   - Implement:
     - `edit_partition(type, name, flags)` using `PartitionProxy::set_type`, `set_name`, `set_flags`.
@@ -75,9 +75,9 @@
 - Status: Done
 - Scope: Provide “full exhaustive list of partition types” for Edit Partition dropdown.
 - Files/areas:
-  - `disks-dbus/src/partition_type.rs`
-  - `disks-dbus/src/lib.rs` exports (if needed)
-  - `disks-ui/src/views/dialogs.rs` (dropdown data shape)
+  - `storage-dbus/src/partition_type.rs`
+  - `storage-dbus/src/lib.rs` exports (if needed)
+  - `storage-ui/src/views/dialogs.rs` (dropdown data shape)
 - Steps:
   - Add a function returning full catalog entries for a given table type:
     - Prefer returning a stable list of `(id, display_name)`; optionally include group/subtype.
@@ -92,8 +92,8 @@
 - Status: Done
 - Scope: Hook dialog confirms to DBus calls, refresh nav, and show errors.
 - Files/areas:
-  - `disks-ui/src/views/volumes.rs`
-  - `disks-ui/src/app.rs` (message routing)
+  - `storage-ui/src/views/volumes.rs`
+  - `storage-ui/src/app.rs` (message routing)
 - Steps:
   - For each command confirm message, execute a `Task::perform` calling the corresponding `VolumeModel` method.
   - Refresh drive list via `DriveModel::get_drives()` on success.
@@ -108,8 +108,8 @@
 - Status: Done
 - Scope: Compute min/max for resize exactly as required and gate the resize action.
 - Files/areas:
-  - `disks-ui/src/views/volumes.rs` (segment/right-free computation)
-  - `disks-ui/src/views/dialogs.rs` (clamped control bounds)
+  - `storage-ui/src/views/volumes.rs` (segment/right-free computation)
+  - `storage-ui/src/views/dialogs.rs` (clamped control bounds)
 - Steps:
   - Compute `free_space_to_the_right_bytes` from the segment model (contiguous free segment after the selected partition).
   - `max = current_size + free_right`.
@@ -155,8 +155,8 @@
 - Status: Done
 - Scope: Implement backend plumbing to read and mutate `org.freedesktop.UDisks2.Block` configuration items for `fstab` and `crypttab`.
 - Files/areas:
-  - `disks-dbus/src/disks/partition.rs` (implement `edit_mount_options` and extend/replace `edit_encrytion_options`)
-  - Potentially `disks-dbus/src/disks/ops.rs` or a new module for Block configuration helpers
+  - `storage-dbus/src/disks/partition.rs` (implement `edit_mount_options` and extend/replace `edit_encrytion_options`)
+  - Potentially `storage-dbus/src/disks/ops.rs` or a new module for Block configuration helpers
 - Steps:
   - Add helpers to:
     - Read current `Block.Configuration` list
@@ -179,10 +179,10 @@
 - Status: Done
 - Scope: Add action button + dialog UI + confirm wiring for fstab config.
 - Files/areas:
-  - `disks-ui/src/views/volumes.rs` (actionbar button visibility rules)
-  - `disks-ui/src/app.rs` (dialog state + ShowDialog variant)
-  - `disks-ui/src/views/dialogs.rs` (dialog layout)
-  - `disks-ui/i18n/en/cosmic_ext_disks.ftl` (+ `sv` if required)
+  - `storage-ui/src/views/volumes.rs` (actionbar button visibility rules)
+  - `storage-ui/src/app.rs` (dialog state + ShowDialog variant)
+  - `storage-ui/src/views/dialogs.rs` (dialog layout)
+  - `storage-ui/i18n/en/cosmic_ext_disks.ftl` (+ `sv` if required)
 - Steps:
   - Add actionbar button and message routing.
   - Implement dialog with GNOME fields (including Identify As dropdown).
@@ -197,10 +197,10 @@
 - Status: Done
 - Scope: Add action button + dialog UI + confirm wiring for crypttab config.
 - Files/areas:
-  - `disks-ui/src/views/volumes.rs`
-  - `disks-ui/src/app.rs`
-  - `disks-ui/src/views/dialogs.rs`
-  - `disks-ui/i18n/en/cosmic_ext_disks.ftl` (+ `sv` if required)
+  - `storage-ui/src/views/volumes.rs`
+  - `storage-ui/src/app.rs`
+  - `storage-ui/src/views/dialogs.rs`
+  - `storage-ui/i18n/en/cosmic_ext_disks.ftl` (+ `sv` if required)
 - Steps:
   - Add actionbar button visible only when selected segment is a LUKS crypto container.
   - Implement dialog fields per spec (defaults toggle, startup/auth toggles, other options, name, passphrase, show passphrase).
@@ -214,7 +214,7 @@
 - Status: Done
 - Scope: Avoid corrupting user-entered option strings while managing known tokens.
 - Files/areas:
-  - `disks-ui/src/utils/` and/or `disks-dbus/src/` (shared helper, or duplicated carefully)
+  - `storage-ui/src/utils/` and/or `storage-dbus/src/` (shared helper, or duplicated carefully)
 - Steps:
   - Implement helpers:
     - Split by `,`, trim, drop empties

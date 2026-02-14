@@ -54,7 +54,7 @@ This document is **authoritative** for agents working in this repository.
 - **Publish workflow:** on push to `main`, computes version, updates crate versions, publishes crates, creates GitHub Release.
   - Evidence: `.github/workflows/main.yml`
 - **Rust edition:** `2024` in crates.
-  - Evidence: `disks-ui/Cargo.toml`, `disks-dbus/Cargo.toml`
+  - Evidence: `storage-ui/Cargo.toml`, `storage-dbus/Cargo.toml`
 
 ## Unknown / TBD
 

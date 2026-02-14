@@ -31,8 +31,8 @@ UDisks2 provides DBus signals via the ObjectManager interface that are designed 
   - Consider a slower polling interval (e.g., 5–10s) as the fallback to reduce load.
 
 Likely touch points (by evidence from audit):
-- `disks-ui/src/app.rs` (current `device_event_stream(Duration::from_secs(1))` usage)
-- `disks-dbus/src/disks/manager.rs` (current polling loop)
+- `storage-ui/src/app.rs` (current `device_event_stream(Duration::from_secs(1))` usage)
+- `storage-dbus/src/disks/manager.rs` (current polling loop)
 
 ## User/System Flows
 - Device inserted → DBus `InterfacesAdded` received → manager updates internal cache → UI list refreshes.

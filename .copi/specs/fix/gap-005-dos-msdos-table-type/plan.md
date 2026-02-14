@@ -58,8 +58,8 @@ When the user wants to fill the remaining space in a free-space segment, do not 
 - Ensure `offset_bytes` is inside the DOS usable range (>= 1MiB) and is aligned if needed.
 
 Likely touched areas:
-- `disks-dbus/src/disks/drive.rs` (create partition branching + validation)
-- `disks-dbus/src/partition_type.rs` (valid names helper and/or catalog table_type)
+- `storage-dbus/src/disks/drive.rs` (create partition branching + validation)
+- `storage-dbus/src/partition_type.rs` (valid names helper and/or catalog table_type)
 - Potentially UI wiring only if it depends on the raw reported table type
 
 ## User/System Flows

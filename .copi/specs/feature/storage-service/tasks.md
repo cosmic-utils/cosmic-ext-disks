@@ -8,23 +8,23 @@
 
 ## Phase 1: Foundation & Library Conversion (2 weeks)
 
-### Task 1.1: Convert disks-btrfs-helper to Library (1 week)
+### Task 1.1: Convert storage-btrfs-helper to Library (1 week)
 
 **Scope:** Transform CLI binary into reusable library crate
 
 **Files:**
-- `disks-btrfs-helper/` → rename to `disks-btrfs/`
-- `disks-btrfs/Cargo.toml` (update to library crate)
-- `disks-btrfs/src/lib.rs` (new - public API)
-- `disks-btrfs/src/btrfs/` (move logic from main.rs)
-- `disks-btrfs/src/error.rs` (new - shared error types)
+- `storage-btrfs-helper/` → rename to `storage-btrfs/`
+- `storage-btrfs/Cargo.toml` (update to library crate)
+- `storage-btrfs/src/lib.rs` (new - public API)
+- `storage-btrfs/src/btrfs/` (move logic from main.rs)
+- `storage-btrfs/src/error.rs` (new - shared error types)
 
 **Steps:**
-1. Rename crate directory: `mv disks-btrfs-helper disks-btrfs`
+1. Rename crate directory: `mv storage-btrfs-helper storage-btrfs`
 2. Update `Cargo.toml`:
    ```toml
    [package]
-   name = "disks-btrfs"
+   name = "storage-btrfs"
    version = "0.2.0"
    edition = "2024"
    
@@ -34,7 +34,7 @@
    
    # Optional: keep CLI for testing
    [[bin]]
-   name = "disks-btrfs-cli"
+   name = "storage-btrfs-cli"
    path = "src/bin/cli.rs"
    required-features = ["cli"]
    
@@ -118,16 +118,16 @@
 8. Update workspace Cargo.toml:
    ```toml
    [workspace]
-   members = ["disks-dbus", "disks-btrfs", "disks-ui"]
+   members = ["storage-dbus", "storage-btrfs", "storage-ui"]
    ```
 
 **Test Plan:**
-- Library: `cargo test -p disks-btrfs`
-- CLI (if enabled): `cargo run -p disks-btrfs --features cli -- list /`
+- Library: `cargo test -p storage-btrfs`
+- CLI (if enabled): `cargo run -p storage-btrfs --features cli -- list /`
 - Integration test: create subvolume, verify visible in list
 
 **Done When:**
-- [x] Crate renamed to disks-btrfs (created new crate alongside old helper)
+- [x] Crate renamed to storage-btrfs (created new crate alongside old helper)
 - [x] Public library API defined and documented
 - [x] All operations moved to library modules
 - [x] Error types unified
@@ -186,8 +186,8 @@
    serde = { version = "1.0", features = ["derive"] }
    
    # Internal deps
-   disks-btrfs = { path = "../disks-btrfs" }
-   disks-dbus = { path = "../disks-dbus" }
+   storage-btrfs = { path = "../storage-btrfs" }
+   storage-dbus = { path = "../storage-dbus" }
    ```
 
 3. Create main entry point `src/main.rs`:
@@ -360,7 +360,7 @@
 7. Update workspace Cargo.toml:
    ```toml
    [workspace]
-   members = ["disks-dbus", "disks-btrfs", "disks-ui", "storage-service"]
+   members = ["storage-dbus", "storage-btrfs", "storage-ui", "storage-service"]
    ```
 
 **Test Plan:**
@@ -390,7 +390,7 @@
 
 **Files:**
 - `storage-service/src/btrfs_handler.rs` (expand)
-- `disks-btrfs/src/*.rs` (add missing operations)
+- `storage-btrfs/src/*.rs` (add missing operations)
 
 **Steps:**
 1. Implement CreateSubvolume method
@@ -423,10 +423,10 @@
 **Scope:** UI-side client for calling service
 
 **Files:**
-- `disks-ui/src/client/mod.rs` (new module)
-- `disks-ui/src/client/btrfs.rs` (new)
-- `disks-ui/src/client/error.rs` (new)
-- `disks-ui/Cargo.toml` (add zbus dependency)
+- `storage-ui/src/client/mod.rs` (new module)
+- `storage-ui/src/client/btrfs.rs` (new)
+- `storage-ui/src/client/error.rs` (new)
+- `storage-ui/Cargo.toml` (add zbus dependency)
 
 **Steps:**
 1. Add zbus to UI dependencies:
@@ -541,9 +541,9 @@
 **Scope:** Remove all pkexec calls, use D-Bus client
 
 **Files:**
-- `disks-ui/src/ui/btrfs/mod.rs` (major refactor)
-- `disks-ui/src/ui/btrfs/view.rs` (update message handling)
-- `disks-ui/src/app.rs` (add async runtime)
+- `storage-ui/src/ui/btrfs/mod.rs` (major refactor)
+- `storage-ui/src/ui/btrfs/view.rs` (update message handling)
+- `storage-ui/src/app.rs` (add async runtime)
 
 **Steps:**
 1. Add Tokio runtime to app initialization:
@@ -588,7 +588,7 @@
    // OLD:
    BtrfsMessage::LoadSubvolumes(path) => {
        let output = Command::new("pkexec")
-           .arg("cosmic-ext-disks-btrfs-helper")
+           .arg("cosmic-ext-storage-btrfs-helper")
            .arg("list")
            .arg(&path)
            .output()?;
@@ -666,7 +666,7 @@
 **Scope:** Clean up old pkexec helper
 
 **Files:**
-- `disks-btrfs/src/bin/cli.rs` (keep for manual testing only)
+- `storage-btrfs/src/bin/cli.rs` (keep for manual testing only)
 - Root workspace (remove pkexec polkit actions for helper)
 - Packaging scripts (remove helper binary installation)
 
@@ -674,13 +674,13 @@
 1. Mark helper binary as dev-only:
    ```toml
    [[bin]]
-   name = "disks-btrfs-cli"
+   name = "storage-btrfs-cli"
    path = "src/bin/cli.rs"
    required-features = ["cli"]  # Not built by default
    ```
 
 2. Remove old polkit action file (if exists):
-   - `/usr/share/polkit-1/actions/com.system80.pkexec.cosmic-ext-disks-btrfs-helper.policy`
+   - `/usr/share/polkit-1/actions/com.system80.pkexec.cosmic-ext-storage-btrfs-helper.policy`
 
 3. Update documentation:
    - README: Remove references to helper binary
@@ -711,7 +711,7 @@
 - Similar pattern to btrfs_handler
 
 **Steps:**
-1. Implement partition handler using existing disks-dbus code
+1. Implement partition handler using existing storage-dbus code
 2. Migrate partition operations from UI
 3. Create client wrapper
 4. Update UI to use D-Bus for partitions
@@ -837,7 +837,7 @@
 2. Add install targets:
    ```bash
    install:
-       cargo install --path disks-ui --bin cosmic-ext-disks
+       cargo install --path storage-ui --bin cosmic-ext-disks
        cargo install --path storage-service --bin cosmic-storage-service
        install -Dm644 data/systemd/cosmic-storage-service.service \
                /usr/lib/systemd/system/

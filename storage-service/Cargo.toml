@@ -44,7 +44,7 @@ udisks2.workspace = true
 enumflags2.workspace = true
 
 # Internal dependencies
-disks-btrfs = { path = "../disks-btrfs" }
-disks-dbus.workspace = true
+storage-btrfs = { path = "../storage-btrfs" }
+storage-dbus.workspace = true
 storage-models.workspace = true
 storage-sys = { path = "../storage-sys", package = "cosmic-ext-disks-storage-sys" }

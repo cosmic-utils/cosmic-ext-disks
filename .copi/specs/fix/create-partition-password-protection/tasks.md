@@ -5,7 +5,7 @@ Branch: `fix/create-partition-password-protection`
 ## Task 1: Confirm UDisks2 encryption options for CreatePartitionAndFormat
 - Scope: Determine the exact `a{sv}` keys/values needed to request LUKS when creating + formatting.
 - Likely areas:
-  - `disks-dbus/src/disks/ops.rs` (`RealDiskBackend::create_partition_and_format`)
+  - `storage-dbus/src/disks/ops.rs` (`RealDiskBackend::create_partition_and_format`)
 - Steps:
   - Inspect UDisks2 docs / `udisksctl` / GNOME Disks D-Bus calls.
   - Decide the canonical values (e.g., `encrypt.type=luks2`, `encrypt.passphrase=<...>`).
@@ -18,8 +18,8 @@ Branch: `fix/create-partition-password-protection`
 ## Task 2: Wire password-protected create-partition into DBus create call
 - Scope: Ensure `CreatePartitionInfo.password_protected/password` affect the UDisks2 create request.
 - Likely files/areas:
-  - `disks-dbus/src/disks/ops.rs`
-  - (maybe) `disks-dbus/src/disks/create_partition_info.rs`
+  - `storage-dbus/src/disks/ops.rs`
+  - (maybe) `storage-dbus/src/disks/create_partition_info.rs`
 - Steps:
   - Extend `CreatePartitionAndFormatArgs` to include encryption intent (type + passphrase), or compute format options directly from `CreatePartitionInfo`.
   - In `RealDiskBackend::create_partition_and_format`, add encryption options to `format_options` when requested.
@@ -34,9 +34,9 @@ Branch: `fix/create-partition-password-protection`
 ## Task 3: Add minimal UI-side validation for passphrase inputs
 - Scope: Prevent “encrypted create” with empty/mismatched passphrase.
 - Likely files/areas:
-  - `disks-ui/src/ui/volumes/update/create.rs`
-  - `disks-ui/src/ui/dialogs/state.rs` (may need an error field)
-  - `disks-ui/src/ui/dialogs/view/partition.rs` (render error + disable button)
+  - `storage-ui/src/ui/volumes/update/create.rs`
+  - `storage-ui/src/ui/dialogs/state.rs` (may need an error field)
+  - `storage-ui/src/ui/dialogs/view/partition.rs` (render error + disable button)
 - Steps:
   - If `password_protected` is enabled:
     - require non-empty password

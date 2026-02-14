@@ -4,12 +4,12 @@ Branch: `feature/luks-logical-volumes`
 
 Source: brief (user request)
 
-## Task 1: Model nested volumes in `disks-dbus`
+## Task 1: Model nested volumes in `storage-dbus`
 - Scope: Add a data model that can represent container/child relationships.
 - Files/areas:
-  - `disks-dbus/src/disks/drive.rs`
-  - `disks-dbus/src/disks/partition.rs`
-  - New module likely: `disks-dbus/src/disks/volume.rs` (or similar)
+  - `storage-dbus/src/disks/drive.rs`
+  - `storage-dbus/src/disks/partition.rs`
+  - New module likely: `storage-dbus/src/disks/volume.rs` (or similar)
 - Steps:
   - Define `VolumeNode` (id/path, size, label/type, mount state, kind, children).
   - Add an accessor on `DriveModel` (e.g. `volumes: Vec<VolumeNode>`), without breaking existing callers.
@@ -23,9 +23,9 @@ Source: brief (user request)
 ## Task 2: Discover LUKS containers + cleartext devices
 - Scope: Enumerate LUKS containers and their unlocked cleartext children.
 - Files/areas:
-  - `disks-dbus/src/disks/drive.rs`
-  - `disks-dbus/src/disks/partition.rs`
-  - Possibly new zbus proxy module: `disks-dbus/src/disks/encrypted.rs`
+  - `storage-dbus/src/disks/drive.rs`
+  - `storage-dbus/src/disks/partition.rs`
+  - Possibly new zbus proxy module: `storage-dbus/src/disks/encrypted.rs`
 - Steps:
   - For each partition block object, detect `org.freedesktop.UDisks2.Encrypted`.
   - If present, record container state and discover `CleartextDevice` if unlocked.
@@ -40,7 +40,7 @@ Source: brief (user request)
 ## Task 3: Add unlock/lock operations to the backend
 - Scope: Provide DBus calls for unlocking encrypted volumes.
 - Files/areas:
-  - `disks-dbus/src/disks/ops.rs`
+  - `storage-dbus/src/disks/ops.rs`
   - New zbus proxy if required (Encrypted)
 - Steps:
   - Extend `DiskBackend` with `crypto_unlock(path, passphrase) -> cleartext_path` (and optionally `crypto_lock`).
@@ -50,14 +50,14 @@ Source: brief (user request)
 - Test plan:
   - Extend the mock backend in `ops.rs` tests to record unlock calls.
 - Done when:
-  - [x] Unlock can be invoked via `disks-dbus` API surface.
+  - [x] Unlock can be invoked via `storage-dbus` API surface.
 
 ## Task 4: UI dialog for passphrase + unlock/mount flow
 - Scope: Add a passphrase prompt and wire it to unlock + refresh (container actions are Unlock/Lock only).
 - Files/areas:
-  - `disks-ui/src/views/volumes.rs`
-  - `disks-ui/src/views/dialogs.rs`
-  - `disks-ui/src/app.rs` (dialog plumbing)
+  - `storage-ui/src/views/volumes.rs`
+  - `storage-ui/src/views/dialogs.rs`
+  - `storage-ui/src/app.rs` (dialog plumbing)
 - Steps:
   - Add a `ShowDialog::UnlockEncrypted` dialog.
   - Add a secure text input for passphrase and confirm/cancel actions.
@@ -76,8 +76,8 @@ Source: brief (user request)
 ## Task 5: Render contained filesystems with correct sizing (LUKS direct filesystem)
 - Scope: Display nested filesystem volumes beneath the selected container.
 - Files/areas:
-  - `disks-ui/src/views/volumes.rs`
-  - `disks-ui/src/utils/segments.rs` (if reuse/extract sizing helper)
+  - `storage-ui/src/views/volumes.rs`
+  - `storage-ui/src/utils/segments.rs` (if reuse/extract sizing helper)
 - Steps:
   - When selecting a container partition, render a “child segments row” for `VolumeNode.children`.
   - Use the same sizing math currently used for segments (portion calculation), scoped to the child list.
@@ -106,8 +106,8 @@ Source: brief (user request)
 ## Task 7: Update copy/i18n and docs
 - Scope: User-facing strings and quick docs.
 - Files/areas:
-  - `disks-ui/i18n/**/cosmic_ext_disks.ftl`
-  - `README.md` / `disks-ui/README.md` (if there’s a troubleshooting section)
+  - `storage-ui/i18n/**/cosmic_ext_disks.ftl`
+  - `README.md` / `storage-ui/README.md` (if there’s a troubleshooting section)
 - Steps:
   - Add strings: “Unlock”, “Passphrase”, “Wrong passphrase”, “Locked”, “Unlocked”.
   - Document that unlock uses UDisks2 and may trigger system auth.
@@ -115,4 +115,3 @@ Source: brief (user request)
   - Verify app launches and strings render.
 - Done when:
   - [x] New dialogs/actions are localized (at least `en`).
-

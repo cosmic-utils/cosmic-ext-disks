@@ -6,7 +6,7 @@ Source:
 ## Task 1: Standardize partition table type to `dos` (remove `msdos`)
 - Scope: Use the UDisks2-correct `PartitionTable.Type` value (`dos`) consistently across the repo.
 - Files/areas:
-  - `disks-dbus/src/disks/drive.rs`
+  - `storage-dbus/src/disks/drive.rs`
   - Any UI branches on table type
   - `.copi/architecture.md` (docs)
 - Steps:
@@ -14,14 +14,14 @@ Source:
   - Update docs mentioning `msdos` to `dos`.
   - Add/update unit tests to assert DOS path is keyed off `dos`.
 - Test plan:
-  - `cargo test -p disks-dbus`
+  - `cargo test -p storage-dbus`
 - Done when:
   - [x] No `msdos` comparisons remain on the create-partition critical path.
 
 ## Task 2: Fix create-partition call for DOS/MBR (UDisks2 contract)
 - Scope: Ensure `create_partition` accepts UDisks2-reported DOS table types and calls UDisks2 with the expected arguments.
 - Files/areas:
-  - `disks-dbus/src/disks/drive.rs`
+  - `storage-dbus/src/disks/drive.rs`
 - Steps:
   - Match the drive-reported table type against `dos` (the UDisks2 `PartitionTable.Type` value).
   - Ensure `partition_info.table_type` comparisons are consistent with `dos`.
@@ -33,7 +33,7 @@ Source:
   - For DOS/MBR, set the `partition-type` option (string) to `primary` (unless/until UI supports extended/logical selection).
   - When user requests “max size / fill remaining space”, pass `size=0` to UDisks2 (instead of the UI’s computed max byte count) so the backend can apply alignment/geometry.
 - Test plan:
-  - `cargo test -p disks-dbus`
+  - `cargo test -p storage-dbus`
   - Add/adjust unit tests around the logic (if feasible via isolated functions).
 - Done when:
   - [x] DOS/MBR table types no longer fail due to `dos/msdos` mismatches.
@@ -44,9 +44,9 @@ Status: Implemented in code; manual validation pending.
 ## Task 3: Add DOS/MBR reserved/usable range (1MiB start)
 - Scope: Prevent create-partition requests from targeting reserved start-of-disk space on DOS/MBR, and ensure the UI doesn’t present it as actionable “free space”.
 - Files/areas:
-  - `disks-ui/src/utils/segments.rs`
-  - `disks-ui/src/views/volumes.rs`
-  - `disks-dbus/src/disks/drive.rs` (validation/clamping)
+  - `storage-ui/src/utils/segments.rs`
+  - `storage-ui/src/views/volumes.rs`
+  - `storage-dbus/src/disks/drive.rs` (validation/clamping)
 - Steps:
   - Treat DOS/MBR usable range as `[1MiB, disk_size)`.
   - Ensure computed free-space segments for DOS do not start at offset 0.
@@ -60,12 +60,12 @@ Status: Implemented in code; manual validation pending.
 ## Task 4: Align partition type catalog and helpers with canonical values
 - Scope: Ensure the partition type catalog and helper functions use the canonical table type, so UI/DBus comparisons remain consistent.
 - Files/areas:
-  - `disks-dbus/src/partition_type.rs`
+  - `storage-dbus/src/partition_type.rs`
 - Steps:
   - Verify DOS catalog entries and `valid_names` logic are consistent with canonical `dos`.
   - Ensure any `msdos` appearance is intentional or removed.
 - Test plan:
-  - `cargo test -p disks-dbus`
+  - `cargo test -p storage-dbus`
 - Done when:
   - [x] No critical-path comparisons rely on a non-canonical alias.
 

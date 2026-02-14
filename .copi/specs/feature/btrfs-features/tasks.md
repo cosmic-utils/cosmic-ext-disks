@@ -12,10 +12,10 @@
 **Scope:** Add UI controls to view and toggle read-only flag on subvolumes
 
 **Files:**
-- `disks-ui/src/ui/btrfs/view.rs` (add toggle column)
-- `disks-ui/src/ui/btrfs/mod.rs` (handle toggle message)
-- `disks-btrfs-helper/src/main.rs` (add set_readonly command)
-- `disks-ui/i18n/en/cosmic_ext_disks.ftl` (new strings)
+- `storage-ui/src/ui/btrfs/view.rs` (add toggle column)
+- `storage-ui/src/ui/btrfs/mod.rs` (handle toggle message)
+- `storage-btrfs-helper/src/main.rs` (add set_readonly command)
+- `storage-ui/i18n/en/cosmic_ext_disks.ftl` (new strings)
 
 **Steps:**
 1. Add `set_readonly` subcommand to helper binary
@@ -63,8 +63,8 @@
 **Scope:** Show creation and modification times in subvolume list
 
 **Files:**
-- `disks-ui/src/ui/btrfs/view.rs` (add timestamp columns)
-- `disks-ui/i18n/en/cosmic_ext_disks.ftl` (new strings)
+- `storage-ui/src/ui/btrfs/view.rs` (add timestamp columns)
+- `storage-ui/i18n/en/cosmic_ext_disks.ftl` (new strings)
 
 **Steps:**
 1. Add "Created" and "Modified" columns to subvolume table
@@ -115,13 +115,13 @@
 **Scope:** Template system for automatic snapshot names with live preview
 
 **Files:**
-- `disks-ui/src/ui/dialogs/snapshot.rs` (add template UI)
-- `disks-ui/src/config.rs` (save template preference)
-- `disks-ui/src/utils/naming.rs` (new file - template engine)
-- `disks-ui/i18n/en/cosmic_ext_disks.ftl` (new strings)
+- `storage-ui/src/ui/dialogs/snapshot.rs` (add template UI)
+- `storage-ui/src/config.rs` (save template preference)
+- `storage-ui/src/utils/naming.rs` (new file - template engine)
+- `storage-ui/i18n/en/cosmic_ext_disks.ftl` (new strings)
 
 **Steps:**
-1. Create naming template engine `disks-ui/src/utils/naming.rs`
+1. Create naming template engine `storage-ui/src/utils/naming.rs`
    - Parse template strings: `{name}`, `{date}`, `{time}`, `{action}`
    - Support variables:
      * `{name}` - source subvolume name
@@ -186,10 +186,10 @@
 **Scope:** Identify and set the default boot subvolume
 
 **Files:**
-- `disks-btrfs-helper/src/main.rs` (add get_default and set_default commands)
-- `disks-ui/src/ui/btrfs/view.rs` (add DEFAULT badge)
-- `disks-ui/src/ui/btrfs/mod.rs` (handle set default message)
-- `disks-ui/i18n/en/cosmic_ext_disks.ftl` (new strings)
+- `storage-btrfs-helper/src/main.rs` (add get_default and set_default commands)
+- `storage-ui/src/ui/btrfs/view.rs` (add DEFAULT badge)
+- `storage-ui/src/ui/btrfs/mod.rs` (handle set default message)
+- `storage-ui/i18n/en/cosmic_ext_disks.ftl` (new strings)
 
 **Steps:**
 1. Add `get_default` command to helper binary
@@ -257,9 +257,9 @@
 **Scope:** Right-click context menu with common operations and keyboard shortcuts
 
 **Files:**
-- `disks-ui/src/ui/btrfs/view.rs` (add context menu on right-click)
-- `disks-ui/src/ui/btrfs/mod.rs` (handle keyboard shortcuts)
-- `disks-ui/i18n/en/cosmic_ext_disks.ftl` (new strings)
+- `storage-ui/src/ui/btrfs/view.rs` (add context menu on right-click)
+- `storage-ui/src/ui/btrfs/mod.rs` (handle keyboard shortcuts)
+- `storage-ui/i18n/en/cosmic_ext_disks.ftl` (new strings)
 
 **Steps:**
 1. Add right-click detection to subvolume list
@@ -336,10 +336,10 @@
 **Scope:** Show deleted subvolumes and provide cleanup button
 
 **Files:**
-- `disks-btrfs-helper/src/main.rs` (add list_deleted and sync_deleted commands)
-- `disks-ui/src/ui/btrfs/view.rs` (add collapsible deleted section)
-- `disks-ui/src/ui/btrfs/mod.rs` (handle cleanup message)
-- `disks-ui/i18n/en/cosmic_ext_disks.ftl` (new strings)
+- `storage-btrfs-helper/src/main.rs` (add list_deleted and sync_deleted commands)
+- `storage-ui/src/ui/btrfs/view.rs` (add collapsible deleted section)
+- `storage-ui/src/ui/btrfs/mod.rs` (handle cleanup message)
+- `storage-ui/i18n/en/cosmic_ext_disks.ftl` (new strings)
 
 **Steps:**
 1. Add `list_deleted` command to helper binary
@@ -403,14 +403,14 @@
 **Scope:** Tree view showing parent-child snapshot relationships
 
 **Files:**
-- `disks-ui/src/utils/snapshot_graph.rs` (new file - graph builder)
-- `disks-ui/src/ui/btrfs/tree_view.rs` (new file - tree widget)
-- `disks-ui/src/ui/btrfs/view.rs` (add toggle for list/tree view)
-- `disks-ui/src/ui/btrfs/mod.rs` (build graph from subvolumes)
-- `disks-ui/i18n/en/cosmic_ext_disks.ftl` (new strings)
+- `storage-ui/src/utils/snapshot_graph.rs` (new file - graph builder)
+- `storage-ui/src/ui/btrfs/tree_view.rs` (new file - tree widget)
+- `storage-ui/src/ui/btrfs/view.rs` (add toggle for list/tree view)
+- `storage-ui/src/ui/btrfs/mod.rs` (build graph from subvolumes)
+- `storage-ui/i18n/en/cosmic_ext_disks.ftl` (new strings)
 
 **Steps:**
-1. Create snapshot graph builder `disks-ui/src/utils/snapshot_graph.rs`
+1. Create snapshot graph builder `storage-ui/src/utils/snapshot_graph.rs`
    - Struct: `SnapshotGraph { by_uuid: HashMap<Uuid, BtrfsSubvolume>, children: HashMap<Uuid, Vec<Uuid>> }`
    - Function: `fn build_graph(subvolumes: &[BtrfsSubvolume]) -> SnapshotGraph`
    - Algorithm:
@@ -420,7 +420,7 @@
    - Function: `fn get_children(&self, uuid: &Uuid) -> Vec<&BtrfsSubvolume>`
    - Function: `fn get_parent(&self, subvol: &BtrfsSubvolume) -> Option<&BtrfsSubvolume>`
 
-2. Create tree view widget `disks-ui/src/ui/btrfs/tree_view.rs`
+2. Create tree view widget `storage-ui/src/ui/btrfs/tree_view.rs`
    - Hierarchical list with indent levels
    - Expand/collapse buttons for subvolumes with children
    - Visual connection lines (└─, ├─, │)
@@ -483,9 +483,9 @@
 **Scope:** Multi-select with batch operations toolbar
 
 **Files:**
-- `disks-ui/src/ui/btrfs/view.rs` (add selection checkboxes and batch toolbar)
-- `disks-ui/src/ui/btrfs/mod.rs` (handle batch operations with progress)
-- `disks-ui/i18n/en/cosmic_ext_disks.ftl` (new strings)
+- `storage-ui/src/ui/btrfs/view.rs` (add selection checkboxes and batch toolbar)
+- `storage-ui/src/ui/btrfs/mod.rs` (handle batch operations with progress)
+- `storage-ui/i18n/en/cosmic_ext_disks.ftl` (new strings)
 
 **Steps:**
 1. Add selection mode to UI state
@@ -588,11 +588,11 @@
 **Scope:** Per-subvolume disk usage with quota groups (complex)
 
 **Files:**
-- `disks-btrfs-helper/src/main.rs` (add quota commands)
-- `disks-ui/src/ui/btrfs/usage_view.rs` (new file - usage visualization)
-- `disks-ui/src/ui/btrfs/view.rs` (add usage column and chart)
-- `disks-ui/src/ui/dialogs/enable_quotas.rs` (new file - quota dialog)
-- `disks-ui/i18n/en/cosmic_ext_disks.ftl` (new strings)
+- `storage-btrfs-helper/src/main.rs` (add quota commands)
+- `storage-ui/src/ui/btrfs/usage_view.rs` (new file - usage visualization)
+- `storage-ui/src/ui/btrfs/view.rs` (add usage column and chart)
+- `storage-ui/src/ui/dialogs/enable_quotas.rs` (new file - quota dialog)
+- `storage-ui/i18n/en/cosmic_ext_disks.ftl` (new strings)
 
 **Steps:**
 1. Add quota management to helper binary
@@ -616,7 +616,7 @@
    - Store result: `quotas_enabled: Option<bool>`
    - If disabled, show info banner with "Enable Quotas" button
 
-4. Create quota enable dialog `disks-ui/src/ui/dialogs/enable_quotas.rs`
+4. Create quota enable dialog `storage-ui/src/ui/dialogs/enable_quotas.rs`
    - Title: "Enable Quota Groups for Usage Tracking?"
    - Body: "BTRFS quotas allow per-subvolume disk usage tracking but may reduce performance by 5-10%."
    - Pros:
@@ -647,7 +647,7 @@
    - Tooltip: "Referenced: 2.5 GB, Exclusive: 1.2 GB, Shared: 1.3 GB"
    - Sort by usage
 
-8. Create usage visualization `disks-ui/src/ui/btrfs/usage_view.rs`
+8. Create usage visualization `storage-ui/src/ui/btrfs/usage_view.rs`
    - Pie chart showing space distribution:
      * Each subvolume as a slice
      * Color-coded by subvolume
@@ -708,10 +708,10 @@
 **Scope:** Real-time search and filter criteria for subvolume list
 
 **Files:**
-- `disks-ui/src/ui/btrfs/view.rs` (add search bar and filter UI)
-- `disks-ui/src/ui/btrfs/mod.rs` (implement filtering logic)
-- `disks-ui/src/ui/dialogs/filter_dialog.rs` (new file - advanced filter)
-- `disks-ui/i18n/en/cosmic_ext_disks.ftl` (new strings)
+- `storage-ui/src/ui/btrfs/view.rs` (add search bar and filter UI)
+- `storage-ui/src/ui/btrfs/mod.rs` (implement filtering logic)
+- `storage-ui/src/ui/dialogs/filter_dialog.rs` (new file - advanced filter)
+- `storage-ui/i18n/en/cosmic_ext_disks.ftl` (new strings)
 
 **Steps:**
 1. Add search bar to toolbar
@@ -731,7 +731,7 @@
    - Icon shows if filters active (blue/orange indicator)
    - Badge shows filter count: "3 filters active"
 
-4. Create advanced filter dialog `disks-ui/src/ui/dialogs/filter_dialog.rs`
+4. Create advanced filter dialog `storage-ui/src/ui/dialogs/filter_dialog.rs`
    - Title: "Filter Subvolumes"
    - Sections:
      * **By Type**

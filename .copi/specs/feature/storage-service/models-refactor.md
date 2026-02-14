@@ -1,24 +1,24 @@
 # Phase 3A Models Refactoring Analysis
 
 **Date:** 2026-02-14  
-**Goal:** Analyze existing disks-dbus types and plan migration to storage-models as single source of truth
+**Goal:** Analyze existing storage-dbus types and plan migration to storage-models as single source of truth
 
 ---
 
 ## Executive Summary
 
-Current disks-dbus exports three main domain model types:
+Current storage-dbus exports three main domain model types:
 - `DriveModel` - represents physical/logical drives
 - `VolumeNode` - hierarchical representation of partitions, LUKS containers, LVM volumes
 - `VolumeModel` - flat representation of partitions and filesystems
 
-**Key Finding:** All three types mix pure domain data with D-Bus connection handles, making them unsuitable for serialization. The refactoring must extract domain data into storage-models types while keeping connection logic internal to disks-dbus.
+**Key Finding:** All three types mix pure domain data with D-Bus connection handles, making them unsuitable for serialization. The refactoring must extract domain data into storage-models types while keeping connection logic internal to storage-dbus.
 
 ---
 
 ## 1. DriveModel Analysis
 
-**Location:** `disks-dbus/src/disks/drive/model.rs`
+**Location:** `storage-dbus/src/disks/drive/model.rs`
 
 ### Fields Breakdown
 
@@ -47,7 +47,7 @@ pub partition_table_type: Option<String>, // "gpt" or "dos"
 pub gpt_usable_range: Option<ByteRange>,  // GPT usable space
 ```
 
-#### Internal Implementation Details (keep in disks-dbus)
+#### Internal Implementation Details (keep in storage-dbus)
 ```rust
 pub volumes_flat: Vec<VolumeModel>,    // Cached flat list (derived)
 pub volumes: Vec<VolumeNode>,          // Cached tree (derived)
@@ -101,7 +101,7 @@ pub struct DiskInfo {
 
 ## 2. VolumeNode Analysis
 
-**Location:** `disks-dbus/src/disks/volume.rs`
+**Location:** `storage-dbus/src/disks/volume.rs`
 
 ### Fields Breakdown
 
@@ -141,8 +141,8 @@ pub enum VolumeKind {
 - `from_block_object()` - Should return `storage_models::VolumeInfo`
 - `crypto_container_for_partition()` - Should return `storage_models::VolumeInfo`
 - `probe_basic_block()` - Internal, can stay
-- `mount()` - Requires connection, can stay in disks-dbus
-- `unmount()` - Requires connection, can stay in disks-dbus
+- `mount()` - Requires connection, can stay in storage-dbus
+- `unmount()` - Requires connection, can stay in storage-dbus
 - `default_mount_options()` - Requires connection, can stay
 - `get_mount_options_settings()` - Requires connection, can stay
 - `is_mounted()`, `can_mount()`, `can_unlock()`, `can_lock()` - Move to VolumeInfo
@@ -178,7 +178,7 @@ pub enum VolumeKind {
 
 ## 3. VolumeModel Analysis
 
-**Location:** `disks-dbus/src/disks/volume_model/mod.rs`
+**Location:** `storage-dbus/src/disks/volume_model/mod.rs`
 
 ### Fields Breakdown
 
@@ -260,7 +260,7 @@ pub enum PartitionTableType {
 
 ### ProcessInfo and KillResult
 
-**Location:** `disks-dbus/src/disks/process_finder.rs`  
+**Location:** `storage-dbus/src/disks/process_finder.rs`  
 **Status:** Already defined with appropriate fields
 
 ```rust
@@ -282,14 +282,14 @@ pub struct KillResult {
 
 ### Usage Type
 
-**Location:** `disks-dbus/src/usage.rs` (presumably)  
+**Location:** `storage-dbus/src/usage.rs` (presumably)  
 **Status:** Referenced but not analyzed
 
 **Action:** Check if already serializable, move to storage-models if not
 
 ### LvmLogicalVolumeInfo
 
-**Location:** `disks-dbus/src/disks/lvm.rs`
+**Location:** `storage-dbus/src/disks/lvm.rs`
 
 ```rust
 pub struct LvmLogicalVolumeInfo {
@@ -306,7 +306,7 @@ pub struct LvmLogicalVolumeInfo {
 
 ### SmartInfo
 
-**Location:** `disks-dbus/src/disks/smart.rs`
+**Location:** `storage-dbus/src/disks/smart.rs`
 
 ```rust
 pub struct SmartInfo {
@@ -323,7 +323,7 @@ pub struct SmartInfo {
 
 ### MountOptionsSettings and EncryptionOptionsSettings
 
-**Location:** `disks-dbus/src/disks/mod.rs`
+**Location:** `storage-dbus/src/disks/mod.rs`
 
 ```rust
 pub struct MountOptionsSettings {
@@ -347,7 +347,7 @@ pub struct EncryptionOptionsSettings {
 }
 ```
 
-**Action:** Move to storage-models with serde derives, or keep in disks-dbus if only used internally
+**Action:** Move to storage-models with serde derives, or keep in storage-dbus if only used internally
 
 ---
 
@@ -544,7 +544,7 @@ pub struct Usage {
 4. Define FilesystemInfo and LvmInfo types
 5. Define LuksInfo
 
-#### Tasks 6-11: Refactor disks-dbus
+#### Tasks 6-11: Refactor storage-dbus
 6. Refactor DriveModel to return DiskInfo
    - Keep DriveModel internal
    - Add `From<DriveModel> for DiskInfo`
@@ -570,11 +570,11 @@ pub struct Usage {
     - New methods to query LUKS metadata
 
 #### Tasks 12-15: Update Consumers
-12. Update disks-ui to import from storage-models
+12. Update storage-ui to import from storage-models
     - Change all type imports
     - UI can wrap VolumeInfo in VolumeModel if needed for UI state
     
-13. Clean up disks-dbus public API
+13. Clean up storage-dbus public API
     - Review exports in mod.rs
     - Ensure only storage-models types exported
     
@@ -680,7 +680,7 @@ impl From<&VolumeModel> for PartitionInfo {
 ### High Risk
 - **Breaking API changes**: All downstream code using DriveModel/VolumeNode must update
 - **Data loss during conversion**: Must preserve all domain data during From implementations
-- **UI state management**: disks-ui currently embeds domain types in UI models
+- **UI state management**: storage-ui currently embeds domain types in UI models
 
 ### Medium Risk
 - **Connection management**: Must ensure D-Bus operations still have access to Connection
@@ -698,8 +698,8 @@ impl From<&VolumeModel> for PartitionInfo {
 ### Must Have
 - ✅ All storage-models types serializable (Serialize/Deserialize)
 - ✅ No D-Bus types (Connection, OwnedObjectPath) in storage-models
-- ✅ disks-dbus returns storage-models types from public API
-- ✅ disks-ui uses storage-models types directly
+- ✅ storage-dbus returns storage-models types from public API
+- ✅ storage-ui uses storage-models types directly
 - ✅ All existing operations still work (mount, unmount, format, etc.)
 
 ### Should Have
@@ -717,7 +717,7 @@ impl From<&VolumeModel> for PartitionInfo {
 
 ## 11. Open Questions (RESOLVED)
 
-1. **Usage type location**: ✅ FOUND at `disks-dbus/src/usage.rs`
+1. **Usage type location**: ✅ FOUND at `storage-dbus/src/usage.rs`
    ```rust
    pub struct Usage {
        pub filesystem: String,
@@ -730,9 +730,9 @@ impl From<&VolumeModel> for PartitionInfo {
    ```
    - **Status**: Currently does NOT have serde derives
    - **Action**: Add `#[derive(Serialize, Deserialize, PartialEq, Eq)]`
-   - **Location**: Can stay in disks-dbus or move to storage-models
+   - **Location**: Can stay in storage-dbus or move to storage-models
 
-2. **ByteRange location**: ✅ FOUND at `disks-dbus/src/disks/gpt.rs`
+2. **ByteRange location**: ✅ FOUND at `storage-dbus/src/disks/gpt.rs`
    ```rust
    #[derive(Clone, Copy, Debug, PartialEq, Eq)]
    pub struct ByteRange {
@@ -742,14 +742,14 @@ impl From<&VolumeModel> for PartitionInfo {
    ```
    - **Status**: Already has PartialEq, Eq but missing serde derives
    - **Action**: Add `#[derive(Serialize, Deserialize)]`
-   - **Already exported**: Via `disks-dbus/src/disks/mod.rs`
+   - **Already exported**: Via `storage-dbus/src/disks/mod.rs`
 
-3. **UI state management**: Should disks-ui create wrapper types around VolumeInfo for UI state?
+3. **UI state management**: Should storage-ui create wrapper types around VolumeInfo for UI state?
    - **Recommendation**: YES, create UI-specific wrappers
    - **Example**: `struct VolumeModel { info: VolumeInfo, selected: bool, expanded: bool }`
    - **Rationale**: Keeps domain models pure, UI concerns separate
 
-4. **Connection access**: How will internal disks-dbus methods access Connection after refactoring?
+4. **Connection access**: How will internal storage-dbus methods access Connection after refactoring?
    - **Strategy**: Keep internal versions of types WITH connection
    - **Approach**: 
      - Internal: `struct VolumeNodeInternal { info: VolumeInfo, connection: Connection }`
@@ -757,7 +757,7 @@ impl From<&VolumeModel> for PartitionInfo {
    - **Preferred**: Keep current VolumeNode internal with connection, expose VolumeInfo publicly
 
 5. **Caching strategy**: DriveModel caches volumes_flat and volumes - should this continue?
-   - **Answer**: YES, keep caching internal to disks-dbus
+   - **Answer**: YES, keep caching internal to storage-dbus
    - **Internal DriveModel continues** to cache derived data
    - **Public API returns** freshly converted DiskInfo without cache fields
 
@@ -766,7 +766,7 @@ impl From<&VolumeModel> for PartitionInfo {
 ## 12. Additional Findings
 
 ### Usage Type Details
-- Located at `disks-dbus/src/usage.rs`
+- Located at `storage-dbus/src/usage.rs`
 - Currently exposed publicly via `pub use crate::Usage` in lib.rs
 - Used by VolumeNode and VolumeModel for filesystem usage stats
 - **Required changes**:
@@ -774,7 +774,7 @@ impl From<&VolumeModel> for PartitionInfo {
   2. Keep or move to storage-models (recommend move)
 
 ### ByteRange Type Details
-- Located at `disks-dbus/src/disks/gpt.rs`
+- Located at `storage-dbus/src/disks/gpt.rs`
 - Already has utility methods (`is_valid_for_disk`, `clamp_to_disk`)
 - **Required changes**:
   1. Add serde derives: `#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]`
@@ -808,7 +808,7 @@ serde_json = "1"  # For JSON serialization examples/tests
 
 ### Task 4
 4. **Create storage-models/src/filesystem.rs and lvm.rs**:
-   - Move Usage from disks-dbus, add serde
+   - Move Usage from storage-dbus, add serde
    - Define FilesystemInfo
    - Define FormatOptions, MountOptions
    - Define CheckResult, UnmountResult
@@ -821,7 +821,7 @@ serde_json = "1"  # For JSON serialization examples/tests
    - Define LuksVersion enum
 
 ### Task 6-11
-6. **Refactor disks-dbus**:
+6. **Refactor storage-dbus**:
    - Add serde to ByteRange in gpt.rs
    - Add From implementations
    - Update method signatures to return storage-models types
@@ -829,7 +829,7 @@ serde_json = "1"  # For JSON serialization examples/tests
    - Update public API exports
 
 ### Task 12
-7. **Update disks-ui**:
+7. **Update storage-ui**:
    - Change imports to storage-models
    - Create UI wrapper types if needed (VolumeModel with UI state)
    - Verify all operations still work
@@ -837,7 +837,7 @@ serde_json = "1"  # For JSON serialization examples/tests
 ### Documentation Updates
 8. **Update READMEs**:
    - storage-models API documentation
-   - disks-dbus architecture changes
+   - storage-dbus architecture changes
    - Migration guide for downstream consumers
 
 ---

@@ -1,7 +1,7 @@
 //! Disk and SMART data models
 //!
 //! These types represent the canonical domain model for disk information.
-//! All layers (disks-dbus, storage-service, disks-ui) use these as the single source of truth.
+//! All layers (storage-dbus, storage-service, storage-ui) use these as the single source of truth.
 
 use serde::{Deserialize, Serialize};
 

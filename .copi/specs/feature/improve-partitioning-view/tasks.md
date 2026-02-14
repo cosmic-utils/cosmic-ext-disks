@@ -11,8 +11,8 @@ This document breaks down the implementation into commit-sized tasks. Each task 
 **Scope**: Add localization strings for new UI labels.
 
 **Files:**
-- `disks-ui/i18n/en/cosmic_ext_disks.ftl`
-- `disks-ui/i18n/sv/cosmic_ext_disks.ftl`
+- `storage-ui/i18n/en/cosmic_ext_disks.ftl`
+- `storage-ui/i18n/sv/cosmic_ext_disks.ftl`
 
 **Steps:**
 1. Add to `en/cosmic_ext_disks.ftl`:
@@ -98,7 +98,7 @@ This document breaks down the implementation into commit-sized tasks. Each task 
 **Scope**: Replace switch/toggler with checkbox in both dialogs, apply new label.
 
 **Files:**
-- `disks-ui/src/ui/dialogs/view/partition.rs`
+- `storage-ui/src/ui/dialogs/view/partition.rs`
 
 **Steps:**
 1. In `create_partition()` function:
@@ -138,7 +138,7 @@ This document breaks down the implementation into commit-sized tasks. Each task 
 **Scope**: Change "Password Protected" to "Password Protected (LUKS)" in both dialogs.
 
 **Files:**
-- `disks-ui/src/ui/dialogs/view/partition.rs`
+- `storage-ui/src/ui/dialogs/view/partition.rs`
 
 **Steps:**
 1. In `create_partition()` function:
@@ -173,7 +173,7 @@ This document breaks down the implementation into commit-sized tasks. Each task 
 **Scope**: Hide "Volume Name" field when table type is DOS/MBR; show for other types.
 
 **Files:**
-- `disks-ui/src/ui/dialogs/view/partition.rs`
+- `storage-ui/src/ui/dialogs/view/partition.rs`
 
 **Steps:**
 1. In `create_partition()` function:
@@ -212,7 +212,7 @@ This document breaks down the implementation into commit-sized tasks. Each task 
    - Verify name field is **hidden**
 
 5. Backend validation:
-   - Verify `disks-dbus/src/disks/ops.rs::build_create_partition_and_format_args` still handles DOS correctly:
+   - Verify `storage-dbus/src/disks/ops.rs::build_create_partition_and_format_args` still handles DOS correctly:
      ```rust
      let create_name = if table_type == "dos" {
          ""
@@ -241,11 +241,11 @@ This document breaks down the implementation into commit-sized tasks. Each task 
 **Scope**: Build reusable size input widget with unit selection and deferred updates.
 
 **Files:**
-- `disks-ui/src/utils/unit_size_input.rs` (new file)
-- `disks-ui/src/utils/mod.rs` (export new component)
+- `storage-ui/src/utils/unit_size_input.rs` (new file)
+- `storage-ui/src/utils/mod.rs` (export new component)
 
 **Steps:**
-1. Create `disks-ui/src/utils/unit_size_input.rs`
+1. Create `storage-ui/src/utils/unit_size_input.rs`
 
 2. Define component API:
    ```rust
@@ -336,7 +336,7 @@ This document breaks down the implementation into commit-sized tasks. Each task 
    }
    ```
 
-3. Add module export in `disks-ui/src/utils/mod.rs`:
+3. Add module export in `storage-ui/src/utils/mod.rs`:
    ```rust
    pub mod unit_size_input;
    pub use unit_size_input::{unit_size_input, SizeUnit};
@@ -384,10 +384,10 @@ This document breaks down the implementation into commit-sized tasks. Each task 
 **Scope**: Replace labelled_spinner controls with unit-aware inputs; add state for tracking units.
 
 **Files:**
-- `disks-ui/src/ui/dialogs/state.rs`
-- `disks-ui/src/ui/dialogs/view/partition.rs`
-- `disks-ui/src/ui/dialogs/message.rs`
-- `disks-ui/src/ui/volumes/update/create.rs`
+- `storage-ui/src/ui/dialogs/state.rs`
+- `storage-ui/src/ui/dialogs/view/partition.rs`
+- `storage-ui/src/ui/dialogs/message.rs`
+- `storage-ui/src/ui/volumes/update/create.rs`
 
 **Steps:**
 
@@ -472,7 +472,7 @@ This document breaks down the implementation into commit-sized tasks. Each task 
 **Scope**: Expand dropdown to radio button list, show all options at once.
 
 **Files:**
-- `disks-ui/src/ui/dialogs/view/partition.rs`
+- `storage-ui/src/ui/dialogs/view/partition.rs`
 
 **Steps:**
 
@@ -579,7 +579,7 @@ This document breaks down the implementation into commit-sized tasks. Each task 
 **Scope**: Detect missing filesystem tools, grey out corresponding radio buttons, add tooltips.
 
 **Files:**
-- `disks-ui/src/ui/dialogs/view/partition.rs`
+- `storage-ui/src/ui/dialogs/view/partition.rs`
 
 **Steps:**
 

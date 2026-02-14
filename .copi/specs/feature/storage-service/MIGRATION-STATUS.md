@@ -1,4 +1,4 @@
-# disks-ui Migration Roadmap - Complete Status
+# storage-ui Migration Roadmap - Complete Status
 
 **Phase:** Operation Call Replacement  
 **Status:** ✅ COMPLETE (with TODOs)  
@@ -240,7 +240,7 @@ Err("enable_modules not yet implemented with client architecture".to_string())
 
 ### Final
 
-7. **Remove disks-dbus dependency** from Cargo.toml
+7. **Remove storage-dbus dependency** from Cargo.toml
 8. **Final integration testing**
 9. **Performance testing**
 
@@ -248,7 +248,7 @@ Err("enable_modules not yet implemented with client architecture".to_string())
 
 ## Key Architectural Changes
 
-### Before (Current disks-dbus)
+### Before (Current storage-dbus)
 
 ```
 DriveModel
@@ -294,12 +294,12 @@ Caching: Application decides what to cache
 When this migration is complete:
 
 - ✅ Zero `use disks_dbus::` imports (except re-exports)
-- ✅ `disks-dbus` removed from disks-ui/Cargo.toml
+- ✅ `storage-dbus` removed from storage-ui/Cargo.toml
 - ✅ All operations use storage-service clients
 - ✅ All state uses storage-models types
 - ✅ Full feature parity maintained
 - ✅ Tests pass
-- ✅ App runs without disks-dbus
+- ✅ App runs without storage-dbus
 
 ---
 

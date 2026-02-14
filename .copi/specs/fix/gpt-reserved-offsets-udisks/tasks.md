@@ -22,7 +22,7 @@ Source: `.copi/audits/2026-01-24T00-37-04Z.md` (GAP-004 follow-up)
 ## Task 2: Add a GPT usable-range probe (UDisks OpenDevice + ioctl + header parse)
 - Scope: Implement a small helper to derive `{writable_start_bytes, writable_end_bytes}` for GPT disks.
 - Likely areas:
-  - `disks-dbus/src/disks/drive.rs` or a new `disks-dbus/src/disks/gpt.rs` helper module
+  - `storage-dbus/src/disks/drive.rs` or a new `storage-dbus/src/disks/gpt.rs` helper module
   - Potentially reuse `BlockProxy::open_device` for authorized FD access
 - Steps:
   - Open the block device via `OpenDevice("r", …)` with `auth.no_user_interaction=true`.
@@ -41,8 +41,8 @@ Source: `.copi/audits/2026-01-24T00-37-04Z.md` (GAP-004 follow-up)
 ## Task 3: Thread usable-range info into the UI model
 - Scope: Ensure the UI has access to the GPT usable byte range for segmentation and create-partition.
 - Likely areas:
-  - `disks-dbus/src/disks/drive.rs` / `DriveModel`
-  - `disks-ui/src/views/volumes.rs`
+  - `storage-dbus/src/disks/drive.rs` / `DriveModel`
+  - `storage-ui/src/views/volumes.rs`
 - Steps:
   - Add fields to `DriveModel` (e.g., `usable_range: Option<(u64,u64)>`), populated only for GPT.
   - Update any serialization/messaging path between dbus layer and UI as needed.
@@ -54,8 +54,8 @@ Source: `.copi/audits/2026-01-24T00-37-04Z.md` (GAP-004 follow-up)
 ## Task 4: Update segmentation to mark reserved regions as non-free
 - Scope: Ensure reserved GPT regions aren’t shown/treated as free space.
 - Likely areas:
-  - `disks-ui/src/utils/segments.rs`
-  - `disks-ui/src/views/volumes.rs`
+  - `storage-ui/src/utils/segments.rs`
+  - `storage-ui/src/views/volumes.rs`
 - Steps:
   - Add a segment kind for “Reserved/Unwritable” (or equivalent).
   - When usable range exists, split the disk into reserved/usable/reserved.
@@ -73,8 +73,8 @@ Source: `.copi/audits/2026-01-24T00-37-04Z.md` (GAP-004 follow-up)
 ## Task 5: Create-partition offset handling within usable range (delegate-first)
 - Scope: Ensure create-partition never targets reserved GPT areas.
 - Likely areas:
-  - `disks-ui/src/views/volumes.rs` (offset selection)
-  - `disks-dbus/src/disks/drive.rs` (final validation/clamping before DBus call)
+  - `storage-ui/src/views/volumes.rs` (offset selection)
+  - `storage-dbus/src/disks/drive.rs` (final validation/clamping before DBus call)
 - Steps:
   - Decide whether UDisks supports auto placement (offset=0) on target systems.
   - If not, clamp and align the chosen offset within usable range before calling `CreatePartition`.

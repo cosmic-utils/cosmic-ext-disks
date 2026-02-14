@@ -46,14 +46,14 @@ GNOME Disks and similar utilities provide enhanced error handling for this scena
 
 ## Proposed Approach
 
-### A) Error Detection Layer (disks-dbus)
+### A) Error Detection Layer (storage-dbus)
 
-Enhance `disks-dbus/src/disks/ops.rs` unmount error handling:
+Enhance `storage-dbus/src/disks/ops.rs` unmount error handling:
 1. Parse UDisks2 error response to detect "target is busy" / EBUSY
 2. Return a structured error variant (e.g., `DiskError::ResourceBusy { device: String, mount_point: String }`)
 3. Keep existing generic error handling for other failure modes
 
-### B) Process Discovery (disks-dbus or utils)
+### B) Process Discovery (storage-dbus or utils)
 
 Add system integration for finding blocking processes using the **`procfs` crate**:
 1. Enumerate all processes via `/proc/[pid]/`
@@ -68,7 +68,7 @@ Add system integration for finding blocking processes using the **`procfs` crate
 - Faster and more reliable parsing
 - Direct Rust API with proper error handling
 
-### C) Process Termination (disks-dbus)
+### C) Process Termination (storage-dbus)
 
 Add utility to kill processes by PID using direct syscalls:
 1. Use `nix::sys::signal::kill()` with `Signal::SIGKILL`
@@ -82,9 +82,9 @@ Add utility to kill processes by PID using direct syscalls:
 - Better error handling (errno codes)
 - No polkit complexity for the kill operation itself
 
-### D) UI Dialog (disks-ui)
+### D) UI Dialog (storage-ui)
 
-Create a new dialog in `disks-ui/src/ui/dialogs/`:
+Create a new dialog in `storage-ui/src/ui/dialogs/`:
 1. **Dialog type:** Modal, blocking (similar to password prompt)
 2. **Content sections:**
    - **Title:** "Unable to Unmount — Device is Busy"

@@ -35,7 +35,7 @@
 
 ### Task 2: Process Discovery via procfs (Commit acf5d4b)
 - Added `procfs = "0.16"` dependency
-- Created `disks-dbus/src/disks/process_finder.rs` module
+- Created `storage-dbus/src/disks/process_finder.rs` module
 - Implemented `find_processes_using_mount()` with:
   - Async wrapper using `tokio::task::spawn_blocking`
   - Iteration over all processes via `/proc/[pid]/`
@@ -70,7 +70,7 @@
   - `ShowDialog::UnmountBusy(UnmountBusyDialog)`
   - `UnmountBusyDialog` contains device, mount_point, processes
   - `UnmountBusyMessage` enum: Cancel, Retry, KillAndRetry
-- Created dialog view in `disks-ui/src/ui/dialogs/view/mount.rs`
+- Created dialog view in `storage-ui/src/ui/dialogs/view/mount.rs`
   - Process list displayed in scrollable column
   - PID, command, username shown in rows
   - Warning icon + text when processes exist
@@ -132,10 +132,10 @@
 
 ### Task 6: Add Logging and Error Context (Commit 5b30328)
 - Enhanced logging throughout the busy error recovery flow
-- Backend (disks-dbus):
+- Backend (storage-dbus):
   - Added tracing::debug to `check_resource_busy_error()` with structured fields (device, mount_point, error_msg)
   - Existing comprehensive logging in process_finder.rs already covered all operations
-- Frontend (disks-ui):
+- Frontend (storage-ui):
   - Enhanced message handlers with structured context:
     - Retry: logs object_path
     - KillAndRetry: logs object_path, process_count, detailed kill results with per-process failures
@@ -193,7 +193,7 @@ Following COSMIC conventions:
 ## Next Steps (Task 5)
 
 Wire the dialog into the actual unmount flow:
-1. Modify `disks-ui/src/ui/volumes/update/mount.rs::unmount()`
+1. Modify `storage-ui/src/ui/volumes/update/mount.rs::unmount()`
 2. Catch `DiskError::ResourceBusy` error
 3. Get mount point from volume (may need to query UDisks2 for actual path)
 4. Call `find_processes_using_mount()` 
@@ -276,15 +276,15 @@ Addressed 7 issues from PR review:
 ### Issue 1: Localization
 - **Problem:** Dialog used hardcoded English strings
 - **Fix:** Changed to `fl!()` macro with template parameters
-- **Files:** [`disks-ui/src/ui/dialogs/view/mount.rs`](../../disks-ui/src/ui/dialogs/view/mount.rs)
+- **Files:** [`storage-ui/src/ui/dialogs/view/mount.rs`](../../storage-ui/src/ui/dialogs/view/mount.rs)
 
 ### Issue 2: Explicit Error Types
 - **Problem:** Sentinel pattern using empty strings to distinguish error types
 - **Fix:** Created `UnmountResult` enum with `Success(DriveModel)`, `Busy{...}`, `GenericError`
 - **Impact:** Type-safe error handling, prevents misinterpretation of empty strings
 - **Files:** 
-  - [`disks-ui/src/ui/volumes/update/mount.rs`](../../disks-ui/src/ui/volumes/update/mount.rs) - `unmount()`, `child_unmount()`
-  - [`disks-ui/src/ui/app/update/mod.rs`](../../disks-ui/src/ui/app/update/mod.rs) - `retry_unmount()`
+  - [`storage-ui/src/ui/volumes/update/mount.rs`](../../storage-ui/src/ui/volumes/update/mount.rs) - `unmount()`, `child_unmount()`
+  - [`storage-ui/src/ui/app/update/mod.rs`](../../storage-ui/src/ui/app/update/mod.rs) - `retry_unmount()`
 
 ### Issue 3: Proper Unit Tests
 - **Problem:** Test didn't actually call `check_resource_busy_error()`
@@ -292,7 +292,7 @@ Addressed 7 issues from PR review:
   - Extracted `is_resource_busy_message()` helper function
   - Added `test_is_resource_busy_message()` for pattern matching
   - Added `test_check_resource_busy_error()` to exercise full function
-- **Files:** [`disks-dbus/src/disks/ops.rs`](../../disks-dbus/src/disks/ops.rs)
+- **Files:** [`storage-dbus/src/disks/ops.rs`](../../storage-dbus/src/disks/ops.rs)
 
 ### Issue 4: Input Validation
 - **Problem:** No validation on mount_point parameter - empty string matches all paths
@@ -300,7 +300,7 @@ Addressed 7 issues from PR review:
   - Trim and check for empty string
   - Verify absolute path (starts with `/`)
   - Return `Ok(vec![])` early for invalid input
-- **Files:** [`disks-dbus/src/disks/process_finder.rs`](../../disks-dbus/src/disks/process_finder.rs)
+- **Files:** [`storage-dbus/src/disks/process_finder.rs`](../../storage-dbus/src/disks/process_finder.rs)
 
 ### Issue 5: Performance Optimization
 - **Problem:** `resolve_username()` reads `/etc/passwd` per-process (O(n) file reads)
@@ -309,7 +309,7 @@ Addressed 7 issues from PR review:
   - Updated `extract_user_info()` to accept and use the map
   - Call `build_uid_map()` once per scan
 - **Impact:** Single file read instead of one per process
-- **Files:** [`disks-dbus/src/disks/process_finder.rs`](../../disks-dbus/src/disks/process_finder.rs)
+- **Files:** [`storage-dbus/src/disks/process_finder.rs`](../../storage-dbus/src/disks/process_finder.rs)
 
 ### Issues 6-7: Mount Point Handling
 - **Problem:** `unwrap_or_default()` creates empty strings that bypass validation
@@ -319,8 +319,8 @@ Addressed 7 issues from PR review:
   - Added warning logs when mount point unavailable
 - **Impact:** Prevents pathological scans when mount point missing
 - **Files:**
-  - [`disks-ui/src/ui/volumes/update/mount.rs`](../../disks-ui/src/ui/volumes/update/mount.rs)
-  - [`disks-ui/src/ui/app/update/mod.rs`](../../disks-ui/src/ui/app/update/mod.rs)
+  - [`storage-ui/src/ui/volumes/update/mount.rs`](../../storage-ui/src/ui/volumes/update/mount.rs)
+  - [`storage-ui/src/ui/app/update/mod.rs`](../../storage-ui/src/ui/app/update/mod.rs)
 
 ### Testing
 - ✅ All 36 tests passing

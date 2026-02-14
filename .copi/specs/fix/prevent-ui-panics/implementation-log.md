@@ -14,4 +14,4 @@
     - `cargo test --workspace --all-features`
   - Notes:
     - Per request, no menu items were hidden; unimplemented actions remain visible and show a prompt.
-    - Clippy/test emit pre-existing warnings in `disks-dbus`; not addressed in this spec.
+    - Clippy/test emit pre-existing warnings in `storage-dbus`; not addressed in this spec.

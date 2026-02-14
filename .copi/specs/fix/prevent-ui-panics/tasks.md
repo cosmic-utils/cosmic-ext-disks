@@ -8,8 +8,8 @@ Source:
 ## Task 1: Implement create-partition Cancel (GAP-001)
 - Scope: Make Cancel close the create-partition dialog without panicking.
 - Likely areas:
-  - `disks-ui/src/views/dialogs.rs` (Cancel emits message)
-  - `disks-ui/src/views/volumes.rs` (message handler currently `todo!()`)
+  - `storage-ui/src/views/dialogs.rs` (Cancel emits message)
+  - `storage-ui/src/views/volumes.rs` (message handler currently `todo!()`)
 - Steps:
   - Locate the `CreateMessage::Cancel` handler.
   - Replace `todo!()` with state update that closes the dialog.
@@ -24,7 +24,7 @@ Source:
 ## Task 2: Remove panic on invalid dialog state (GAP-002)
 - Scope: Replace panic-based state checking in dialog update path with recoverable behavior.
 - Likely areas:
-  - `disks-ui/src/views/volumes.rs` (audit references `panic!("invalid state")`)
+  - `storage-ui/src/views/volumes.rs` (audit references `panic!("invalid state")`)
 - Steps:
   - Identify the invalid-state branch.
   - Convert to safe handling:
@@ -42,8 +42,8 @@ Source:
 ## Task 3: Prevent menu crash-on-click for unimplemented actions (GAP-003)
 - Scope: Ensure menu items do not route into `todo!()`.
 - Likely areas:
-  - `disks-ui/src/views/menu.rs` (menu construction)
-  - `disks-ui/src/app.rs` (update handler contains unimplemented actions)
+  - `storage-ui/src/views/menu.rs` (menu construction)
+  - `storage-ui/src/app.rs` (update handler contains unimplemented actions)
 - Steps:
   - Enumerate menu actions that are currently `todo!()`.
   - Choose one pattern and apply consistently:

@@ -8,10 +8,10 @@ This is a refactor-only track. Each task should be a small PR (or one squash-mer
 
 ## Task 1: Create new UI module skeleton (no behavior change)
 
-- Scope: Establish `disks-ui/src/ui/` hierarchy for app/dialogs/volumes.
+- Scope: Establish `storage-ui/src/ui/` hierarchy for app/dialogs/volumes.
 - Files/areas:
-  - `disks-ui/src/ui/mod.rs` (new)
-  - `disks-ui/src/ui/app/{mod.rs,state.rs,message.rs,update.rs,view.rs,subscriptions.rs}` (new)
+  - `storage-ui/src/ui/mod.rs` (new)
+  - `storage-ui/src/ui/app/{mod.rs,state.rs,message.rs,update.rs,view.rs,subscriptions.rs}` (new)
 - Steps:
   - Add `ui` module tree and re-export from existing `app.rs` temporarily.
   - Move only type declarations first (no logic changes).
@@ -27,21 +27,21 @@ This is a refactor-only track. Each task should be a small PR (or one squash-mer
 
 - Scope: Resolve GAP-003 (dialog hierarchy inversion).
 - Files/areas:
-  - Move `ShowDialog` + dialog structs from `disks-ui/src/app.rs` → `disks-ui/src/ui/dialogs/state.rs`
-  - Move dialog message enums from `disks-ui/src/app.rs` → `disks-ui/src/ui/dialogs/message.rs`
+  - Move `ShowDialog` + dialog structs from `storage-ui/src/app.rs` → `storage-ui/src/ui/dialogs/state.rs`
+  - Move dialog message enums from `storage-ui/src/app.rs` → `storage-ui/src/ui/dialogs/message.rs`
   - Update imports in dialog views.
 - Steps:
   - Introduce `DialogState`/`DialogMessage` and update `Message` wrapper.
   - Ensure dialog views do not import volumes message enums.
 - Test plan: standard workspace fmt/clippy/test.
 - Done when:
-  - [x] `disks-ui/src/app.rs` no longer defines dialog structs.
+  - [x] `storage-ui/src/app.rs` no longer defines dialog structs.
 
 ## Task 3: Split volumes module into state/message/update/view/actions
 
 - Scope: Resolve GAP-002 (volumes “god file”).
 - Files/areas:
-  - Create `disks-ui/src/ui/volumes/{mod.rs,state.rs,message.rs,update.rs,view.rs,actions.rs}`
+  - Create `storage-ui/src/ui/volumes/{mod.rs,state.rs,message.rs,update.rs,view.rs,actions.rs}`
   - Move `VolumesControl` and `VolumesControlMessage` and related message enums.
 - Steps:
   - Move message enums first.
@@ -50,7 +50,7 @@ This is a refactor-only track. Each task should be a small PR (or one squash-mer
   - Move rendering helpers last.
 - Test plan: standard workspace fmt/clippy/test.
 - Done when:
-  - Old `disks-ui/src/views/volumes.rs` becomes a small compatibility shim or is removed.
+  - Old `storage-ui/src/views/volumes.rs` becomes a small compatibility shim or is removed.
 
 - Progress:
   - [x] `message.rs` extracted
@@ -64,8 +64,8 @@ This is a refactor-only track. Each task should be a small PR (or one squash-mer
 
 - Scope: Resolve GAP-001 (app “god file”).
 - Files/areas:
-  - `disks-ui/src/ui/app/*`
-  - Make `disks-ui/src/app.rs` a thin re-export/glue layer (or rename to `ui/app/mod.rs` and keep main pointing to it).
+  - `storage-ui/src/ui/app/*`
+  - Make `storage-ui/src/app.rs` a thin re-export/glue layer (or rename to `ui/app/mod.rs` and keep main pointing to it).
 - Steps:
   - Move `Message` enum.
   - Move `AppModel` struct and init.
@@ -102,29 +102,29 @@ This is a refactor-only track. Each task should be a small PR (or one squash-mer
   - [x] Renamed `PasswordProectedUpdate` → `PasswordProtectedUpdate`
   - [x] Renamed `selected_partitition_type` → `selected_partition_type_index`
 
-## Task 6: Deduplicate bytestring/mount-point decoding helpers in `disks-dbus`
+## Task 6: Deduplicate bytestring/mount-point decoding helpers in `storage-dbus`
 
 - Scope: Resolve GAP-006.
 - Files/areas:
-  - New helper module: `disks-dbus/src/dbus/bytestring.rs` (or `udisks/bytestring.rs`)
-  - Update `VolumeModel` module (currently `disks-dbus/src/disks/partition.rs`, planned rename in Task 8) and `disks-dbus/src/disks/volume.rs` to use it.
+  - New helper module: `storage-dbus/src/dbus/bytestring.rs` (or `udisks/bytestring.rs`)
+  - Update `VolumeModel` module (currently `storage-dbus/src/disks/partition.rs`, planned rename in Task 8) and `storage-dbus/src/disks/volume.rs` to use it.
 - Steps:
   - Extract `decode_c_string_bytes`, `decode_mount_points`, and “Vec<u8> c-string” behavior.
   - Replace duplicates.
-  - Add focused unit tests in `disks-dbus`.
+  - Add focused unit tests in `storage-dbus`.
 - Test plan: standard workspace fmt/clippy/test.
 - Done when:
   - Duplicated helpers removed; tests cover decode edge cases.
 
 - Progress:
-  - [x] Added `disks-dbus/src/dbus/bytestring.rs` and wired `disks-dbus/src/dbus/mod.rs` + crate exports.
-  - [x] Migrated `disks-dbus/src/disks/partition.rs` and `disks-dbus/src/disks/volume.rs` to use shared helpers; removed duplicates.
+  - [x] Added `storage-dbus/src/dbus/bytestring.rs` and wired `storage-dbus/src/dbus/mod.rs` + crate exports.
+  - [x] Migrated `storage-dbus/src/disks/partition.rs` and `storage-dbus/src/disks/volume.rs` to use shared helpers; removed duplicates.
 
 ## Task 7: Standardize byte formatting to a single implementation
 
 - Scope: Resolve GAP-007.
 - Files/areas:
-  - Remove or deprecate UI copy in `disks-ui/src/utils/format.rs`
+  - Remove or deprecate UI copy in `storage-ui/src/utils/format.rs`
   - Use `disks_dbus::bytes_to_pretty` in UI (DBus remains canonical; no new common crate).
 - Steps:
   - Switch imports in UI.
@@ -134,17 +134,17 @@ This is a refactor-only track. Each task should be a small PR (or one squash-mer
   - Only one `bytes_to_pretty/pretty_to_bytes/get_numeric/get_step` implementation remains.
 
 - Progress:
-  - [x] Removed unused UI duplicate `disks-ui/src/utils/format.rs`.
+  - [x] Removed unused UI duplicate `storage-ui/src/utils/format.rs`.
   - [x] Confirmed UI call sites use `disks_dbus::{bytes_to_pretty, pretty_to_bytes, get_step}`.
 
 ## Task 8: Unify vocabulary: remove `PartitionModel` alias and clarify “partition vs volume”
 
 - Scope: Resolve GAP-009.
 - Files/areas:
-  - Remove `pub type PartitionModel = VolumeModel` from `disks-dbus/src/disks/mod.rs`.
+  - Remove `pub type PartitionModel = VolumeModel` from `storage-dbus/src/disks/mod.rs`.
   - Rename the file/module that defines `VolumeModel` to match its name/role:
-    - from `disks-dbus/src/disks/partition.rs`
-    - to `disks-dbus/src/disks/volume_model.rs` (or `disks-dbus/src/disks/volume_model/mod.rs`).
+    - from `storage-dbus/src/disks/partition.rs`
+    - to `storage-dbus/src/disks/volume_model.rs` (or `storage-dbus/src/disks/volume_model/mod.rs`).
   - Update all imports/exports/call sites to use `VolumeModel` directly.
 - Steps:
   - Rename module file and update `mod.rs` wiring.
@@ -155,15 +155,15 @@ This is a refactor-only track. Each task should be a small PR (or one squash-mer
   - `PartitionModel` no longer exists anywhere; `VolumeModel` is consistently used.
 
 - Progress:
-  - [x] Renamed `disks-dbus/src/disks/partition.rs` → `disks-dbus/src/disks/volume_model.rs`.
-  - [x] Removed `pub type PartitionModel = VolumeModel` and updated exports in `disks-dbus/src/disks/mod.rs`.
+  - [x] Renamed `storage-dbus/src/disks/partition.rs` → `storage-dbus/src/disks/volume_model.rs`.
+  - [x] Removed `pub type PartitionModel = VolumeModel` and updated exports in `storage-dbus/src/disks/mod.rs`.
   - [x] Verified `rg "PartitionModel"` finds no matches.
 
 ## Task 9: Split `DriveModel` by responsibility (discovery/actions/smart/tree)
 
 - Scope: Resolve GAP-004.
 - Files/areas:
-  - `disks-dbus/src/disks/drive/` submodules.
+  - `storage-dbus/src/disks/drive/` submodules.
 - Steps:
   - Move discovery routines first.
   - Move SMART next.
@@ -174,15 +174,15 @@ This is a refactor-only track. Each task should be a small PR (or one squash-mer
   - Drive code is split and readable; public API remains stable.
 
 - Progress:
-  - [x] Converted `disks-dbus/src/disks/drive.rs` into `disks-dbus/src/disks/drive/` module dir.
+  - [x] Converted `storage-dbus/src/disks/drive.rs` into `storage-dbus/src/disks/drive/` module dir.
   - [x] Split by responsibility: `model.rs`, `discovery.rs`, `volume_tree.rs`, `smart.rs`, `actions.rs`.
-  - [x] Kept public API stable via re-export from `disks-dbus/src/disks/drive/mod.rs`.
+  - [x] Kept public API stable via re-export from `storage-dbus/src/disks/drive/mod.rs`.
 
 ## Task 10: Partition type catalog refactor
 
 - Scope: Resolve GAP-005.
 - Files/areas:
-  - `disks-dbus/src/partition_type.rs` → `disks-dbus/src/partition_types/{mod.rs,gpt.rs,dos.rs}`
+  - `storage-dbus/src/partition_type.rs` → `storage-dbus/src/partition_types/{mod.rs,gpt.rs,dos.rs}`
 - Steps:
   - Split GPT and DOS data into separate modules to reduce file size.
   - Ensure lookup functions remain unchanged.
@@ -193,17 +193,17 @@ This is a refactor-only track. Each task should be a small PR (or one squash-mer
   - `partition_type.rs` no longer contains the full giant array.
 
 - Progress:
-  - [x] Replaced `disks-dbus/src/partition_type.rs` with `disks-dbus/src/partition_types/` modules.
+  - [x] Replaced `storage-dbus/src/partition_type.rs` with `storage-dbus/src/partition_types/` modules.
   - [x] Split catalog data into `gpt.rs` and `dos.rs` (and `apm.rs` to preserve existing APM entries).
-  - [x] Kept the public API stable via `pub use partition_types::*` from `disks-dbus/src/lib.rs`.
+  - [x] Kept the public API stable via `pub use partition_types::*` from `storage-dbus/src/lib.rs`.
   - [x] Added unit tests verifying counts and known lookups.
 
 ## Task 11: Remove unwrap-based crash paths in UI view
 
 - Scope: Resolve GAP-010.
 - Files/areas:
-  - `disks-ui/src/ui/app/view.rs`
-  - `disks-ui/src/ui/volumes/state.rs`
+  - `storage-ui/src/ui/app/view.rs`
+  - `storage-ui/src/ui/volumes/state.rs`
 - Steps:
   - Make selection state self-healing (clamp selection; handle empty segments).
   - Replace unwraps with fallbacks (Info dialog or empty-state view).
@@ -214,7 +214,7 @@ This is a refactor-only track. Each task should be a small PR (or one squash-mer
   - No unwraps remain in `view()` for nav/segment selection.
 
 - Progress:
-  - [x] Removed unwraps from `disks-ui/src/ui/app/view.rs` for `VolumesControl`/segment access.
+  - [x] Removed unwraps from `storage-ui/src/ui/app/view.rs` for `VolumesControl`/segment access.
   - [x] Clamped stale segment indices in `VolumesControl::update` to avoid out-of-range selection.
   - [x] Added an empty-volumes fallback string (`no-volumes`) for safe rendering.
 
@@ -231,24 +231,24 @@ This is a refactor-only track. Each task should be a small PR (or one squash-mer
   - Logging is consistent and layered.
 
 - Progress:
-  - [x] Initialized tracing subscriber in `disks-ui/src/main.rs`.
+  - [x] Initialized tracing subscriber in `storage-ui/src/main.rs`.
   - [x] Replaced UI `println!/eprintln!` with `tracing::{warn!, error!}` across update/subscription paths.
-  - [x] Added missing `tracing` dependency to `disks-ui/Cargo.toml`.
+  - [x] Added missing `tracing` dependency to `storage-ui/Cargo.toml`.
 
 ## Task 13: Move dialog rendering under `ui/dialogs/view/*` (reduce legacy `views/dialogs.rs`)
 
 - Scope: Finish the UI “ownership boundary” so dialogs are fully owned by the `ui/dialogs` tree (state + messages + view).
 - Motivation:
-  - `disks-ui/src/views/dialogs.rs` remains large (~975 LOC) and is now structurally out-of-place given state/messages already moved to `disks-ui/src/ui/dialogs/*`.
+  - `storage-ui/src/views/dialogs.rs` remains large (~975 LOC) and is now structurally out-of-place given state/messages already moved to `storage-ui/src/ui/dialogs/*`.
 - Files/areas:
-  - Add: `disks-ui/src/ui/dialogs/view/mod.rs`
-  - Add: `disks-ui/src/ui/dialogs/view/image.rs` (new/attach/image-operation)
-  - Add: `disks-ui/src/ui/dialogs/view/partition.rs` (create/edit/resize/format partition)
-  - Add: `disks-ui/src/ui/dialogs/view/encryption.rs` (unlock/change-passphrase/edit-encryption)
-  - Add: `disks-ui/src/ui/dialogs/view/mount.rs` (edit mount options)
-  - Add: `disks-ui/src/ui/dialogs/view/disk.rs` (format disk + smart data/smart dialog)
-  - Update: `disks-ui/src/ui/app/view.rs` (import dialogs via `ui/dialogs/view` instead of `views/dialogs`)
-  - Update: `disks-ui/src/views/dialogs.rs` (reduce to shim re-exporting new functions, or delete once call sites move)
+  - Add: `storage-ui/src/ui/dialogs/view/mod.rs`
+  - Add: `storage-ui/src/ui/dialogs/view/image.rs` (new/attach/image-operation)
+  - Add: `storage-ui/src/ui/dialogs/view/partition.rs` (create/edit/resize/format partition)
+  - Add: `storage-ui/src/ui/dialogs/view/encryption.rs` (unlock/change-passphrase/edit-encryption)
+  - Add: `storage-ui/src/ui/dialogs/view/mount.rs` (edit mount options)
+  - Add: `storage-ui/src/ui/dialogs/view/disk.rs` (format disk + smart data/smart dialog)
+  - Update: `storage-ui/src/ui/app/view.rs` (import dialogs via `ui/dialogs/view` instead of `views/dialogs`)
+  - Update: `storage-ui/src/views/dialogs.rs` (reduce to shim re-exporting new functions, or delete once call sites move)
 - Steps:
   - Create `ui/dialogs/view/mod.rs` that re-exports the dialog view functions (same signatures) to minimize churn.
   - Move the code in cohesive groups (image/partition/encryption/mount/disk), keeping function names stable.
@@ -259,22 +259,22 @@ This is a refactor-only track. Each task should be a small PR (or one squash-mer
   - `cargo clippy --workspace --all-features`
   - `cargo test --workspace --all-features`
 - Done when:
-  - [x] `disks-ui/src/views/dialogs.rs` is < ~200 LOC or removed.
-  - [x] Dialog view code is discoverable under `disks-ui/src/ui/dialogs/view/`.
+  - [x] `storage-ui/src/views/dialogs.rs` is < ~200 LOC or removed.
+  - [x] Dialog view code is discoverable under `storage-ui/src/ui/dialogs/view/`.
 
 ## Task 14: Split `VolumesControl::update` into submodules under `ui/volumes/update/`
 
-- Scope: Reduce `disks-ui/src/ui/volumes/update.rs` (~1655 LOC) into cohesive handlers while keeping behavior unchanged.
+- Scope: Reduce `storage-ui/src/ui/volumes/update.rs` (~1655 LOC) into cohesive handlers while keeping behavior unchanged.
 - Files/areas:
-  - Add: `disks-ui/src/ui/volumes/update/mod.rs`
+  - Add: `storage-ui/src/ui/volumes/update/mod.rs`
   - Add (suggested):
-    - `disks-ui/src/ui/volumes/update/selection.rs` (segment/volume selection + show_reserved)
-    - `disks-ui/src/ui/volumes/update/mount.rs` (mount/unmount + child mount/unmount)
-    - `disks-ui/src/ui/volumes/update/encryption.rs` (lock/unlock/change-passphrase/encryption options)
-    - `disks-ui/src/ui/volumes/update/partition.rs` (create/edit/resize/format/delete + ownership)
-    - `disks-ui/src/ui/volumes/update/dialogs.rs` (open/close dialog state transitions)
-    - `disks-ui/src/ui/volumes/update/refresh.rs` (DriveModel refresh patterns)
-  - Update: `disks-ui/src/ui/volumes/mod.rs` and `disks-ui/src/ui/volumes/state.rs` as needed for shared helpers.
+    - `storage-ui/src/ui/volumes/update/selection.rs` (segment/volume selection + show_reserved)
+    - `storage-ui/src/ui/volumes/update/mount.rs` (mount/unmount + child mount/unmount)
+    - `storage-ui/src/ui/volumes/update/encryption.rs` (lock/unlock/change-passphrase/encryption options)
+    - `storage-ui/src/ui/volumes/update/partition.rs` (create/edit/resize/format/delete + ownership)
+    - `storage-ui/src/ui/volumes/update/dialogs.rs` (open/close dialog state transitions)
+    - `storage-ui/src/ui/volumes/update/refresh.rs` (DriveModel refresh patterns)
+  - Update: `storage-ui/src/ui/volumes/mod.rs` and `storage-ui/src/ui/volumes/state.rs` as needed for shared helpers.
 - Steps:
   - Introduce private helper fns per category that return `Option<Task<...>>` (or directly `Task`) to keep control flow clear.
   - Move match arms in chunks to submodules, keeping `VolumesControl::update` as a thin dispatcher.
@@ -284,5 +284,5 @@ This is a refactor-only track. Each task should be a small PR (or one squash-mer
   - `cargo clippy --workspace --all-features`
   - `cargo test --workspace --all-features`
 - Done when:
-  - [x] `disks-ui/src/ui/volumes/update.rs` is < ~400 LOC (or is replaced by `ui/volumes/update/mod.rs` dispatcher).
+  - [x] `storage-ui/src/ui/volumes/update.rs` is < ~400 LOC (or is replaced by `ui/volumes/update/mod.rs` dispatcher).
   - [x] No user-visible behavior changes in mount/unmount/create/resize/format/delete flows.

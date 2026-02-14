@@ -221,9 +221,9 @@ watch-test:
 # Create a debug build and run the old helper (for comparison)
 run-old-helper MOUNTPOINT="/": build
     @echo "Running old helper for comparison..."
-    sudo RUST_LOG=debug ./target/debug/cosmic-ext-disks-btrfs-helper list {{MOUNTPOINT}}
+    sudo RUST_LOG=debug ./target/debug/cosmic-ext-storage-btrfs-helper list {{MOUNTPOINT}}
 
 # Create a debug build and run the new library CLI (for comparison)
 run-new-cli MOUNTPOINT="/": build
     @echo "Running new library CLI..."
-    sudo RUST_LOG=debug cargo run --features cli -p disks-btrfs --bin disks-btrfs-cli -- list {{MOUNTPOINT}}
+    sudo RUST_LOG=debug cargo run --features cli -p storage-btrfs --bin storage-btrfs-cli -- list {{MOUNTPOINT}}

@@ -1,13 +1,13 @@
 [workspace]
 members = [
-    "disks-dbus",
-    "disks-ui",
-    "disks-btrfs",         # New library
+    "storage-dbus",
+    "storage-ui",
+    "storage-btrfs",         # New library
     "storage-service",     # New D-Bus service
     "storage-models",      # Shared data models
     "storage-sys",         # Low-level system operations
 ]
-default-members = ["disks-ui"]
+default-members = ["storage-ui"]
 resolver = "2"
 
 [workspace.dependencies]
@@ -41,7 +41,7 @@ chrono = { version = "0.4", features = ["serde"] }
 clap = { version = "4.5", features = ["derive"] }
 
 # workspace dependencies
-disks-dbus = { package = "cosmic-ext-disks-dbus", path = "disks-dbus", version = "0.1.0" }
+storage-dbus = { package = "cosmic-ext-storage-dbus", path = "storage-dbus", version = "0.1.0" }
 storage-models = { path = "storage-models", version = "0.1.0" }
 
 # build dependencies

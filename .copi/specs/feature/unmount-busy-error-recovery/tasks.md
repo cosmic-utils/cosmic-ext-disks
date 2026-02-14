@@ -19,10 +19,10 @@ Dependencies:
 
 ## Task 1: Add Structured Error Type for Resource Busy
 
-**Scope:** Extend error types in `disks-dbus` to distinguish "resource busy" from generic errors.
+**Scope:** Extend error types in `storage-dbus` to distinguish "resource busy" from generic errors.
 
 **Files/Areas:**
-- `disks-dbus/src/disks/ops.rs` (error handling in `fs_unmount`)
+- `storage-dbus/src/disks/ops.rs` (error handling in `fs_unmount`)
 - Consider: add `DiskError` enum or extend existing error handling
 
 **Steps:**
@@ -60,12 +60,12 @@ Dependencies:
 **Scope:** Add system utility to find processes holding a mount point open using the procfs crate.
 
 **Files/Areas:**
-- New file: `disks-dbus/src/disks/process_finder.rs` or similar
-- `disks-dbus/src/disks/mod.rs` (module declaration)
-- `disks-dbus/Cargo.toml` (add procfs dependency)
+- New file: `storage-dbus/src/disks/process_finder.rs` or similar
+- `storage-dbus/src/disks/mod.rs` (module declaration)
+- `storage-dbus/Cargo.toml` (add procfs dependency)
 
 **Steps:**
-1. Add `procfs = "0.16"` to `disks-dbus/Cargo.toml`
+1. Add `procfs = "0.16"` to `storage-dbus/Cargo.toml`
 2. Create module with public function:
    ```rust
    pub struct ProcessInfo {
@@ -129,11 +129,11 @@ Dependencies:
 **Scope:** Add utility function to kill processes by PID using syscalls.
 
 **Files/Areas:**
-- Same module as Task 2: `disks-dbus/src/disks/process_finder.rs` or separate module
-- `disks-dbus/Cargo.toml` (add nix dependency)
+- Same module as Task 2: `storage-dbus/src/disks/process_finder.rs` or separate module
+- `storage-dbus/Cargo.toml` (add nix dependency)
 
 **Steps:**
-1. Add `nix = { version = "0.29", features = ["signal"] }` to `disks-dbus/Cargo.toml`
+1. Add `nix = { version = "0.29", features = ["signal"] }` to `storage-dbus/Cargo.toml`
 2. Add public function:
    ```rust
    pub struct KillResult {
@@ -201,8 +201,8 @@ Dependencies:
 **Scope:** Build the modal dialog for displaying busy error and recovery options.
 
 **Files/Areas:**
-- New file: `disks-ui/src/ui/dialogs/unmount_busy.rs`
-- Update: `disks-ui/src/ui/dialogs/mod.rs` (module declaration)
+- New file: `storage-ui/src/ui/dialogs/unmount_busy.rs`
+- Update: `storage-ui/src/ui/dialogs/mod.rs` (module declaration)
 
 **Steps:**
 1. Define dialog state struct:
@@ -212,7 +212,7 @@ Dependencies:
        pub processes: Vec<ProcessInfo>,
    }
    ```
-2. Add message variants in `disks-ui/src/ui/dialogs/message.rs`:
+2. Add message variants in `storage-ui/src/ui/dialogs/message.rs`:
    ```rust
    enum DialogMessage {
        UnmountBusy(UnmountBusyAction),
@@ -262,9 +262,9 @@ Dependencies:
 **Scope:** Integrate process discovery and dialog into existing unmount operations.
 
 **Files/Areas:**
-- `disks-ui/src/ui/volumes/update/mount.rs` (unmount function)
-- `disks-ui/src/ui/volumes/message.rs` (add message variants)
-- `disks-ui/src/app.rs` or dialog management (show dialog)
+- `storage-ui/src/ui/volumes/update/mount.rs` (unmount function)
+- `storage-ui/src/ui/volumes/message.rs` (add message variants)
+- `storage-ui/src/app.rs` or dialog management (show dialog)
 
 **Steps:**
 1. Update `unmount` function in `mount.rs`:
@@ -354,8 +354,8 @@ Dependencies:
 
 **Files/Areas:**
 - `README.md` (optional: mention unmount recovery feature)
-- `disks-ui/README.md` (if exists)
-- `disks-dbus/src/disks/process_finder.rs` (doc comments)
+- `storage-ui/README.md` (if exists)
+- `storage-dbus/src/disks/process_finder.rs` (doc comments)
 - New integration test (optional)
 
 **Steps:**

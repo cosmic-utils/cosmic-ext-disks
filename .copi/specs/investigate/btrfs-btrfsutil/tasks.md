@@ -9,12 +9,12 @@
 
 ### Task 1.1: Add Dependencies
 **Estimated:** 0.5h  
-**Files:** `disks-dbus/Cargo.toml`, `Cargo.toml` (workspace root)
+**Files:** `storage-dbus/Cargo.toml`, `Cargo.toml` (workspace root)
 
-- [ ] Add `btrfsutil = "0.2.0"` to disks-dbus
-- [ ] Add `uuid = { version = "1.10", features = ["serde"] }` to disks-dbus
-- [ ] Add `chrono = { version = "0.4", features = ["serde"] }` to disks-dbus
-- [ ] Add `disks-btrfs-helper` to workspace members
+- [ ] Add `btrfsutil = "0.2.0"` to storage-dbus
+- [ ] Add `uuid = { version = "1.10", features = ["serde"] }` to storage-dbus
+- [ ] Add `chrono = { version = "0.4", features = ["serde"] }` to storage-dbus
+- [ ] Add `storage-btrfs-helper` to workspace members
 - [ ] Run `cargo check --workspace` to verify
 
 **Acceptance:** Workspace builds successfully with new dependencies
@@ -23,15 +23,15 @@
 
 ### Task 1.2: Create Helper Binary Crate
 **Estimated:** 2h  
-**Files:** `disks-btrfs-helper/Cargo.toml`, `disks-btrfs-helper/src/main.rs`
+**Files:** `storage-btrfs-helper/Cargo.toml`, `storage-btrfs-helper/src/main.rs`
 
-- [ ] Create `disks-btrfs-helper/` directory
+- [ ] Create `storage-btrfs-helper/` directory
 - [ ] Create Cargo.toml with dependencies (btrfsutil, clap, serde, serde_json, anyhow)
 - [ ] Create skeleton `main.rs` with CLI structure (clap derive)
 - [ ] Define `Commands` enum (List, Create, Delete, Snapshot, SetReadonly, SetDefault, GetDefault, ListDeleted)
 - [ ] Implement arg parsing and command dispatch
 - [ ] Add placeholder implementations (return mock success)
-- [ ] Test: `cargo run --package cosmic-ext-disks-btrfs-helper -- --help`
+- [ ] Test: `cargo run --package cosmic-ext-storage-btrfs-helper -- --help`
 
 **Acceptance:** Helper binary compiles and shows help text
 
@@ -39,7 +39,7 @@
 
 ### Task 1.3: Implement Helper List Operation
 **Estimated:** 3h  
-**Files:** `disks-btrfs-helper/src/main.rs`
+**Files:** `storage-btrfs-helper/src/main.rs`
 
 - [ ] Implement `list_subvolumes(mount_point: &Path)` function
 - [ ] Use `Subvolume::try_from(mount_point)` to get root
@@ -56,7 +56,7 @@
 
 ### Task 1.4: Implement Remaining Helper Operations
 **Estimated:** 4h  
-**Files:** `disks-btrfs-helper/src/main.rs`
+**Files:** `storage-btrfs-helper/src/main.rs`
 
 - [ ] Implement `create_subvolume(mount_point, name)` using `Subvolume::create()`
 - [ ] Implement `delete_subvolume(mount_point, path, recursive)` using `Subvolume::delete()`
@@ -81,7 +81,7 @@
 - [ ] Set action ID: `com.system76.CosmicExtDisks.btrfs.manage`
 - [ ] Set description: "Manage BTRFS subvolumes and snapshots"
 - [ ] Set auth requirements: `auth_admin` for all contexts
-- [ ] Annotate with exec path: `/usr/libexec/cosmic-ext-disks-btrfs-helper`
+- [ ] Annotate with exec path: `/usr/libexec/cosmic-ext-storage-btrfs-helper`
 - [ ] Add installation step to justfile/build scripts
 - [ ] Document installation in README
 
@@ -91,7 +91,7 @@
 
 ### Task 1.6: Create btrfs_native.rs Skeleton
 **Estimated:** 2h  
-**Files:** `disks-dbus/src/disks/btrfs_native.rs`
+**Files:** `storage-dbus/src/disks/btrfs_native.rs`
 
 - [ ] Create new file with module structure
 - [ ] Define `BtrfsSubvolume` struct with all fields (id, path, parent_id, uuid, parent_uuid, received_uuid, created, modified, generation, flags, is_readonly, is_default, ctransid, otransid)
@@ -109,7 +109,7 @@
 
 ### Task 1.7: Implement BtrfsHelper Execute
 **Estimated:** 3h  
-**Files:** `disks-dbus/src/disks/btrfs_native.rs`
+**Files:** `storage-dbus/src/disks/btrfs_native.rs`
 
 - [ ] Implement `BtrfsHelper::new()` - finds helper binary path
 - [ ] Implement `BtrfsHelper::execute()` - spawns helper process
@@ -127,7 +127,7 @@
 
 ### Task 1.8: Implement BtrfsFilesystem::list_subvolumes
 **Estimated:** 2h  
-**Files:** `disks-dbus/src/disks/btrfs_native.rs`
+**Files:** `storage-dbus/src/disks/btrfs_native.rs`
 
 - [ ] Implement `BtrfsFilesystem::new(mount_point)` constructor
 - [ ] Implement `list_subvolumes()` method
@@ -146,7 +146,7 @@
 
 ### Task 2.1: Implement All BtrfsFilesystem Methods
 **Estimated:** 6h  
-**Files:** `disks-dbus/src/disks/btrfs_native.rs`
+**Files:** `storage-dbus/src/disks/btrfs_native.rs`
 
 - [ ] Implement `create_subvolume(name)` → Operation::CreateSubvolume
 - [ ] Implement `delete_subvolume(path)` → Operation::DeleteSubvolume
@@ -164,7 +164,7 @@
 
 ### Task 2.2: Add SubvolumeInfo Conversion
 **Estimated:** 1h  
-**Files:** `disks-dbus/src/disks/btrfs_native.rs`
+**Files:** `storage-dbus/src/disks/btrfs_native.rs`
 
 - [x] Implement `From<SubvolumeInfo>` for BtrfsSubvolume (if using btrfsutil directly)
 - [x] Handle Option fields properly (parent_id, parent_uuid, received_uuid)
@@ -180,7 +180,7 @@
 
 ### Task 2.3: Update disks/mod.rs Exports
 **Estimated:** 0.5h  
-**Files:** `disks-dbus/src/disks/mod.rs`
+**Files:** `storage-dbus/src/disks/mod.rs`
 
 - [ ] Remove `mod btrfs;` declaration
 - [ ] Add `mod btrfs_native;` declaration
@@ -193,9 +193,9 @@
 
 ### Task 2.4: Delete Old BTRFS Module
 **Estimated:** 0.5h  
-**Files:** `disks-dbus/src/disks/btrfs.rs` (DELETE)
+**Files:** `storage-dbus/src/disks/btrfs.rs` (DELETE)
 
-- [ ] Remove `disks-dbus/src/disks/btrfs.rs` file completely (289 lines)
+- [ ] Remove `storage-dbus/src/disks/btrfs.rs` file completely (289 lines)
 - [ ] Run `cargo check` to identify any remaining references
 - [ ] Fix any compile errors from removed types
 - [ ] Commit with message: "refactor!: remove UDisks2 BTRFS implementation"
@@ -206,7 +206,7 @@
 
 ### Task 2.5: Update UI State Structures
 **Estimated:** 2h  
-**Files:** `disks-ui/src/ui/btrfs/state.rs`
+**Files:** `storage-ui/src/ui/btrfs/state.rs`
 
 - [ ] Add new fields to `BtrfsState`:
   - `default_subvolume_id: Option<u64>`
@@ -224,7 +224,7 @@
 
 ### Task 2.6: Update BTRFS Messages
 **Estimated:** 2h  
-**Files:** `disks-ui/src/ui/btrfs/message.rs`, `disks-ui/src/ui/app/message.rs`
+**Files:** `storage-ui/src/ui/btrfs/message.rs`, `storage-ui/src/ui/app/message.rs`
 
 - [ ] Add new messages to `btrfs/message.rs`:
   - `LoadDefaultSubvolume`
@@ -247,7 +247,7 @@
 
 ### Task 2.7: Rewrite BTRFS Update Handlers
 **Estimated:** 6h  
-**Files:** `disks-ui/src/ui/app/update/btrfs.rs`
+**Files:** `storage-ui/src/ui/app/update/btrfs.rs`
 
 - [ ] Update `load_subvolumes()` to use new `BtrfsFilesystem::new()` and `list_subvolumes()`
 - [ ] Ensure all operations use `BtrfsFilesystem` instead of D-Bus proxies
@@ -268,7 +268,7 @@
 
 ### Task 3.1: Add Timestamp Columns
 **Estimated:** 2h  
-**Files:** `disks-ui/src/ui/btrfs/view.rs`
+**Files:** `storage-ui/src/ui/btrfs/view.rs`
 
 - [ ] Add "Created" column to subvolume grid
 - [ ] Add "Modified" column to subvolume grid
@@ -284,7 +284,7 @@
 
 ### Task 3.2: Add Status Badges
 **Estimated:** 2h  
-**Files:** `disks-ui/src/ui/btrfs/view.rs`
+**Files:** `storage-ui/src/ui/btrfs/view.rs`
 
 - [ ] Add "Flags" column to grid
 - [ ] Show "DEFAULT" badge if `subvol.is_default`
@@ -299,7 +299,7 @@
 
 ### Task 3.3: Replace Delete Button with Context Menu
 **Estimated:** 3h  
-**Files:** `disks-ui/src/ui/btrfs/view.rs`
+**Files:** `storage-ui/src/ui/btrfs/view.rs`
 
 - [ ] Replace simple delete button with three-dot menu button
 - [ ] Create `widget::popover` with menu items:
@@ -317,7 +317,7 @@
 
 ### Task 3.4: Create Properties Dialog
 **Estimated:** 4h  
-**Files:** `disks-ui/src/ui/btrfs/properties.rs` (new), `disks-ui/src/ui/btrfs/mod.rs`
+**Files:** `storage-ui/src/ui/btrfs/properties.rs` (new), `storage-ui/src/ui/btrfs/mod.rs`
 
 - [ ] Create new `properties.rs` module
 - [ ] Implement `properties_dialog(subvol: &BtrfsSubvolume)` function
@@ -339,7 +339,7 @@
 
 ### Task 3.5: Add Deleted Subvolumes Section
 **Estimated:** 3h  
-**Files:** `disks-ui/src/ui/btrfs/view.rs`
+**Files:** `storage-ui/src/ui/btrfs/view.rs`
 
 - [ ] Add collapsible section below subvolume list
 - [ ] Header: "Deleted Subvolumes" with expand/collapse button
@@ -356,7 +356,7 @@
 
 ### Task 3.6: Implement Automatic Naming Templates
 **Estimated:** 3h  
-**Files:** `disks-ui/src/ui/btrfs/view.rs`, `disks-ui/src/config.rs`
+**Files:** `storage-ui/src/ui/btrfs/view.rs`, `storage-ui/src/config.rs`
 
 - [ ] Add snapshot naming template to app config
 - [ ] Implement template variables: `{name}`, `{date}`, `{time}`
@@ -377,7 +377,7 @@
 
 ### Task 4.1: Add English Translations
 **Estimated:** 2h  
-**Files:** `disks-ui/i18n/en/cosmic_ext_disks.ftl`
+**Files:** `storage-ui/i18n/en/cosmic_ext_disks.ftl`
 
 - [ ] Add all new BTRFS strings:
   - `btrfs-properties`, `btrfs-make-readonly`, `btrfs-make-writable`, `btrfs-set-default`, `btrfs-delete`
@@ -394,7 +394,7 @@
 
 ### Task 4.2: Add Swedish Translations (Optional)
 **Estimated:** 1h  
-**Files:** `disks-ui/i18n/sv/cosmic_ext_disks.ftl`
+**Files:** `storage-ui/i18n/sv/cosmic_ext_disks.ftl`
 
 - [ ] Translate all new strings to Swedish (if translator available)
 - [ ] Otherwise, copy English strings as placeholders
@@ -408,9 +408,9 @@
 
 ### Task 5.1: Create Integration Test Infrastructure
 **Estimated:** 4h  
-**Files:** `disks-dbus/tests/btrfs_integration.rs`
+**Files:** `storage-dbus/tests/btrfs_integration.rs`
 
-- [ ] Create tests/ directory in disks-dbus if not exists
+- [ ] Create tests/ directory in storage-dbus if not exists
 - [ ] Implement `setup_btrfs_loop_device()` helper:
   - Create 1GB sparse file with dd
   - Setup loop device with losetup
@@ -423,7 +423,7 @@
   - Detach loop device
   - Remove files
 - [ ] Add `#[ignore]` attribute (requires root)
-- [ ] Document how to run: `sudo cargo test --package disks-dbus btrfs_integration -- --ignored`
+- [ ] Document how to run: `sudo cargo test --package storage-dbus btrfs_integration -- --ignored`
 
 **Acceptance:** Test infrastructure can create/destroy BTRFS filesystems
 
@@ -431,7 +431,7 @@
 
 ### Task 5.2: Write Integration Tests
 **Estimated:** 4h  
-**Files:** `disks-dbus/tests/btrfs_integration.rs`
+**Files:** `storage-dbus/tests/btrfs_integration.rs`
 
 - [ ] Test: List initial subvolumes (should have root subvolume ID 5)
 - [ ] Test: Create subvolume, verify it appears in list
@@ -440,7 +440,7 @@
 - [ ] Test: Set default subvolume, verify get_default returns correct ID
 - [ ] Test: Delete subvolume, verify appears in deleted list
 - [ ] Test: Error cases (invalid paths, permission denied without sudo)
-- [ ] Run all tests: `sudo cargo test --package disks-dbus btrfs_integration -- --ignored`
+- [ ] Run all tests: `sudo cargo test --package storage-dbus btrfs_integration -- --ignored`
 
 **Acceptance:** All integration tests pass
 
@@ -448,14 +448,14 @@
 
 ### Task 5.3: Add Unit Tests
 **Estimated:** 3h  
-**Files:** `disks-dbus/src/disks/btrfs_native.rs`
+**Files:** `storage-dbus/src/disks/btrfs_native.rs`
 
 - [ ] Test: SubvolumeInfo conversion to BtrfsSubvolume
 - [ ] Test: Operation serialization to CLI args
 - [ ] Test: Helper path resolution
 - [ ] Test: JSON parsing of helper output
 - [ ] Test: Error handling and context
-- [ ] Run: `cargo test --package disks-dbus`
+- [ ] Run: `cargo test --package storage-dbus`
 
 **Acceptance:** Unit tests pass
 
@@ -516,7 +516,7 @@
 
 ### Task 5.7: Documentation Updates
 **Estimated:** 3h  
-**Files:** `README.md`, `disks-dbus/README.md` (if exists)
+**Files:** `README.md`, `storage-dbus/README.md` (if exists)
 
 - [ ] Update README with new BTRFS capabilities
 - [ ] Add screenshots showing new UI features

@@ -18,9 +18,9 @@ Replace UDisks2 D-Bus BTRFS integration with direct `btrfsutil` crate usage to u
 ## Scope
 
 ### In Scope
-- ✅ Complete removal of `disks-dbus/src/disks/btrfs.rs` (289 lines)
-- ✅ New `disks-dbus/src/disks/btrfs_native.rs` implementation using btrfsutil
-- ✅ Privilege helper binary (`cosmic-ext-disks-btrfs-helper`)
+- ✅ Complete removal of `storage-dbus/src/disks/btrfs.rs` (289 lines)
+- ✅ New `storage-dbus/src/disks/btrfs_native.rs` implementation using btrfsutil
+- ✅ Privilege helper binary (`cosmic-ext-storage-btrfs-helper`)
 - ✅ Enhanced UI with 6 new V2.0 features
 - ✅ Polkit integration for privilege escalation
 - ✅ Integration test suite with real BTRFS filesystems
@@ -49,7 +49,7 @@ UI → Business Logic → BTRFS Native → btrfsutil crate → libbtrfsutil.so �
 ### Key Components
 1. **btrfs_native.rs** - Async wrapper around btrfsutil with enhanced types
 2. **BtrfsHelper** - Privilege escalation via separate binary
-3. **cosmic-ext-disks-btrfs-helper** - Minimal privileged binary with polkit
+3. **cosmic-ext-storage-btrfs-helper** - Minimal privileged binary with polkit
 4. **Enhanced BtrfsSubvolume** - Full metadata (UUIDs, timestamps, flags)
 
 ## Acceptance Criteria
@@ -93,9 +93,9 @@ UI → Business Logic → BTRFS Native → btrfsutil crate → libbtrfsutil.so �
 ## Dependencies
 
 ### Add
-- `btrfsutil = "0.2.0"` (disks-dbus)
-- `uuid = { version = "1.10", features = ["serde"] }` (disks-dbus)
-- `chrono = { version = "0.4", features = ["serde"] }` (disks-dbus)
+- `btrfsutil = "0.2.0"` (storage-dbus)
+- `uuid = { version = "1.10", features = ["serde"] }` (storage-dbus)
+- `chrono = { version = "0.4", features = ["serde"] }` (storage-dbus)
 - `clap = { version = "4.5", features = ["derive"] }` (helper)
 - `serde_json = "1.0"` (helper)
 
@@ -103,7 +103,7 @@ UI → Business Logic → BTRFS Native → btrfsutil crate → libbtrfsutil.so �
 - System dependency: `udisks2-btrfs` package (packaging scripts)
 
 ### New Crate
-- `disks-btrfs-helper` - Workspace member for privileged binary
+- `storage-btrfs-helper` - Workspace member for privileged binary
 
 ## Risk Mitigation
 

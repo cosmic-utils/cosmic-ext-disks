@@ -18,15 +18,15 @@ Replaced `df` parsing with UDisks2 mountpoints for mount state and `statvfs` for
 
 ## Commands run
 - `cargo fmt --all`
-- `cargo test -p cosmic-ext-disks-dbus`
+- `cargo test -p cosmic-ext-storage-dbus`
 - `cargo test --workspace --all-features`
 - `cargo clippy --workspace --all-features`
 
 ## Files changed (high level)
-- `disks-dbus/src/usage.rs`
-- `disks-dbus/src/disks/partition.rs`
-- `disks-dbus/src/disks/drive.rs`
-- `disks-ui/src/views/volumes.rs`
-- `disks-ui/src/app.rs`
+- `storage-dbus/src/usage.rs`
+- `storage-dbus/src/disks/partition.rs`
+- `storage-dbus/src/disks/drive.rs`
+- `storage-ui/src/views/volumes.rs`
+- `storage-ui/src/app.rs`
 - `.copi/specs/fix/gap-007-mount-state-detection/*`
 - `.copi/spec-index.md`

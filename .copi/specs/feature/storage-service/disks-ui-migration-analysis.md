@@ -1,4 +1,4 @@
-# disks-ui Migration Analysis — Replace disks-dbus with storage-service Clients
+# storage-ui Migration Analysis — Replace storage-dbus with storage-service Clients
 
 **Analysis Date:** 2026-02-14  
 **Phase:** Phase 3A Complete, Phase 3B Prerequisite  
@@ -9,7 +9,7 @@
 
 ## Executive Summary
 
-**Objective:** Replace ALL disks-dbus usage in disks-ui with storage-service D-Bus clients and storage-models types.
+**Objective:** Replace ALL storage-dbus usage in storage-ui with storage-service D-Bus clients and storage-models types.
 
 **Total Impact:**
 - **Files affected:** ~35 files
@@ -96,7 +96,7 @@ let volumes = disks_client.get_volumes(device).await?; // Returns Vec<VolumeInfo
 
 #### BtrfsFilesystem (2 files)
 
-**Replacement:** Use existing `btrfs_client` (already in disks-ui/src/client/btrfs.rs)
+**Replacement:** Use existing `btrfs_client` (already in storage-ui/src/client/btrfs.rs)
 
 **Files:** app/update/btrfs.rs, volumes/update/btrfs.rs
 
@@ -225,7 +225,7 @@ Incrementally replace 60+ operation call sites:
 
 ### Phase 5: Cleanup (1 day, Low Risk)
 
-- Remove `disks-dbus` from Cargo.toml
+- Remove `storage-dbus` from Cargo.toml
 - Verify no remaining imports
 - Final integration test
 
@@ -235,7 +235,7 @@ Incrementally replace 60+ operation call sites:
 
 **Low Risk:**
 - Type-only import changes (Phase 1)
-- Storage-models types are 1:1 with disks-dbus
+- Storage-models types are 1:1 with storage-dbus
 
 **Medium Risk:**
 - Client initialization (Phase 2) - new async startup
@@ -265,7 +265,7 @@ Incrementally replace 60+ operation call sites:
 
 **Phase 4:** Each operation with valid/invalid inputs, errors, permissions
 
-**Phase 5:** Full app workflow without disks-dbus
+**Phase 5:** Full app workflow without storage-dbus
 
 ### Critical Test Scenarios
 
@@ -289,7 +289,7 @@ Incrementally replace 60+ operation call sites:
   - All operation methods exposed
   - Polkit policies configured
   - Service installed and running
-- ⏸️ Client wrappers exist in disks-ui/src/client/
+- ⏸️ Client wrappers exist in storage-ui/src/client/
   - DisksClient
   - PartitionsClient
   - FilesystemsClient
@@ -304,7 +304,7 @@ Incrementally replace 60+ operation call sites:
 - [ ] All 20+ `use disks_dbus::` imports replaced
 - [ ] All client instances initialized
 - [ ] All 60+ operation call sites use clients
-- [ ] `disks-dbus` removed from Cargo.toml
+- [ ] `storage-dbus` removed from Cargo.toml
 - [ ] Zero compilation errors
 - [ ] Full test suite passes
 - [ ] No regressions in functionality

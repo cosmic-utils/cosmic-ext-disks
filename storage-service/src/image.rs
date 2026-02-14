@@ -84,7 +84,7 @@ impl ImageHandler {
             return Err("Operation cancelled".to_string());
         }
 
-        // Open source device (privileged) via disks-dbus
+        // Open source device (privileged) via storage-dbus
         let source_fd = disks_dbus::open_for_backup_by_device(&device_path)
             .await
             .map_err(|e| format!("Failed to open source device: {e}"))?;
@@ -171,7 +171,7 @@ impl ImageHandler {
             prog.total_bytes = total_size;
         }
 
-        // Open destination device (privileged) via disks-dbus
+        // Open destination device (privileged) via storage-dbus
         let dest_fd = disks_dbus::open_for_restore_by_device(&device_path)
             .await
             .map_err(|e| format!("Failed to open destination device: {e}"))?;
@@ -630,7 +630,7 @@ impl ImageHandler {
             )));
         }
 
-        // Call disks-dbus loop_setup_device_path (returns device path directly)
+        // Call storage-dbus loop_setup_device_path (returns device path directly)
         let device_path = disks_dbus::loop_setup_device_path(&image_path)
             .await
             .map_err(|e| {

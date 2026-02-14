@@ -1,5 +1,5 @@
 [package]
-name = "disks-btrfs"
+name = "storage-btrfs"
 description = "BTRFS operations library for COSMIC Disks"
 version = "0.2.0"
 edition = "2024"
@@ -11,7 +11,7 @@ path = "src/lib.rs"
 
 # Optional CLI binary for testing
 [[bin]]
-name = "disks-btrfs-cli"
+name = "storage-btrfs-cli"
 path = "src/bin/cli.rs"
 required-features = ["cli"]
 
@@ -35,4 +35,3 @@ tracing.workspace = true
 # CLI-only dependencies
 clap = { workspace = true, optional = true }
 tracing-subscriber = { workspace = true, optional = true }
-

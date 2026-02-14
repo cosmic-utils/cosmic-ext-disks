@@ -6,7 +6,7 @@ Source:
 
 ## Task 1: Define mount-state contract (DBus layer)
 - Scope: Decide what the DBus/model layer exposes for mount state.
-- Files/areas: `disks-dbus/src/disks/*` (partition model), UDisks2 property accessors.
+- Files/areas: `storage-dbus/src/disks/*` (partition model), UDisks2 property accessors.
 - Steps:
   - Identify the UDisks2 fields currently available in the partition model (filesystem interface, mountpoints, etc.).
   - Add a small, explicit representation (e.g., `mounted: bool`, `mountpoints: Vec<String>`).
@@ -19,7 +19,7 @@ Source:
 ## Task 2: Decouple usage (`df`) from mount state
 ## Task 2: Remove `df` entirely (use UDisks2 mountpoints + `statvfs`)
 - Scope: Eliminate external `df` parsing and compute usage locally.
-- Files/areas: `disks-dbus/src/usage.rs`, `disks-dbus/src/disks/drive.rs`, `disks-dbus/src/disks/partition.rs`.
+- Files/areas: `storage-dbus/src/usage.rs`, `storage-dbus/src/disks/drive.rs`, `storage-dbus/src/disks/partition.rs`.
 - Steps:
   - Replace the current `get_usage_data()` implementation (which shells out to `df`) with a helper that:
     - accepts mountpoint path(s) and returns usage via `libc::statvfs`.
@@ -35,7 +35,7 @@ Source:
 
 ## Task 3: Update UI logic to use mount state
 - Scope: Use the new mount-state field for mount/unmount button selection.
-- Files/areas: `disks-ui/src/views/volumes.rs` (mount/unmount button logic), related view models.
+- Files/areas: `storage-ui/src/views/volumes.rs` (mount/unmount button logic), related view models.
 - Steps:
   - Replace mount-state inference from `usage.is_some()` with `partition.mount_state`.
   - Keep displaying usage when available.

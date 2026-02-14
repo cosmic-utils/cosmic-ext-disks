@@ -6,15 +6,15 @@ Spec: `.copi/specs/feature/image-menu-commands/`
 ## Task 1: Add missing menu items + messages + i18n keys
 - Scope: expose all Image menu commands (drive + partition), and ensure routing exists.
 - Files/areas:
-  - `disks-ui/src/views/menu.rs`
-  - `disks-ui/src/app.rs` (Message enum + update handler)
-  - `disks-ui/i18n/en/cosmic_ext_disks.ftl`, `disks-ui/i18n/sv/cosmic_ext_disks.ftl`
+  - `storage-ui/src/views/menu.rs`
+  - `storage-ui/src/app.rs` (Message enum + update handler)
+  - `storage-ui/i18n/en/cosmic_ext_disks.ftl`, `storage-ui/i18n/sv/cosmic_ext_disks.ftl`
 - Steps:
   - Add menu items for “Create/Restore … Partition” (and adjust labels for Drive if needed).
   - Add corresponding `Message` variants and map them from menu actions.
   - Add i18n keys for any new labels.
 - Test plan:
-  - Build the UI crate: `cargo build -p disks-ui`.
+  - Build the UI crate: `cargo build -p storage-ui`.
   - Smoke: open menu and ensure items appear.
 - Done when:
   - [x] Image menu shows 6 commands.
@@ -23,8 +23,8 @@ Spec: `.copi/specs/feature/image-menu-commands/`
 ## Task 2: Implement “New Disk Image” dialog + file creation
 - Scope: create empty image file from UI.
 - Files/areas:
-  - `disks-ui/src/app.rs` (message handling)
-  - `disks-ui/src/views/dialogs.rs` (or new dialog module)
+  - `storage-ui/src/app.rs` (message handling)
+  - `storage-ui/src/views/dialogs.rs` (or new dialog module)
 - Steps:
   - Create a dialog with destination path + size inputs.
   - Implement async file creation: create_new + set_len.
@@ -36,11 +36,11 @@ Spec: `.copi/specs/feature/image-menu-commands/`
   - [x] Image → New Disk Image creates a file with requested size.
   - [x] Errors cleanly if the path exists or is invalid.
 
-## Task 3: Add `disks-dbus` support for “Attach Disk” (loop setup)
+## Task 3: Add `storage-dbus` support for “Attach Disk” (loop setup)
 - Scope: set up a loop device via UDisks2 for an image file.
 - Files/areas:
-  - `disks-dbus/src/disks/manager.rs` (new proxy methods or raw calls)
-  - Potential new module `disks-dbus/src/disks/image.rs`
+  - `storage-dbus/src/disks/manager.rs` (new proxy methods or raw calls)
+  - Potential new module `storage-dbus/src/disks/image.rs`
 - Steps:
   - Implement a helper calling `org.freedesktop.UDisks2.Manager.LoopSetup`.
   - Define the minimal return type (created block object path) and error mapping.
@@ -54,12 +54,12 @@ Spec: `.copi/specs/feature/image-menu-commands/`
 ## Task 4: Implement “Attach Disk” UI flow (mount when possible)
 - Scope: add dialog and mount behavior after loop setup.
 - Files/areas:
-  - `disks-ui/src/app.rs`
-  - `disks-ui/src/views/dialogs.rs`
-  - `disks-ui/src/views/volumes.rs` (if mount helpers need reuse)
+  - `storage-ui/src/app.rs`
+  - `storage-ui/src/views/dialogs.rs`
+  - `storage-ui/src/views/volumes.rs` (if mount helpers need reuse)
 - Steps:
   - Dialog to input image file path.
-  - Call `disks-dbus` loop setup helper.
+  - Call `storage-dbus` loop setup helper.
   - Attempt to mount:
     - If the resulting block has a filesystem, mount it.
     - Otherwise present guidance (“Attached; select a partition to mount”).
@@ -70,11 +70,11 @@ Spec: `.copi/specs/feature/image-menu-commands/`
 - Done when:
   - [x] Attach Disk results in an attached device and mounts when applicable.
 
-## Task 5: Add `disks-dbus` support for OpenForBackup/OpenForRestore
+## Task 5: Add `storage-dbus` support for OpenForBackup/OpenForRestore
 - Scope: obtain readable/writable FDs for imaging via UDisks2 Block methods.
 - Files/areas:
-  - `disks-dbus/src/disks/drive.rs`, `disks-dbus/src/disks/partition.rs` (or new `image.rs`)
-  - Potential raw `zbus::Proxy` calls (similar to `disks-dbus/src/disks/ops.rs`).
+  - `storage-dbus/src/disks/drive.rs`, `storage-dbus/src/disks/partition.rs` (or new `image.rs`)
+  - Potential raw `zbus::Proxy` calls (similar to `storage-dbus/src/disks/ops.rs`).
 - Steps:
   - Implement helpers to open selected drive/partition for backup/restore.
   - Validate method names/signatures via `busctl introspect` on a block object.
@@ -87,8 +87,8 @@ Spec: `.copi/specs/feature/image-menu-commands/`
 ## Task 6: Implement copy/restore engine + drive flows
 - Scope: create/restore image for drives.
 - Files/areas:
-  - `disks-ui/src/app.rs`
-  - `disks-ui/src/views/dialogs.rs` (progress + cancel)
+  - `storage-ui/src/app.rs`
+  - `storage-ui/src/views/dialogs.rs` (progress + cancel)
 - Steps:
   - Implement streaming copy using the FDs from Task 5.
   - Add progress + cancel.
@@ -102,8 +102,8 @@ Spec: `.copi/specs/feature/image-menu-commands/`
 ## Task 7: Implement partition flows + selection validation
 - Scope: create/restore image for partitions; selection rules.
 - Files/areas:
-  - `disks-ui/src/app.rs` (resolve selected partition)
-  - `disks-ui/src/views/volumes.rs` (if helper methods exist)
+  - `storage-ui/src/app.rs` (resolve selected partition)
+  - `storage-ui/src/views/volumes.rs` (if helper methods exist)
 - Steps:
   - Resolve selected partition from `VolumesControl` selection.
   - Wire partition create/restore dialogs to the copy engine.
@@ -116,7 +116,7 @@ Spec: `.copi/specs/feature/image-menu-commands/`
 ## Task 8: Polish + documentation
 - Scope: reduce friction and ensure quality gates.
 - Files/areas:
-  - `README.md` or `disks-ui/README.md` (if appropriate)
+  - `README.md` or `storage-ui/README.md` (if appropriate)
 - Steps:
   - Document what “Attach Disk” does and its limitations.
   - Run formatting and clippy.
@@ -134,10 +134,10 @@ Spec: `.copi/specs/feature/image-menu-commands/`
 ## Task 9: Rename `PartitionModel` → `VolumeModel` (mechanical refactor)
 - Scope: align naming with actual domain objects rendered in the volumes view.
 - Files/areas (likely):
-  - `disks-dbus/src/disks/partition.rs` (becomes `volume.rs` or equivalent)
-  - `disks-dbus/src/disks/mod.rs`
-  - `disks-ui/src/views/volumes.rs`
-  - `disks-ui/src/utils/segments.rs`
+  - `storage-dbus/src/disks/partition.rs` (becomes `volume.rs` or equivalent)
+  - `storage-dbus/src/disks/mod.rs`
+  - `storage-ui/src/views/volumes.rs`
+  - `storage-ui/src/utils/segments.rs`
   - Any message payloads/types referencing partitions-as-volumes
 - Steps:
   - Introduce `VolumeModel` type with a `VolumeType` enum: `Container | Partition | Filesystem`.
@@ -156,9 +156,9 @@ Spec: `.copi/specs/feature/image-menu-commands/`
 ## Task 10: Loop filesystem fallback volume
 - Scope: when enumerating a loop-backed block device with no partitions but a filesystem exists on the block, represent it as a single filesystem volume.
 - Files/areas (likely):
-  - `disks-dbus/src/disks/drive.rs` (enumeration)
-  - `disks-dbus/src/disks/partition.rs` (or new `volume.rs`)
-  - `disks-ui/src/utils/segments.rs` (avoid all-free-space rendering)
+  - `storage-dbus/src/disks/drive.rs` (enumeration)
+  - `storage-dbus/src/disks/partition.rs` (or new `volume.rs`)
+  - `storage-ui/src/utils/segments.rs` (avoid all-free-space rendering)
 - Steps:
   - Detect “no partition table or children” for the drive’s main block.
   - If block has filesystem properties, create one filesystem `VolumeModel` spanning the usable block range.

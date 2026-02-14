@@ -51,9 +51,9 @@ Other disk utilities (like GNOME Disks) detect tool availability and inform user
 
 ## Proposed Approach
 
-### A) Tool Detection Module (disks-ui/utils)
+### A) Tool Detection Module (storage-ui/utils)
 
-Create a new utility module `disks-ui/src/utils/fs_tools.rs`:
+Create a new utility module `storage-ui/src/utils/fs_tools.rs`:
 
 1. **Define tool requirements:**
    - Static table mapping filesystem types to:
@@ -90,7 +90,7 @@ Create a new utility module `disks-ui/src/utils/fs_tools.rs`:
    - No missing tools → display positive confirmation message
    - All error cases handled gracefully (no panics)
 
-### B) Settings UI Integration (disks-ui/views/settings.rs)
+### B) Settings UI Integration (storage-ui/views/settings.rs)
 
 Enhance the settings/about pane to display filesystem tools status:
 
@@ -128,17 +128,17 @@ Enhance the settings/about pane to display filesystem tools status:
    [Settings Section - toggles...]
    ```
 
-### C) Partition Type Catalog Expansion (disks-dbus/data)
+### C) Partition Type Catalog Expansion (storage-dbus/data)
 
 Add missing filesystem types to TOML partition catalogs:
 
-1. **GPT types** (`disks-dbus/data/gpt_types.toml`):
+1. **GPT types** (`storage-dbus/data/gpt_types.toml`):
    - Add Btrfs entry (table_subtype = "linux", filesystem_type = "btrfs")
    - Add F2FS entry (table_subtype = "linux", filesystem_type = "f2fs")
    - Add UDF entry (table_subtype = "linux", filesystem_type = "udf")
    - All use standard Linux filesystem GUID: `0fc63daf-8483-4772-8e79-3d69d8477de4`
 
-2. **DOS types** (`disks-dbus/data/dos_types.toml`):
+2. **DOS types** (`storage-dbus/data/dos_types.toml`):
    - Add XFS entry (ty = "0x83", filesystem_type = "xfs")
    - Add Btrfs entry (ty = "0x83", filesystem_type = "btrfs")
    - Add F2FS entry (ty = "0x83", filesystem_type = "f2fs")

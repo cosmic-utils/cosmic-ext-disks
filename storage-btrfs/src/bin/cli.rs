@@ -1,15 +1,15 @@
 // SPDX-License-Identifier: GPL-3.0-only
 
-//! CLI wrapper around disks-btrfs library for testing and manual operations
+//! CLI wrapper around storage-btrfs library for testing and manual operations
 
 use anyhow::Result;
 use clap::{Parser, Subcommand};
-use disks_btrfs::{SubvolumeList, SubvolumeManager, get_filesystem_usage};
+use disks_btrfs::{get_filesystem_usage, SubvolumeList, SubvolumeManager};
 use std::path::PathBuf;
 
 /// Privileged helper for BTRFS subvolume operations
 #[derive(Parser)]
-#[command(name = "disks-btrfs-cli")]
+#[command(name = "storage-btrfs-cli")]
 #[command(about = "CLI tool for BTRFS operations", long_about = None)]
 struct Cli {
     #[command(subcommand)]

@@ -40,7 +40,7 @@ The UI should show the nested structure similar to GNOME Disks (container with i
 ### 1) Add a first-class “volume graph” alongside partitions
 Keep the existing `DriveModel.partitions` for partition-table visualization and operations.
 
-Add a new representation in `disks-dbus` that can express stacking:
+Add a new representation in `storage-dbus` that can express stacking:
 - A `VolumeNode` (or `BlockVolume`) representing a UDisks “block-ish” object
 - `children: Vec<VolumeNode>` for contained/derived block devices
 
@@ -70,18 +70,18 @@ Extend enumeration to also discover “derived” block devices and relate them 
       - further stacking opportunities (future: LVM)
 
 Implementation detail:
-- If `udisks2 = 0.3.1` does not expose an `EncryptedProxy`, create a local zbus proxy definition (similar to [disks-dbus/src/disks/manager.rs](disks-dbus/src/disks/manager.rs)) for:
+- If `udisks2 = 0.3.1` does not expose an `EncryptedProxy`, create a local zbus proxy definition (similar to [storage-dbus/src/disks/manager.rs](storage-dbus/src/disks/manager.rs)) for:
   - interface `org.freedesktop.UDisks2.Encrypted`
   - properties: `CleartextDevice`
   - methods: `Unlock(passphrase, options) -> cleartext_object_path`, `Lock(options)`
 
 ### 3) Add unlock/mount operations in the DBus layer
-Add operations to `disks-dbus` that the UI can call:
+Add operations to `storage-dbus` that the UI can call:
 - `unlock_luks(block_path, passphrase) -> cleartext_path`
 - `lock_luks(block_path)`
 - `mount_filesystem(block_path)` remains as-is, but should be usable for the cleartext device.
 
-This likely fits by extending the `DiskBackend` trait in [disks-dbus/src/disks/ops.rs](disks-dbus/src/disks/ops.rs) with crypto operations, and implementing them in `RealDiskBackend`.
+This likely fits by extending the `DiskBackend` trait in [storage-dbus/src/disks/ops.rs](storage-dbus/src/disks/ops.rs) with crypto operations, and implementing them in `RealDiskBackend`.
 
 ### 4) UI: nested volume rendering + passphrase prompt
 Add a nested rendering section to the volumes view:
@@ -95,7 +95,7 @@ Add a nested rendering section to the volumes view:
     - render contained filesystem as a child volume entry/mini-segment row.
 
 Sizing rule:
-- Reuse the segment width/portion computation already used in [disks-ui/src/views/volumes.rs](disks-ui/src/views/volumes.rs), but apply it to the set of children volumes, with the denominator being the *container size* (or the sum of child sizes, if that’s what current UX expects).
+- Reuse the segment width/portion computation already used in [storage-ui/src/views/volumes.rs](storage-ui/src/views/volumes.rs), but apply it to the set of children volumes, with the denominator being the *container size* (or the sum of child sizes, if that’s what current UX expects).
 
 Dialog:
 - Introduce a new `ShowDialog` variant such as `UnlockEncrypted { partition_name, device_hint, passphrase }`.

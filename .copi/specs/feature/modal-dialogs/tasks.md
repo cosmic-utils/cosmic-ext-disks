@@ -128,11 +128,11 @@ Task 11 (Dialog cleanup)
 **Scope:** Implement simplest dialog (Info dialog) as a separate window to validate approach from Task 1.
 
 **Files Likely Modified:**
-- `disks-ui/src/ui/app/state.rs` (add dialog window tracking)
-- `disks-ui/src/ui/app/message.rs` (add window spawn/close messages)
-- `disks-ui/src/ui/app/update/mod.rs` (handle window messages)
-- `disks-ui/src/ui/app/mod.rs` (multi-window application setup, if needed)
-- `disks-ui/src/ui/dialogs/view/common.rs` (adapt `info()` function for window context)
+- `storage-ui/src/ui/app/state.rs` (add dialog window tracking)
+- `storage-ui/src/ui/app/message.rs` (add window spawn/close messages)
+- `storage-ui/src/ui/app/update/mod.rs` (handle window messages)
+- `storage-ui/src/ui/app/mod.rs` (multi-window application setup, if needed)
+- `storage-ui/src/ui/dialogs/view/common.rs` (adapt `info()` function for window context)
 
 **Steps:**
 1. Based on Task 1 findings, implement window spawning for Info dialog
@@ -175,10 +175,10 @@ Task 11 (Dialog cleanup)
 **Scope:** Generalize PoC to support all dialog types with reusable infrastructure.
 
 **Files/Areas:**
-- `disks-ui/src/ui/app/state.rs`
-- `disks-ui/src/ui/app/message.rs`
-- `disks-ui/src/ui/app/update/dialogs.rs` (new file for dialog window lifecycle)
-- `disks-ui/src/ui/dialogs/window.rs` (new file for dialog window views)
+- `storage-ui/src/ui/app/state.rs`
+- `storage-ui/src/ui/app/message.rs`
+- `storage-ui/src/ui/app/update/dialogs.rs` (new file for dialog window lifecycle)
+- `storage-ui/src/ui/dialogs/window.rs` (new file for dialog window views)
 
 **Steps:**
 1. Create `DialogWindowState` tracking (if not done in Task 2):
@@ -188,7 +188,7 @@ Task 11 (Dialog cleanup)
        ...
    }
    ```
-2. Create helper module `disks-ui/src/ui/app/update/dialogs.rs`:
+2. Create helper module `storage-ui/src/ui/app/update/dialogs.rs`:
    ```rust
    pub(super) fn spawn_dialog_window(
        app: &mut AppModel,
@@ -221,7 +221,7 @@ Task 11 (Dialog cleanup)
    }
    ```
 4. Implement update handlers for all window lifecycle messages
-5. Create `disks-ui/src/ui/dialogs/window.rs`:
+5. Create `storage-ui/src/ui/dialogs/window.rs`:
    - Dispatcher function that calls appropriate view function based on `ShowDialog` variant
 6. Update existing dialog view functions to work in window context (if needed)
 7. Test: Open Info dialog using new infrastructure, verify it still works
@@ -253,8 +253,8 @@ Task 11 (Dialog cleanup)
 - `ShowDialog::ConfirmAction` (generic confirmation)
 
 **Files/Areas:**
-- `disks-ui/src/ui/dialogs/view/common.rs` (adapt `confirmation()` function)
-- `disks-ui/src/ui/app/update/mod.rs` (update button press handlers to spawn windows)
+- `storage-ui/src/ui/dialogs/view/common.rs` (adapt `confirmation()` function)
+- `storage-ui/src/ui/app/update/mod.rs` (update button press handlers to spawn windows)
 - All call sites that create these dialogs
 
 **Steps:**
@@ -303,10 +303,10 @@ Task 11 (Dialog cleanup)
 - `ShowDialog::ResizePartition`
 
 **Files/Areas:**
-- `disks-ui/src/ui/dialogs/view/partition.rs`
-- `disks-ui/src/ui/app/update/mod.rs`
-- `disks-ui/src/ui/volumes/update/create.rs`
-- `disks-ui/src/ui/volumes/update/partition.rs`
+- `storage-ui/src/ui/dialogs/view/partition.rs`
+- `storage-ui/src/ui/app/update/mod.rs`
+- `storage-ui/src/ui/volumes/update/create.rs`
+- `storage-ui/src/ui/volumes/update/partition.rs`
 
 **Steps:**
 1. Update spawn call sites for each dialog type (replace overlay with window spawn)
@@ -362,9 +362,9 @@ Task 11 (Dialog cleanup)
 - `ShowDialog::EditFilesystemLabel`
 
 **Files/Areas:**
-- `disks-ui/src/ui/dialogs/view/partition.rs`
-- `disks-ui/src/ui/dialogs/view/disk.rs`
-- `disks-ui/src/ui/volumes/update/format.rs`
+- `storage-ui/src/ui/dialogs/view/partition.rs`
+- `storage-ui/src/ui/dialogs/view/disk.rs`
+- `storage-ui/src/ui/volumes/update/format.rs`
 
 **Steps:**
 1. Update spawn call sites for format dialogs
@@ -417,8 +417,8 @@ Task 11 (Dialog cleanup)
 - `ShowDialog::EditEncryptionOptions`
 
 **Files/Areas:**
-- `disks-ui/src/ui/dialogs/view/encryption.rs`
-- `disks-ui/src/ui/volumes/update/encryption.rs`
+- `storage-ui/src/ui/dialogs/view/encryption.rs`
+- `storage-ui/src/ui/volumes/update/encryption.rs`
 
 **Steps:**
 1. Update spawn call sites for encryption dialogs
@@ -470,8 +470,8 @@ Task 11 (Dialog cleanup)
 - `ShowDialog::EditMountOptions`
 
 **Files/Areas:**
-- `disks-ui/src/ui/dialogs/view/mount.rs`
-- `disks-ui/src/ui/volumes/update/mount.rs`
+- `storage-ui/src/ui/dialogs/view/mount.rs`
+- `storage-ui/src/ui/volumes/update/mount.rs`
 
 **Steps:**
 1. Update spawn call site for mount options dialog
@@ -523,8 +523,8 @@ Task 11 (Dialog cleanup)
 - `ShowDialog::ImageOperation`
 
 **Files/Areas:**
-- `disks-ui/src/ui/dialogs/view/image.rs`
-- `disks-ui/src/ui/app/update/image.rs`
+- `storage-ui/src/ui/dialogs/view/image.rs`
+- `storage-ui/src/ui/app/update/image.rs`
 
 **Steps:**
 1. Update spawn call sites for image dialogs
@@ -574,9 +574,9 @@ Task 11 (Dialog cleanup)
 - `ShowDialog::UnmountBusy`
 
 **Files/Areas:**
-- `disks-ui/src/ui/dialogs/view/disk.rs`
-- `disks-ui/src/ui/dialogs/view/mount.rs`
-- `disks-ui/src/ui/app/update/smart.rs`
+- `storage-ui/src/ui/dialogs/view/disk.rs`
+- `storage-ui/src/ui/dialogs/view/mount.rs`
+- `storage-ui/src/ui/app/update/smart.rs`
 
 **Steps:**
 1. Update spawn call sites for SMART and unmount busy dialogs
@@ -614,9 +614,9 @@ Task 11 (Dialog cleanup)
 **Scope:** Remove legacy overlay dialog rendering and finalize migration.
 
 **Files/Areas:**
-- `disks-ui/src/ui/app/mod.rs` (remove `fn dialog()` override)
-- `disks-ui/src/ui/app/view.rs` (remove `dialog()` function L28-119)
-- `disks-ui/src/ui/app/state.rs` (remove or repurpose `pub dialog: Option<ShowDialog>`)
+- `storage-ui/src/ui/app/mod.rs` (remove `fn dialog()` override)
+- `storage-ui/src/ui/app/view.rs` (remove `dialog()` function L28-119)
+- `storage-ui/src/ui/app/state.rs` (remove or repurpose `pub dialog: Option<ShowDialog>`)
 
 **Steps:**
 1. Verify all 17 dialog types are migrated to windows:
@@ -646,7 +646,7 @@ Task 11 (Dialog cleanup)
    - If fully replaced by `dialog_windows`, remove
 5. Search codebase for any remaining references to overlay dialog logic:
    ```bash
-   grep -r "app.dialog = Some" disks-ui/src/
+   grep -r "app.dialog = Some" storage-ui/src/
    ```
 6. Run full test suite:
    ```bash

@@ -7,8 +7,8 @@ Source: N/A (brief)
 The app already has an **Image** menu wired to `Message` variants, but the handlers currently show “not implemented yet” dialogs.
 
 Current menu wiring:
-- `disks-ui/src/views/menu.rs` (Image menu)
-- `disks-ui/src/app.rs` (`Message::{NewDiskImage,AttachDisk,CreateDiskFrom,RestoreImageTo}`)
+- `storage-ui/src/views/menu.rs` (Image menu)
+- `storage-ui/src/app.rs` (`Message::{NewDiskImage,AttachDisk,CreateDiskFrom,RestoreImageTo}`)
 
 User request: implement all Image menu commands (add missing items if needed)
 - Create Disk Image From Drive
@@ -31,7 +31,7 @@ User request: implement all Image menu commands (add missing items if needed)
 
 ## Proposed Approach
 ### 1) Menu surface + message model
-Update `disks-ui/src/views/menu.rs` and `disks-ui/src/app.rs` to expose the full set of commands.
+Update `storage-ui/src/views/menu.rs` and `storage-ui/src/app.rs` to expose the full set of commands.
 
 Proposed `Message` set (names can vary, but keep it explicit in UI):
 - `NewDiskImage`
@@ -44,7 +44,7 @@ Proposed `Message` set (names can vary, but keep it explicit in UI):
 If keeping existing `CreateDiskFrom`/`RestoreImageTo` names for compatibility, add partition variants and (optionally) rename later with deprecation.
 
 Also update i18n strings:
-- Add new keys for partition create/restore if missing in `disks-ui/i18n/*/cosmic_ext_disks.ftl`.
+- Add new keys for partition create/restore if missing in `storage-ui/i18n/*/cosmic_ext_disks.ftl`.
 
 ### 2) UI dialogs and flows
 Add dialogs to collect parameters and run operations:
@@ -75,21 +75,21 @@ File selection UX:
 - First pass: a simple path text input is acceptable if there is no existing COSMIC file picker integration.
 - Follow-up improvement (if feasible with existing deps): integrate xdg-desktop-portal / COSMIC picker.
 
-### 3) Backend support in `disks-dbus`
+### 3) Backend support in `storage-dbus`
 Implement UDisks2-backed helpers so we do not rely on direct `/dev` access (which often requires root).
 
 **Disk imaging**
 - Add methods on `DriveModel`/`PartitionModel` (or a dedicated module) for:
   - `open_for_backup()` (read) and `open_for_restore()` (write)
   - Prefer calling UDisks2 `org.freedesktop.UDisks2.Block.OpenForBackup` and `OpenForRestore`.
-  - Use a raw `zbus::Proxy` call when the `udisks2` crate does not expose the method (pattern already exists in `disks-dbus/src/disks/ops.rs`).
+  - Use a raw `zbus::Proxy` call when the `udisks2` crate does not expose the method (pattern already exists in `storage-dbus/src/disks/ops.rs`).
 
 **Attach image**
 - Add a helper using UDisks2 `org.freedesktop.UDisks2.Manager.LoopSetup` to create a loop device from an image file.
 - Return the created block object path (or enough info to locate it) so the UI can attempt a mount.
 
 ### 4) Copy engine + progress/cancel
-Implement a small streaming copier (likely in `disks-ui` since UI owns progress reporting) that:
+Implement a small streaming copier (likely in `storage-ui` since UI owns progress reporting) that:
 - Accepts a read FD (from `OpenForBackup`) and a write file path, or vice versa.
 - Copies in bounded chunks (e.g., 4–16 MiB) with periodic progress updates.
 - Supports cancel (sets a shared flag; closes fds; surfaces “Cancelled” to UI).

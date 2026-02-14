@@ -226,5 +226,5 @@ Using git rev: `beddbf17703728182395a13267954d839226331d`
 
 - [libcosmic multi-window example](https://github.com/pop-os/libcosmic/tree/main/examples/multi-window)
 - [iced window management](https://docs.rs/iced/latest/iced/window/index.html)
-- [Current dialog implementation](./../../../disks-ui/src/ui/app/view.rs#L28-119)
+- [Current dialog implementation](./../../../storage-ui/src/ui/app/view.rs#L28-119)
 - [Wayland xdg_popup protocol](https://wayland.app/protocols/xdg-shell#xdg_popup)

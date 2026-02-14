@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="UTF-8"?>
+<?xml version="1.0" encoding="UTF-8" ?>
 <component type="desktop-application">
   <id>com.cosmic.Disks</id>
   <metadata_license>CC0-1.0</metadata_license>
@@ -8,7 +8,7 @@
   <icon type="local" width="64" height="64">com.cosmic.Disks</icon>
   <icon type="local" width="128" height="128">com.cosmic.Disks</icon>
   <icon type="remote" width="64" height="64" scale="1">
-    https://github.com/cosmic-utils/cosmic-ext-disks/raw/main/disks-ui/resources/icons/hicolor/scalable/apps/com.cosmic.Disks.svg
+    https://github.com/cosmic-utils/cosmic-ext-disks/raw/main/storage-ui/resources/icons/hicolor/scalable/apps/com.cosmic.Disks.svg
   </icon>
   <url type="vcs-browser">https://github.com/cosmic-utils/cosmic-ext-disks</url>
   <launchable type="desktop-id">com.cosmic.Disks.desktop</launchable>
@@ -34,4 +34,3 @@
   </keywords>
   <content_rating type="oars-1.1" />
 </component>
-

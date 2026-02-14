@@ -11,7 +11,7 @@
   - Use UDisks2 `CreatePartitionAndFormat` so the daemon returns the created object path and performs formatting in one job, avoiding races and avoiding reliance on `PartitionTable.Partitions().last()`.
   - For DOS/MBR, set `partition-type=primary` in create options (until UI supports extended/logical selection).
 - Files changed:
-  - `disks-dbus/src/disks/drive.rs`
+  - `storage-dbus/src/disks/drive.rs`
   - `.copi/specs/fix/gap-005-dos-msdos-table-type/{plan.md,tasks.md}`
   - `.copi/architecture.md`
   - `.copi/spec-index.md`
@@ -27,9 +27,9 @@
   - `cargo test --workspace --all-features`
   - `cargo clippy --workspace --all-features`
 - Files changed:
-  - `disks-ui/src/views/volumes.rs`
-  - `disks-ui/src/utils/segments.rs`
-  - `disks-dbus/src/disks/drive.rs`
+  - `storage-ui/src/views/volumes.rs`
+  - `storage-ui/src/utils/segments.rs`
+  - `storage-dbus/src/disks/drive.rs`
   - `.copi/specs/fix/gap-005-dos-msdos-table-type/{plan.md,tasks.md}`
 
 ## Manual validation (pending)

@@ -1,4 +1,4 @@
-# Remaining Work for disks-ui Migration
+# Remaining Work for storage-ui Migration
 
 ## Overview
 
@@ -303,12 +303,12 @@ With testing and debugging: **4-6 weeks**
 ## Success Criteria
 
 - [ ] Zero `use disks_dbus::` imports (except maybe re-exported types)
-- [ ] `disks-dbus` dependency removed from Cargo.toml
+- [ ] `storage-dbus` dependency removed from Cargo.toml
 - [ ] All clients initialized in AppModel
 - [ ] All operations use client methods
 - [ ] All property accesses use new field names
 - [ ] All tests pass
-- [ ] App runs without disks-dbus
+- [ ] App runs without storage-dbus
 - [ ] Full feature parity with old architecture
 - [ ] No performance regressions
 

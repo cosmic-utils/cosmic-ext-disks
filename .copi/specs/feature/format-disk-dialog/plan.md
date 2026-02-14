@@ -59,7 +59,7 @@ Implementation detail (to be confirmed during implementation):
 - If `partitioning` is `none`, the operation should remove any existing partition table (or otherwise leave the disk without a partition table) if the stack supports it.
 - If `erase_mode` is overwrite, perform a slow “write zeros” (or UDisks equivalent) operation.
 
-If the repository does not yet have an appropriate disks-dbus API for whole-disk format / partition table creation, add one in `disks-dbus` (DriveModel method), and wire it from the UI.
+If the repository does not yet have an appropriate storage-dbus API for whole-disk format / partition table creation, add one in `storage-dbus` (DriveModel method), and wire it from the UI.
 
 ### Error handling
 

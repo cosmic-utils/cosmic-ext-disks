@@ -76,7 +76,7 @@ impl DisksHandler {
 
         tracing::debug!("ListDisks called");
 
-        // Get disks from disks-dbus using new storage-models API
+        // Get disks from storage-dbus using new storage-models API
         let disks = disks_dbus::disk::get_disks().await.map_err(|e| {
             tracing::error!("Failed to get disks: {e}");
             zbus::fdo::Error::Failed(format!("Failed to enumerate disks: {e}"))
@@ -120,7 +120,7 @@ impl DisksHandler {
 
         tracing::debug!("ListVolumes called");
 
-        // Get all drives using disks-dbus
+        // Get all drives using storage-dbus
         let disk_volumes = disks_dbus::disk::get_disks_with_volumes()
             .await
             .map_err(|e| {

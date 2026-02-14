@@ -29,7 +29,7 @@ This feature branch successfully implements a comprehensive UI refactor for the 
 - ✅ File explorer mount point links
 
 ### Final Quality Status:
-- **Tests:** 36/36 passing (9 disks-ui + 27 disks-dbus)
+- **Tests:** 36/36 passing (9 storage-ui + 27 storage-dbus)
 - **Clippy:** 0 warnings with -D warnings flag
 - **Formatting:** cargo fmt --all --check passes
 - **All Repo Quality Gates:** ✅ Passing
@@ -47,13 +47,13 @@ This feature branch successfully implements a comprehensive UI refactor for the 
 ## 2026-02-06 — Task 49: COSMIC File Dialogs for Image Operations
 
 **Files Modified:**
-- `disks-ui/src/ui/dialogs/view/image.rs`
-- `disks-ui/src/ui/app/update/mod.rs`
-- `disks-ui/src/ui/app/message.rs`
-- `disks-ui/src/ui/app/update/image/dialogs.rs`
-- `disks-ui/src/ui/dialogs/message.rs`
-- `disks-ui/i18n/en/cosmic_ext_disks.ftl`
-- `disks-ui/i18n/sv/cosmic_ext_disks.ftl`
+- `storage-ui/src/ui/dialogs/view/image.rs`
+- `storage-ui/src/ui/app/update/mod.rs`
+- `storage-ui/src/ui/app/message.rs`
+- `storage-ui/src/ui/app/update/image/dialogs.rs`
+- `storage-ui/src/ui/dialogs/message.rs`
+- `storage-ui/i18n/en/cosmic_ext_disks.ftl`
+- `storage-ui/i18n/sv/cosmic_ext_disks.ftl`
 - `Cargo.toml`
 
 **Changes:**
@@ -85,10 +85,10 @@ This feature branch successfully implements a comprehensive UI refactor for the 
 
 **Files Modified:**
 ```
-disks-ui/src/ui/app/message.rs          (+5 #[allow(dead_code)] attributes)
-disks-ui/src/ui/app/view.rs             (2 auto-fixes applied)
-disks-ui/src/ui/dialogs/state.rs        (+1 #[allow(dead_code)] attribute)
-disks-ui/src/ui/volumes/state.rs        (+3 #[allow(dead_code)] attributes)
+storage-ui/src/ui/app/message.rs          (+5 #[allow(dead_code)] attributes)
+storage-ui/src/ui/app/view.rs             (2 auto-fixes applied)
+storage-ui/src/ui/dialogs/state.rs        (+1 #[allow(dead_code)] attribute)
+storage-ui/src/ui/volumes/state.rs        (+3 #[allow(dead_code)] attributes)
 ```
 
 **Build Status:**
@@ -118,9 +118,9 @@ disks-ui/src/ui/volumes/state.rs        (+3 #[allow(dead_code)] attributes)
 
 **Files Modified (Phase 6 & 7):**
 ```
-disks-ui/src/ui/app/update/mod.rs       (+45 helper, -10 complexity)
-disks-ui/src/ui/app/view.rs             (-4 clones in dialogs)
-disks-ui/src/ui/volumes/update/partition.rs (-12 lines, removed double-clone)
+storage-ui/src/ui/app/update/mod.rs       (+45 helper, -10 complexity)
+storage-ui/src/ui/app/view.rs             (-4 clones in dialogs)
+storage-ui/src/ui/volumes/update/partition.rs (-12 lines, removed double-clone)
 ```
 
 **Build Status:**
@@ -175,19 +175,19 @@ Systematically addressed code quality issues identified in audit [2026-02-06T17-
 
 **Files Modified:**
 ```
-disks-ui/src/ui/app/message.rs           (-1)
-disks-ui/src/ui/app/update/drive.rs     (-15 lines, consolidated clones)
-disks-ui/src/ui/app/update/mod.rs       (-2 lines, removed TODO)
-disks-ui/src/ui/app/update/nav.rs       (-37 lines, simplified logic)
-disks-ui/src/ui/app/update/smart.rs     (-4 redundant clones)
-disks-ui/src/ui/app/view.rs             (-1 line, improved comment)
-disks-ui/src/ui/dialogs/message.rs      (-2 lines, removed variant)
-disks-ui/src/ui/dialogs/state.rs        (-1 line, removed attribute)
-disks-ui/src/ui/volumes/disk_header.rs  (-6 to +6, optimized strings)
-disks-ui/src/ui/volumes/state.rs        (-3 lines, fixed visibility)
-disks-ui/src/ui/volumes/update/create.rs (-3 lines, removed Continue)
-disks-ui/src/ui/volumes/update/mount.rs (-38 lines, refactored)
-disks-ui/src/ui/volumes/view.rs         (-21 lines, removed unused)
+storage-ui/src/ui/app/message.rs           (-1)
+storage-ui/src/ui/app/update/drive.rs     (-15 lines, consolidated clones)
+storage-ui/src/ui/app/update/mod.rs       (-2 lines, removed TODO)
+storage-ui/src/ui/app/update/nav.rs       (-37 lines, simplified logic)
+storage-ui/src/ui/app/update/smart.rs     (-4 redundant clones)
+storage-ui/src/ui/app/view.rs             (-1 line, improved comment)
+storage-ui/src/ui/dialogs/message.rs      (-2 lines, removed variant)
+storage-ui/src/ui/dialogs/state.rs        (-1 line, removed attribute)
+storage-ui/src/ui/volumes/disk_header.rs  (-6 to +6, optimized strings)
+storage-ui/src/ui/volumes/state.rs        (-3 lines, fixed visibility)
+storage-ui/src/ui/volumes/update/create.rs (-3 lines, removed Continue)
+storage-ui/src/ui/volumes/update/mount.rs (-38 lines, refactored)
+storage-ui/src/ui/volumes/view.rs         (-21 lines, removed unused)
 ```
 
 **Net Impact:**
@@ -237,7 +237,7 @@ disks-ui/src/ui/volumes/view.rs         (-21 lines, removed unused)
 ## 2026-02-06
 
 - Implemented custom sidebar treeview to replace built-in `widget::nav_bar` rendering.
-- Added sidebar state (`SidebarState`) and view module under `disks-ui/src/ui/sidebar/`.
+- Added sidebar state (`SidebarState`) and view module under `storage-ui/src/ui/sidebar/`.
 - Wired sidebar selection/expansion/menu state into app update loop.
 - Implemented per-row actions:
   - Drive eject/remove button.
@@ -285,13 +285,13 @@ disks-ui/src/ui/volumes/view.rs         (-21 lines, removed unused)
 
 ### Notable files changed
 
-- disks-ui/src/ui/sidebar/{mod.rs,state.rs,view.rs}
-- disks-ui/src/ui/app/{message.rs,mod.rs,state.rs,view.rs}
-- disks-ui/src/ui/app/update/{mod.rs,nav.rs,drive.rs}
-- disks-ui/src/ui/volumes/{mod.rs,view.rs,disk_header.rs,usage_bar.rs}
-- disks-ui/src/ui/volumes/update/selection.rs
-- disks-ui/src/ui/dialogs/state.rs
-- disks-ui/i18n/{en,sv}/cosmic_ext_disks.ftl
+- storage-ui/src/ui/sidebar/{mod.rs,state.rs,view.rs}
+- storage-ui/src/ui/app/{message.rs,mod.rs,state.rs,view.rs}
+- storage-ui/src/ui/app/update/{mod.rs,nav.rs,drive.rs}
+- storage-ui/src/ui/volumes/{mod.rs,view.rs,disk_header.rs,usage_bar.rs}
+- storage-ui/src/ui/volumes/update/selection.rs
+- storage-ui/src/ui/dialogs/state.rs
+- storage-ui/i18n/{en,sv}/cosmic_ext_disks.ftl
 
 **Task 13: Volume detail view with action buttons and bi-directional selection sync** (2026-02-06)
 - Relocated all action buttons from volumes control to bottom 2/3 detail view
@@ -323,7 +323,7 @@ disks-ui/src/ui/volumes/view.rs         (-21 lines, removed unused)
   - Color-coded usage bar with legend appears below control
   - Volume detail view updates in bottom section
 - Application runs successfully with no regressions
-- All tests passing (36 tests total: 9 disks-ui, 27 disks-dbus)
+- All tests passing (36 tests total: 9 storage-ui, 27 storage-dbus)
 - Clippy clean with -D warnings
 - All extended scope acceptance criteria met
 - Total commits: 6 (spec update + 5 implementation commits)
@@ -339,7 +339,7 @@ All tasks complete (Tasks 1-14). Extended scope fully implemented. Ready for PR 
 **Commit:** 29022ca
 **Status:** ✅ Complete
 **Changes:**
-- Modified `disks-ui/src/ui/app/view.rs`:
+- Modified `storage-ui/src/ui/app/view.rs`:
   - Changed top_section from `FillPortion(1)` to `Length::Shrink`
   - Changed bottom_section from `FillPortion(2)` to `Length::Fill`
 - **Verification:** Layout now properly sizes with header shrinking to content and detail view filling remaining space
@@ -348,7 +348,7 @@ All tasks complete (Tasks 1-14). Extended scope fully implemented. Ready for PR 
 **Commit:** 29022ca (combined with Task 15)
 **Status:** ✅ Complete
 **Changes:**
-- Modified `disks-ui/src/ui/volumes/usage_bar.rs`:
+- Modified `storage-ui/src/ui/volumes/usage_bar.rs`:
   - Changed segment height from `Length::Fixed(24.0)` to `Length::Fixed(6.0)`
   - Reduction from 24px to 6px (~75% height reduction)
 - **Verification:** Usage bar is now more compact while remaining readable
@@ -357,7 +357,7 @@ All tasks complete (Tasks 1-14). Extended scope fully implemented. Ready for PR 
 **Commit:** 16858c6
 **Status:** ✅ Complete
 **Changes:**
-- Modified `disks-ui/src/ui/app/view.rs`:
+- Modified `storage-ui/src/ui/app/view.rs`:
   - Changed usage calculation from summing partition sizes (`map(|v| v.size)`)
   - To summing actual filesystem usage (`filter_map(|v| v.usage.as_ref()).map(|u| u.used)`)
 - **Verification:** Usage bar and disk header now display actual used space instead of total partition sizes
@@ -366,7 +366,7 @@ All tasks complete (Tasks 1-14). Extended scope fully implemented. Ready for PR 
 **Commit:** 554050b
 **Status:** ✅ Complete
 **Changes:**
-- Modified `disks-ui/src/ui/sidebar/view.rs`:
+- Modified `storage-ui/src/ui/sidebar/view.rs`:
   - Added sorting of children by `object_path` before rendering in `push_volume_tree()`
   - Children now appear in disk offset order matching volumes control
 - **Verification:** Treeview subitems render in the same order as volumes control segments
@@ -375,7 +375,7 @@ All tasks complete (Tasks 1-14). Extended scope fully implemented. Ready for PR 
 **Commit:** 3309979
 **Status:** ✅ Complete
 **Changes:**
-- Modified `disks-ui/src/ui/volumes/update/selection.rs`:
+- Modified `storage-ui/src/ui/volumes/update/selection.rs`:
   - Updated `segment_selected()` to check if segment has volume and sync to sidebar
   - Now sends `SidebarSelectChild` message when selecting LUKS containers
   - Fixed clippy `collapsible_if` warning (collapsed nested if-let to modern pattern)
@@ -385,23 +385,23 @@ All tasks complete (Tasks 1-14). Extended scope fully implemented. Ready for PR 
 **Commit:** 5989034
 **Status:** ✅ Complete
 **Files Created:**
-- `disks-ui/src/ui/volumes/usage_pie.rs` (53 lines)
+- `storage-ui/src/ui/volumes/usage_pie.rs` (53 lines)
   - Circular container showing usage percentage
   - 72x72 size with 36.0 border radius
   - Uses accent color with 0.1 alpha for background
   - Displays "Used / Total" text inside
 
 **Files Modified:**
-- `disks-ui/src/ui/app/view.rs`:
+- `storage-ui/src/ui/app/view.rs`:
   - Added `build_volume_node_header()` - mirrors disk header with pie chart
   - Added `build_partition_header()` - similar layout for partitions
   - Added `build_free_space_header()` - placeholder circle for free space
   - Imported `Alignment` from cosmic::iced::alignment
-- `disks-ui/src/ui/volumes/mod.rs`:
+- `storage-ui/src/ui/volumes/mod.rs`:
   - Added usage_pie module declaration
 
 **Verification:**
-- All 36 tests passing (9 disks-ui, 27 disks-dbus)
+- All 36 tests passing (9 storage-ui, 27 storage-dbus)
 - Clippy passes with -D warnings
 - Volume detail header matches disk header layout structure
 - Pie chart displays usage proportion with Used/Total text
@@ -411,7 +411,7 @@ All tasks complete (Tasks 1-14). Extended scope fully implemented. Ready for PR 
 **Status:** ✅ Complete
 
 **Files Modified:**
-- `disks-ui/src/ui/app/view.rs`:
+- `storage-ui/src/ui/app/view.rs`:
   - Added `build_disk_action_bar()` function creating 9 disk action buttons:
     - Eject, Power Off, Format Disk, SMART Data, Standby, Wakeup
     - Create Image From Disk, Restore Image To Disk
@@ -419,12 +419,12 @@ All tasks complete (Tasks 1-14). Extended scope fully implemented. Ready for PR 
   - Added partition image operations to `build_action_bar()`:
     - Create Image From Partition, Restore Image To Partition
   
-- `disks-ui/src/ui/sidebar/view.rs`:
+- `storage-ui/src/ui/sidebar/view.rs`:
   - Added image operations segmented button at bottom of sidebar
   - "New Disk Image" | "Attach Disk Image" buttons
   - Modified layout to use column with scrollable list + button row
 
-- `disks-ui/src/views/menu.rs`:
+- `storage-ui/src/views/menu.rs`:
   - Removed Image menu section
   - Removed Disk menu section
   - Kept only View menu with About item
@@ -470,7 +470,7 @@ cargo clippy --workspace --all-features -- -D warnings
 **Commit:** 3a82acd (combined with Task 23)
 **Status:** ✅ Complete
 **Changes:**
-- Modified `disks-ui/src/ui/volumes/usage_pie.rs`:
+- Modified `storage-ui/src/ui/volumes/usage_pie.rs`:
   - Increased border width from 2.0 to 4.0 (2x thicker)
   - Moved "Used / Total" text below pie circle
   - Only percentage displays inside circle
@@ -480,11 +480,11 @@ cargo clippy --workspace --all-features -- -D warnings
 **Commit:** 3a82acd (combined with Task 22)
 **Status:** ✅ Complete
 **Changes:**
-- Modified `disks-ui/src/ui/volumes/disk_header.rs`:
+- Modified `storage-ui/src/ui/volumes/disk_header.rs`:
   - Replaced text-based "Used / Total" box with usage pie chart
   - Imported usage_pie module
   - Pie chart displays on right side of header
-- Modified `disks-ui/src/ui/app/view.rs`:
+- Modified `storage-ui/src/ui/app/view.rs`:
   - Removed usage_bar from top_section layout
   - Removed unused usage_bar import
 - Removed unused bytes_to_pretty import from disk_header.rs
@@ -495,7 +495,7 @@ cargo clippy --workspace --all-features -- -D warnings
 **Commit:** 8ebdef1
 **Status:** ✅ Complete
 **Changes:**
-- Modified `disks-ui/src/ui/app/view.rs`:
+- Modified `storage-ui/src/ui/app/view.rs`:
   - Renamed `build_volume_node_header()` → `build_volume_node_info()`
   - Renamed `build_partition_header()` → `build_partition_info()`
   - Renamed `build_free_space_header()` → `build_free_space_info()`
@@ -507,7 +507,7 @@ cargo clippy --workspace --all-features -- -D warnings
 **Commit:** 8432791
 **Status:** ✅ Complete
 **Changes:**
-- Modified `disks-ui/src/ui/app/view.rs`:
+- Modified `storage-ui/src/ui/app/view.rs`:
   - Renamed `tooltip_icon_button()` → `action_button()`
   - Changed layout to column with icon (24px) above caption text
   - Removed tooltip wrapper (redundant with visible label)
@@ -520,7 +520,7 @@ cargo clippy --workspace --all-features -- -D warnings
 **Commit:** 5295742
 **Status:** ✅ Complete
 **Changes:**
-- Modified `disks-ui/src/ui/sidebar/view.rs`:
+- Modified `storage-ui/src/ui/sidebar/view.rs`:
   - Changed buttons from button::text() to button::custom()
   - Used caption text size for better fitting
   - Enabled word wrapping with Wrapping::Word
@@ -533,7 +533,7 @@ cargo clippy --workspace --all-features -- -D warnings
 **Commit:** ef62b1a
 **Status:** ✅ Complete
 **Changes:**
-- Modified `disks-ui/src/ui/app/view.rs`:
+- Modified `storage-ui/src/ui/app/view.rs`:
   - Added `aggregate_children_usage()` helper function
   - Modified `build_volume_node_info()` to check if VolumeNode is LUKS container
   - LUKS containers with children now sum children's usage.used values
@@ -593,7 +593,7 @@ cargo clippy --workspace --all-features -- -D warnings
 - Confirmed both used same tooltip pattern but drive buttons lacked handlers
 
 **Solution:**
-Added `.on_press()` handlers to all 8 drive action buttons in `disks-ui/src/ui/volumes/disk_header.rs`:
+Added `.on_press()` handlers to all 8 drive action buttons in `storage-ui/src/ui/volumes/disk_header.rs`:
 1. Eject → `Message::Eject`
 2. Power Off → `Message::PowerOff`
 3. Format Disk → `Message::Format`
@@ -613,7 +613,7 @@ Initial implementation used incorrect message variant names. Corrected to match 
 - `OpenAttachDiskImage` → `AttachDisk`
 
 **Files Modified:**
-- `disks-ui/src/ui/volumes/disk_header.rs` (lines 60-157)
+- `storage-ui/src/ui/volumes/disk_header.rs` (lines 60-157)
 
 **Testing:**
 - `cargo check` passed with no errors
@@ -628,7 +628,7 @@ Initial implementation used incorrect message variant names. Corrected to match 
 
 ### Task 37: LUKS Child Filesystem Action Buttons
 **Files Modified:**
-- `disks-ui/src/ui/app/view.rs`
+- `storage-ui/src/ui/app/view.rs`
 
 **Changes:**
 - Added 8 filesystem action buttons to `build_volume_node_info()` function
@@ -657,8 +657,8 @@ Initial implementation used incorrect message variant names. Corrected to match 
 
 ### Task 39: Power Management Detection
 **Files Modified:**
-- `disks-dbus/src/disks/drive/model.rs`
-- `disks-ui/src/ui/volumes/disk_header.rs`
+- `storage-dbus/src/disks/drive/model.rs`
+- `storage-ui/src/ui/volumes/disk_header.rs`
 
 **Changes:**
 1. Added `rotation_rate: i32` field to `DriveModel`:
@@ -706,7 +706,7 @@ cargo build 2>&1 | tail -20
 
 ### Task 40: Fix Treeview Node Alignment
 **Files Modified:**
-- `disks-ui/src/ui/sidebar/view.rs`
+- `storage-ui/src/ui/sidebar/view.rs`
 
 **Changes:**
 - Added `EXPANDER_WIDTH` constant set to 20px (icon 16px + padding 2px each side)
@@ -725,7 +725,7 @@ cargo build 2>&1 | tail -20
 
 ### Task 43: Fix Edit Partition Icon
 **Files Modified:**
-- `disks-ui/src/ui/app/view.rs`
+- `storage-ui/src/ui/app/view.rs`
 
 **Changes:**
 - Changed edit partition button icon from `document-edit-symbolic` to `edit-symbolic`
@@ -740,7 +740,7 @@ cargo build 2>&1 | tail -20
 
 ### Task 45: Match Format Partition Icon to Format Disk Icon
 **Files Modified:**
-- `disks-ui/src/ui/app/view.rs`
+- `storage-ui/src/ui/app/view.rs`
 
 **Changes:**
 - Changed format partition button icon from `edit-clear-symbolic` to `edit-clear-all-symbolic`
@@ -756,7 +756,7 @@ cargo build 2>&1 | tail -20
 
 ### Task 48: Use Eject for Removable Drives Instead of Power Off
 **Files Modified:**
-- `disks-ui/src/ui/volumes/disk_header.rs`
+- `storage-ui/src/ui/volumes/disk_header.rs`
 
 **Changes:**
 - Changed button logic from two independent `if` statements to `if/else` chain

@@ -4,7 +4,7 @@
 //!
 //! These are convenience functions that accept device paths and internally
 //! resolve to UDisks2 block object paths, keeping OwnedObjectPath
-//! handling inside disks-dbus (not in storage-service).
+//! handling inside storage-dbus (not in storage-service).
 
 use crate::disk::resolve;
 use crate::image::{open_for_backup, open_for_restore};

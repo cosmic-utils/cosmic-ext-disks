@@ -4,7 +4,7 @@ Source audit: `.copi/audits/2026-01-24T18-03-04Z.md` (GAP-010, GAP-011, GAP-012)
 
 ## Task 1: Define a mockable UDisks2 boundary
 - Scope: Make disk operation flows testable without a real DBus/UDisks2 daemon.
-- Files/areas: `disks-dbus/src/disks/drive.rs`, `disks-dbus/src/disks/partition.rs`, new module(s) under `disks-dbus/src/`.
+- Files/areas: `storage-dbus/src/disks/drive.rs`, `storage-dbus/src/disks/partition.rs`, new module(s) under `storage-dbus/src/`.
 - Steps:
   - Identify the minimal set of UDisks2 calls used for create/delete/format/mount/unmount.
   - Introduce a small trait (or similar) that captures those calls.
@@ -17,7 +17,7 @@ Source audit: `.copi/audits/2026-01-24T18-03-04Z.md` (GAP-010, GAP-011, GAP-012)
 
 ## Task 2: Add contract-style tests for destructive flows (mocked)
 - Scope: Tests that exercise the primary operation flows and error propagation.
-- Files/areas: new tests under `disks-dbus/` (and/or `disks-ui/` if needed for state handling).
+- Files/areas: new tests under `storage-dbus/` (and/or `storage-ui/` if needed for state handling).
 - Steps:
   - Add tests for create partition success + failure.
   - Add tests for delete partition success + failure.
@@ -45,7 +45,7 @@ Source audit: `.copi/audits/2026-01-24T18-03-04Z.md` (GAP-010, GAP-011, GAP-012)
 
 ## Task 4: Replace SPDX placeholder in i18n module
 - Scope: Align all license declarations with the repo’s GPL-3.0.
-- Files/areas: `disks-ui/src/i18n.rs`, crate `Cargo.toml` files, and any Rust source headers containing SPDX identifiers.
+- Files/areas: `storage-ui/src/i18n.rs`, crate `Cargo.toml` files, and any Rust source headers containing SPDX identifiers.
 - Steps:
   - Replace `// SPDX-License-Identifier: {{ license }}` with `GPL-3.0-only`.
   - Update `license = "..."` in crate metadata to `GPL-3.0-only` (where present).

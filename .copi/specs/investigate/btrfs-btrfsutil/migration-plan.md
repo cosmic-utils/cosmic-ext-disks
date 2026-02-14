@@ -30,7 +30,7 @@
 ### Current Architecture
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│ UI Layer (disks-ui)                                        │
+│ UI Layer (storage-ui)                                        │
 │  - volumes/view.rs: Render BTRFS tab                       │
 │  - volumes/update.rs: Handle BTRFS messages                │
 │  - btrfs/view.rs: Subvolume list rendering                 │
@@ -38,13 +38,13 @@
 └─────────────────┬───────────────────────────────────────────┘
                   │ Messages (async Task)
 ┌─────────────────▼───────────────────────────────────────────┐
-│ Business Logic (disks-ui/src/ui/app/update/btrfs.rs)      │
+│ Business Logic (storage-ui/src/ui/app/update/btrfs.rs)      │
 │  - Handle user actions                                     │
 │  - Spawn async operations                                  │
 └─────────────────┬───────────────────────────────────────────┘
                   │ Async calls
 ┌─────────────────▼───────────────────────────────────────────┐
-│ D-Bus Wrapper (disks-dbus/src/disks/btrfs.rs)             │
+│ D-Bus Wrapper (storage-dbus/src/disks/btrfs.rs)             │
 │  - BtrfsFilesystem struct                                  │
 │  - zbus proxy creation                                     │
 │  - D-Bus method calls                                      │
@@ -65,7 +65,7 @@
 ### New Architecture
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│ UI Layer (disks-ui)                                        │
+│ UI Layer (storage-ui)                                        │
 │  - volumes/view.rs: Render BTRFS tab (enhanced)            │
 │  - volumes/update.rs: Handle BTRFS messages (expanded)     │
 │  - btrfs/view.rs: Rich subvolume rendering                 │
@@ -74,14 +74,14 @@
 └─────────────────┬───────────────────────────────────────────┘
                   │ Messages (async Task)
 ┌─────────────────▼───────────────────────────────────────────┐
-│ Business Logic (disks-ui/src/ui/app/update/btrfs.rs)      │
+│ Business Logic (storage-ui/src/ui/app/update/btrfs.rs)      │
 │  - Handle user actions                                     │
 │  - Spawn blocking operations via tokio::spawn_blocking     │
 │  - Rich error handling                                     │
 └─────────────────┬───────────────────────────────────────────┘
                   │ Blocking calls (tokio::spawn_blocking)
 ┌─────────────────▼───────────────────────────────────────────┐
-│ BTRFS Wrapper (disks-dbus/src/disks/btrfs_native.rs) NEW  │
+│ BTRFS Wrapper (storage-dbus/src/disks/btrfs_native.rs) NEW  │
 │  - BtrfsFilesystem struct (new implementation)             │
 │  - Privilege helper integration                            │
 │  - Error type conversions                                  │
@@ -102,7 +102,7 @@
 └─────────────────┬───────────────────────────────────────────┘
                   │ ioctl syscalls (via helper)
 ┌─────────────────▼───────────────────────────────────────────┐
-│ Privilege Helper (cosmic-ext-disks-btrfs-helper) NEW      │
+│ Privilege Helper (cosmic-ext-storage-btrfs-helper) NEW      │
 │  - Minimal privileged binary                               │
 │  - Polkit integration                                      │
 │  - Command-line interface                                  │
@@ -128,7 +128,7 @@
 ### Phase 1: Core Library Integration
 
 #### 1.1 Add Dependencies
-**File:** `disks-dbus/Cargo.toml`
+**File:** `storage-dbus/Cargo.toml`
 
 ```toml
 # ADD:
@@ -141,7 +141,7 @@ chrono = { version = "0.4", features = ["serde"] }
 ```
 
 #### 1.2 Create New BTRFS Module
-**New File:** `disks-dbus/src/disks/btrfs_native.rs`
+**New File:** `storage-dbus/src/disks/btrfs_native.rs`
 
 **Purpose:** Complete rewrite using btrfsutil
 
@@ -237,7 +237,7 @@ enum Operation {
 - Serialization for helper IPC uses JSON or bincode
 
 #### 1.3 Privilege Helper Binary
-**New File:** `disks-btrfs-helper/src/main.rs` (new crate in workspace)
+**New File:** `storage-btrfs-helper/src/main.rs` (new crate in workspace)
 
 **Purpose:** Minimal privileged binary for CAP_SYS_ADMIN operations
 
@@ -247,7 +247,7 @@ use clap::{Parser, Subcommand};
 use serde_json;
 
 #[derive(Parser)]
-#[command(name = "cosmic-ext-disks-btrfs-helper")]
+#[command(name = "cosmic-ext-storage-btrfs-helper")]
 struct Cli {
     #[command(subcommand)]
     command: Commands,
@@ -331,13 +331,13 @@ struct SubvolumeOutputFormat {
       <allow_inactive>auth_admin</allow_inactive>
       <allow_active>auth_admin_keep</allow_active>
     </defaults>
-    <annotate key="org.freedesktop.policykit.exec.path">/usr/libexec/cosmic-ext-disks-btrfs-helper</annotate>
+    <annotate key="org.freedesktop.policykit.exec.path">/usr/libexec/cosmic-ext-storage-btrfs-helper</annotate>
   </action>
 </policyconfig>
 ```
 
 #### 1.4 Update Module Exports
-**File:** `disks-dbus/src/disks/mod.rs`
+**File:** `storage-dbus/src/disks/mod.rs`
 
 ```rust
 // CHANGE:
@@ -349,7 +349,7 @@ pub use btrfs_native::{BtrfsFilesystem, BtrfsSubvolume};  // Updated exports
 ```
 
 #### 1.5 Delete Old BTRFS Module
-**File:** `disks-dbus/src/disks/btrfs.rs`
+**File:** `storage-dbus/src/disks/btrfs.rs`
 
 **Action:** DELETE ENTIRE FILE (289 lines)
 
@@ -363,7 +363,7 @@ pub use btrfs_native::{BtrfsFilesystem, BtrfsSubvolume};  // Updated exports
 ### Phase 2: State & Message Updates
 
 #### 2.1 Enhanced BTRFS State
-**File:** `disks-ui/src/ui/btrfs/state.rs`
+**File:** `storage-ui/src/ui/btrfs/state.rs`
 
 ```rust
 // CHANGE: Add new fields
@@ -391,7 +391,7 @@ pub struct BtrfsState {
 ```
 
 #### 2.2 Expanded Messages
-**File:** `disks-ui/src/ui/btrfs/message.rs`
+**File:** `storage-ui/src/ui/btrfs/message.rs`
 
 ```rust
 // ADD new messages:
@@ -423,7 +423,7 @@ pub enum Message {
 ```
 
 #### 2.3 Convert to New Types
-**File:** `disks-ui/src/ui/app/message.rs`
+**File:** `storage-ui/src/ui/app/message.rs`
 
 ```rust
 // CHANGE: Update BTRFS message types
@@ -468,7 +468,7 @@ BtrfsShowProperties {
 ### Phase 3: Update Handlers
 
 #### 3.1 BTRFS Update Handler
-**File:** `disks-ui/src/ui/app/update/btrfs.rs`
+**File:** `storage-ui/src/ui/app/update/btrfs.rs`
 
 **Action:** COMPLETE REWRITE
 
@@ -565,7 +565,7 @@ pub fn load_deleted_subvolumes(
 ### Phase 4: UI Enhancements
 
 #### 4.1 Enhanced Subvolume Grid
-**File:** `disks-ui/src/ui/btrfs/view.rs`
+**File:** `storage-ui/src/ui/btrfs/view.rs`
 
 **Changes:**
 ```rust
@@ -766,7 +766,7 @@ fn render_deleted_section<'a>(
 ```
 
 #### 4.2 Properties Dialog
-**New File:** `disks-ui/src/ui/btrfs/properties.rs`
+**New File:** `storage-ui/src/ui/btrfs/properties.rs`
 
 ```rust
 use cosmic::widget;
@@ -884,7 +884,7 @@ fn property_row<'a>(
 ### Phase 5: Localization
 
 #### 5.1 New Translation Strings
-**File:** `disks-ui/i18n/en/cosmic_ext_disks.ftl`
+**File:** `storage-ui/i18n/en/cosmic_ext_disks.ftl`
 
 ```fluent
 # BTRFS - Enhanced strings
@@ -955,7 +955,7 @@ confirm-writable-body = Making this subvolume writable will allow modifications.
 ### Phase 6: Testing Infrastructure
 
 #### 6.1 Integration Tests
-**New File:** `disks-dbus/tests/btrfs_integration.rs`
+**New File:** `storage-dbus/tests/btrfs_integration.rs`
 
 ```rust
 use disks_dbus::BtrfsFilesystem;
@@ -1038,7 +1038,7 @@ async fn cleanup_btrfs(device: &Path, mount: &TempDir) -> Result<()> {
 ```
 
 #### 6.2 Unit Tests
-**File:** `disks-dbus/src/disks/btrfs_native.rs`
+**File:** `storage-dbus/src/disks/btrfs_native.rs`
 
 ```rust
 #[cfg(test)]
@@ -1222,17 +1222,17 @@ mod tests {
 ```toml
 [workspace]
 members = [
-    "disks-dbus",
-    "disks-ui",
-    "disks-btrfs-helper",  # NEW
+    "storage-dbus",
+    "storage-ui",
+    "storage-btrfs-helper",  # NEW
 ]
 ```
 
-**File:** `disks-btrfs-helper/Cargo.toml` (new)
+**File:** `storage-btrfs-helper/Cargo.toml` (new)
 
 ```toml
 [package]
-name = "cosmic-ext-disks-btrfs-helper"
+name = "cosmic-ext-storage-btrfs-helper"
 version = "0.1.0"
 edition = "2021"
 
@@ -1244,7 +1244,7 @@ serde_json = "1.0"
 anyhow = "1.0"
 
 [[bin]]
-name = "cosmic-ext-disks-btrfs-helper"
+name = "cosmic-ext-storage-btrfs-helper"
 path = "src/main.rs"
 ```
 
@@ -1254,11 +1254,11 @@ path = "src/main.rs"
 ```just
 install-helper:
     # Build helper binary
-    cargo build --release --package cosmic-ext-disks-btrfs-helper
+    cargo build --release --package cosmic-ext-storage-btrfs-helper
     
     # Install to system libexec
-    sudo install -Dm755 target/release/cosmic-ext-disks-btrfs-helper \
-        /usr/libexec/cosmic-ext-disks-btrfs-helper
+    sudo install -Dm755 target/release/cosmic-ext-storage-btrfs-helper \
+        /usr/libexec/cosmic-ext-storage-btrfs-helper
     
     # Install polkit policy
     sudo install -Dm644 data/com.system76.CosmicExtDisks.Btrfs.policy \
@@ -1413,7 +1413,7 @@ install: build install-helper
 ## Post-Migration Cleanup
 
 ### Remove Obsolete Code
-- [ ] Delete `disks-dbus/src/disks/btrfs.rs`
+- [ ] Delete `storage-dbus/src/disks/btrfs.rs`
 - [ ] Remove UDisks2 BTRFS references from docs
 - [ ] Update dependency documentation
 - [ ] Clean up unused imports
