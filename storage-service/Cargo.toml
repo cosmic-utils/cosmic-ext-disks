@@ -33,6 +33,10 @@ serde_json.workspace = true
 # System integration
 libc.workspace = true
 
+# UDisks2 bindings
+udisks2.workspace = true
+enumflags2.workspace = true
+
 # Internal dependencies
 disks-btrfs = { path = "../disks-btrfs" }
 disks-dbus.workspace = true
