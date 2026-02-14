@@ -2,7 +2,6 @@
 members = [
     "disks-dbus",
     "disks-ui",
-    "disks-btrfs-helper",  # Keep old helper for now
     "disks-btrfs",         # New library
     "storage-service",     # New D-Bus service
     "storage-models",      # Shared data models

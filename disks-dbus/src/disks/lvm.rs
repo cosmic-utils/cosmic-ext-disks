@@ -1,22 +1,6 @@
 use std::{collections::HashSet, io, path::Path, process::Command};
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct LvmLogicalVolumeInfo {
-    pub vg_name: String,
-    pub lv_path: String,
-    pub size_bytes: u64,
-}
-
-impl LvmLogicalVolumeInfo {
-    pub fn display_name(&self) -> String {
-        // Prefer a short human label; fall back to the LV path.
-        // /dev/vg/lv -> vg/lv
-        if let Some(stripped) = self.lv_path.strip_prefix("/dev/") {
-            return stripped.to_string();
-        }
-        self.lv_path.clone()
-    }
-}
+pub use storage_models::LogicalVolumeInfo;
 
 fn canonicalize_best_effort(p: &str) -> String {
     match std::fs::canonicalize(p) {
@@ -46,7 +30,7 @@ fn parse_pvs_vg_names(output: &str) -> Vec<(String, String)> {
         .collect()
 }
 
-fn parse_lvs(output: &str, vg_name: &str) -> Vec<LvmLogicalVolumeInfo> {
+fn parse_lvs(output: &str, vg_name: &str) -> Vec<LogicalVolumeInfo> {
     // Expected lines like: "/dev/vg0/root\t10737418240" (bytes, no suffix).
     output
         .lines()
@@ -56,23 +40,34 @@ fn parse_lvs(output: &str, vg_name: &str) -> Vec<LvmLogicalVolumeInfo> {
                 return None;
             }
             let mut parts = line.split('\t');
-            let lv_path = parts.next()?.trim().to_string();
+            let device_path = parts.next()?.trim().to_string();
             let size_str = parts.next()?.trim();
-            let size_bytes: u64 = size_str.parse().ok()?;
-            if lv_path.is_empty() {
-                None
-            } else {
-                Some(LvmLogicalVolumeInfo {
-                    vg_name: vg_name.to_string(),
-                    lv_path,
-                    size_bytes,
-                })
+            let size: u64 = size_str.parse().ok()?;
+            
+            if device_path.is_empty() {
+                return None;
             }
+            
+            // Extract LV name from path: /dev/vg0/lv_name -> lv_name
+            let name = device_path
+                .strip_prefix("/dev/")
+                .and_then(|s| s.split('/').nth(1))
+                .unwrap_or("")
+                .to_string();
+            
+            Some(LogicalVolumeInfo {
+                name,
+                vg_name: vg_name.to_string(),
+                uuid: String::new(), // lvs command doesn't provide UUID in this query
+                size,
+                device_path,
+                active: true, // Assume active since lvs shows it
+            })
         })
         .collect()
 }
 
-pub fn list_lvs_for_pv(pv_device: &str) -> io::Result<Vec<LvmLogicalVolumeInfo>> {
+pub fn list_lvs_for_pv(pv_device: &str) -> io::Result<Vec<LogicalVolumeInfo>> {
     // LVM support is required by spec; we still degrade gracefully if tools are missing.
     if !Path::new("/sbin/pvs").exists() && which_in_path("pvs").is_none() {
         return Ok(Vec::new());
@@ -159,8 +154,9 @@ mod tests {
         let out = "/dev/vg0/root\t10737418240\n/dev/vg0/home\t2147483648\n";
         let v = parse_lvs(out, "vg0");
         assert_eq!(v.len(), 2);
-        assert_eq!(v[0].lv_path, "/dev/vg0/root");
-        assert_eq!(v[0].size_bytes, 10737418240);
+        assert_eq!(v[0].device_path, "/dev/vg0/root");
+        assert_eq!(v[0].name, "root");
+        assert_eq!(v[0].size, 10737418240);
         assert_eq!(v[0].vg_name, "vg0");
     }
 }

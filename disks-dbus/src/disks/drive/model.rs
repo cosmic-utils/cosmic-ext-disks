@@ -6,7 +6,7 @@ use udisks2::{
 };
 use zbus::{Connection, zvariant::OwnedObjectPath};
 
-use crate::disks::{VolumeModel, VolumeNode};
+use crate::disks::{VolumeModel, volume::VolumeNode};
 
 #[derive(Debug, Clone)]
 pub struct DriveModel {
@@ -151,6 +151,22 @@ impl DriveModel {
         // Only rotating media (HDDs) support power management
         // rotation_rate: -1 = unknown, 0 = SSD/NVMe, >0 = HDD
         self.rotation_rate > 0
+    }
+
+    /// Get volume tree as canonical storage-models types.
+    /// 
+    /// This converts the internal VolumeNode tree structure to storage_models::VolumeInfo,
+    /// which is the recommended type for clients.
+    pub fn get_volumes(&self) -> Vec<storage_models::VolumeInfo> {
+        self.volumes.iter().map(|v| v.clone().into()).collect()
+    }
+
+    /// Get flat list of partitions as canonical storage-models types.
+    /// 
+    /// This converts the internal VolumeModel list to storage_models::PartitionInfo,
+    /// which is the recommended type for partition operations.
+    pub fn get_partitions(&self) -> Vec<storage_models::PartitionInfo> {
+        self.volumes_flat.iter().map(|v| v.clone().into()).collect()
     }
 }
 

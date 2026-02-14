@@ -466,4 +466,36 @@ impl DriveModel {
         let drives = Self::get_drives().await?;
         Ok(drives.into_iter().map(Into::into).collect())
     }
+
+    /// Get disks with their volume hierarchies as canonical storage-models types.
+    /// 
+    /// Returns DiskInfo along with VolumeInfo trees for each disk.
+    /// This is the complete public API for retrieving full disk topology.
+    pub async fn get_disks_with_volumes() -> Result<Vec<(storage_models::DiskInfo, Vec<storage_models::VolumeInfo>)>> {
+        let drives = Self::get_drives().await?;
+        Ok(drives
+            .into_iter()
+            .map(|drive| {
+                let volumes = drive.get_volumes();
+                let disk_info = drive.into();
+                (disk_info, volumes)
+            })
+            .collect())
+    }
+
+    /// Get disks with flat partition lists as canonical storage-models types.
+    /// 
+    /// Returns DiskInfo along with PartitionInfo for each partition on the disk.
+    /// Useful for partition-focused operations without needing the full tree structure.
+    pub async fn get_disks_with_partitions() -> Result<Vec<(storage_models::DiskInfo, Vec<storage_models::PartitionInfo>)>> {
+        let drives = Self::get_drives().await?;
+        Ok(drives
+            .into_iter()
+            .map(|drive| {
+                let partitions = drive.get_partitions();
+                let disk_info = drive.into();
+                (disk_info, partitions)
+            })
+            .collect())
+    }
 }

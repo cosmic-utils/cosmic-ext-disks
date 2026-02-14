@@ -12,10 +12,12 @@ use zbus::connection::Builder as ConnectionBuilder;
 mod auth;
 mod btrfs;
 mod conversions;
+mod disks;
 mod error;
 mod service;
 
 use btrfs::BtrfsHandler;
+use disks::DisksHandler;
 use service::StorageService;
 
 #[tokio::main]
@@ -42,12 +44,17 @@ async fn main() -> Result<()> {
         .name("org.cosmic.ext.StorageService")?
         .serve_at("/org/cosmic/ext/StorageService", StorageService::new())?
         .serve_at("/org/cosmic/ext/StorageService/btrfs", BtrfsHandler::new())?
+        .serve_at(
+            "/org/cosmic/ext/StorageService/disks",
+            DisksHandler::new().await?,
+        )?
         .build()
         .await?;
     
     tracing::info!("Service registered on D-Bus system bus");
     tracing::info!("  - org.cosmic.ext.StorageService at /org/cosmic/ext/StorageService");
     tracing::info!("  - BTRFS interface at /org/cosmic/ext/StorageService/btrfs");
+    tracing::info!("  - Disks interface at /org/cosmic/ext/StorageService/disks");
     
     // Keep service running until shutdown signal
     tracing::info!("Service ready, waiting for requests...");

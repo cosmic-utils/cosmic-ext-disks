@@ -4,22 +4,7 @@ use nix::unistd::Pid;
 use std::collections::HashMap;
 use std::path::Path;
 
-/// Information about a process holding a mount point open
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ProcessInfo {
-    pub pid: i32,
-    pub command: String,
-    pub uid: u32,
-    pub username: String,
-}
-
-/// Result of attempting to kill a single process
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct KillResult {
-    pub pid: i32,
-    pub success: bool,
-    pub error: Option<String>,
-}
+pub use storage_models::{KillResult, ProcessInfo};
 
 /// Find all processes that have open file descriptors pointing to the given mount point.
 ///

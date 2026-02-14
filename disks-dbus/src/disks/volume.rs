@@ -170,14 +170,14 @@ impl VolumeNode {
                 node.children = lvs
                     .into_iter()
                     .filter_map(|lv| {
-                        let lv_obj_path = index.object_path_for_device(&lv.lv_path)?;
+                        let lv_obj_path = index.object_path_for_device(&lv.device_path)?;
                         Some(VolumeNode {
                             kind: VolumeKind::LvmLogicalVolume,
                             label: lv.display_name(),
-                            size: lv.size_bytes,
+                            size: lv.size,
                             id_type: String::new(),
                             object_path: lv_obj_path,
-                            device_path: Some(lv.lv_path),
+                            device_path: Some(lv.device_path),
                             has_filesystem: false,
                             mount_points: Vec::new(),
                             usage: None,
@@ -625,5 +625,31 @@ impl BlockIndex {
         }
 
         None
+    }
+}
+
+impl From<VolumeNode> for storage_models::VolumeInfo {
+    fn from(node: VolumeNode) -> Self {
+        let kind = match node.kind {
+            VolumeKind::Partition => storage_models::VolumeKind::Partition,
+            VolumeKind::CryptoContainer => storage_models::VolumeKind::CryptoContainer,
+            VolumeKind::Filesystem => storage_models::VolumeKind::Filesystem,
+            VolumeKind::LvmPhysicalVolume => storage_models::VolumeKind::LvmPhysicalVolume,
+            VolumeKind::LvmLogicalVolume => storage_models::VolumeKind::LvmLogicalVolume,
+            VolumeKind::Block => storage_models::VolumeKind::Block,
+        };
+
+        storage_models::VolumeInfo {
+            kind,
+            label: node.label,
+            size: node.size,
+            id_type: node.id_type,
+            device_path: node.device_path,
+            has_filesystem: node.has_filesystem,
+            mount_points: node.mount_points,
+            usage: node.usage,
+            locked: node.locked,
+            children: node.children.into_iter().map(Into::into).collect(),
+        }
     }
 }

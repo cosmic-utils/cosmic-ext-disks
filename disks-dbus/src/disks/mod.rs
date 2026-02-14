@@ -11,15 +11,14 @@ mod smart;
 mod volume;
 mod volume_model;
 
-// Explicit exports from submodules
 pub use btrfs_native::{BtrfsFilesystem, BtrfsSubvolume};
 pub use create_partition_info::CreatePartitionInfo;
 pub use drive::DriveModel;
 pub use gpt::{GPT_ALIGNMENT_BYTES, fallback_gpt_usable_range_bytes, probe_gpt_usable_range_bytes};
 pub use image::{loop_setup, mount_filesystem};
-pub use lvm::{LvmLogicalVolumeInfo, list_lvs_for_pv};
+pub use lvm::list_lvs_for_pv;
 pub use manager::{DeviceEvent, DeviceEventStream, DiskManager};
-pub use process_finder::{KillResult, ProcessInfo, find_processes_using_mount, kill_processes};
+pub use process_finder::{find_processes_using_mount, kill_processes};
 pub use smart::{SmartInfo, SmartSelfTestKind};
 use thiserror::Error;
 pub use volume::{BlockIndex, VolumeKind, VolumeNode};

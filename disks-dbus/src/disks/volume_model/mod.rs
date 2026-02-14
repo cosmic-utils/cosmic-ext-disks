@@ -333,3 +333,29 @@ mod tests {
         assert!(p.is_mounted());
     }
 }
+
+impl From<VolumeModel> for storage_models::PartitionInfo {
+    fn from(vol: VolumeModel) -> Self {
+        storage_models::PartitionInfo {
+            device: vol.device_path.unwrap_or_else(|| vol.path.to_string()),
+            number: vol.number,
+            parent_device: vol.drive_path,
+            size: vol.size,
+            offset: vol.offset,
+            type_id: vol.partition_type_id,
+            type_name: vol.partition_type,
+            flags: vol.flags.bits(),
+            name: vol.name,
+            uuid: vol.uuid,
+            table_type: vol.table_type,
+            has_filesystem: vol.has_filesystem,
+            filesystem_type: if vol.has_filesystem && !vol.id_type.is_empty() {
+                Some(vol.id_type)
+            } else {
+                None
+            },
+            mount_points: vol.mount_points,
+            usage: vol.usage,
+        }
+    }
+}
