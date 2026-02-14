@@ -25,6 +25,9 @@ pub struct UiDrive {
     /// Flat list of partitions on this disk
     pub partitions: Vec<PartitionInfo>,
     
+    /// Flat list of all volumes (non-hierarchical) for bulk operations
+    pub volumes_flat: Vec<UiVolume>,
+    
     /// Owned client for refreshing disk data
     client: DisksClient,
     
@@ -50,6 +53,7 @@ impl UiDrive {
             disk,
             volumes: Vec::new(),
             partitions: Vec::new(),
+            volumes_flat: Vec::new(),
             client,
             partitions_client,
         };
@@ -80,7 +84,26 @@ impl UiDrive {
     pub async fn refresh_volumes(&mut self) -> Result<(), ClientError> {
         let all_volumes = self.client.list_volumes().await?;
         self.volumes = build_volume_tree(&self.disk.device, all_volumes)?;
+        
+        // Also populate flat list by collecting all volumes recursively
+        self.volumes_flat.clear();
+        for root in &self.volumes {
+            self.collect_volumes_flat(root);
+        }
+        
         Ok(())
+    }
+    
+    /// Helper to recursively collect all volumes into flat list
+    fn collect_volumes_flat(&mut self, volume: &UiVolume) {
+        // Clone the volume without children for flat list
+        if let Ok(flat_vol) = UiVolume::with_children(volume.volume.clone(), Vec::new()) {
+            self.volumes_flat.push(flat_vol);
+        }
+        
+        for child in &volume.children {
+            self.collect_volumes_flat(child);
+        }
     }
     
     /// Refresh partitions list

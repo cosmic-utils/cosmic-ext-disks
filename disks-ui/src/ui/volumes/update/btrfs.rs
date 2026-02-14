@@ -230,8 +230,8 @@ pub(super) fn btrfs_create_snapshot_message(
                     }
                     Err(e) => {
                         let ctx = UiErrorContext::new("create_snapshot");
-                        log_error_and_show_dialog(fl!("btrfs-create-snapshot-failed"), e.into(), ctx).into()
-                            .into()
+                        let msg =log_error_and_show_dialog(fl!("btrfs-create-snapshot-failed"), e.into(), ctx);
+                        msg.into()
                     }
                 },
             );

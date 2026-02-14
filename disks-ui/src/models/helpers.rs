@@ -149,34 +149,34 @@ mod tests {
                 kind: VolumeKind::Partition,
                 label: "Root".to_string(),
                 size: 100_000_000,
-                id_type: Some("ext4".to_string()),
+                id_type: "ext4".to_string(),
                 device_path: Some("/dev/sda1".to_string()),
                 parent_path: Some("/dev/sda".to_string()),
                 has_filesystem: true,
                 mount_points: vec!["/".to_string()],
                 usage: Usage::Filesystem,
-                locked: None,
+                locked: false,
                 children: Vec::new(),
             },
             VolumeInfo {
                 kind: VolumeKind::Partition,
-                label: Some("Home".to_string()),
-                size: Some(200_000_000),
-                id_type: Some("ext4".to_string()),
+                label: "Home".to_string(),
+                size: 200_000_000,
+                id_type: "ext4".to_string(),
                 device_path: Some("/dev/sda2".to_string()),
                 parent_path: Some("/dev/sda".to_string()),
                 has_filesystem: true,
                 mount_points: vec!["/home".to_string()],
                 usage: Usage::Filesystem,
-                locked: None,
+                locked: false,
                 children: Vec::new(),
             },
         ];
         
         let tree = build_volume_tree("/dev/sda", volumes).unwrap();
         assert_eq!(tree.len(), 2);
-        assert_eq!(tree[0].volume.label, Some("Root".to_string()));
-        assert_eq!(tree[1].volume.label, Some("Home".to_string()));
+        assert_eq!(tree[0].volume.label, "Root".to_string());
+        assert_eq!(tree[1].volume.label, "Home".to_string());
     }
     
     #[test]

@@ -106,7 +106,7 @@ pub(super) fn open_edit_mount_options(
                             tracing::error!(
                                 ?e,
                                 operation = "get_mount_options_settings",
-                                object_path = %v.path,
+                                object_path = %v.device_path.as_deref().unwrap_or(""),
                                 device = ?v.device_path,
                                 drive_path = %v.drive_path,
                                 "error surfaced in UI"
@@ -116,7 +116,7 @@ pub(super) fn open_edit_mount_options(
                             tracing::error!(
                                 ?e,
                                 operation = "get_mount_options_settings",
-                                object_path = %n.object_path,
+                                object_path = %n.device_path.as_deref().unwrap_or(""),
                                 device = ?n.device_path,
                                 "error surfaced in UI"
                             );

@@ -1,4 +1,4 @@
-use crate::models::load_all_drives;
+use crate::models::{UiDrive, load_all_drives};
 use cosmic::Task;
 
 use crate::app::Message;
@@ -90,8 +90,8 @@ pub(super) fn edit_filesystem_label_message(
                 |result: Result<Vec<UiDrive>, anyhow::Error>| match result {
                     Ok(drives) => Message::UpdateNav(drives, None).into(),
                     Err(e) => {
-                        let ctx = Ui ErrorContext::new("edit_filesystem");
-                        log_error_and_show_dialog(fl!("edit-filesystem").to_string(), e.into(), ctx)
+                        let ctx = UiErrorContext::new("edit_filesystem");
+                        log_error_and_show_dialog(fl!("edit-filesystem").to_string(), e.into(), ctx).into()
                     }
                 },
             );

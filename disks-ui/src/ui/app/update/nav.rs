@@ -58,7 +58,7 @@ pub(super) fn update_nav(
 
     let selected = selected.or_else(|| drive_models.first().map(|d| d.device().to_string()));
 
-    for drive in drive_models {
+    for drive in &drive_models {
         let icon_name = if drive.disk.removable {
             "drive-removable-media-symbolic"
         } else {
@@ -88,7 +88,7 @@ pub(super) fn update_nav(
         let mut nav_item = app
             .nav
             .insert()
-            .text(drive.name())
+            .text(drive.name().clone())
             .data::<VolumesControl>(volumes_control)
             .data::<UiDrive>(drive.clone())
             .icon(icon::from_name(icon_name));

@@ -1,4 +1,4 @@
-use crate::models::load_all_drives;
+use crate::models::{UiDrive, load_all_drives};
 use cosmic::Task;
 use std::future::Future;
 
@@ -21,8 +21,8 @@ where
 {
     Task::perform(
         async move {
-            operation().await?;
-            load_all_drives().await.map_err(|e| e.into())
+            operation().await.map_err(|e| anyhow::anyhow!(e))?;
+            load_all_drives().await.map_err(|e| anyhow::anyhow!(e))
         },
         move |result: Result<Vec<UiDrive>, anyhow::Error>| match result {
             Ok(drives) => {
