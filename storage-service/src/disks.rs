@@ -6,7 +6,7 @@
 //! and monitoring disk hotplug events.
 
 use anyhow::Result;
-use disks_dbus::DiskManager;
+use storage_dbus::DiskManager;
 use zbus::{Connection, interface};
 
 use crate::auth::check_polkit_auth;
@@ -77,7 +77,7 @@ impl DisksHandler {
         tracing::debug!("ListDisks called");
 
         // Get disks from storage-dbus using new storage-models API
-        let disks = disks_dbus::disk::get_disks().await.map_err(|e| {
+        let disks = storage_dbus::disk::get_disks().await.map_err(|e| {
             tracing::error!("Failed to get disks: {e}");
             zbus::fdo::Error::Failed(format!("Failed to enumerate disks: {e}"))
         })?;
@@ -121,7 +121,7 @@ impl DisksHandler {
         tracing::debug!("ListVolumes called");
 
         // Get all drives using storage-dbus
-        let disk_volumes = disks_dbus::disk::get_disks_with_volumes()
+        let disk_volumes = storage_dbus::disk::get_disks_with_volumes()
             .await
             .map_err(|e| {
                 tracing::error!("Failed to get drives: {e}");
@@ -202,7 +202,7 @@ impl DisksHandler {
         tracing::debug!("GetDiskInfo called for device: {device}");
 
         // Get all disks and find the requested one
-        let disks = disks_dbus::disk::get_disks().await.map_err(|e| {
+        let disks = storage_dbus::disk::get_disks().await.map_err(|e| {
             tracing::error!("Failed to get disks: {e}");
             zbus::fdo::Error::Failed(format!("Failed to enumerate disks: {e}"))
         })?;
@@ -289,7 +289,7 @@ impl DisksHandler {
         tracing::debug!("GetVolumeInfo called for device: {device}");
 
         // Get all drives and search for the volume
-        let disk_volumes = disks_dbus::disk::get_disks_with_volumes()
+        let disk_volumes = storage_dbus::disk::get_disks_with_volumes()
             .await
             .map_err(|e| {
                 tracing::error!("Failed to get drives: {e}");
@@ -373,7 +373,7 @@ impl DisksHandler {
         };
 
         // Get SMART info using the device path
-        let smart_info = disks_dbus::get_smart_info_by_device(&device_path)
+        let smart_info = storage_dbus::get_smart_info_by_device(&device_path)
             .await
             .map_err(|e| {
                 let err_str = e.to_string().to_lowercase();
@@ -449,7 +449,7 @@ impl DisksHandler {
         };
 
         // Get SMART info by device
-        let smart_info = disks_dbus::get_smart_info_by_device(&device_path)
+        let smart_info = storage_dbus::get_smart_info_by_device(&device_path)
             .await
             .map_err(|e| {
                 let err_str = e.to_string().to_lowercase();
@@ -514,7 +514,7 @@ impl DisksHandler {
             format!("/dev/{}", device)
         };
 
-        let disk_volumes = disks_dbus::disk::get_disks_with_volumes()
+        let disk_volumes = storage_dbus::disk::get_disks_with_volumes()
             .await
             .map_err(|e| {
                 tracing::error!("Failed to get drives: {e}");
@@ -535,7 +535,7 @@ impl DisksHandler {
                 zbus::fdo::Error::Failed(format!("Device not found: {device}"))
             })?;
 
-        disks_dbus::eject_drive_by_device(&device_path, disk_info.ejectable)
+        storage_dbus::eject_drive_by_device(&device_path, disk_info.ejectable)
             .await
             .map_err(|e| {
                 tracing::error!("Failed to eject device: {e}");
@@ -570,7 +570,7 @@ impl DisksHandler {
             format!("/dev/{}", device)
         };
 
-        let disk_volumes = disks_dbus::disk::get_disks_with_volumes()
+        let disk_volumes = storage_dbus::disk::get_disks_with_volumes()
             .await
             .map_err(|e| zbus::fdo::Error::Failed(format!("Failed to enumerate drives: {e}")))?;
 
@@ -585,7 +585,7 @@ impl DisksHandler {
             })
             .ok_or_else(|| zbus::fdo::Error::Failed(format!("Device not found: {device}")))?;
 
-        disks_dbus::power_off_drive_by_device(&device_path, disk_info.can_power_off)
+        storage_dbus::power_off_drive_by_device(&device_path, disk_info.can_power_off)
             .await
             .map_err(|e| {
                 tracing::error!("Failed to power off device: {e}");
@@ -620,7 +620,7 @@ impl DisksHandler {
             format!("/dev/{}", device)
         };
 
-        let disk_volumes = disks_dbus::disk::get_disks_with_volumes()
+        let disk_volumes = storage_dbus::disk::get_disks_with_volumes()
             .await
             .map_err(|e| zbus::fdo::Error::Failed(format!("Failed to enumerate drives: {e}")))?;
 
@@ -635,7 +635,7 @@ impl DisksHandler {
             })
             .ok_or_else(|| zbus::fdo::Error::Failed(format!("Device not found: {device}")))?;
 
-        disks_dbus::standby_drive_by_device(&device_path)
+        storage_dbus::standby_drive_by_device(&device_path)
             .await
             .map_err(|e| {
                 tracing::error!("Failed to put device in standby: {e}");
@@ -670,7 +670,7 @@ impl DisksHandler {
             format!("/dev/{}", device)
         };
 
-        let disk_volumes = disks_dbus::disk::get_disks_with_volumes()
+        let disk_volumes = storage_dbus::disk::get_disks_with_volumes()
             .await
             .map_err(|e| zbus::fdo::Error::Failed(format!("Failed to enumerate drives: {e}")))?;
 
@@ -685,7 +685,7 @@ impl DisksHandler {
             })
             .ok_or_else(|| zbus::fdo::Error::Failed(format!("Device not found: {device}")))?;
 
-        disks_dbus::wakeup_drive_by_device(&device_path)
+        storage_dbus::wakeup_drive_by_device(&device_path)
             .await
             .map_err(|e| {
                 tracing::error!("Failed to wake up device: {e}");
@@ -720,7 +720,7 @@ impl DisksHandler {
             format!("/dev/{}", device)
         };
 
-        let disk_volumes = disks_dbus::disk::get_disks_with_volumes()
+        let disk_volumes = storage_dbus::disk::get_disks_with_volumes()
             .await
             .map_err(|e| zbus::fdo::Error::Failed(format!("Failed to enumerate drives: {e}")))?;
 
@@ -735,7 +735,7 @@ impl DisksHandler {
             })
             .ok_or_else(|| zbus::fdo::Error::Failed(format!("Device not found: {device}")))?;
 
-        disks_dbus::remove_drive_by_device(
+        storage_dbus::remove_drive_by_device(
             &device_path,
             disk_info.is_loop,
             disk_info.removable,
@@ -773,8 +773,8 @@ impl DisksHandler {
 
         // Validate test type
         let test_kind = match test_type.to_lowercase().as_str() {
-            "short" => disks_dbus::SmartSelfTestKind::Short,
-            "extended" | "long" => disks_dbus::SmartSelfTestKind::Extended,
+            "short" => storage_dbus::SmartSelfTestKind::Short,
+            "extended" | "long" => storage_dbus::SmartSelfTestKind::Extended,
             _ => {
                 tracing::warn!("Invalid test type: {test_type}");
                 return Err(zbus::fdo::Error::InvalidArgs(format!(
@@ -789,7 +789,7 @@ impl DisksHandler {
             format!("/dev/{}", device)
         };
 
-        let disk_volumes = disks_dbus::disk::get_disks_with_volumes()
+        let disk_volumes = storage_dbus::disk::get_disks_with_volumes()
             .await
             .map_err(|e| {
                 tracing::error!("Failed to get drives: {e}");
@@ -810,7 +810,7 @@ impl DisksHandler {
                 zbus::fdo::Error::Failed(format!("Device not found: {device}"))
             })?;
 
-        disks_dbus::start_drive_smart_selftest_by_device(&device_path, test_kind)
+        storage_dbus::start_drive_smart_selftest_by_device(&device_path, test_kind)
             .await
             .map_err(|e| {
                 let err_str = e.to_string().to_lowercase();
@@ -992,7 +992,7 @@ async fn get_disk_info_for_path(
     _connection: &zbus::Connection,
     object_path: &zbus::zvariant::ObjectPath<'_>,
 ) -> Result<storage_models::DiskInfo> {
-    disks_dbus::get_disk_info_for_drive_path(object_path.as_str())
+    storage_dbus::get_disk_info_for_drive_path(object_path.as_str())
         .await
         .map_err(|e| anyhow::anyhow!("{}", e))
 }

@@ -59,7 +59,7 @@ impl LuksHandler {
         tracing::debug!("Listing encrypted devices");
 
         // Delegate to storage-dbus operation
-        let luks_devices = disks_dbus::list_luks_devices().await.map_err(|e| {
+        let luks_devices = storage_dbus::list_luks_devices().await.map_err(|e| {
             tracing::error!("Failed to list encrypted devices: {e}");
             zbus::fdo::Error::Failed(format!("Failed to list encrypted devices: {e}"))
         })?;
@@ -107,7 +107,7 @@ impl LuksHandler {
         };
 
         // Delegate to storage-dbus operation
-        disks_dbus::format_luks(&device, &passphrase, luks_version)
+        storage_dbus::format_luks(&device, &passphrase, luks_version)
             .await
             .map_err(|e| {
                 tracing::error!("LUKS format failed: {e}");
@@ -142,7 +142,7 @@ impl LuksHandler {
         tracing::info!("Unlocking LUKS device '{}'", device);
 
         // Delegate to storage-dbus operation
-        let cleartext_device = disks_dbus::unlock_luks(&device, &passphrase)
+        let cleartext_device = storage_dbus::unlock_luks(&device, &passphrase)
             .await
             .map_err(|e| {
                 tracing::error!("Unlock failed: {e}");
@@ -177,7 +177,7 @@ impl LuksHandler {
         tracing::info!("Locking LUKS device '{}'", device);
 
         // Delegate to storage-dbus operation
-        disks_dbus::lock_luks(&device).await.map_err(|e| {
+        storage_dbus::lock_luks(&device).await.map_err(|e| {
             tracing::error!("Lock failed: {e}");
             zbus::fdo::Error::Failed(format!("Lock failed: {e}"))
         })?;
@@ -209,7 +209,7 @@ impl LuksHandler {
         tracing::info!("Changing passphrase for LUKS device '{}'", device);
 
         // Delegate to storage-dbus operation
-        disks_dbus::change_luks_passphrase(&device, &current_passphrase, &new_passphrase)
+        storage_dbus::change_luks_passphrase(&device, &current_passphrase, &new_passphrase)
             .await
             .map_err(|e| {
                 tracing::error!("Change passphrase failed: {e}");
@@ -239,7 +239,7 @@ impl LuksHandler {
             .map_err(|e| zbus::fdo::Error::Failed(format!("Authorization failed: {e}")))?;
 
         // Delegate to storage-dbus operation
-        let settings = disks_dbus::get_encryption_options(&device)
+        let settings = storage_dbus::get_encryption_options(&device)
             .await
             .map_err(|e| {
                 tracing::error!("Failed to get encryption options: {e}");
@@ -276,7 +276,7 @@ impl LuksHandler {
             .map_err(|e| zbus::fdo::Error::InvalidArgs(format!("Invalid options JSON: {e}")))?;
 
         // Delegate to storage-dbus operation
-        disks_dbus::set_encryption_options(&device, &settings)
+        storage_dbus::set_encryption_options(&device, &settings)
             .await
             .map_err(|e| {
                 tracing::error!("Failed to set encryption options: {e}");
@@ -303,7 +303,7 @@ impl LuksHandler {
         .map_err(|e| zbus::fdo::Error::Failed(format!("Authorization failed: {e}")))?;
 
         // Delegate to storage-dbus operation
-        disks_dbus::clear_encryption_options(&device)
+        storage_dbus::clear_encryption_options(&device)
             .await
             .map_err(|e| {
                 tracing::error!("Failed to clear encryption options: {e}");

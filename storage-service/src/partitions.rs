@@ -94,7 +94,7 @@ impl PartitionsHandler {
 
         tracing::debug!("Listing partitions for disk: {disk}");
 
-        let disk_volumes = disks_dbus::disk::get_disks_with_partitions()
+        let disk_volumes = storage_dbus::disk::get_disks_with_partitions()
             .await
             .map_err(|e| {
                 tracing::error!("Failed to get drives: {e}");
@@ -168,14 +168,14 @@ impl PartitionsHandler {
             format!("/dev/{}", disk)
         };
 
-        let block_path = disks_dbus::block_object_path_for_device(&disk_device)
+        let block_path = storage_dbus::block_object_path_for_device(&disk_device)
             .await
             .map_err(|e| {
                 tracing::error!("Failed to resolve device: {e}");
                 zbus::fdo::Error::Failed(format!("Device not found: {e}"))
             })?;
 
-        disks_dbus::create_partition_table(block_path.as_str(), normalized_type)
+        storage_dbus::create_partition_table(block_path.as_str(), normalized_type)
             .await
             .map_err(|e| {
                 tracing::error!("Failed to create partition table: {e}");
@@ -233,19 +233,20 @@ impl PartitionsHandler {
             format!("/dev/{}", disk)
         };
 
-        let block_path = disks_dbus::block_object_path_for_device(&disk_device)
+        let block_path = storage_dbus::block_object_path_for_device(&disk_device)
             .await
             .map_err(|e| {
                 tracing::error!("Failed to resolve device: {e}");
                 zbus::fdo::Error::Failed(format!("Device not found: {e}"))
             })?;
 
-        let device_path = disks_dbus::create_partition(block_path.as_str(), offset, size, &type_id)
-            .await
-            .map_err(|e| {
-                tracing::error!("Failed to create partition: {e}");
-                zbus::fdo::Error::Failed(format!("Failed to create partition: {e}"))
-            })?;
+        let device_path =
+            storage_dbus::create_partition(block_path.as_str(), offset, size, &type_id)
+                .await
+                .map_err(|e| {
+                    tracing::error!("Failed to create partition: {e}");
+                    zbus::fdo::Error::Failed(format!("Failed to create partition: {e}"))
+                })?;
 
         tracing::info!("Successfully created partition: {}", device_path);
         let partition_info_json = serde_json::to_string(&storage_models::PartitionInfo {
@@ -297,7 +298,7 @@ impl PartitionsHandler {
         let partition_path = self.find_partition_path(&partition).await?;
 
         // Delegate to storage-dbus operation
-        disks_dbus::delete_partition(&partition_path.to_string())
+        storage_dbus::delete_partition(&partition_path.to_string())
             .await
             .map_err(|e| {
                 tracing::error!("Failed to delete partition: {e}");
@@ -340,7 +341,7 @@ impl PartitionsHandler {
         let partition_path = self.find_partition_path(&partition).await?;
 
         // Delegate to storage-dbus operation
-        disks_dbus::resize_partition(&partition_path.to_string(), new_size)
+        storage_dbus::resize_partition(&partition_path.to_string(), new_size)
             .await
             .map_err(|e| {
                 tracing::error!("Failed to resize partition: {e}");
@@ -383,7 +384,7 @@ impl PartitionsHandler {
         let partition_path = self.find_partition_path(&partition).await?;
 
         // Delegate to storage-dbus operation
-        disks_dbus::set_partition_type(&partition_path.to_string(), &type_id)
+        storage_dbus::set_partition_type(&partition_path.to_string(), &type_id)
             .await
             .map_err(|e| {
                 tracing::error!("Failed to set partition type: {e}");
@@ -426,7 +427,7 @@ impl PartitionsHandler {
         let partition_path = self.find_partition_path(&partition).await?;
 
         // Delegate to storage-dbus operation
-        disks_dbus::set_partition_flags(&partition_path.to_string(), flags)
+        storage_dbus::set_partition_flags(&partition_path.to_string(), flags)
             .await
             .map_err(|e| {
                 tracing::error!("Failed to set partition flags: {e}");
@@ -478,7 +479,7 @@ impl PartitionsHandler {
         let partition_path = self.find_partition_path(&partition).await?;
 
         // Delegate to storage-dbus operation
-        disks_dbus::set_partition_name(&partition_path.to_string(), &name)
+        storage_dbus::set_partition_name(&partition_path.to_string(), &name)
             .await
             .map_err(|e| {
                 tracing::error!("Failed to set partition name: {e}");
@@ -503,7 +504,7 @@ impl PartitionsHandler {
         } else {
             format!("/dev/{}", partition)
         };
-        disks_dbus::block_object_path_for_device(&device)
+        storage_dbus::block_object_path_for_device(&device)
             .await
             .map_err(|e| {
                 tracing::warn!("Partition not found: {} - {}", partition, e);

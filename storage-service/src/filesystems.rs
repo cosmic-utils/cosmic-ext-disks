@@ -99,7 +99,7 @@ impl FilesystemsHandler {
         tracing::debug!("Listing filesystems");
 
         // Get all drives
-        let drives = disks_dbus::disk::get_disks_with_volumes()
+        let drives = storage_dbus::disk::get_disks_with_volumes()
             .await
             .map_err(|e| {
                 tracing::error!("Failed to get drives: {e}");
@@ -137,7 +137,7 @@ impl FilesystemsHandler {
             let mut batch = Vec::new();
             collect_volumes(volumes, &mut batch);
             for mut fs in batch {
-                fs.label = disks_dbus::get_filesystem_label(&fs.device)
+                fs.label = storage_dbus::get_filesystem_label(&fs.device)
                     .await
                     .unwrap_or_default();
                 filesystems.push(fs);
@@ -226,7 +226,7 @@ impl FilesystemsHandler {
         let options: FormatOptions = serde_json::from_str(&options_json).unwrap_or_default();
 
         // Delegate to storage-dbus operation
-        disks_dbus::format_filesystem(&device, &fs_type, &label, options)
+        storage_dbus::format_filesystem(&device, &fs_type, &label, options)
             .await
             .map_err(|e| {
                 tracing::error!("Failed to format device: {e}");
@@ -278,7 +278,7 @@ impl FilesystemsHandler {
         let mount_opts: MountOptions = serde_json::from_str(&options_json).unwrap_or_default();
 
         // Delegate to storage-dbus operation
-        let actual_mount_point = disks_dbus::mount_filesystem(&device, &mount_point, mount_opts)
+        let actual_mount_point = storage_dbus::mount_filesystem(&device, &mount_point, mount_opts)
             .await
             .map_err(|e| {
                 tracing::error!("Failed to mount filesystem: {e}");
@@ -327,7 +327,7 @@ impl FilesystemsHandler {
         // Determine if input is device or mount point (for finding processes later)
         let mount_point = if device_or_mount.starts_with("/dev/") {
             // It's a device, get mount point via storage-dbus
-            disks_dbus::get_mount_point(&device_or_mount)
+            storage_dbus::get_mount_point(&device_or_mount)
                 .await
                 .unwrap_or_else(|_| device_or_mount.clone())
         } else {
@@ -336,7 +336,7 @@ impl FilesystemsHandler {
         };
 
         // Attempt unmount via storage-dbus operation
-        let unmount_result = disks_dbus::unmount_filesystem(&device_or_mount, force).await;
+        let unmount_result = storage_dbus::unmount_filesystem(&device_or_mount, force).await;
 
         match unmount_result {
             Ok(_) => {
@@ -362,7 +362,7 @@ impl FilesystemsHandler {
                     tracing::warn!("Unmount failed: device busy");
 
                     // Find blocking processes
-                    let processes = disks_dbus::find_processes_using_mount(&mount_point)
+                    let processes = storage_dbus::find_processes_using_mount(&mount_point)
                         .await
                         .unwrap_or_default();
 
@@ -396,13 +396,13 @@ impl FilesystemsHandler {
                         let pids: Vec<i32> = processes.iter().map(|p| p.pid).collect();
                         tracing::info!("Killing {} blocking processes", pids.len());
 
-                        let _kill_results = disks_dbus::kill_processes(&pids);
+                        let _kill_results = storage_dbus::kill_processes(&pids);
 
                         // Wait a moment for processes to die
                         tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
 
                         // Retry unmount via storage-dbus
-                        match disks_dbus::unmount_filesystem(&device_or_mount, force).await {
+                        match storage_dbus::unmount_filesystem(&device_or_mount, force).await {
                             Ok(_) => {
                                 tracing::info!("Successfully unmounted after killing processes");
 
@@ -493,7 +493,7 @@ impl FilesystemsHandler {
 
         // Determine mount point via storage-dbus
         let mount_point = if device_or_mount.starts_with("/dev/") {
-            disks_dbus::get_mount_point(&device_or_mount)
+            storage_dbus::get_mount_point(&device_or_mount)
                 .await
                 .map_err(|e| {
                     tracing::error!("Failed to get mount point: {e}");
@@ -504,7 +504,7 @@ impl FilesystemsHandler {
         };
 
         // Find blocking processes
-        let processes = disks_dbus::find_processes_using_mount(&mount_point)
+        let processes = storage_dbus::find_processes_using_mount(&mount_point)
             .await
             .map_err(|e| {
                 tracing::error!("Failed to find processes: {e}");
@@ -553,7 +553,7 @@ impl FilesystemsHandler {
         tracing::info!("Checking filesystem on {} (repair={})", device, repair);
 
         // Delegate to storage-dbus operation
-        let clean = disks_dbus::check_filesystem(&device, repair)
+        let clean = storage_dbus::check_filesystem(&device, repair)
             .await
             .map_err(|e| {
                 tracing::error!("Filesystem check failed: {e}");
@@ -604,7 +604,7 @@ impl FilesystemsHandler {
         tracing::info!("Setting label on {} to '{}'", device, label);
 
         // Delegate to storage-dbus operation
-        disks_dbus::set_filesystem_label(&device, &label)
+        storage_dbus::set_filesystem_label(&device, &label)
             .await
             .map_err(|e| {
                 tracing::error!("Failed to set label: {e}");
@@ -696,7 +696,7 @@ impl FilesystemsHandler {
             .await
             .map_err(|e| zbus::fdo::Error::Failed(format!("Authorization failed: {e}")))?;
 
-        match disks_dbus::get_mount_options(&device).await {
+        match storage_dbus::get_mount_options(&device).await {
             Ok(Some(s)) => {
                 let out = MountOptionsSettings {
                     identify_as: s.identify_as,
@@ -736,10 +736,12 @@ impl FilesystemsHandler {
         .await
         .map_err(|e| zbus::fdo::Error::Failed(format!("Authorization failed: {e}")))?;
 
-        disks_dbus::reset_mount_options(&device).await.map_err(|e| {
-            tracing::error!("reset_mount_options failed: {e}");
-            zbus::fdo::Error::Failed(format!("Failed to clear mount options: {e}"))
-        })
+        storage_dbus::reset_mount_options(&device)
+            .await
+            .map_err(|e| {
+                tracing::error!("reset_mount_options failed: {e}");
+                zbus::fdo::Error::Failed(format!("Failed to clear mount options: {e}"))
+            })
     }
 
     /// Set persistent mount options (fstab configuration) for a device
@@ -783,7 +785,7 @@ impl FilesystemsHandler {
             Some(symbolic_icon_name)
         };
 
-        disks_dbus::set_mount_options(
+        storage_dbus::set_mount_options(
             &device,
             mount_at_startup,
             show_in_ui,
@@ -826,7 +828,7 @@ impl FilesystemsHandler {
         tracing::info!("Taking ownership of {} (recursive={})", device, recursive);
 
         // Delegate to storage-dbus operation
-        disks_dbus::take_filesystem_ownership(&device, recursive)
+        storage_dbus::take_filesystem_ownership(&device, recursive)
             .await
             .map_err(|e| {
                 tracing::error!("Take ownership failed: {e}");

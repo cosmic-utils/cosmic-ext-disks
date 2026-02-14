@@ -4,7 +4,7 @@
 
 use anyhow::Result;
 use clap::{Parser, Subcommand};
-use disks_btrfs::{get_filesystem_usage, SubvolumeList, SubvolumeManager};
+use disks_btrfs::{SubvolumeList, SubvolumeManager, get_filesystem_usage};
 use std::path::PathBuf;
 
 /// Privileged helper for BTRFS subvolume operations

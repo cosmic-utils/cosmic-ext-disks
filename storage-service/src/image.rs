@@ -85,7 +85,7 @@ impl ImageHandler {
         }
 
         // Open source device (privileged) via storage-dbus
-        let source_fd = disks_dbus::open_for_backup_by_device(&device_path)
+        let source_fd = storage_dbus::open_for_backup_by_device(&device_path)
             .await
             .map_err(|e| format!("Failed to open source device: {e}"))?;
 
@@ -172,7 +172,7 @@ impl ImageHandler {
         }
 
         // Open destination device (privileged) via storage-dbus
-        let dest_fd = disks_dbus::open_for_restore_by_device(&device_path)
+        let dest_fd = storage_dbus::open_for_restore_by_device(&device_path)
             .await
             .map_err(|e| format!("Failed to open destination device: {e}"))?;
 
@@ -631,7 +631,7 @@ impl ImageHandler {
         }
 
         // Call storage-dbus loop_setup_device_path (returns device path directly)
-        let device_path = disks_dbus::loop_setup_device_path(&image_path)
+        let device_path = storage_dbus::loop_setup_device_path(&image_path)
             .await
             .map_err(|e| {
                 tracing::error!("Loop setup failed: {e}");

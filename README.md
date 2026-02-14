@@ -19,6 +19,30 @@ For partition type support:
  - `dosfstools`
 
 
+### Development
+
+**Quick Start:**
+```bash
+just
+```
+This single command builds the workspace, installs development policies (D-Bus + Polkit), starts the storage service in the background, and launches the UI.
+
+**Other useful commands:**
+```bash
+just build              # Build workspace only
+just dev                # Build, start service, run UI (stops service on exit)
+just start-service-bg   # Start service in background only
+just start-app          # Start UI only (assumes service is running)
+just stop-service       # Stop the storage service
+just test               # Run tests
+just clippy             # Run linter
+```
+
+**Requirements:**
+- `just` (task runner) - install via `cargo install just` or your package manager
+- `sudo` access (for policy installation and service management)
+
+
 ### Upcoming Changes
 
 #### V1 - 99% Feature Parity with Gnome Disks (plus a few extras!)

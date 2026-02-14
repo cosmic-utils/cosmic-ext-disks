@@ -1,8 +1,82 @@
 # Justfile for COSMIC Disks development
 
-# Default recipe - show help
+# Default recipe - full development workflow
+# Builds, installs policies, starts service in background, and launches the UI
 default:
-    @just --list
+    #!/usr/bin/env bash
+    set -euo pipefail
+
+    echo "========================================"
+    echo "  COSMIC Disks Development Environment"
+    echo "========================================"
+    echo ""
+
+    # Step 1: Build workspace
+    echo "► Step 1/5: Building workspace..."
+    if ! cargo build --workspace; then
+        echo "✗ Build failed. Fix compilation errors and try again."
+        exit 1
+    fi
+    echo "✓ Build complete"
+    echo ""
+
+    # Step 2: Install development policies (requires sudo)
+    echo "► Step 2/5: Installing D-Bus and Polkit policies..."
+    if ! sudo -v; then
+        echo "✗ Sudo authentication required for policy installation."
+        echo "  Run 'sudo -v' first or ensure you have sudo privileges."
+        exit 1
+    fi
+    echo "  Installing D-Bus policy..."
+    if ! sudo install -Dm644 data/dbus-1/system.d/org.cosmic.ext.StorageService.conf /usr/share/dbus-1/system.d/; then
+        echo "✗ Failed to install D-Bus policy"
+        exit 1
+    fi
+    echo "  Installing Polkit policy..."
+    if ! sudo install -Dm644 data/polkit-1/actions/org.cosmic.ext.storage-service.policy /usr/share/polkit-1/actions/; then
+        echo "✗ Failed to install Polkit policy"
+        exit 1
+    fi
+    echo "  Reloading D-Bus configuration..."
+    sudo systemctl reload dbus || true
+    echo "✓ Policies installed"
+    echo ""
+
+    # Step 3: Stop any existing service
+    echo "► Step 3/5: Stopping any existing storage service..."
+    sudo pkill -f cosmic-storage-service || true
+    sleep 1
+    echo "✓ Service stopped (if was running)"
+    echo ""
+
+    # Step 4: Start service in background
+    echo "► Step 4/5: Starting storage service in background..."
+    sudo rm -f /tmp/cosmic-storage-service.log
+    sudo bash -c 'nohup env RUST_LOG=storage_service=info ./target/debug/cosmic-storage-service > /tmp/cosmic-storage-service.log 2>&1 &'
+    sleep 2
+    if ps aux | grep -q "[c]osmic-storage-service"; then
+        echo "✓ Service started (logs: /tmp/cosmic-storage-service.log)"
+    else
+        echo "✗ Service failed to start. Check logs: sudo cat /tmp/cosmic-storage-service.log"
+        exit 1
+    fi
+    echo ""
+
+    # Step 5: Launch the UI
+    echo "► Step 5/5: Launching COSMIC Disks UI..."
+    echo ""
+    echo "========================================"
+    echo "  Development environment ready!"
+    echo "  Service logs: /tmp/cosmic-storage-service.log"
+    echo "========================================"
+    echo ""
+    RUST_LOG=cosmic_ext_disks=debug,info,wgpu=warn,wgpu_core=warn,wgpu_hal=warn,naga=warn,iced_winit=warn,iced_wgpu=warn,i18n_embed=warn ./target/debug/cosmic-ext-disks
+
+    # Cleanup on exit
+    echo ""
+    echo "App exited. Stopping service..."
+    sudo pkill -f cosmic-storage-service || true
+    echo "Done."
 
 # Build all workspace crates
 build:
@@ -67,20 +141,16 @@ install-dev-policies: install-dbus-policy install-polkit-policy
     @echo "Development policies installed. Ready for testing!"
 
 # Start the storage service (for development)
-start-service:
+start-service: build
     #!/usr/bin/env bash
-    echo "Building workspace..."
-    cargo build --workspace
     echo "Starting storage service (requires root)..."
     sudo pkill -f cosmic-storage-service || true
     sudo RUST_LOG=storage_service=debug,info ./target/debug/cosmic-storage-service
 
 # Start the storage service in background
-start-service-bg:
+start-service-bg: build
     #!/usr/bin/env bash
     set -euo pipefail
-    echo "Building workspace..."
-    cargo build --workspace
     echo "Starting storage service in background (requires root)..."
     sudo -v
     sudo pkill -f cosmic-storage-service || true
@@ -103,19 +173,17 @@ stop-service:
     echo "Service stopped"
 
 # Start the COSMIC Disks UI
-start-app:
+start-app: build
     #!/usr/bin/env bash
-    echo "Building workspace..."
-    cargo build --workspace
     echo "Starting COSMIC Disks UI..."
-    RUST_LOG=cosmic_ext_disks=debug,info ./target/debug/cosmic-ext-disks
+    RUST_LOG=cosmic_ext_disks=debug,info,wgpu=warn,wgpu_core=warn,wgpu_hal=warn,naga=warn,iced_winit=warn,iced_wgpu=warn,i18n_embed=warn ./target/debug/cosmic-ext-disks
+
+
 
 # Development workflow: start service in background, then start app
-dev:
+dev: build
     #!/usr/bin/env bash
     set -euo pipefail
-    echo "Building workspace..."
-    cargo build --workspace
     echo "Starting storage service in background (requires root)..."
     sudo -v
     sudo pkill -f cosmic-storage-service || true
@@ -123,7 +191,7 @@ dev:
     sudo bash -c 'nohup env RUST_LOG=storage_service=info ./target/debug/cosmic-storage-service > /tmp/cosmic-storage-service.log 2>&1 &'
     sleep 2
     echo "Starting COSMIC Disks UI..."
-    RUST_LOG=cosmic_ext_disks=debug,info ./target/debug/cosmic-ext-disks
+    RUST_LOG=cosmic_ext_disks=debug,info,wgpu=warn,wgpu_core=warn,wgpu_hal=warn,naga=warn,iced_winit=warn,iced_wgpu=warn,i18n_embed=warn ./target/debug/cosmic-ext-disks
     echo ""
     echo "App exited. Stopping service..."
     sudo pkill -f cosmic-storage-service || true
@@ -132,7 +200,7 @@ dev:
 dev-clean: clean build start-service-bg
     @sleep 2
     @echo "Starting COSMIC Disks UI..."
-    @RUST_LOG=cosmic_ext_disks=debug,info ./target/debug/cosmic-ext-disks
+    @RUST_LOG=cosmic_ext_disks=debug,info,wgpu=warn,wgpu_core=warn,wgpu_hal=warn,naga=warn,iced_winit=warn,iced_wgpu=warn,i18n_embed=warn ./target/debug/cosmic-ext-disks
     @just stop-service
 
 # Test D-Bus interface using busctl
