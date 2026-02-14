@@ -9,7 +9,7 @@ use crate::SmartInfo;
 
 /// Helper function to extract a readable value from OwnedValue
 fn extract_owned_value(v: &zbus::zvariant::OwnedValue) -> String {
-    use zbus::zvariant::OwnedValue;
+    
     
     // Try to convert to common types directly
     if let Ok(s) = <&str>::try_from(v) {

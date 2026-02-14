@@ -6,7 +6,7 @@
 use std::path::Path;
 
 use anyhow::Result;
-use storage_models::{Usage, VolumeKind};
+use storage_models::VolumeKind;
 use udisks2::{
     block::BlockProxy,
     encrypted::EncryptedProxy,
@@ -47,7 +47,7 @@ pub(crate) async fn probe_basic_block(
         Some(device)
     };
     if device_path.is_none() {
-        let proposed = format!("/dev/{}", object_path.as_str().split('/').last().unwrap_or(""));
+        let proposed = format!("/dev/{}", object_path.as_str().split('/').next_back().unwrap_or(""));
         if Path::new(&proposed).exists() {
             device_path = Some(proposed);
         }
@@ -104,8 +104,8 @@ pub(crate) async fn from_block_object(
 
     if info.kind == VolumeKind::LvmPhysicalVolume || info.id_type == "LVM2_member" {
         info.kind = VolumeKind::LvmPhysicalVolume;
-        if let (Some(pv_device), Some(index)) = (info.device_path.as_deref(), block_index) {
-            if let Ok(lvs) = lvm::list_lvs_for_pv(pv_device) {
+        if let (Some(pv_device), Some(index)) = (info.device_path.as_deref(), block_index)
+            && let Ok(lvs) = lvm::list_lvs_for_pv(pv_device) {
                 let mut children = Vec::new();
                 for lv in lvs {
                     let lv_obj_path = match index.object_path_for_device(&lv.device_path) {
@@ -124,7 +124,6 @@ pub(crate) async fn from_block_object(
                 }
                 info.children = children;
             }
-        }
     }
 
     Ok(info)
@@ -183,13 +182,12 @@ pub(crate) async fn crypto_container_for_partition(
                 .path(&cleartext)?
                 .build()
                 .await
-            {
-                if let Ok(parts) = pt.partitions().await {
+                && let Ok(parts) = pt.partitions().await {
                     for part_path in parts {
                         let part_label = part_path
                             .as_str()
                             .split('/')
-                            .last()
+                            .next_back()
                             .unwrap_or("Partition")
                             .replace('_', " ");
                         if let Ok(child) = from_block_object(
@@ -206,7 +204,6 @@ pub(crate) async fn crypto_container_for_partition(
                         }
                     }
                 }
-            }
         }
 
         info.children.push(cleartext_info);

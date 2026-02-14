@@ -14,7 +14,7 @@ use zbus::Connection;
 use crate::dbus::bytestring as bs;
 use crate::disk::resolve;
 use crate::options::{
-    join_options, remove_prefixed, remove_token, set_prefixed_value, set_token_present,
+    join_options, remove_prefixed, remove_token, set_token_present,
     split_options, stable_dedup,
 };
 use crate::udisks_block_config::{ConfigurationItem, UDisks2BlockConfigurationProxy};
@@ -50,10 +50,10 @@ pub async fn get_encryption_options(device: &str) -> Result<Option<EncryptionOpt
 
     // Extract fields from crypttab entry
     let (_, dict) = crypttab_item;
-    let name_str = dict.get("name").and_then(|v| bs::owned_value_to_bytestring(v));
-    let opts_str = dict.get("options").and_then(|v| bs::owned_value_to_bytestring(v));
-    let _passphrase_path_str = dict.get("passphrase-path").and_then(|v| bs::owned_value_to_bytestring(v));
-    let _passphrase_contents_str = dict.get("passphrase-contents").and_then(|v| bs::owned_value_to_bytestring(v));
+    let name_str = dict.get("name").and_then(bs::owned_value_to_bytestring);
+    let opts_str = dict.get("options").and_then(bs::owned_value_to_bytestring);
+    let _passphrase_path_str = dict.get("passphrase-path").and_then(bs::owned_value_to_bytestring);
+    let _passphrase_contents_str = dict.get("passphrase-contents").and_then(bs::owned_value_to_bytestring);
 
     // Build EncryptionOptionsSettings from crypttab entry
     let settings = EncryptionOptionsSettings {

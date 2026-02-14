@@ -151,15 +151,14 @@ impl DiskManager {
         added: Option<String>,
         removed: Option<String>,
     ) -> Result<()> {
-        if let Some(removed_str) = removed {
-            if let Some(index) = drives
+        if let Some(removed_str) = removed
+            && let Some(index) = drives
                 .iter()
                 .position(|(d, _)| d.device == removed_str)
             {
                 drives.remove(index);
                 return Ok(());
             }
-        }
 
         if added.is_some() {
             *drives = discovery::get_disks_with_volumes().await?;

@@ -2,9 +2,7 @@
 
 //! LUKS device listing
 
-use storage_models::{LuksInfo, LuksVersion};
-use udisks2::{block::BlockProxy, encrypted::EncryptedProxy};
-use zbus::Connection;
+use storage_models::LuksInfo;
 use crate::error::DiskError;
 
 /// List all LUKS encrypted devices

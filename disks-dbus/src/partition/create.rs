@@ -15,7 +15,7 @@ pub async fn create_partition_table(
     disk_path: &str,
     table_type: &str,
 ) -> Result<(), DiskError> {
-    let connection = Connection::system().await
+    let _connection = Connection::system().await
         .map_err(|e| DiskError::ConnectionFailed(e.to_string()))?;
     
     // Use the new flat format_disk function from disk module

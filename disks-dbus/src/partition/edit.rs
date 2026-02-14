@@ -4,7 +4,7 @@
 
 use std::collections::HashMap;
 use enumflags2::BitFlags;
-use udisks2::partition::{PartitionFlags, PartitionProxy};
+use udisks2::partition::PartitionProxy;
 use zbus::{Connection, zvariant::{OwnedObjectPath, Value}};
 use crate::error::DiskError;
 

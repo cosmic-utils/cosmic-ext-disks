@@ -36,7 +36,7 @@ pub async fn open_for_restore_by_device(device: &str) -> Result<OwnedFd> {
 /// The service can then return the device path string directly to clients
 /// without parsing object paths.
 pub async fn loop_setup_device_path(image_path: &str) -> Result<String> {
-    use crate::disk::resolve;
+    
     let object_path = crate::image::loop_setup(image_path).await?;
     
     // Extract device name from object path: /org/freedesktop/UDisks2/block_devices/loop0 -> loop0

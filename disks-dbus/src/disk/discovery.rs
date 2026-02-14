@@ -80,11 +80,9 @@ async fn get_drive_paths(connection: &Connection) -> Result<Vec<DriveBlockPair>>
             .path(&path)?
             .build()
             .await
-        {
-            if partition_proxy.table().await.is_ok() {
+            && partition_proxy.table().await.is_ok() {
                 continue;
             }
-        }
 
         match block_device.drive().await {
             Ok(dp) if dp.as_str() != "/" => drive_paths.push(DriveBlockPair {
@@ -286,7 +284,7 @@ async fn build_volumes_for_block(
     {
         Ok(p) => p,
         Err(_) => {
-            let label = block_path.as_str().split('/').last().unwrap_or("Block").replace('_', " ");
+            let label = block_path.as_str().split('/').next_back().unwrap_or("Block").replace('_', " ");
             let info = volume_tree::from_block_object(
                 connection,
                 block_path.clone(),
@@ -425,8 +423,8 @@ async fn get_disks_with_volumes_inner() -> Result<Vec<(DiskInfo, Vec<VolumeInfo>
         let mut disk_info = disk_info;
         disk_info.partition_table_type = partition_table_type.clone();
 
-        if partition_table_type.as_deref() == Some("gpt") {
-            if let Ok(block_proxy) = BlockProxy::builder(&connection)
+        if partition_table_type.as_deref() == Some("gpt")
+            && let Ok(block_proxy) = BlockProxy::builder(&connection)
                 .path(&pair.block_path)?
                 .build()
                 .await
@@ -442,7 +440,6 @@ async fn get_disks_with_volumes_inner() -> Result<Vec<(DiskInfo, Vec<VolumeInfo>
                     }
                 }
             }
-        }
 
         let volumes = build_volumes_for_block(
             &connection,
@@ -519,11 +516,10 @@ pub async fn get_disk_info_for_drive_path(drive_path: &str) -> Result<DiskInfo> 
             .path(&block_path)?
             .build()
             .await?;
-        if let Ok(d) = block_proxy.drive().await {
-            if d.as_str() == drive_path {
+        if let Ok(d) = block_proxy.drive().await
+            && d.as_str() == drive_path {
                 return build_disk_info(&connection, Some(&d), &block_path, None).await;
             }
-        }
     }
     Err(anyhow::anyhow!(
         "No block device found for drive: {}",

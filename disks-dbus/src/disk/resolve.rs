@@ -61,13 +61,11 @@ pub(crate) async fn block_object_path_for_device(device: &str) -> Result<OwnedOb
         if block_device == device {
             return Ok(obj.clone());
         }
-        if let Some(ref canon) = device_canon {
-            if let Some(block_canon) = canonicalize_best_effort(&block_device) {
-                if block_canon == *canon {
+        if let Some(ref canon) = device_canon
+            && let Some(block_canon) = canonicalize_best_effort(&block_device)
+                && block_canon == *canon {
                     return Ok(obj.clone());
                 }
-            }
-        }
     }
 
     Err(DiskError::DeviceNotFound(device.to_string()))
