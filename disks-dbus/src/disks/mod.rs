@@ -3,11 +3,11 @@ mod drive;
 mod gpt;
 pub mod image;
 mod lvm;
-mod manager;
+pub mod manager;
 mod ops;
 mod process_finder;
 mod smart;
-mod volume;
+pub mod volume;
 mod volume_model;
 
 pub use btrfs_native::{BtrfsFilesystem, BtrfsSubvolume};
