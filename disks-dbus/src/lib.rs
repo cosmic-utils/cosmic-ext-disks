@@ -25,9 +25,12 @@ pub use disks::{
     DiskError, DiskManager, DriveModel, EncryptionOptionsSettings, GPT_ALIGNMENT_BYTES,
     MountOptionsSettings, SmartInfo, SmartSelfTestKind, VolumeKind,
     VolumeModel, VolumeNode, VolumeType, fallback_gpt_usable_range_bytes,
-    find_processes_using_mount, kill_processes, list_lvs_for_pv, loop_setup, mount_filesystem,
+    find_processes_using_mount, kill_processes, list_lvs_for_pv,
     probe_gpt_usable_range_bytes,
 };
+
+// Explicit exports from disks::image submodule
+pub use disks::image::{loop_setup, mount_filesystem, open_for_backup, open_for_restore};
 
 // Explicit exports from format module
 pub use format::{bytes_to_pretty, get_numeric, get_step, pretty_to_bytes};

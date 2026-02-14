@@ -78,6 +78,57 @@
     </defaults>
   </action>
 
+  <!-- Disk Imaging Operations -->
+  <action id="org.cosmic.ext.storage-service.disk-backup">
+    <description>Backup entire disk to image file</description>
+    <message>Authentication is required to create disk backups</message>
+    <defaults>
+      <allow_any>auth_admin</allow_any>
+      <allow_inactive>auth_admin</allow_inactive>
+      <allow_active>auth_admin_keep</allow_active>  <!-- Auth once, remember for session -->
+    </defaults>
+  </action>
+
+  <action id="org.cosmic.ext.storage-service.disk-restore">
+    <description>Restore entire disk from image file</description>
+    <message>Authentication is required to restore disk images (DESTRUCTIVE operation)</message>
+    <defaults>
+      <allow_any>auth_admin</allow_any>
+      <allow_inactive>auth_admin</allow_inactive>
+      <allow_active>auth_admin</allow_active>  <!-- Always prompt - very destructive -->
+    </defaults>
+  </action>
+
+  <action id="org.cosmic.ext.storage-service.partition-backup">
+    <description>Backup partition to image file</description>
+    <message>Authentication is required to create partition backups</message>
+    <defaults>
+      <allow_any>auth_admin</allow_any>
+      <allow_inactive>auth_admin</allow_inactive>
+      <allow_active>auth_admin_keep</allow_active>  <!-- Auth once, remember for session -->
+    </defaults>
+  </action>
+
+  <action id="org.cosmic.ext.storage-service.partition-restore">
+    <description>Restore partition from image file</description>
+    <message>Authentication is required to restore partition images (DESTRUCTIVE operation)</message>
+    <defaults>
+      <allow_any>auth_admin</allow_any>
+      <allow_inactive>auth_admin</allow_inactive>
+      <allow_active>auth_admin</allow_active>  <!-- Always prompt - very destructive -->
+    </defaults>
+  </action>
+
+  <action id="org.cosmic.ext.storage-service.disk-loop-setup">
+    <description>Mount image files as loop devices</description>
+    <message>Authentication is required to mount image files</message>
+    <defaults>
+      <allow_any>no</allow_any>
+      <allow_inactive>no</allow_inactive>
+      <allow_active>yes</allow_active>  <!-- No auth for mounting images read-only -->
+    </defaults>
+  </action>
+
   <!-- BTRFS Read Operations -->
   <action id="org.cosmic.ext.storage-service.btrfs-read">
     <description>Read BTRFS filesystem information</description>

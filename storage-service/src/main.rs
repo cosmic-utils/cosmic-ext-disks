@@ -15,6 +15,7 @@ mod conversions;
 mod disks;
 mod error;
 mod filesystems;
+mod image;
 mod luks;
 mod lvm;
 mod partitions;
@@ -23,6 +24,7 @@ mod service;
 use btrfs::BtrfsHandler;
 use disks::DisksHandler;
 use filesystems::FilesystemsHandler;
+use image::ImageHandler;
 use luks::LuksHandler;
 use lvm::LVMHandler;
 use partitions::PartitionsHandler;
@@ -72,6 +74,10 @@ async fn main() -> Result<()> {
             "/org/cosmic/ext/StorageService/luks",
             LuksHandler::new(),
         )?
+        .serve_at(
+            "/org/cosmic/ext/StorageService/image",
+            ImageHandler::new(),
+        )?
         .build()
         .await?;
     
@@ -83,6 +89,7 @@ async fn main() -> Result<()> {
     tracing::info!("  - Partitions interface at /org/cosmic/ext/StorageService/partitions");
     tracing::info!("  - LVM interface at /org/cosmic/ext/StorageService/lvm");
     tracing::info!("  - LUKS interface at /org/cosmic/ext/StorageService/luks");
+    tracing::info!("  - Image interface at /org/cosmic/ext/StorageService/image");
     
     // Start disk hotplug monitoring
     disks::monitor_hotplug_events(
