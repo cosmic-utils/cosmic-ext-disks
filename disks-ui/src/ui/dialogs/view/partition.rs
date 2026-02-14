@@ -14,7 +14,7 @@ use cosmic::{
     widget::text::caption,
     widget::{button, checkbox, container, dialog, divider, dropdown, slider, text, text_input},
 };
-use disks_dbus::{COMMON_DOS_TYPES, COMMON_GPT_TYPES, PartitionTypeInfo, bytes_to_pretty};
+use storage_models::{COMMON_DOS_TYPES, COMMON_GPT_TYPES, PartitionTypeInfo, bytes_to_pretty};
 
 pub fn create_partition<'a>(state: CreatePartitionDialog) -> Element<'a, Message> {
     let running = state.running;
@@ -64,7 +64,7 @@ pub fn create_partition<'a>(state: CreatePartitionDialog) -> Element<'a, Message
         format!("{:.1}", free_in_unit)
     };
 
-    let step = disks_dbus::get_step(&create.size);
+    let step = storage_models::get_step(&create.size);
     let current_size = create.size; // Capture for closure
     let max_size = create.max_size; // Capture for closure
 
@@ -445,7 +445,7 @@ pub fn resize_partition<'a>(state: ResizePartitionDialog) -> Element<'a, Message
     let min = min_size_bytes as f64;
     let max = max_size_bytes as f64;
     let value = new_size_bytes as f64;
-    let step = disks_dbus::get_step(&new_size_bytes);
+    let step = storage_models::get_step(&new_size_bytes);
 
     let min_pretty = bytes_to_pretty(&min_size_bytes, false);
     let max_pretty = bytes_to_pretty(&max_size_bytes, false);

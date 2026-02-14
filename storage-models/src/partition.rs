@@ -65,8 +65,8 @@ pub struct PartitionInfo {
     /// Partition number (1-based)
     pub number: u32,
     
-    /// Parent disk device (e.g., "/dev/sda")
-    pub parent_device: String,
+    /// Parent disk device path (e.g., "/dev/sda")
+    pub parent_path: String,
     
     /// Size in bytes
     pub size: u64,

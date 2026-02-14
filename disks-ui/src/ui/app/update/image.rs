@@ -2,10 +2,10 @@ mod dialogs;
 mod ops;
 
 use crate::fl;
+use crate::models::UiDrive;
 use crate::ui::dialogs::state::{ImageOperationDialog, ImageOperationKind, ShowDialog};
 use crate::ui::volumes::VolumesControl;
 use cosmic::app::Task;
-use disks_dbus::DriveModel;
 
 use crate::ui::app::message::Message;
 use crate::ui::app::state::AppModel;
@@ -40,7 +40,7 @@ pub(super) fn image_operation_dialog(
 }
 
 pub(super) fn create_disk_from(app: &mut AppModel) -> Task<Message> {
-    let Some(drive) = app.nav.active_data::<DriveModel>().cloned() else {
+    let Some(drive) = app.nav.active_data::<UiDrive>().cloned() else {
         return Task::none();
     };
 
@@ -60,7 +60,7 @@ pub(super) fn create_disk_from(app: &mut AppModel) -> Task<Message> {
 }
 
 pub(super) fn restore_image_to(app: &mut AppModel) -> Task<Message> {
-    let Some(drive) = app.nav.active_data::<DriveModel>().cloned() else {
+    let Some(drive) = app.nav.active_data::<UiDrive>().cloned() else {
         return Task::none();
     };
 
@@ -80,7 +80,7 @@ pub(super) fn restore_image_to(app: &mut AppModel) -> Task<Message> {
 }
 
 pub(super) fn create_disk_from_partition(app: &mut AppModel) -> Task<Message> {
-    let Some(drive) = app.nav.active_data::<DriveModel>().cloned() else {
+    let Some(drive) = app.nav.active_data::<UiDrive>().cloned() else {
         return Task::none();
     };
 
@@ -121,7 +121,7 @@ pub(super) fn create_disk_from_partition(app: &mut AppModel) -> Task<Message> {
 }
 
 pub(super) fn restore_image_to_partition(app: &mut AppModel) -> Task<Message> {
-    let Some(drive) = app.nav.active_data::<DriveModel>().cloned() else {
+    let Some(drive) = app.nav.active_data::<UiDrive>().cloned() else {
         return Task::none();
     };
 

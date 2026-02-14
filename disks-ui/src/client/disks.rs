@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 
 use zbus::{proxy, Connection};
-use storage_models::{DiskInfo, SmartStatus, SmartAttribute};
+use storage_models::{DiskInfo, SmartStatus, SmartAttribute, VolumeInfo};
 use crate::client::error::ClientError;
 
 /// D-Bus proxy interface for disk discovery and SMART operations
@@ -16,6 +16,12 @@ trait DisksInterface {
     
     /// Get detailed information about a specific disk
     async fn get_disk_info(&self, device: &str) -> zbus::Result<String>;
+    
+    /// List all volumes across all disks with parent_path references
+    async fn list_volumes(&self) -> zbus::Result<String>;
+    
+    /// Get information about a specific volume
+    async fn get_volume_info(&self, device: &str) -> zbus::Result<String>;
     
     /// Get SMART status for a disk
     async fn get_smart_status(&self, device: &str) -> zbus::Result<String>;
@@ -59,6 +65,12 @@ pub struct DisksClient {
     proxy: DisksInterfaceProxy<'static>,
 }
 
+impl std::fmt::Debug for DisksClient {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("DisksClient").finish_non_exhaustive()
+    }
+}
+
 impl DisksClient {
     /// Create a new disks client connected to the storage service
     pub async fn new() -> Result<Self, ClientError> {
@@ -87,6 +99,26 @@ impl DisksClient {
         let disk: DiskInfo = serde_json::from_str(&json)
             .map_err(|e| ClientError::ParseError(format!("Failed to parse disk info: {}", e)))?;
         Ok(disk)
+    }
+    
+    /// List all volumes across all disks
+    /// 
+    /// Returns a flat list of all volumes with parent_path populated for building hierarchies.
+    pub async fn list_volumes(&self) -> Result<Vec<VolumeInfo>, ClientError> {
+        let json = self.proxy.list_volumes().await?;
+        let volumes: Vec<VolumeInfo> = serde_json::from_str(&json)
+            .map_err(|e| ClientError::ParseError(format!("Failed to parse volume list: {}", e)))?;
+        Ok(volumes)
+    }
+    
+    /// Get information about a specific volume
+    /// 
+    /// This supports atomic updates - query a single volume instead of refreshing the entire list.
+    pub async fn get_volume_info(&self, device: &str) -> Result<VolumeInfo, ClientError> {
+        let json = self.proxy.get_volume_info(device).await?;
+        let volume: VolumeInfo = serde_json::from_str(&json)
+            .map_err(|e| ClientError::ParseError(format!("Failed to parse volume info: {}", e)))?;
+        Ok(volume)
     }
     
     /// Get SMART status for a disk

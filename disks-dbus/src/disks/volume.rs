@@ -648,6 +648,7 @@ impl From<VolumeNode> for storage_models::VolumeInfo {
             size: node.size,
             id_type: node.id_type,
             device_path: node.device_path,
+            parent_path: None, // TODO: Populate when building hierarchy
             has_filesystem: node.has_filesystem,
             mount_points: node.mount_points,
             usage: node.usage,

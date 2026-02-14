@@ -13,8 +13,7 @@ use crate::app::Message;
 use crate::fl;
 use crate::ui::volumes::helpers;
 use crate::utils::DiskSegmentKind;
-use disks_dbus::bytes_to_pretty;
-use disks_dbus::{VolumeKind, VolumeNode};
+use storage_models::{bytes_to_pretty, VolumeKind};
 
 use super::{Segment, ToggleState, VolumesControl, VolumesControlMessage};
 
@@ -86,11 +85,11 @@ impl VolumesControl {
                 let container_volume = segment
                     .volume
                     .as_ref()
-                    .and_then(|p| helpers::find_volume_node_for_partition(&self.model.volumes, p))
-                    .filter(|v| v.kind == VolumeKind::CryptoContainer);
+                    .and_then(|p| helpers::find_volume_for_partition(&self.volumes, p))
+                    .filter(|v| v.volume.kind == VolumeKind::CryptoContainer);
 
                 if let Some(v) = container_volume {
-                    let state_text = if v.locked {
+                    let state_text = if v.volume.locked {
                         fl!("locked")
                     } else {
                         fl!("unlocked")
@@ -122,7 +121,7 @@ impl VolumesControl {
                     })
                     .height(Length::FillPortion(1));
 
-                    let bottom_content: Element<Message> = if v.locked {
+                    let bottom_content: Element<Message> = if v.volume.locked {
                         // No children while locked.
                         container(
                             iced_widget::column![caption(fl!("locked")).center()]
@@ -223,15 +222,15 @@ impl VolumesControl {
 
 fn volume_row_compact<'a>(
     segment_index: usize,
-    parent: &VolumeNode,
-    children: &'a [VolumeNode],
+    parent: &UiVolume,
+    children: &'a [UiVolume],
     selected_volume: Option<&str>,
 ) -> Element<'a, Message> {
     let total = parent.size.max(1);
     let mut buttons: Vec<Element<Message>> = Vec::new();
 
     for child in children {
-        let child_object_path = child.object_path.to_string();
+        let child_object_path = child.object_path().unwrap_or_default();
         let denom = total;
         let width = (((child.size as f64 / denom as f64) * 1000.).log10().ceil() as u16).max(1);
 

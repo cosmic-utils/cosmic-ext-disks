@@ -1,4 +1,4 @@
-use disks_dbus::BtrfsSubvolume;
+use storage_models::BtrfsSubvolume;
 
 /// Messages for BTRFS management operations
 #[allow(dead_code)]

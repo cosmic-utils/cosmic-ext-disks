@@ -1,11 +1,11 @@
 use crate::fl;
+use crate::models::load_all_drives;
 use crate::ui::dialogs::message::{
     AttachDiskImageDialogMessage, AttachDiskResult, ImageOperationDialogMessage,
     NewDiskImageDialogMessage,
 };
 use crate::ui::dialogs::state::{AttachDiskImageDialog, NewDiskImageDialog, ShowDialog};
 use cosmic::app::Task;
-use disks_dbus::DriveModel;
 use std::sync::{
     Arc,
     atomic::{AtomicBool, Ordering},
@@ -166,7 +166,7 @@ pub(super) fn attach_disk_image_dialog(
                     });
 
                     return Task::perform(
-                        async { DriveModel::get_drives().await.ok() },
+                        async { load_all_drives().await.ok() },
                         |drives| match drives {
                             None => Message::None.into(),
                             Some(drives) => Message::UpdateNav(drives, None).into(),
@@ -247,7 +247,7 @@ pub(super) fn image_operation_dialog(
                     });
 
                     return Task::perform(
-                        async { DriveModel::get_drives().await.ok() },
+                        async { load_all_drives().await.ok() },
                         |drives| match drives {
                             None => Message::None.into(),
                             Some(drives) => Message::UpdateNav(drives, None).into(),

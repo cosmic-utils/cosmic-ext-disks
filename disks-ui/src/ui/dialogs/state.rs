@@ -1,6 +1,5 @@
-use disks_dbus::{
-    CreatePartitionInfo, DriveModel, PartitionTypeInfo, ProcessInfo, VolumeModel, VolumeNode,
-};
+use storage_models::{CreatePartitionInfo, PartitionTypeInfo, ProcessInfo, VolumeInfo};
+use crate::models::{UiDrive, UiVolume};
 
 #[derive(Debug, Clone)]
 pub enum ShowDialog {
@@ -33,14 +32,14 @@ pub enum ShowDialog {
 
 #[derive(Debug, Clone)]
 pub struct FormatPartitionDialog {
-    pub volume: VolumeModel,
+    pub volume: VolumeInfo,
     pub info: CreatePartitionInfo,
     pub running: bool,
 }
 
 #[derive(Debug, Clone)]
 pub struct EditPartitionDialog {
-    pub volume: VolumeModel,
+    pub volume: VolumeInfo,
     pub partition_types: Vec<PartitionTypeInfo>,
     pub selected_type_index: usize,
     pub name: String,
@@ -52,7 +51,7 @@ pub struct EditPartitionDialog {
 
 #[derive(Debug, Clone)]
 pub struct ResizePartitionDialog {
-    pub volume: VolumeModel,
+    pub volume: VolumeInfo,
     pub min_size_bytes: u64,
     pub max_size_bytes: u64,
     pub new_size_bytes: u64,
@@ -61,8 +60,8 @@ pub struct ResizePartitionDialog {
 
 #[derive(Debug, Clone)]
 pub enum FilesystemTarget {
-    Volume(VolumeModel),
-    Node(VolumeNode),
+    Volume(VolumeInfo),
+    Node(UiVolume),
 }
 
 #[derive(Debug, Clone)]
@@ -90,7 +89,7 @@ pub struct TakeOwnershipDialog {
 
 #[derive(Debug, Clone)]
 pub struct ChangePassphraseDialog {
-    pub volume: VolumeModel,
+    pub volume: VolumeInfo,
     pub current_passphrase: String,
     pub new_passphrase: String,
     pub confirm_passphrase: String,
@@ -119,7 +118,7 @@ pub struct EditMountOptionsDialog {
 
 #[derive(Debug, Clone)]
 pub struct EditEncryptionOptionsDialog {
-    pub volume: VolumeModel,
+    pub volume: VolumeInfo,
     pub use_defaults: bool,
     pub unlock_at_startup: bool,
     pub require_auth: bool,
@@ -157,8 +156,8 @@ pub enum ImageOperationKind {
 #[derive(Debug, Clone)]
 pub struct ImageOperationDialog {
     pub kind: ImageOperationKind,
-    pub drive: DriveModel,
-    pub partition: Option<VolumeModel>,
+    pub drive: UiDrive,
+    pub partition: Option<VolumeInfo>,
     pub image_path: String,
     pub running: bool,
     pub error: Option<String>,
@@ -166,7 +165,7 @@ pub struct ImageOperationDialog {
 
 #[derive(Debug, Clone)]
 pub struct SmartDataDialog {
-    pub drive: DriveModel,
+    pub drive: UiDrive,
     pub running: bool,
     pub info: Option<disks_dbus::SmartInfo>,
     pub error: Option<String>,
@@ -187,7 +186,7 @@ pub struct CreatePartitionDialog {
 
 #[derive(Debug, Clone)]
 pub struct FormatDiskDialog {
-    pub drive: DriveModel,
+    pub drive: UiDrive,
     pub erase_index: usize,
     pub partitioning_index: usize,
     pub running: bool,
@@ -207,7 +206,7 @@ pub struct UnmountBusyDialog {
     pub device: String,
     pub mount_point: String,
     pub processes: Vec<ProcessInfo>,
-    pub object_path: String,
+    pub device_path: String,
 }
 
 #[derive(Debug, Clone)]
@@ -223,7 +222,7 @@ pub struct BtrfsCreateSubvolumeDialog {
 pub struct BtrfsCreateSnapshotDialog {
     pub mount_point: String,
     pub block_path: String,
-    pub subvolumes: Vec<disks_dbus::BtrfsSubvolume>,
+    pub subvolumes: Vec<storage_models::BtrfsSubvolume>,
     pub selected_source_index: usize,
     pub snapshot_name: String,
     pub read_only: bool,

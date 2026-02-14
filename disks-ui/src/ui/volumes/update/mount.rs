@@ -1,10 +1,11 @@
+use crate::models::load_all_drives;
 use cosmic::Task;
 use std::future::Future;
 
 use crate::app::Message;
+use crate::client::FilesystemsClient;
 use crate::ui::dialogs::state::{ShowDialog, UnmountBusyDialog};
 use crate::ui::volumes::helpers;
-use disks_dbus::{DiskError, DriveModel};
 
 use crate::ui::volumes::VolumesControl;
 
@@ -21,7 +22,7 @@ where
     Task::perform(
         async move {
             operation().await?;
-            DriveModel::get_drives().await
+            load_all_drives().await
         },
         move |result| match result {
             Ok(drives) => {
@@ -45,23 +46,29 @@ pub(super) fn mount(control: &mut VolumesControl) -> Task<cosmic::Action<Message
         return Task::none();
     };
 
-    let object_path = volume.path.to_string();
+    let device = volume.device_path.clone().unwrap_or_else(|| volume.label.clone());
+    let device_path_for_selection = device.clone();
+    
     perform_volume_operation(
-        || async move { volume.mount().await },
+        || async move { 
+            let client = FilesystemsClient::new().await?;
+            client.mount(&device, "", None).await?;
+            Ok(())
+        },
         "mount",
-        Some(object_path),
+        Some(device_path_for_selection),
     )
 }
 
 // Helper enum to distinguish busy errors from generic errors
 #[derive(Debug)]
 enum UnmountResult {
-    Success(Vec<disks_dbus::DriveModel>),
+    Success(Vec<crate::models::UiDrive>),
     Busy {
         device: String,
         mount_point: String,
-        processes: Vec<disks_dbus::ProcessInfo>,
-        object_path: String,
+        processes: Vec<storage_models::ProcessInfo>,
+        device_path: String,
     },
     GenericError,
 }
@@ -78,78 +85,73 @@ pub(super) fn unmount(control: &mut VolumesControl) -> Task<cosmic::Action<Messa
     let device = volume
         .device_path
         .clone()
-        .unwrap_or_else(|| volume.path.to_string());
+        .unwrap_or_else(|| volume.label.clone());
     let mount_point = volume.mount_points.first().cloned();
-    let object_path = volume.path.to_string();
-    let object_path_for_retry = object_path.clone();
+    let device_path = volume.device_path.clone().unwrap_or_else(|| volume.label.clone());
+    let device_path_for_retry = device_path.clone();
 
     Task::perform(
         async move {
-            match volume.unmount().await {
-                Ok(()) => {
-                    // Success - reload drives
-                    match DriveModel::get_drives().await {
-                        Ok(drives) => UnmountResult::Success(drives),
-                        Err(e) => {
-                            tracing::error!(?e, "Failed to reload drives");
-                            UnmountResult::GenericError
-                        }
-                    }
-                }
+            let client = match FilesystemsClient::new().await {
+                Ok(c) => c,
                 Err(e) => {
-                    // Check if it's a ResourceBusy error
-                    if let Some(disk_err) = e.downcast_ref::<DiskError>()
-                        && matches!(disk_err, DiskError::ResourceBusy { .. })
-                    {
-                        // Check if we have a mount point - can't find processes without it
-                        if let Some(mp) = mount_point {
-                            if !mp.trim().is_empty() {
-                                // Find processes using the mount point
-                                match disks_dbus::find_processes_using_mount(&mp).await {
-                                    Ok(processes) => {
-                                        return UnmountResult::Busy {
-                                            device,
-                                            mount_point: mp,
-                                            processes,
-                                            object_path: object_path_for_retry,
-                                        };
-                                    }
-                                    Err(find_err) => {
-                                        tracing::warn!(
-                                            ?find_err,
-                                            "Failed to find processes using mount"
-                                        );
-                                    }
-                                }
-                            } else {
-                                tracing::warn!("Mount point is empty, cannot find processes");
-                            }
-                        } else {
-                            tracing::warn!("No mount point available, cannot find processes");
-                        }
-                    }
-                    // Generic error - log and continue
-                    tracing::error!(?e, "unmount failed");
-                    UnmountResult::GenericError
+                    tracing::error!(?e, "Failed to create client");
+                    return UnmountResult::GenericError;
                 }
+            };
+            
+            let unmount_result = match client.unmount(&device, false, false).await {
+                Ok(r) => r,
+                Err(e) => {
+                    tracing::error!(?e, "Failed to unmount");
+                    return UnmountResult::GenericError;
+                }
+            };
+            
+            if unmount_result.success {
+                // Success - reload drives
+                match load_all_drives().await {
+                    Ok(drives) => UnmountResult::Success(drives),
+                    Err(e) => {
+                        tracing::error!(?e, "Failed to reload drives");
+                        UnmountResult::GenericError
+                    }
+                }
+            } else if !unmount_result.blocking_processes.is_empty() {
+                // Device is busy with processes
+                let mp = mount_point.unwrap_or_default();
+                UnmountResult::Busy {
+                    device,
+                    mount_point: mp,
+                    processes: unmount_result.blocking_processes,
+                    device_path: device_path_for_retry,
+                }
+            } else {
+                // Generic error
+                if let Some(err) = unmount_result.error {
+                    tracing::error!("unmount failed: {}", err);
+                } else {
+                    tracing::error!("unmount failed with unknown error");
+                }
+                UnmountResult::GenericError
             }
         },
         move |result| match result {
             UnmountResult::Success(drives) => {
-                Message::UpdateNavWithChildSelection(drives, Some(object_path.clone())).into()
+                Message::UpdateNavWithChildSelection(drives, Some(device_path.clone())).into()
             }
             UnmountResult::Busy {
                 device,
                 mount_point,
                 processes,
-                object_path,
+                device_path,
             } => {
                 // Show busy dialog
                 Message::Dialog(Box::new(ShowDialog::UnmountBusy(UnmountBusyDialog {
                     device,
                     mount_point,
                     processes,
-                    object_path,
+                    device_path,
                 })))
                 .into()
             }
@@ -163,107 +165,111 @@ pub(super) fn unmount(control: &mut VolumesControl) -> Task<cosmic::Action<Messa
 
 pub(super) fn child_mount(
     control: &mut VolumesControl,
-    object_path: String,
+    device_path: String,
 ) -> Task<cosmic::Action<Message>> {
-    let Some(node) = helpers::find_volume_node(&control.model.volumes, &object_path).cloned()
+    let Some(node) = helpers::find_volume_in_ui_tree(&control.volumes, &device_path).cloned()
     else {
         return Task::none();
     };
 
-    let object_path_for_selection = object_path.clone();
+    let device = node.volume.device_path.clone().unwrap_or_else(|| device_path.clone());
+    let device_path_for_selection = device_path.clone();
+    
     perform_volume_operation(
-        || async move { node.mount().await },
+        || async move {
+            let client = FilesystemsClient::new().await
+                .map_err(|e| anyhow::anyhow!("Failed to create client: {}", e))?;
+            let _mount_point = client.mount(&device, "", None).await
+                .map_err(|e| anyhow::anyhow!("Failed to mount: {}", e))?;
+            Ok(())
+        },
         "child mount",
-        Some(object_path_for_selection),
+        Some(device_path_for_selection),
     )
 }
 
 pub(super) fn child_unmount(
     control: &mut VolumesControl,
-    object_path: String,
+    device_path: String,
 ) -> Task<cosmic::Action<Message>> {
-    let Some(node) = helpers::find_volume_node(&control.model.volumes, &object_path).cloned()
+    let Some(node) = helpers::find_volume_in_ui_tree(&control.volumes, &device_path).cloned()
     else {
         return Task::none();
     };
 
     let device = node
+        .volume
         .device_path
         .clone()
-        .unwrap_or_else(|| node.object_path.to_string());
-    let mount_point = node.mount_points.first().cloned();
-    let object_path_for_selection = object_path.clone();
-    let object_path_for_retry = object_path.clone();
+        .unwrap_or_else(|| device_path.clone());
+    let mount_point = node.volume.mount_points.first().cloned();
+    let device_path_for_selection = device_path.clone();
+    let device_path_for_retry = device_path.clone();
 
     Task::perform(
         async move {
-            match node.unmount().await {
-                Ok(()) => {
-                    // Success - reload drives
-                    match DriveModel::get_drives().await {
-                        Ok(drives) => UnmountResult::Success(drives),
-                        Err(e) => {
-                            tracing::error!(?e, "Failed to reload drives");
-                            UnmountResult::GenericError
-                        }
-                    }
-                }
+            let client = match FilesystemsClient::new().await {
+                Ok(c) => c,
                 Err(e) => {
-                    // Check if it's a ResourceBusy error
-                    if let Some(disk_err) = e.downcast_ref::<DiskError>()
-                        && matches!(disk_err, DiskError::ResourceBusy { .. })
-                    {
-                        // Check if we have a mount point - can't find processes without it
-                        if let Some(mp) = mount_point {
-                            if !mp.trim().is_empty() {
-                                // Find processes using the mount point
-                                match disks_dbus::find_processes_using_mount(&mp).await {
-                                    Ok(processes) => {
-                                        return UnmountResult::Busy {
-                                            device,
-                                            mount_point: mp,
-                                            processes,
-                                            object_path: object_path_for_retry,
-                                        };
-                                    }
-                                    Err(find_err) => {
-                                        tracing::warn!(
-                                            ?find_err,
-                                            "Failed to find processes using mount"
-                                        );
-                                    }
-                                }
-                            } else {
-                                tracing::warn!("Mount point is empty, cannot find processes");
-                            }
-                        } else {
-                            tracing::warn!("No mount point available, cannot find processes");
-                        }
-                    }
-                    // Generic error - log and continue
-                    tracing::error!(?e, "child unmount failed");
-                    UnmountResult::GenericError
+                    tracing::error!(?e, "Failed to create client");
+                    return UnmountResult::GenericError;
                 }
+            };
+            
+            let unmount_result = match client.unmount(&device, false, false).await {
+                Ok(r) => r,
+                Err(e) => {
+                    tracing::error!(?e, "Failed to unmount");
+                    return UnmountResult::GenericError;
+                }
+            };
+            
+            if unmount_result.success {
+                // Success - reload drives
+                match load_all_drives().await {
+                    Ok(drives) => UnmountResult::Success(drives),
+                    Err(e) => {
+                        tracing::error!(?e, "Failed to reload drives");
+                        UnmountResult::GenericError
+                    }
+                }
+            } else if !unmount_result.blocking_processes.is_empty() {
+                // Device is busy with processes
+                let mp = mount_point.unwrap_or_default();
+                UnmountResult::Busy {
+                    device,
+                    mount_point: mp,
+                    processes: unmount_result.blocking_processes,
+                    device_path: device_path_for_retry,
+                }
+            } else {
+                // Generic error
+                if let Some(err) = unmount_result.error {
+                    tracing::error!("child unmount failed: {}", err);
+                } else {
+                    tracing::error!("child unmount failed with unknown error");
+                }
+                UnmountResult::GenericError
             }
         },
         move |result| match result {
             UnmountResult::Success(drives) => Message::UpdateNavWithChildSelection(
                 drives,
-                Some(object_path_for_selection.clone()),
+                Some(device_path_for_selection.clone()),
             )
             .into(),
             UnmountResult::Busy {
                 device,
                 mount_point,
                 processes,
-                object_path,
+                device_path,
             } => {
                 // Show busy dialog
                 Message::Dialog(Box::new(ShowDialog::UnmountBusy(UnmountBusyDialog {
                     device,
                     mount_point,
                     processes,
-                    object_path,
+                    device_path,
                 })))
                 .into()
             }

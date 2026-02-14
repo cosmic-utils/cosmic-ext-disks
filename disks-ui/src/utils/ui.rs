@@ -1,4 +1,4 @@
-use disks_dbus::pretty_to_bytes;
+use storage_models::pretty_to_bytes;
 use std::borrow::Cow;
 
 use cosmic::{

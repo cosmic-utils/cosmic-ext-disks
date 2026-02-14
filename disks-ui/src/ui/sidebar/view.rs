@@ -1,10 +1,11 @@
 use crate::app::Message;
+use crate::models::{UiDrive, UiVolume};
 use crate::ui::sidebar::state::{SidebarNodeKey, SidebarState};
 use cosmic::cosmic_theme::palette::WithAlpha;
 use cosmic::iced::Length;
 use cosmic::widget::{self, icon};
 use cosmic::{Apply, Element};
-use disks_dbus::{DriveModel, VolumeKind, VolumeNode};
+use storage_models::VolumeKind;
 
 /// Fixed width for expander button (icon 16px + padding 2px * 2)
 const EXPANDER_WIDTH: u16 = 20;
@@ -28,12 +29,12 @@ impl Section {
     }
 }
 
-fn section_for_drive(drive: &DriveModel) -> Section {
-    if drive.is_loop || drive.backing_file.is_some() {
+fn section_for_drive(drive: &UiDrive) -> Section {
+    if drive.disk.is_loop || drive.disk.backing_file.is_some() {
         return Section::Images;
     }
 
-    if drive.removable {
+    if drive.disk.removable {
         return Section::External;
     }
 
@@ -59,8 +60,8 @@ fn expander_icon(expanded: bool) -> &'static str {
     }
 }
 
-fn drive_title(drive: &DriveModel) -> String {
-    if let Some(path) = drive.backing_file.as_deref()
+fn drive_title(drive: &UiDrive) -> String {
+    if let Some(path) = drive.disk.backing_file.as_deref()
         && !path.trim().is_empty()
         && let Some(name) = path.rsplit('/').next()
         && !name.trim().is_empty()
@@ -68,11 +69,11 @@ fn drive_title(drive: &DriveModel) -> String {
         return name.to_string();
     }
 
-    let vendor = drive.vendor.trim();
-    let model = drive.model.trim();
+    let vendor = drive.disk.vendor.trim();
+    let model = drive.disk.model.trim();
 
     if vendor.is_empty() && model.is_empty() {
-        return drive.name();
+        return drive.disk.display_name();
     }
 
     if vendor.is_empty() {
@@ -174,12 +175,12 @@ fn row_container<'a>(
 
 fn drive_row(
     sidebar: &SidebarState,
-    drive: &DriveModel,
+    drive: &UiDrive,
     active_drive: Option<&str>,
     controls_enabled: bool,
 ) -> Element<'static, Message> {
-    let key = SidebarNodeKey::Drive(drive.block_path.clone());
-    let selected = active_drive.is_some_and(|a| a == drive.block_path);
+    let key = SidebarNodeKey::Drive(drive.block_path().to_string());
+    let selected = active_drive.is_some_and(|a| a == drive.block_path());
 
     let expanded = sidebar.is_expanded(&key);
     let has_children = !drive.volumes.is_empty();
@@ -196,7 +197,7 @@ fn drive_row(
         widget::Space::new(EXPANDER_WIDTH, EXPANDER_WIDTH).into()
     };
 
-    let drive_icon_name = if drive.removable {
+    let drive_icon_name = if drive.disk.removable {
         "drive-removable-media-symbolic"
     } else {
         "disks-symbolic"
@@ -220,18 +221,18 @@ fn drive_row(
     .class(transparent_button_class(selected));
     if controls_enabled {
         select_button =
-            select_button.on_press(Message::SidebarSelectDrive(drive.block_path.clone()));
+            select_button.on_press(Message::SidebarSelectDrive(drive.block_path().to_string()));
     }
 
     let mut actions: Vec<Element<'static, Message>> = Vec::new();
 
     // Primary action: eject/remove for removable drives and loop-backed images.
-    if drive.is_loop || drive.removable || drive.ejectable {
+    if drive.disk.is_loop || drive.disk.removable || drive.disk.ejectable {
         let mut eject_btn =
             widget::button::custom(icon::from_name("media-eject-symbolic").size(16)).padding(4);
         eject_btn = eject_btn.class(transparent_button_class(selected));
         if controls_enabled {
-            eject_btn = eject_btn.on_press(Message::SidebarDriveEject(drive.block_path.clone()));
+            eject_btn = eject_btn.on_press(Message::SidebarDriveEject(drive.block_path().to_string()));
         }
         actions.push(eject_btn.into());
     }
@@ -251,11 +252,11 @@ fn drive_row(
 fn volume_row(
     sidebar: &SidebarState,
     drive_block_path: &str,
-    node: &VolumeNode,
+    node: &UiVolume,
     depth: u16,
     controls_enabled: bool,
 ) -> Element<'static, Message> {
-    let key = SidebarNodeKey::Volume(node.object_path.to_string());
+    let key = SidebarNodeKey::Volume(node.object_path().unwrap_or_default());
     let selected = sidebar.selected_child.as_ref() == Some(&key);
 
     let expanded = sidebar.is_expanded(&key);
@@ -273,22 +274,22 @@ fn volume_row(
         widget::Space::new(EXPANDER_WIDTH, EXPANDER_WIDTH).into()
     };
 
-    let title_text = if node.label.trim().is_empty() {
-        match node.device_path.as_deref() {
+    let title_text = if node.volume.label.trim().is_empty() {
+        match node.volume.device_path.as_deref() {
             Some(p) => p.to_string(),
-            None => node.object_path.to_string(),
+            None => node.object_path().unwrap_or_default(),
         }
     } else {
-        node.label.clone()
+        node.volume.label.clone()
     };
 
     let select_msg = Message::SidebarSelectChild {
-        object_path: node.object_path.to_string(),
+        object_path: node.object_path().unwrap_or_default(),
     };
 
     let mut select_button = widget::button::custom(
         widget::Row::with_children(vec![
-            icon::from_name(volume_icon(&node.kind)).size(16).into(),
+            icon::from_name(volume_icon(&node.volume.kind)).size(16).into(),
             widget::text::body(title_text)
                 .font(cosmic::font::semibold())
                 .into(),
@@ -313,7 +314,7 @@ fn volume_row(
         if controls_enabled {
             unmount_btn = unmount_btn.on_press(Message::SidebarVolumeUnmount {
                 drive: drive_block_path.to_string(),
-                object_path: node.object_path.to_string(),
+                object_path: node.object_path().unwrap_or_default(),
             });
         }
         actions.push(unmount_btn.into());
@@ -350,7 +351,7 @@ fn push_volume_tree(
     out: &mut Vec<Element<'static, Message>>,
     sidebar: &SidebarState,
     drive_block_path: &str,
-    node: &VolumeNode,
+    node: &UiVolume,
     depth: u16,
     controls_enabled: bool,
 ) {
@@ -362,13 +363,13 @@ fn push_volume_tree(
         controls_enabled,
     ));
 
-    let key = SidebarNodeKey::Volume(node.object_path.to_string());
+    let key = SidebarNodeKey::Volume(node.object_path().unwrap_or_default());
     let expanded = sidebar.is_expanded(&key);
 
     if expanded {
         // Sort children by object_path to maintain disk offset order
-        let mut sorted_children: Vec<&VolumeNode> = node.children.iter().collect();
-        sorted_children.sort_by(|a, b| a.object_path.as_str().cmp(b.object_path.as_str()));
+        let mut sorted_children: Vec<&UiVolume> = node.children.iter().collect();
+        sorted_children.sort_by(|a, b| a.object_path().as_deref().unwrap_or("").cmp(b.object_path().as_deref().unwrap_or("")));
 
         for child in sorted_children {
             push_volume_tree(
@@ -390,10 +391,10 @@ pub(crate) fn sidebar(
 ) -> Element<'static, Message> {
     let active_drive = sidebar.active_drive_block_path(app_nav);
 
-    let mut logical: Vec<&DriveModel> = Vec::new();
-    let mut internal: Vec<&DriveModel> = Vec::new();
-    let mut external: Vec<&DriveModel> = Vec::new();
-    let mut images: Vec<&DriveModel> = Vec::new();
+    let mut logical: Vec<&UiDrive> = Vec::new();
+    let mut internal: Vec<&UiDrive> = Vec::new();
+    let mut external: Vec<&UiDrive> = Vec::new();
+    let mut images: Vec<&UiDrive> = Vec::new();
 
     for d in &sidebar.drives {
         match section_for_drive(d) {
@@ -407,7 +408,7 @@ pub(crate) fn sidebar(
     let mut rows: Vec<Element<'static, Message>> = Vec::new();
 
     let add_section =
-        |rows: &mut Vec<Element<'static, Message>>, section: Section, drives: Vec<&DriveModel>| {
+        |rows: &mut Vec<Element<'static, Message>>, section: Section, drives: Vec<&UiDrive>| {
             if drives.is_empty() {
                 return;
             }
@@ -421,32 +422,28 @@ pub(crate) fn sidebar(
                     controls_enabled,
                 ));
 
-                let drive_key = SidebarNodeKey::Drive(drive.block_path.clone());
+                let drive_key = SidebarNodeKey::Drive(drive.block_path().to_string());
                 if sidebar.is_expanded(&drive_key) {
                     // Sort volumes by offset to maintain disk order
-                    let mut sorted_volumes: Vec<&disks_dbus::VolumeNode> =
+                    let mut sorted_volumes: Vec<&UiVolume> =
                         drive.volumes.iter().collect();
 
-                    // To get offset, we need to look up the corresponding VolumeModel in volumes_flat
+                    // To get offset, we need to look up the corresponding PartitionInfo by matching device_path with device
                     sorted_volumes.sort_by(|a, b| {
-                        // Find offset for each volume by matching object_path with volumes_flat
-                        let offset_a = drive
-                            .volumes_flat
-                            .iter()
-                            .find(|vm| vm.path.as_str() == a.object_path.as_str())
-                            .map(|vm| vm.offset)
+                        // Find offset for each volume by matching device_path with partitions
+                        let offset_a = a.volume.device_path.as_ref()
+                            .and_then(|dev| drive.partitions.iter().find(|p| &p.device == dev))
+                            .map(|p| p.offset)
                             .unwrap_or(0);
-                        let offset_b = drive
-                            .volumes_flat
-                            .iter()
-                            .find(|vm| vm.path.as_str() == b.object_path.as_str())
-                            .map(|vm| vm.offset)
+                        let offset_b = b.volume.device_path.as_ref()
+                            .and_then(|dev| drive.partitions.iter().find(|p| &p.device == dev))
+                            .map(|p| p.offset)
                             .unwrap_or(0);
                         offset_a.cmp(&offset_b)
                     });
 
                     for v in sorted_volumes {
-                        push_volume_tree(rows, sidebar, &drive.block_path, v, 1, controls_enabled);
+                        push_volume_tree(rows, sidebar, &drive.block_path(), v, 1, controls_enabled);
                     }
                 }
             }

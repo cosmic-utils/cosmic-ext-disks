@@ -6,7 +6,7 @@ use crate::ui::dialogs::message::{
 };
 use crate::ui::dialogs::state::ShowDialog;
 use crate::ui::volumes::VolumesControlMessage;
-use disks_dbus::DriveModel;
+use crate::models::UiDrive;
 
 /// Messages emitted by the application and its widgets.
 #[derive(Debug, Clone)]
@@ -22,8 +22,8 @@ pub enum Message {
     DriveRemoved(String),
     DriveAdded(String),
     None,
-    UpdateNav(Vec<DriveModel>, Option<String>),
-    UpdateNavWithChildSelection(Vec<DriveModel>, Option<String>),
+    UpdateNav(Vec<UiDrive>, Option<String>),
+    UpdateNavWithChildSelection(Vec<UiDrive>, Option<String>),
     Dialog(Box<ShowDialog>),
     CloseDialog,
     Eject,
@@ -64,8 +64,6 @@ pub enum Message {
     OpenImagePathPicker(ImagePathPickerKind),
     ImagePathPicked(ImagePathPickerKind, Option<String>),
     ToggleShowReserved(bool),
-    EnableUDisksBtrfs,
-    EnableUDisksBtrfsResult(Result<(), String>),
     #[allow(dead_code)]
     Surface(cosmic::surface::Action),
 
@@ -76,7 +74,7 @@ pub enum Message {
     },
     BtrfsSubvolumesLoaded {
         mount_point: String,
-        result: Result<Vec<disks_dbus::BtrfsSubvolume>, String>,
+        result: Result<Vec<storage_models::BtrfsSubvolume>, String>,
     },
     BtrfsDeleteSubvolume {
         block_path: String,
@@ -105,7 +103,7 @@ pub enum Message {
     },
     BtrfsDefaultSubvolumeLoaded {
         mount_point: String,
-        result: Result<disks_dbus::BtrfsSubvolume, String>,
+        result: Result<storage_models::BtrfsSubvolume, String>,
     },
     BtrfsSetDefaultSubvolume {
         mount_point: String,
@@ -131,7 +129,7 @@ pub enum Message {
     },
     BtrfsDeletedSubvolumesLoaded {
         mount_point: String,
-        result: Result<Vec<disks_dbus::BtrfsSubvolume>, String>,
+        result: Result<Vec<storage_models::DeletedSubvolume>, String>,
     },
     BtrfsToggleShowDeleted {
         mount_point: String,

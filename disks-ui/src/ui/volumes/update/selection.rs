@@ -1,3 +1,4 @@
+use crate::models::load_all_drives;
 use cosmic::Task;
 
 use crate::app::Message;
@@ -36,7 +37,7 @@ pub(super) fn segment_selected(
         if let Some(segment) = control.segments.get(index)
             && let Some(volume) = &segment.volume
         {
-            let btrfs_info = helpers::detect_btrfs_for_volume(&control.model.volumes, volume);
+            let btrfs_info = helpers::detect_btrfs_for_volume(&control.volumes, volume);
             tracing::info!("segment_selected: index={}, btrfs_detected={}, id_type={}, has_filesystem={}, mount_points={:?}",
                 index, btrfs_info.is_some(), volume.id_type, volume.has_filesystem, volume.mount_points);
             if let Some((mount_point, block_path)) = btrfs_info {
@@ -45,9 +46,10 @@ pub(super) fn segment_selected(
 
                 // If mounted, trigger data loading
                 if let Some(mp) = mount_point {
+                    let device_path = volume.device_path.clone().unwrap_or_else(|| volume.label.clone());
                     let mut tasks = vec![Task::done(cosmic::Action::App(
                         Message::SidebarSelectChild {
-                            object_path: volume.path.to_string(),
+                            object_path: device_path,
                         },
                     ))];
 
@@ -79,9 +81,10 @@ pub(super) fn segment_selected(
         if let Some(segment) = control.segments.get(index)
             && let Some(vol) = &segment.volume
         {
+            let device_path = vol.device_path.clone().unwrap_or_else(|| vol.label.clone());
             return Task::batch(vec![Task::done(cosmic::Action::App(
                 Message::SidebarSelectChild {
-                    object_path: vol.path.to_string(),
+                    object_path: device_path,
                 },
             ))]);
         }
@@ -122,7 +125,7 @@ pub(super) fn select_volume(
         if let Some(segment) = control.segments.get(segment_index)
             && let Some(volume) = &segment.volume
         {
-            let btrfs_info = helpers::detect_btrfs_for_volume(&control.model.volumes, volume);
+            let btrfs_info = helpers::detect_btrfs_for_volume(&control.volumes, volume);
             tracing::info!("select_volume: segment_index={}, btrfs_detected={}, id_type={}, has_filesystem={}, mount_points={:?}",
                 segment_index, btrfs_info.is_some(), volume.id_type, volume.has_filesystem, volume.mount_points);
             if let Some((mount_point, block_path)) = btrfs_info {

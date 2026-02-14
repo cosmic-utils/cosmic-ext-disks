@@ -13,9 +13,7 @@ pub mod partitions;
 
 pub use btrfs::BtrfsClient;
 pub use disks::DisksClient;
-pub use error::ClientError;
 pub use filesystems::FilesystemsClient;
 pub use image::ImageClient;
 pub use luks::LuksClient;
-pub use lvm::LvmClient;
 pub use partitions::PartitionsClient;

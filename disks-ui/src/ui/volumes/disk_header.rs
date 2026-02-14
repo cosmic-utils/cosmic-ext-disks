@@ -1,10 +1,10 @@
 use cosmic::iced::{Alignment, Length};
 use cosmic::widget::{self, icon};
 use cosmic::{Element, iced_widget};
-use disks_dbus::{DriveModel, VolumeNode};
 
 use crate::app::Message;
 use crate::fl;
+use crate::models::{UiDrive, UiVolume};
 use crate::ui::volumes::Segment;
 use crate::ui::volumes::helpers;
 use crate::ui::volumes::usage_pie::{self, PieSegmentData};
@@ -12,25 +12,25 @@ use crate::utils::DiskSegmentKind;
 
 /// Renders the disk info header with icon, name/partitioning/serial, and multi-partition pie chart.
 pub fn disk_header<'a>(
-    drive: &'a DriveModel,
+    drive: &'a UiDrive,
     used: u64,
     segments: &'a [Segment],
-    volumes: &'a [VolumeNode],
+    volumes: &'a [UiVolume],
 ) -> Element<'a, Message> {
-    let partition_type = match &drive.partition_table_type {
+    let partition_type = match &drive.disk.partition_table_type {
         Some(t) => t.to_uppercase(),
         None => fl!("unknown"),
     };
 
     // Title: Vendor + Model (left-aligned text column)
-    let title = if drive.vendor.is_empty() && drive.model.is_empty() {
-        drive.name()
-    } else if drive.vendor.is_empty() {
-        drive.model.to_string()
-    } else if drive.model.is_empty() {
-        drive.vendor.to_string()
+    let title = if drive.disk.vendor.is_empty() && drive.disk.model.is_empty() {
+        drive.disk.display_name()
+    } else if drive.disk.vendor.is_empty() {
+        drive.disk.model.to_string()
+    } else if drive.disk.model.is_empty() {
+        drive.disk.vendor.to_string()
     } else {
-        format!("{} {}", drive.vendor, drive.model)
+        format!("{} {}", drive.disk.vendor, drive.disk.model)
     };
 
     let name_text = widget::text(title)
@@ -43,14 +43,14 @@ pub fn disk_header<'a>(
     let partitioning_text =
         widget::text::caption(format!("{}: {}", fl!("partitioning"), partition_type));
 
-    let serial_text = if drive.is_loop {
+    let serial_text = if drive.disk.is_loop {
         widget::text::caption(format!(
             "{}: {}",
             fl!("backing-file"),
-            drive.backing_file.as_deref().unwrap_or("")
+            drive.disk.backing_file.as_deref().unwrap_or("")
         ))
     } else {
-        widget::text::caption(format!("{}: {}", fl!("serial"), &drive.serial))
+        widget::text::caption(format!("{}: {}", fl!("serial"), &drive.disk.serial))
     };
 
     let text_column = iced_widget::column![name_text, partitioning_text, serial_text]
@@ -61,7 +61,7 @@ pub fn disk_header<'a>(
     let mut drive_actions = Vec::new();
 
     // Eject (for removable/ejectable drives - use this instead of power off)
-    if drive.removable || drive.ejectable {
+    if drive.disk.removable || drive.disk.ejectable {
         drive_actions.push(
             widget::tooltip(
                 widget::button::icon(icon::from_name("media-eject-symbolic"))
@@ -73,7 +73,7 @@ pub fn disk_header<'a>(
         );
     }
     // Power Off (only for non-removable drives that support it)
-    else if drive.can_power_off {
+    else if drive.disk.can_power_off {
         drive_actions.push(
             widget::tooltip(
                 widget::button::icon(icon::from_name("system-shutdown-symbolic"))
@@ -97,7 +97,7 @@ pub fn disk_header<'a>(
     );
 
     // SMART Data (not for loop devices)
-    if !drive.is_loop {
+    if !drive.disk.is_loop {
         drive_actions.push(
             widget::tooltip(
                 widget::button::icon(icon::from_name("emblem-system-symbolic"))
@@ -110,7 +110,7 @@ pub fn disk_header<'a>(
     }
 
     // Standby (only for drives that support power management - spinning disks)
-    if drive.supports_power_management() {
+    if drive.disk.supports_power_management() {
         drive_actions.push(
             widget::tooltip(
                 widget::button::icon(icon::from_name("media-playback-pause-symbolic"))
@@ -123,7 +123,7 @@ pub fn disk_header<'a>(
     }
 
     // Wake Up (only for drives that support power management - spinning disks)
-    if drive.supports_power_management() {
+    if drive.disk.supports_power_management() {
         drive_actions.push(
             widget::tooltip(
                 widget::button::icon(icon::from_name("alarm-symbolic")).on_press(Message::Wakeup),
@@ -164,16 +164,16 @@ pub fn disk_header<'a>(
             let used = if let Some(ref volume_model) = s.volume {
                 // Look up the corresponding VolumeNode to check if it's a LUKS container
                 if let Some(volume_node) =
-                    helpers::find_volume_node_for_partition(volumes, volume_model)
+                    helpers::find_volume_for_partition(volumes, volume_model)
                 {
-                    if volume_node.kind == disks_dbus::VolumeKind::CryptoContainer
+                    if volume_node.volume.kind == storage_models::VolumeKind::CryptoContainer
                         && !volume_node.children.is_empty()
                     {
                         // Aggregate children's usage for LUKS containers
                         volume_node
                             .children
                             .iter()
-                            .filter_map(|child| child.usage.as_ref())
+                            .filter_map(|child| child.volume.usage.as_ref())
                             .map(|u| u.used)
                             .sum()
                     } else {
@@ -194,7 +194,7 @@ pub fn disk_header<'a>(
             }
         })
         .collect();
-    let pie_chart = usage_pie::disk_usage_pie(&pie_segments, drive.size, used, true);
+    let pie_chart = usage_pie::disk_usage_pie(&pie_segments, drive.disk.size, used, true);
 
     // Layout:
     // Row 1: text_column | pie_chart

@@ -15,11 +15,11 @@ use cosmic::{
     widget::text::caption,
     widget::{button, dialog},
 };
-use disks_dbus::bytes_to_pretty;
+use storage_models::bytes_to_pretty;
 
 pub fn new_disk_image<'a>(state: NewDiskImageDialog) -> Element<'a, Message> {
     let size_pretty = bytes_to_pretty(&state.size_bytes, false);
-    let step = disks_dbus::get_step(&state.size_bytes);
+    let step = storage_models::get_step(&state.size_bytes);
 
     let path_label = if state.path.trim().is_empty() {
         fl!("no-file-selected")
@@ -146,15 +146,15 @@ pub fn image_operation<'a>(state: ImageOperationDialog) -> Element<'a, Message> 
     ) {
         match state.partition.as_ref() {
             Some(partition) => {
-                let partition_name = if partition.name.trim().is_empty() {
+                let partition_name = if partition.name().trim().is_empty() {
                     fl!("untitled")
                 } else {
-                    partition.name.clone()
+                    partition.name()
                 };
                 let partition_path = partition
                     .device_path
                     .clone()
-                    .unwrap_or_else(|| partition.path.to_string());
+                    .unwrap_or_else(|| fl!("unknown"));
 
                 content = content
                     .push(caption(format!("{}: {}", fl!("partition"), partition_name)))

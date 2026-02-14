@@ -1,4 +1,4 @@
-use disks_dbus::GPT_ALIGNMENT_BYTES;
+use storage_models::GPT_ALIGNMENT_BYTES;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum DiskSegmentKind {

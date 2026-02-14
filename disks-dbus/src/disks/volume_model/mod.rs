@@ -335,7 +335,7 @@ impl From<VolumeModel> for storage_models::PartitionInfo {
         storage_models::PartitionInfo {
             device: vol.device_path.unwrap_or_else(|| vol.path.to_string()),
             number: vol.number,
-            parent_device: vol.drive_path,
+            parent_path: vol.drive_path,
             size: vol.size,
             offset: vol.offset,
             type_id: vol.partition_type_id,

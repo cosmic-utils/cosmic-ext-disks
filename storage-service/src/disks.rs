@@ -97,6 +97,89 @@ impl DisksHandler {
         Ok(json)
     }
     
+    /// List all volumes across all disks
+    /// 
+    /// Returns a flat list of all volumes (partitions, filesystems, LUKS containers, etc.)
+    /// with parent_path populated for building hierarchies in the UI.
+    /// 
+    /// Returns a JSON-serialized array of VolumeInfo objects.
+    /// 
+    /// **Authorization:** Requires `disk-read` (allow_active)
+    /// 
+    /// **Example:**
+    /// ```bash
+    /// busctl call org.cosmic.ext.StorageService \
+    ///   /org/cosmic/ext/StorageService/disks \
+    ///   org.cosmic.ext.StorageService.Disks \
+    ///   ListVolumes
+    /// ```
+    async fn list_volumes(&self, #[zbus(connection)] connection: &Connection) -> zbus::fdo::Result<String> {
+        // Check Polkit authorization
+        check_polkit_auth(
+            connection,
+            "org.cosmic.ext.storage-service.disk-read",
+        )
+        .await
+        .map_err(|e| zbus::fdo::Error::from(e))?;
+        
+        tracing::debug!("ListVolumes called");
+        
+        // Get all drives using disks-dbus
+        let drives = disks_dbus::DriveModel::get_drives()
+            .await
+            .map_err(|e| {
+                tracing::error!("Failed to get drives: {e}");
+                zbus::fdo::Error::Failed(format!("Failed to enumerate drives: {e}"))
+            })?;
+        
+        // Flatten volumes from all drives and populate parent_path
+        let mut all_volumes = Vec::new();
+        
+        for drive in drives {
+            let disk_device = drive.block_path.clone(); // e.g., "/dev/sda"
+            
+            // Recursively flatten volume tree
+            fn flatten_volumes(
+                node: &disks_dbus::VolumeNode,
+                parent_device: Option<String>,
+                output: &mut Vec<storage_models::VolumeInfo>,
+            ) {
+                // Convert node to VolumeInfo
+                let mut vol_info: storage_models::VolumeInfo = node.clone().into();
+                
+                // Set parent_path
+                vol_info.parent_path = parent_device.clone();
+                
+                // Process children
+                let current_device = vol_info.device_path.clone();
+                for child in &node.children {
+                    flatten_volumes(child, current_device.clone(), output);
+                }
+                
+                // Clear children (flat list, not hierarchical)
+                vol_info.children.clear();
+                
+                output.push(vol_info);
+            }
+            
+            // Process each root volume
+            for volume_node in &drive.volumes {
+                flatten_volumes(volume_node, Some(disk_device.clone()), &mut all_volumes);
+            }
+        }
+        
+        tracing::debug!("Found {} total volumes", all_volumes.len());
+        
+        // Serialize to JSON
+        let json = serde_json::to_string(&all_volumes)
+            .map_err(|e| {
+                tracing::error!("Failed to serialize volumes: {e}");
+                zbus::fdo::Error::Failed(format!("Serialization error: {e}"))
+            })?;
+        
+        Ok(json)
+    }
+    
     /// Get detailed information for a specific disk
     /// 
     /// **Arguments:**
@@ -185,6 +268,94 @@ impl DisksHandler {
             })?;
         
         Ok(json)
+    }
+    
+    /// Get detailed information for a specific volume
+    /// 
+    /// This method supports atomic updates - clients can query a single volume
+    /// instead of refreshing the entire volume list.
+    /// 
+    /// **Arguments:**
+    /// - `device`: Device path (e.g., "/dev/sda1", "/dev/mapper/luks-...")
+    /// 
+    /// Returns a JSON-serialized VolumeInfo object with parent_path populated.
+    /// 
+    /// **Authorization:** Requires `disk-read` (allow_active)
+    /// 
+    /// **Example:**
+    /// ```bash
+    /// busctl call org.cosmic.ext.StorageService \
+    ///   /org/cosmic/ext/StorageService/disks \
+    ///   org.cosmic.ext.StorageService.Disks \
+    ///   GetVolumeInfo s "/dev/sda1"
+    /// ```
+    async fn get_volume_info(
+        &self,
+        device: String,
+        #[zbus(connection)] connection: &Connection,
+    ) -> zbus::fdo::Result<String> {
+        // Check Polkit authorization
+        check_polkit_auth(
+            connection,
+            "org.cosmic.ext.storage-service.disk-read",
+        )
+        .await
+        .map_err(|e| zbus::fdo::Error::from(e))?;
+        
+        tracing::debug!("GetVolumeInfo called for device: {device}");
+        
+        // Get all drives and search for the volume
+        let drives = disks_dbus::DriveModel::get_drives()
+            .await
+            .map_err(|e| {
+                tracing::error!("Failed to get drives: {e}");
+                zbus::fdo::Error::Failed(format!("Failed to enumerate drives: {e}"))
+            })?;
+        
+        // Search for the volume
+        fn find_volume(
+            node: &disks_dbus::VolumeNode,
+            target_device: &str,
+            parent_device: Option<String>,
+        ) -> Option<storage_models::VolumeInfo> {
+            // Check if this is the target volume
+            if node.device_path.as_deref() == Some(target_device) {
+                let mut vol_info: storage_models::VolumeInfo = node.clone().into();
+                vol_info.parent_path = parent_device;
+                vol_info.children.clear(); // Flatten
+                return Some(vol_info);
+            }
+            
+            // Search children
+            for child in &node.children {
+                if let Some(found) = find_volume(child, target_device, node.device_path.clone()) {
+                    return Some(found);
+                }
+            }
+            
+            None
+        }
+        
+        // Search all drives
+        for drive in drives {
+            let disk_device = drive.block_path.clone();
+            
+            for volume_node in &drive.volumes {
+                if let Some(vol_info) = find_volume(volume_node, &device, Some(disk_device.clone())) {
+                    let json = serde_json::to_string(&vol_info)
+                        .map_err(|e| {
+                            tracing::error!("Failed to serialize volume info: {e}");
+                            zbus::fdo::Error::Failed(format!("Serialization error: {e}"))
+                        })?;
+                    
+                    tracing::debug!("Found volume: device={}", device);
+                    return Ok(json);
+                }
+            }
+        }
+        
+        tracing::warn!("Volume not found: {device}");
+        Err(zbus::fdo::Error::Failed(format!("Volume not found: {device}")))
     }
     
     /// Get SMART status for a specific disk

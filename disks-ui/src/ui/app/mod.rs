@@ -7,13 +7,14 @@ pub(crate) mod view;
 pub(crate) use message::Message;
 pub(crate) use state::{AppModel, ContextPage};
 
+use crate::models::load_all_drives;
+
 use crate::config::Config;
 use crate::ui::sidebar::SidebarState;
 use cosmic::app::{Core, Task};
 use cosmic::cosmic_config::{self, CosmicConfigEntry};
 use cosmic::widget::nav_bar;
 use cosmic::{Application, Element};
-use disks_dbus::DriveModel;
 
 pub(crate) const APP_ID: &str = "com.cosmos.Disks";
 
@@ -69,7 +70,7 @@ impl Application for AppModel {
 
         let nav_command = Task::perform(
             async {
-                match DriveModel::get_drives().await {
+                match load_all_drives().await {
                     Ok(drives) => Some(drives),
                     Err(e) => {
                         tracing::error!(%e, "failed to load drives");

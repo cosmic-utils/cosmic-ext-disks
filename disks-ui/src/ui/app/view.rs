@@ -1,6 +1,7 @@
 use super::message::Message;
 use super::state::{AppModel, ContextPage};
 use crate::fl;
+use crate::models::{UiDrive, UiVolume};
 use crate::ui::btrfs::btrfs_management_section;
 use crate::ui::dialogs::state::{DeletePartitionDialog, ShowDialog};
 use crate::ui::dialogs::view as dialogs;
@@ -13,8 +14,7 @@ use cosmic::iced::Length;
 use cosmic::iced::alignment::{Alignment, Horizontal, Vertical};
 use cosmic::widget::{self, Space, icon};
 use cosmic::{Apply, Element, iced_widget};
-use disks_dbus::bytes_to_pretty;
-use disks_dbus::{DriveModel, VolumeKind};
+use storage_models::{bytes_to_pretty, VolumeKind, VolumeInfo};
 
 /// Custom button style for header tabs with accent color background.
 fn tab_button_class(active: bool) -> cosmic::theme::Button {
@@ -76,11 +76,11 @@ pub(crate) fn header_center(app: &AppModel) -> Vec<Element<'_, Message>> {
         {
             // Determine if this segment contains BTRFS
             let selected_volume_node = segment.volume.as_ref().and_then(|p| {
-                helpers::find_volume_node_for_partition(&volumes_control.model.volumes, p)
+                helpers::find_volume_for_partition(&volumes_control.volumes, p)
             });
 
             let selected_volume = segment.volume.as_ref().and_then(|p| {
-                helpers::find_volume_node_for_partition(&volumes_control.model.volumes, p)
+                helpers::find_volume_for_partition(&volumes_control.volumes, p)
             });
 
             let has_btrfs = if let Some(v) = selected_volume_node {
@@ -273,7 +273,7 @@ pub(crate) fn context_drawer(
 
 /// Describes the interface based on the current state of the application model.
 pub(crate) fn view(app: &AppModel) -> Element<'_, Message> {
-    match app.nav.active_data::<DriveModel>() {
+    match app.nav.active_data::<UiDrive>() {
         None => widget::text::title1(fl!("no-disk-selected"))
             .apply(widget::container)
             .width(Length::Fill)
@@ -316,19 +316,19 @@ pub(crate) fn view(app: &AppModel) -> Element<'_, Message> {
                 .map(|volume_model| {
                     // Look up the corresponding VolumeNode to check if it's a LUKS container
                     if let Some(volume_node) =
-                        crate::ui::volumes::helpers::find_volume_node_for_partition(
-                            &volumes_control.model.volumes,
+                        crate::ui::volumes::helpers::find_volume_for_partition(
+                    &volumes_control.volumes,
                             volume_model,
                         )
                     {
-                        if volume_node.kind == disks_dbus::VolumeKind::CryptoContainer
+                        if volume_node.volume.kind == storage_models::VolumeKind::CryptoContainer
                             && !volume_node.children.is_empty()
                         {
                             // Aggregate children's usage for LUKS containers
                             volume_node
                                 .children
                                 .iter()
-                                .filter_map(|child| child.usage.as_ref())
+                                .filter_map(|child| child.volume.usage.as_ref())
                                 .map(|u| u.used)
                                 .sum()
                         } else {
@@ -348,7 +348,7 @@ pub(crate) fn view(app: &AppModel) -> Element<'_, Message> {
                     drive,
                     used,
                     &volumes_control.segments,
-                    &volumes_control.model.volumes
+                    &volumes_control.volumes
                 ),
                 Space::new(0, 10),
                 volumes_control.view(),
@@ -393,8 +393,8 @@ fn volume_detail_view<'a>(
 
     let selected_volume_node = volumes_control.selected_volume_node();
     let selected_volume = segment.volume.as_ref().and_then(|p| {
-        crate::ui::volumes::helpers::find_volume_node_for_partition(
-            &volumes_control.model.volumes,
+        crate::ui::volumes::helpers::find_volume_for_partition(
+            &volumes_control.volumes,
             p,
         )
     });
@@ -437,26 +437,26 @@ fn volume_detail_view<'a>(
 }
 
 /// Aggregate children's used space for LUKS containers
-fn aggregate_children_usage(node: &disks_dbus::VolumeNode) -> u64 {
+fn aggregate_children_usage(node: &crate::models::UiVolume) -> u64 {
     node.children
         .iter()
-        .filter_map(|child| child.usage.as_ref())
+        .filter_map(|child| child.volume.usage.as_ref())
         .map(|u| u.used)
         .sum()
 }
 
 /// Build info display for a volume node (child filesystem/LV) - mirrors disk header layout
 fn build_volume_node_info<'a>(
-    v: &'a disks_dbus::VolumeNode,
+    v: &'a UiVolume,
     _volumes_control: &'a VolumesControl,
     segment: &'a crate::ui::volumes::Segment,
-    _selected_volume: Option<&'a disks_dbus::VolumeNode>,
+    _selected_volume: Option<&'a UiVolume>,
 ) -> Element<'a, Message> {
     use crate::ui::volumes::usage_pie;
 
     // Pie chart showing usage (right side, matching disk header layout)
     // For LUKS containers, aggregate children's usage
-    let used = if v.kind == VolumeKind::CryptoContainer {
+    let used = if v.volume.kind == VolumeKind::CryptoContainer {
         if !v.children.is_empty() {
             aggregate_children_usage(v)
         } else {
@@ -464,19 +464,11 @@ fn build_volume_node_info<'a>(
             0
         }
     } else {
-        v.usage.as_ref().map(|u| u.used).unwrap_or(0)
+        v.volume.usage.as_ref().map(|u| u.used).unwrap_or(0)
     };
 
     // Create a single-segment pie for this volume
-    let pie_label = if v.label == fl!("filesystem") {
-        segment
-            .volume
-            .as_ref()
-            .map(|p| fl!("partition-number", number = p.number))
-            .unwrap_or_else(|| v.label.clone())
-    } else {
-        v.label.clone()
-    };
+    let pie_label = v.volume.label.clone();
 
     let pie_segment = usage_pie::PieSegmentData {
         name: pie_label,
@@ -547,7 +539,7 @@ fn build_volume_node_info<'a>(
                 widget::tooltip(
                     widget::button::icon(icon::from_name("media-playback-stop-symbolic")).on_press(
                         Message::VolumesMessage(VolumesControlMessage::ChildUnmount(
-                            v.object_path.to_string(),
+                            v.object_path().unwrap_or_default(),
                         )),
                     ),
                     widget::text(fl!("unmount")),
@@ -560,7 +552,7 @@ fn build_volume_node_info<'a>(
                 widget::tooltip(
                     widget::button::icon(icon::from_name("media-playback-start-symbolic"))
                         .on_press(Message::VolumesMessage(VolumesControlMessage::ChildMount(
-                            v.object_path.to_string(),
+                            v.object_path().unwrap_or_default(),
                         ))),
                     widget::text(fl!("mount")),
                     widget::tooltip::Position::Bottom,
@@ -696,23 +688,31 @@ fn build_volume_node_info<'a>(
 
 /// Build info display for a partition - mirrors disk header layout
 fn build_partition_info<'a>(
-    p: &'a disks_dbus::VolumeModel,
-    volume_node: Option<&'a disks_dbus::VolumeNode>,
+    v: &'a VolumeInfo,
+    volume_node: Option<&'a UiVolume>,
     volumes_control: &'a VolumesControl,
     segment: &'a crate::ui::volumes::Segment,
 ) -> Element<'a, Message> {
     use crate::ui::volumes::usage_pie;
 
+    // Look up the corresponding PartitionInfo using device_path from segment
+    let partition_info = segment.device_path.as_ref()
+        .and_then(|device| volumes_control.partitions.iter().find(|p| &p.device == device));
+    
+    let Some(p) = partition_info else {
+        return widget::text("No partition information available").into();
+    };
+
     // Pie chart showing usage (right side, matching disk header layout)
     // For LUKS containers, aggregate children's usage
-    let used = if let Some(v) = volume_node {
-        if v.kind == VolumeKind::CryptoContainer && !v.children.is_empty() {
-            aggregate_children_usage(v)
+    let used = if let Some(vol) = volume_node {
+        if vol.kind == VolumeKind::CryptoContainer && !vol.children.is_empty() {
+            aggregate_children_usage(vol)
         } else {
-            p.usage.as_ref().map(|u| u.used).unwrap_or(0)
+            v.usage.as_ref().map(|u| u.used).unwrap_or(0)
         }
     } else {
-        p.usage.as_ref().map(|u| u.used).unwrap_or(0)
+        v.usage.as_ref().map(|u| u.used).unwrap_or(0)
     };
 
     // Create a single-segment pie for this partition
@@ -740,21 +740,18 @@ fn build_partition_info<'a>(
                 ..Default::default()
             });
 
-    let mut type_str = p.id_type.clone().to_uppercase();
-    type_str = format!("{} - {}", type_str, p.partition_type.clone());
+    let mut type_str = p.filesystem_type.as_deref().unwrap_or("").to_uppercase();
+    type_str = format!("{} - {}", type_str, &p.type_name);
     let type_text = widget::text::caption(format!("{}: {}", fl!("contents"), type_str));
 
-    let device_str = match &p.device_path {
-        Some(s) => s.clone(),
-        None => fl!("unresolved"),
-    };
+    let device_str = p.device.clone();
     let device_text = widget::text::caption(format!("{}: {}", fl!("device"), device_str));
 
     let uuid_text = widget::text::caption(format!("{}: {}", fl!("uuid"), &p.uuid));
 
     // Only show mount info if it's not a LUKS container (containers don't mount, their children do)
     let text_column = if let Some(v) = volume_node {
-        if v.kind == VolumeKind::CryptoContainer {
+        if v.volume.kind == VolumeKind::CryptoContainer {
             iced_widget::column![name_text, type_text, device_text, uuid_text]
                 .spacing(4)
                 .width(Length::Fill)
@@ -777,7 +774,7 @@ fn build_partition_info<'a>(
                 .width(Length::Fill)
         }
     } else {
-        let mount_text: Element<Message> = if let Some(mount_point) = p.mount_points.first() {
+        let mount_text: Element<Message> = if let Some(mount_point) = v.mount_points.first() {
             iced_widget::row![
                 widget::text::caption(format!("{}: ", fl!("mounted-at"))),
                 cosmic::widget::button::link(mount_point.clone())
@@ -800,15 +797,15 @@ fn build_partition_info<'a>(
 
     // Lock/Unlock for LUKS containers
     if let Some(v) = volume_node
-        && v.kind == VolumeKind::CryptoContainer
+        && v.volume.kind == VolumeKind::CryptoContainer
     {
-        if v.locked {
+        if v.volume.locked {
             action_buttons.push(
                 widget::tooltip(
                     widget::button::icon(icon::from_name("changes-allow-symbolic")).on_press(
                         Message::Dialog(Box::new(ShowDialog::UnlockEncrypted(
                             crate::ui::dialogs::state::UnlockEncryptedDialog {
-                                partition_path: p.path.to_string(),
+                                partition_path: p.device.to_string(),
                                 partition_name: partition_name.clone(),
                                 passphrase: String::new(),
                                 error: None,
@@ -835,7 +832,7 @@ fn build_partition_info<'a>(
         }
 
         // Change Passphrase (only for unlocked containers)
-        if !v.locked {
+        if !v.volume.locked {
             action_buttons.push(
                 widget::tooltip(
                     widget::button::icon(icon::from_name("document-properties-symbolic")).on_press(
@@ -898,20 +895,19 @@ fn build_partition_info<'a>(
         .into(),
     );
 
-    // Edit and Resize (only for partitions)
-    if p.volume_type == disks_dbus::VolumeType::Partition {
-        action_buttons.push(
-            widget::tooltip(
-                widget::button::icon(icon::from_name("edit-symbolic")).on_press(
-                    Message::VolumesMessage(VolumesControlMessage::OpenEditPartition),
-                ),
-                widget::text(fl!("edit")),
-                widget::tooltip::Position::Bottom,
-            )
-            .into(),
-        );
+    // Edit and Resize
+    action_buttons.push(
+        widget::tooltip(
+            widget::button::icon(icon::from_name("edit-symbolic")).on_press(
+                Message::VolumesMessage(VolumesControlMessage::OpenEditPartition),
+            ),
+            widget::text(fl!("edit")),
+            widget::tooltip::Position::Bottom,
+        )
+        .into(),
+    );
 
-        // Resize (check if there's space)
+    // Resize (check if there's space)
         let right_free_bytes = volumes_control
             .segments
             .get(volumes_control.selected_segment.saturating_add(1))
@@ -935,18 +931,17 @@ fn build_partition_info<'a>(
             );
         }
 
-        // Label
-        action_buttons.push(
-            widget::tooltip(
-                widget::button::icon(icon::from_name("tag-symbolic")).on_press(
-                    Message::VolumesMessage(VolumesControlMessage::OpenEditFilesystemLabel),
-                ),
-                widget::text(fl!("label")),
-                widget::tooltip::Position::Bottom,
-            )
-            .into(),
-        );
-    }
+    // Label
+    action_buttons.push(
+        widget::tooltip(
+            widget::button::icon(icon::from_name("tag-symbolic")).on_press(
+                Message::VolumesMessage(VolumesControlMessage::OpenEditFilesystemLabel),
+            ),
+            widget::text(fl!("label")),
+            widget::tooltip::Position::Bottom,
+        )
+        .into(),
+    );
 
     // Check Filesystem (if mounted)
     if p.can_mount() && p.is_mounted() {
@@ -1024,24 +1019,22 @@ fn build_partition_info<'a>(
         .into(),
     );
 
-    // Delete (only for actual partitions, not filesystems)
-    if p.volume_type != disks_dbus::VolumeType::Filesystem {
-        action_buttons.push(
-            widget::tooltip(
-                widget::button::icon(icon::from_name("edit-delete-symbolic")).on_press(
-                    Message::Dialog(Box::new(ShowDialog::DeletePartition(
-                        DeletePartitionDialog {
-                            name: segment.name.clone(),
-                            running: false,
-                        },
-                    ))),
-                ),
-                widget::text(fl!("delete-partition")),
-                widget::tooltip::Position::Bottom,
-            )
-            .into(),
-        );
-    }
+    // Delete
+    action_buttons.push(
+        widget::tooltip(
+            widget::button::icon(icon::from_name("edit-delete-symbolic")).on_press(
+                Message::Dialog(Box::new(ShowDialog::DeletePartition(
+                    DeletePartitionDialog {
+                        name: segment.name.clone(),
+                        running: false,
+                    },
+                ))),
+            ),
+            widget::text(fl!("delete-partition")),
+            widget::tooltip::Position::Bottom,
+        )
+        .into(),
+    );
 
     let info_and_actions = iced_widget::column![
         text_column,

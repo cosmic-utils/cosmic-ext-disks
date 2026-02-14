@@ -4,7 +4,8 @@ use crate::{
     ui::volumes::helpers,
     utils::{DiskSegmentKind, PartitionExtent, SegmentAnomaly, compute_disk_segments},
 };
-use disks_dbus::{CreatePartitionInfo, DriveModel, VolumeModel, VolumeNode};
+use storage_models::{CreatePartitionInfo, PartitionInfo, ByteRange, VolumeInfo};
+use crate::models::{UiVolume, UiDrive};
 
 /// Which detail tab is active below the drive header
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -19,7 +20,18 @@ pub struct VolumesControl {
     pub selected_volume: Option<String>,
     pub segments: Vec<Segment>,
     pub show_reserved: bool,
-    pub(crate) model: DriveModel,
+    /// Drive device path
+    pub device: String,
+    /// Drive size in bytes
+    pub size: u64,
+    /// Partition table type
+    pub partition_table_type: Option<String>,
+    /// GPT usable range
+    pub gpt_usable_range: Option<ByteRange>,
+    /// Flat partition list (for segment computation)
+    pub partitions: Vec<PartitionInfo>,
+    /// Hierarchical volume tree (for BTRFS detection)
+    pub volumes: Vec<UiVolume>,
     /// BTRFS management state for the currently selected volume (if BTRFS)
     pub btrfs_state: Option<BtrfsState>,
     /// Which detail tab is currently displayed
@@ -37,7 +49,8 @@ pub struct Segment {
     pub state: bool,
     pub kind: DiskSegmentKind,
     pub width: u16,
-    pub volume: Option<VolumeModel>,
+    pub volume: Option<VolumeInfo>,
+    pub device_path: Option<String>,  // Device path to look up PartitionInfo
     #[allow(dead_code)]
     pub table_type: String,
 }
@@ -73,6 +86,7 @@ impl Segment {
             kind: DiskSegmentKind::FreeSpace,
             width: 0,
             volume: None,
+            device_path: None,
             table_type,
         }
     }
@@ -88,6 +102,7 @@ impl Segment {
             kind: DiskSegmentKind::Reserved,
             width: 0,
             volume: None,
+            device_path: None,
             table_type,
         }
     }
@@ -109,38 +124,48 @@ impl Segment {
         }
     }
 
-    pub fn new(volume: &VolumeModel) -> Self {
-        let mut name = volume.name.clone();
+    pub fn new(partition: &PartitionInfo, volume_info: Option<VolumeInfo>) -> Self {
+        let mut name = partition.name.clone();
         if name.is_empty() {
             name = fl!("filesystem");
         }
 
-        let mut type_str = volume.id_type.clone().to_uppercase();
-        type_str = format!("{} - {}", type_str, volume.partition_type.clone());
+        let mut type_str = volume_info.as_ref()
+            .map(|v| v.id_type.to_uppercase())
+            .unwrap_or_default();
+        type_str = format!("{} - {}", type_str, partition.type_name);
 
         Self {
             label: name,
-            name: volume.name(),
+            name: partition.device.clone(),
             partition_type: type_str,
-            size: volume.size,
-            offset: volume.offset,
+            size: partition.size,
+            offset: partition.offset,
             state: false,
             kind: DiskSegmentKind::Partition,
             width: 0,
-            volume: Some(volume.clone()),
-            table_type: volume.table_type.clone(),
+            volume: volume_info,
+            device_path: Some(partition.device.clone()),
+            table_type: partition.table_type.clone(),
         }
     }
 
-    pub fn get_segments(drive: &DriveModel, show_reserved: bool) -> Vec<Segment> {
-        let table_type = drive.partition_table_type.clone().unwrap_or_default();
+    pub fn get_segments(
+        size: u64,
+        partition_table_type: &Option<String>,
+        gpt_usable_range: Option<ByteRange>,
+        partitions: &[PartitionInfo],
+        all_volumes: &[VolumeInfo],
+        show_reserved: bool,
+    ) -> Vec<Segment> {
+        let table_type = partition_table_type.clone().unwrap_or_default();
         const DOS_RESERVED_START_BYTES: u64 = 1024 * 1024;
 
         let usable_range = match table_type.as_str() {
-            "gpt" => drive.gpt_usable_range.map(|r| (r.start, r.end)),
+            "gpt" => gpt_usable_range.map(|r| (r.start, r.end)),
             "dos" => {
-                if drive.size > DOS_RESERVED_START_BYTES {
-                    Some((DOS_RESERVED_START_BYTES, drive.size))
+                if size > DOS_RESERVED_START_BYTES {
+                    Some((DOS_RESERVED_START_BYTES, size))
                 } else {
                     None
                 }
@@ -148,8 +173,7 @@ impl Segment {
             _ => None,
         };
 
-        let extents: Vec<PartitionExtent> = drive
-            .volumes_flat
+        let extents: Vec<PartitionExtent> = partitions
             .iter()
             .enumerate()
             .map(|(id, p)| PartitionExtent {
@@ -159,7 +183,7 @@ impl Segment {
             })
             .collect();
 
-        let computation = compute_disk_segments(drive.size, extents, usable_range);
+        let computation = compute_disk_segments(size, extents, usable_range);
         for anomaly in computation.anomalies {
             match anomaly {
                 SegmentAnomaly::PartitionOverlapsPrevious {
@@ -218,11 +242,16 @@ impl Segment {
                     let Some(partition_id) = seg.partition_id else {
                         continue;
                     };
-                    let Some(p) = drive.volumes_flat.get(partition_id) else {
+                    let Some(p) = partitions.get(partition_id) else {
                         continue;
                     };
 
-                    let mut s = Segment::new(p);
+                    // Find corresponding volume info by device path
+                    let volume_info = all_volumes.iter()
+                        .find(|v| v.device_path.as_ref() == Some(&p.device))
+                        .cloned();
+
+                    let mut s = Segment::new(p, volume_info);
                     // Use computed extents so clamping (e.g., end-past-disk) is reflected.
                     s.offset = seg.offset;
                     s.size = seg.size;
@@ -239,7 +268,7 @@ impl Segment {
         let all_free_space = segments
             .iter()
             .all(|s| s.kind == DiskSegmentKind::FreeSpace);
-        let is_small_drive = drive.size < SMALL_DRIVE_THRESHOLD;
+        let is_small_drive = size < SMALL_DRIVE_THRESHOLD;
 
         if !all_free_space && !is_small_drive {
             for segment in segments.iter_mut() {
@@ -278,7 +307,7 @@ impl Segment {
             });
 
             // Ensure the UI always has at least one segment to render/select.
-            if segments.is_empty() && drive.size > 0 {
+            if segments.is_empty() && size > 0 {
                 if let Some((start, end)) = usable_range {
                     if end > start {
                         segments.push(Segment::free_space(
@@ -287,10 +316,10 @@ impl Segment {
                             table_type.clone(),
                         ));
                     } else {
-                        segments.push(Segment::free_space(0, drive.size, table_type.clone()));
+                        segments.push(Segment::free_space(0, size, table_type.clone()));
                     }
                 } else {
-                    segments.push(Segment::free_space(0, drive.size, table_type.clone()));
+                    segments.push(Segment::free_space(0, size, table_type.clone()));
                 }
             }
         }
@@ -307,14 +336,39 @@ impl Segment {
 }
 
 impl VolumesControl {
-    pub fn new(model: DriveModel, show_reserved: bool) -> Self {
-        let mut segments: Vec<Segment> = Segment::get_segments(&model, show_reserved);
+    pub fn new(drive: &UiDrive, show_reserved: bool) -> Self {
+        // Flatten all volumes to a list for lookup
+        fn flatten_volumes(node: &UiVolume, out: &mut Vec<VolumeInfo>) {
+            out.push(node.volume.clone());
+            for child in &node.children {
+                flatten_volumes(child, out);
+            }
+        }
+        
+        let mut all_volumes = Vec::new();
+        for root in &drive.volumes {
+            flatten_volumes(root, &mut all_volumes);
+        }
+        
+        let mut segments: Vec<Segment> = Segment::get_segments(
+            drive.disk.size,
+            &drive.disk.partition_table_type,
+            drive.disk.gpt_usable_range,
+            &drive.partitions,
+            &all_volumes,
+            show_reserved,
+        );
         if let Some(first) = segments.first_mut() {
             first.state = true;
         }
 
         Self {
-            model,
+            device: drive.device().to_string(),
+            size: drive.disk.size,
+            partition_table_type: drive.disk.partition_table_type.clone(),
+            gpt_usable_range: drive.disk.gpt_usable_range,
+            partitions: drive.partitions.clone(),
+            volumes: drive.volumes.clone(),
             selected_segment: 0,
             selected_volume: None,
             segments,
@@ -324,9 +378,23 @@ impl VolumesControl {
         }
     }
 
-    pub fn selected_volume_node(&self) -> Option<&VolumeNode> {
-        let object_path = self.selected_volume.as_deref()?;
-        helpers::find_volume_node(&self.model.volumes, object_path)
+    pub fn selected_volume_node(&self) -> Option<&UiVolume> {
+        let device_path = self.selected_volume.as_deref()?;
+        
+        // Recursively search for volume by device path
+        fn find_in_tree<'a>(volumes: &'a [UiVolume], device: &str) -> Option<&'a UiVolume> {
+            for vol in volumes {
+                if vol.device() == Some(device) {
+                    return Some(vol);
+                }
+                if let Some(found) = find_in_tree(&vol.children, device) {
+                    return Some(found);
+                }
+            }
+            None
+        }
+        
+        find_in_tree(&self.volumes, device_path)
     }
 
     pub fn set_show_reserved(&mut self, show_reserved: bool) {
@@ -335,7 +403,28 @@ impl VolumesControl {
         }
 
         self.show_reserved = show_reserved;
-        self.segments = Segment::get_segments(&self.model, self.show_reserved);
+        
+        // Flatten volumes again
+        fn flatten_volumes(node: &UiVolume, out: &mut Vec<VolumeInfo>) {
+            out.push(node.volume.clone());
+            for child in &node.children {
+                flatten_volumes(child, out);
+            }
+        }
+        
+        let mut all_volumes = Vec::new();
+        for root in &self.volumes {
+            flatten_volumes(root, &mut all_volumes);
+        }
+        
+        self.segments = Segment::get_segments(
+            self.size,
+            &self.partition_table_type,
+            self.gpt_usable_range,
+            &self.partitions,
+            &all_volumes,
+            self.show_reserved,
+        );
         self.selected_segment = 0;
         self.selected_volume = None;
         self.btrfs_state = None;

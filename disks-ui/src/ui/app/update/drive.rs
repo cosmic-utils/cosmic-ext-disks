@@ -1,9 +1,9 @@
+use crate::models::{load_all_drives, UiDrive};
 use crate::fl;
 use crate::ui::dialogs::message::FormatDiskMessage;
 use crate::ui::dialogs::state::{FormatDiskDialog, ShowDialog, SmartDataDialog};
 use crate::ui::error::{UiErrorContext, log_error_and_show_dialog};
 use cosmic::app::Task;
-use disks_dbus::DriveModel;
 
 use crate::ui::app::message::Message;
 use crate::ui::app::state::AppModel;
@@ -27,8 +27,8 @@ pub(super) fn format_disk(app: &mut AppModel, msg: FormatDiskMessage) -> Task<Me
             state.running = true;
 
             let drive = state.drive.clone();
-            let block_path = drive.block_path.clone();
-            let drive_path = drive.path.clone();
+            let block_path = drive.block_path().to_string();
+            let drive_path = drive.device().to_string();
             let erase = state.erase_index == 1;
             let format_type = match state.partitioning_index {
                 0 => "dos",
@@ -39,7 +39,7 @@ pub(super) fn format_disk(app: &mut AppModel, msg: FormatDiskMessage) -> Task<Me
             return Task::perform(
                 async move {
                     drive.format_disk(format_type, erase).await?;
-                    DriveModel::get_drives().await
+                    load_all_drives().await
                 },
                 move |res| match res {
                     Ok(drives) => Message::UpdateNav(drives, Some(block_path.clone())).into(),
@@ -50,7 +50,7 @@ pub(super) fn format_disk(app: &mut AppModel, msg: FormatDiskMessage) -> Task<Me
                             device: Some(block_path.as_str()),
                             drive_path: Some(drive_path.as_str()),
                         };
-                        log_error_and_show_dialog(fl!("format-disk-failed"), e, ctx).into()
+                        log_error_and_show_dialog(fl!("format-disk-failed"), e.into(), ctx).into()
                     }
                 },
             );
@@ -61,21 +61,21 @@ pub(super) fn format_disk(app: &mut AppModel, msg: FormatDiskMessage) -> Task<Me
 }
 
 pub(super) fn eject(app: &mut AppModel) -> Task<Message> {
-    let Some(drive) = app.nav.active_data::<DriveModel>().cloned() else {
+    let Some(drive) = app.nav.active_data::<UiDrive>().cloned() else {
         return Task::none();
     };
 
     eject_drive(drive)
 }
 
-pub(super) fn eject_drive(drive: DriveModel) -> Task<Message> {
-    let drive_path = drive.path.clone();
-    let block_path = drive.block_path.clone();
+pub(super) fn eject_drive(drive: UiDrive) -> Task<Message> {
+    let drive_path = drive.device().to_string();
+    let block_path = drive.block_path().to_string();
 
     Task::perform(
         async move {
             let res = drive.remove().await;
-            let drives = DriveModel::get_drives().await.ok();
+            let drives = load_all_drives().await.ok();
             (res, drives)
         },
         move |(res, drives)| match res {
@@ -97,21 +97,21 @@ pub(super) fn eject_drive(drive: DriveModel) -> Task<Message> {
 }
 
 pub(super) fn power_off(app: &mut AppModel) -> Task<Message> {
-    let Some(drive) = app.nav.active_data::<DriveModel>().cloned() else {
+    let Some(drive) = app.nav.active_data::<UiDrive>().cloned() else {
         return Task::none();
     };
 
     power_off_drive(drive)
 }
 
-pub(super) fn power_off_drive(drive: DriveModel) -> Task<Message> {
-    let drive_path = drive.path.clone();
-    let block_path = drive.block_path.clone();
+pub(super) fn power_off_drive(drive: UiDrive) -> Task<Message> {
+    let drive_path = drive.device().to_string();
+    let block_path = drive.block_path().to_string();
 
     Task::perform(
         async move {
             let res = drive.power_off().await;
-            let drives = DriveModel::get_drives().await.ok();
+            let drives = load_all_drives().await.ok();
             (res, drives)
         },
         move |(res, drives)| match res {
@@ -133,14 +133,14 @@ pub(super) fn power_off_drive(drive: DriveModel) -> Task<Message> {
 }
 
 pub(super) fn format(app: &mut AppModel) {
-    let Some(drive) = app.nav.active_data::<DriveModel>().cloned() else {
+    let Some(drive) = app.nav.active_data::<UiDrive>().cloned() else {
         return;
     };
 
     format_for(app, drive)
 }
 
-pub(super) fn format_for(app: &mut AppModel, drive: DriveModel) {
+pub(super) fn format_for(app: &mut AppModel, drive: UiDrive) {
     let partitioning_index = match drive.partition_table_type.as_deref() {
         Some("dos") => 0,
         Some("gpt") => 1,
@@ -156,14 +156,14 @@ pub(super) fn format_for(app: &mut AppModel, drive: DriveModel) {
 }
 
 pub(super) fn smart_data(app: &mut AppModel) -> Task<Message> {
-    let Some(drive) = app.nav.active_data::<DriveModel>().cloned() else {
+    let Some(drive) = app.nav.active_data::<UiDrive>().cloned() else {
         return Task::none();
     };
 
     smart_data_for(app, drive)
 }
 
-pub(super) fn smart_data_for(app: &mut AppModel, drive: DriveModel) -> Task<Message> {
+pub(super) fn smart_data_for(app: &mut AppModel, drive: UiDrive) -> Task<Message> {
     app.dialog = Some(ShowDialog::SmartData(SmartDataDialog {
         drive: drive.clone(),
         running: true,
@@ -181,16 +181,16 @@ pub(super) fn smart_data_for(app: &mut AppModel, drive: DriveModel) -> Task<Mess
 }
 
 pub(super) fn standby_now(app: &mut AppModel) -> Task<Message> {
-    let Some(drive) = app.nav.active_data::<DriveModel>().cloned() else {
+    let Some(drive) = app.nav.active_data::<UiDrive>().cloned() else {
         return Task::none();
     };
 
     standby_now_drive(drive)
 }
 
-pub(super) fn standby_now_drive(drive: DriveModel) -> Task<Message> {
-    let drive_path = drive.path.clone();
-    let device = drive.block_path.clone();
+pub(super) fn standby_now_drive(drive: UiDrive) -> Task<Message> {
+    let drive_path = drive.device().to_string();
+    let device = drive.block_path().to_string();
 
     Task::perform(
         async move { drive.standby_now().await },
@@ -214,16 +214,16 @@ pub(super) fn standby_now_drive(drive: DriveModel) -> Task<Message> {
 }
 
 pub(super) fn wakeup(app: &mut AppModel) -> Task<Message> {
-    let Some(drive) = app.nav.active_data::<DriveModel>().cloned() else {
+    let Some(drive) = app.nav.active_data::<UiDrive>().cloned() else {
         return Task::none();
     };
 
     wakeup_drive(drive)
 }
 
-pub(super) fn wakeup_drive(drive: DriveModel) -> Task<Message> {
-    let drive_path = drive.path.clone();
-    let device = drive.block_path.clone();
+pub(super) fn wakeup_drive(drive: UiDrive) -> Task<Message> {
+    let drive_path = drive.device().to_string();
+    let device = drive.block_path().to_string();
 
     Task::perform(async move { drive.wakeup().await }, move |res| match res {
         Ok(()) => Message::Dialog(Box::new(ShowDialog::Info {

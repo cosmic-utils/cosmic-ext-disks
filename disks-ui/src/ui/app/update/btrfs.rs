@@ -1,12 +1,12 @@
+use crate::models::load_all_drives;
 use super::super::state::AppModel;
 use super::Message;
+use crate::client::BtrfsClient;
 use crate::fl;
 use crate::ui::dialogs::state::{ConfirmActionDialog, FilesystemTarget, ShowDialog};
 use crate::ui::error::{UiErrorContext, log_error_and_show_dialog};
 use crate::ui::volumes::VolumesControl;
 use cosmic::app::Task;
-use disks_dbus::{BtrfsFilesystem, DriveModel};
-use std::path::PathBuf;
 
 /// Handle BTRFS management messages
 pub(super) fn handle_btrfs_message(app: &mut AppModel, message: Message) -> Task<Message> {
@@ -22,16 +22,15 @@ pub(super) fn handle_btrfs_message(app: &mut AppModel, message: Message) -> Task
                 btrfs_state.loading = true;
             }
 
-            // Spawn async task to load subvolumes via btrfsutil
+            // Spawn async task to load subvolumes
             let mount_point_for_callback = mount_point.clone();
             Task::perform(
                 async move {
-                    let mount_path = PathBuf::from(&mount_point);
-                    let btrfs = BtrfsFilesystem::new(mount_path.clone()).await?;
-                    let subvolumes = btrfs.list_subvolumes().await?;
-                    Ok(subvolumes)
+                    let btrfs_client = BtrfsClient::new().await?;
+                    let subvol_list = btrfs_client.list_subvolumes(&mount_point).await?;
+                    Ok(subvol_list.subvolumes)
                 },
-                move |result: anyhow::Result<Vec<disks_dbus::BtrfsSubvolume>>| {
+                move |result: anyhow::Result<Vec<storage_models::BtrfsSubvolume>>| {
                     if let Err(ref e) = result {
                         tracing::error!("Failed to load BTRFS subvolumes: {:#}", e);
                     }
@@ -111,14 +110,12 @@ pub(super) fn handle_btrfs_message(app: &mut AppModel, message: Message) -> Task
                 state.running = true;
             }
 
-            // Perform the actual delete via btrfsutil
+            // Perform the actual delete
             Task::perform(
                 async move {
-                    let mount_path = PathBuf::from(&mount_point);
-                    let btrfs = BtrfsFilesystem::new(mount_path).await?;
-                    let subvol_path = PathBuf::from(&path);
-                    btrfs.delete_subvolume(&subvol_path).await?;
-                    DriveModel::get_drives().await
+                    let btrfs_client = BtrfsClient::new().await?;
+                    btrfs_client.delete_subvolume(&mount_point, &path, false).await?;
+                    load_all_drives().await
                 },
                 |result| match result {
                     Ok(drives) => {
@@ -127,7 +124,7 @@ pub(super) fn handle_btrfs_message(app: &mut AppModel, message: Message) -> Task
                     }
                     Err(e) => {
                         let ctx = UiErrorContext::new("delete_subvolume");
-                        log_error_and_show_dialog(fl!("btrfs-delete-subvolume-failed"), e, ctx)
+                        log_error_and_show_dialog(fl!("btrfs-delete-subvolume-failed"), e.into(), ctx)
                             .into()
                     }
                 },
@@ -135,7 +132,7 @@ pub(super) fn handle_btrfs_message(app: &mut AppModel, message: Message) -> Task
         }
 
         Message::BtrfsLoadUsage {
-            block_path,
+            block_path: _,
             mount_point,
         } => {
             // Mark as loading in state
@@ -148,17 +145,17 @@ pub(super) fn handle_btrfs_message(app: &mut AppModel, message: Message) -> Task
             // Load usage in background task
             return Task::perform(
                 async move {
-                    let btrfs = match BtrfsFilesystem::new(PathBuf::from(&mount_point)).await {
-                        Ok(btrfs) => btrfs,
+                    let btrfs_client = match BtrfsClient::new().await {
+                        Ok(client) => client,
                         Err(e) => {
                             return Message::BtrfsUsageLoaded {
                                 mount_point,
-                                used_space: Err(format!("Failed to initialize BTRFS: {}", e)),
+                                used_space: Err(format!("Failed to initialize BTRFS client: {}", e)),
                             };
                         }
                     };
-                    
-                    let result = btrfs.get_usage().await
+                    let result = btrfs_client.get_usage(&mount_point).await
+                        .map(|usage| usage.used_bytes)
                         .map_err(|e| format!("Failed to get usage: {}", e));
                     
                     Message::BtrfsUsageLoaded {
@@ -171,7 +168,7 @@ pub(super) fn handle_btrfs_message(app: &mut AppModel, message: Message) -> Task
         }
 
         Message::BtrfsUsageLoaded {
-            mount_point,
+            mount_point: _,
             used_space,
         } => {
             if let Some(volumes_control) = app.nav.active_data_mut::<VolumesControl>() {
@@ -205,12 +202,16 @@ pub(super) fn handle_btrfs_message(app: &mut AppModel, message: Message) -> Task
             let mount_point_for_async = mount_point.clone();
             Task::perform(
                 async move {
-                    let mount_path = PathBuf::from(&mount_point);
-                    let btrfs = BtrfsFilesystem::new(mount_path).await?;
-                    let default_subvol = btrfs.get_default_subvolume().await?;
+                    let btrfs_client = BtrfsClient::new().await?;
+                    let default_id = btrfs_client.get_default(&mount_point).await?;
+                    // Need to fetch default subvolume info from the list
+                    let subvol_list = btrfs_client.list_subvolumes(&mount_point).await?;
+                    let default_subvol = subvol_list.subvolumes.into_iter()
+                        .find(|s| s.id == default_id)
+                        .ok_or_else(|| anyhow::anyhow!("Default subvolume not found"))?;
                     Ok(default_subvol)
                 },
-                move |result: anyhow::Result<disks_dbus::BtrfsSubvolume>| {
+                move |result: anyhow::Result<storage_models::BtrfsSubvolume>| {
                     let result = result.map_err(|e| format!("{:#}", e));
                     Message::BtrfsDefaultSubvolumeLoaded {
                         mount_point: mount_point_for_async.clone(),
@@ -258,14 +259,14 @@ pub(super) fn handle_btrfs_message(app: &mut AppModel, message: Message) -> Task
                 None
             };
 
+            // Get the btrfs client from app state
             if let Some(path) = subvol_path {
                 let mount_point_clone = mount_point.clone();
                 let mount_point_for_closure = mount_point.clone();
                 Task::perform(
                     async move {
-                        let mount_path = PathBuf::from(&mount_point_clone);
-                        let btrfs = BtrfsFilesystem::new(mount_path).await?;
-                        btrfs.set_default_subvolume(&path).await?;
+                        let btrfs_client = BtrfsClient::new().await?;
+                        btrfs_client.set_default(&mount_point_clone, &path).await?;
                         Ok(())
                     },
                     move |result: anyhow::Result<()>| {
@@ -304,10 +305,11 @@ pub(super) fn handle_btrfs_message(app: &mut AppModel, message: Message) -> Task
                     && let Some(btrfs_state) = &volumes_control.btrfs_state
                     && let Some(Ok(subvolumes)) = &btrfs_state.subvolumes
                 {
+                    const BTRFS_SUBVOL_RDONLY: u64 = 1 << 1;
                     subvolumes
                         .iter()
                         .find(|s| s.id == subvolume_id)
-                        .map(|s| (s.path.clone(), s.is_readonly))
+                        .map(|s| (s.path.clone(), (s.flags & BTRFS_SUBVOL_RDONLY) != 0))
                 } else {
                     None
                 };
@@ -317,9 +319,8 @@ pub(super) fn handle_btrfs_message(app: &mut AppModel, message: Message) -> Task
                 let mount_point_for_closure = mount_point.clone();
                 Task::perform(
                     async move {
-                        let mount_path = PathBuf::from(&mount_point);
-                        let btrfs = BtrfsFilesystem::new(mount_path).await?;
-                        btrfs.set_readonly(&path, new_readonly).await?;
+                        let btrfs_client = BtrfsClient::new().await?;
+                        btrfs_client.set_readonly(&mount_point, &path, new_readonly).await?;
                         Ok(())
                     },
                     move |result: anyhow::Result<()>| {
@@ -391,12 +392,11 @@ pub(super) fn handle_btrfs_message(app: &mut AppModel, message: Message) -> Task
             let mount_point_for_async = mount_point.clone();
             Task::perform(
                 async move {
-                    let mount_path = PathBuf::from(&mount_point);
-                    let btrfs = BtrfsFilesystem::new(mount_path).await?;
-                    let deleted = btrfs.list_deleted_subvolumes().await?;
-                    Ok(deleted)
+                    let btrfs_client = BtrfsClient::new().await?;
+                    let deleted_list = btrfs_client.list_deleted(&mount_point).await?;
+                    Ok(deleted_list)
                 },
-                move |result: anyhow::Result<Vec<disks_dbus::BtrfsSubvolume>>| {
+                move |result: anyhow::Result<Vec<storage_models::DeletedSubvolume>>| {
                     let result = result.map_err(|e| format!("{:#}", e));
                     Message::BtrfsDeletedSubvolumesLoaded {
                         mount_point: mount_point_for_async.clone(),

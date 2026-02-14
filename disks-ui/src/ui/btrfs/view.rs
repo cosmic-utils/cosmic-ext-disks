@@ -1,14 +1,12 @@
 use cosmic::widget;
-use cosmic::{Element, iced_widget};
 use cosmic::iced::Length;
-
-use super::BtrfsState;
+use cosmic::{Element, Apply, iced_widget};
+use crate::app::Message;
 use crate::fl;
-use crate::ui::app::message::Message;
+use crate::ui::btrfs::state::BtrfsState;
 use crate::ui::volumes::usage_pie;
-use disks_dbus::BtrfsSubvolume;
+use storage_models::{VolumeInfo, BtrfsSubvolume};
 use std::collections::HashMap;
-use uuid::Uuid;
 
 /// Helper to get expander icon name
 fn expander_icon(expanded: bool) -> &'static str {
@@ -21,7 +19,7 @@ fn expander_icon(expanded: bool) -> &'static str {
 
 /// Builds the BTRFS management section for a BTRFS volume
 pub fn btrfs_management_section<'a>(
-    volume: &'a disks_dbus::VolumeModel,
+    volume: &'a VolumeInfo,
     state: &'a BtrfsState,
 ) -> Element<'a, Message> {
     let header = widget::text(fl!("btrfs-management"))
@@ -183,13 +181,13 @@ fn build_subvolume_hierarchy<'a>(
 ) -> Element<'a, Message> {
     // Group snapshots by their source subvolume UUID
     // snapshots_map: source UUID -> list of snapshots
-    let mut snapshots_map: HashMap<Uuid, Vec<&BtrfsSubvolume>> = HashMap::new();
+    let mut snapshots_map: HashMap<String, Vec<&BtrfsSubvolume>> = HashMap::new();
     
     for subvol in subvolumes {
         // If this subvolume has a parent_uuid, it's a snapshot
-        if let Some(parent_uuid) = subvol.parent_uuid {
+        if let Some(parent_uuid) = &subvol.parent_uuid {
             snapshots_map
-                .entry(parent_uuid)
+                .entry(parent_uuid.clone())
                 .or_default()
                 .push(subvol);
         }
@@ -212,7 +210,7 @@ fn build_subvolume_hierarchy<'a>(
 /// Render a single subvolume row with optional child snapshots
 fn render_subvolume_row<'a>(
     subvol: &'a BtrfsSubvolume,
-    snapshots_map: &HashMap<Uuid, Vec<&'a BtrfsSubvolume>>,
+    snapshots_map: &HashMap<String, Vec<&'a BtrfsSubvolume>>,
     state: &'a BtrfsState,
     indent_level: u16,
 ) -> Element<'a, Message> {
@@ -249,7 +247,7 @@ fn render_subvolume_row<'a>(
 
     // Path (normal text size, fills space)
     row_items.push(
-        widget::text(subvol.path.display().to_string())
+        widget::text(&subvol.path)
             .size(13.0)
             .width(cosmic::iced::Length::Fill)
             .into(),
@@ -268,7 +266,7 @@ fn render_subvolume_row<'a>(
             .on_press(Message::BtrfsDeleteSubvolume {
                 block_path: bp.clone(),
                 mount_point: mp.clone(),
-                path: subvol.path.display().to_string(),
+                path: subvol.path.clone(),
             })
             .padding(4)
     } else {

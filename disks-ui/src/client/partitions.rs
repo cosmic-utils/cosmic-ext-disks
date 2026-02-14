@@ -63,6 +63,12 @@ pub struct PartitionsClient {
     proxy: PartitionsInterfaceProxy<'static>,
 }
 
+impl std::fmt::Debug for PartitionsClient {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("PartitionsClient").finish_non_exhaustive()
+    }
+}
+
 impl PartitionsClient {
     /// Create a new partitions client connected to the storage service
     pub async fn new() -> Result<Self, ClientError> {

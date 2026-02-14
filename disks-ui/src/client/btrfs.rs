@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 
 use zbus::{proxy, Connection};
-use storage_models::btrfs::{BtrfsSubvolume, FilesystemUsage, SubvolumeList, DeletedSubvolume};
+use storage_models::btrfs::{FilesystemUsage, SubvolumeList, DeletedSubvolume};
 use crate::client::error::ClientError;
 
 /// D-Bus proxy interface for BTRFS operations
@@ -48,6 +48,12 @@ trait BtrfsInterface {
 /// Client for BTRFS operations via D-Bus
 pub struct BtrfsClient {
     proxy: BtrfsInterfaceProxy<'static>,
+}
+
+impl std::fmt::Debug for BtrfsClient {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("BtrfsClient").finish_non_exhaustive()
+    }
 }
 
 impl BtrfsClient {

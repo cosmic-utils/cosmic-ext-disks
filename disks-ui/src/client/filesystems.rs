@@ -76,6 +76,12 @@ pub struct FilesystemsClient {
     proxy: FilesystemsInterfaceProxy<'static>,
 }
 
+impl std::fmt::Debug for FilesystemsClient {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("FilesystemsClient").finish_non_exhaustive()
+    }
+}
+
 impl FilesystemsClient {
     /// Create a new filesystems client connected to the storage service
     pub async fn new() -> Result<Self, ClientError> {

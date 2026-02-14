@@ -152,7 +152,7 @@ pub fn unmount_busy<'a>(state: UnmountBusyDialog) -> Element<'a, Message> {
         device,
         mount_point,
         processes,
-        object_path: _,
+        device_path: _,
     } = state;
 
     let has_processes = !processes.is_empty();

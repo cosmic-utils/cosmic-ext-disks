@@ -1,12 +1,14 @@
+use crate::models::load_all_drives;
 use cosmic::Task;
 
 use crate::app::Message;
+use crate::client::{FilesystemsClient, PartitionsClient};
 use crate::fl;
 use crate::ui::dialogs::message::CreateMessage;
 use crate::ui::dialogs::state::ShowDialog;
 use crate::ui::error::{UiErrorContext, log_error_and_show_dialog};
 use crate::ui::volumes::helpers;
-use disks_dbus::{CreatePartitionInfo, DriveModel};
+use storage_models::CreatePartitionInfo;
 
 use crate::ui::volumes::VolumesControl;
 
@@ -89,17 +91,25 @@ pub(super) fn create_message(
                     create_partition_info.name = fl!("untitled").to_string();
                 }
 
-                let model = control.model.clone();
+                let device = control.device.clone();
                 return Task::perform(
                     async move {
-                        model.create_partition(create_partition_info).await?;
-                        DriveModel::get_drives().await
+                        let partitions_client = PartitionsClient::new().await
+                            .map_err(|e| anyhow::anyhow!("Failed to create partitions client: {}", e))?;
+                        partitions_client.create_partition(
+                            &device,
+                            create_partition_info.offset,
+                            create_partition_info.size,
+                            &create_partition_info.selected_type
+                        ).await
+                            .map_err(|e| anyhow::anyhow!("Failed to create partition: {}", e))?;
+                        load_all_drives().await
                     },
                     |result| match result {
                         Ok(drives) => Message::UpdateNav(drives, None).into(),
                         Err(e) => {
                             let ctx = UiErrorContext::new("create_partition");
-                            log_error_and_show_dialog(fl!("create-partition-failed"), e, ctx).into()
+                            log_error_and_show_dialog(fl!("create-partition-failed"), e.into(), ctx).into()
                         }
                     },
                 );
@@ -131,16 +141,29 @@ pub(super) fn create_message(
                         )
                         .ok_or_else(|| anyhow::anyhow!("Invalid filesystem selection"))?;
 
-                        volume
-                            .format(info.name.clone(), info.erase, fs_type)
-                            .await?;
-                        DriveModel::get_drives().await
+                        let filesystems_client = FilesystemsClient::new().await
+                            .map_err(|e| anyhow::anyhow!("Failed to create filesystems client: {}", e))?;
+                        let options = if info.erase {
+                            Some("{\"erase\": true}")
+                        } else {
+                            None
+                        };
+                        let device = volume.device_path.as_ref()
+                            .ok_or_else(|| anyhow::anyhow!("Volume has no device path"))?;
+                        filesystems_client.format(
+                            device,
+                            &fs_type,
+                            &info.name,
+                            options
+                        ).await
+                            .map_err(|e| anyhow::anyhow!("Failed to format: {}", e))?;
+                        load_all_drives().await
                     },
                     |result| match result {
                         Ok(drives) => Message::UpdateNav(drives, None).into(),
                         Err(e) => {
                             let ctx = UiErrorContext::new("format_partition");
-                            log_error_and_show_dialog(fl!("format-partition").to_string(), e, ctx)
+                            log_error_and_show_dialog(fl!("format-partition").to_string(), e.into(), ctx)
                                 .into()
                         }
                     },

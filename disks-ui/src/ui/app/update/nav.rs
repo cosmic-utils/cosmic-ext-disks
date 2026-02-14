@@ -5,12 +5,12 @@ use crate::ui::dialogs::state::ShowDialog;
 use crate::ui::volumes::{VolumesControl, helpers};
 use cosmic::app::Task;
 use cosmic::widget::icon;
-use disks_dbus::DriveModel;
+use crate::models::UiDrive;
 use std::collections::HashMap;
 
 pub(super) fn update_nav(
     app: &mut AppModel,
-    drive_models: Vec<DriveModel>,
+    drive_models: Vec<UiDrive>,
     selected: Option<String>,
 ) -> Task<Message> {
     // Cache drive models for the custom sidebar tree.
@@ -41,8 +41,8 @@ pub(super) fn update_nav(
 
     let selected = selected.or_else(|| {
         app.nav
-            .active_data::<DriveModel>()
-            .map(|d| d.block_path.clone())
+            .active_data::<UiDrive>()
+            .map(|d| d.device().to_string())
     });
 
     // Volumes-level preference; keep it stable across nav rebuilds.
@@ -56,18 +56,18 @@ pub(super) fn update_nav(
 
     let mut drive_entities: HashMap<String, cosmic::widget::nav_bar::Id> = HashMap::new();
 
-    let selected = selected.or_else(|| drive_models.first().map(|d| d.block_path.clone()));
+    let selected = selected.or_else(|| drive_models.first().map(|d| d.device().to_string()));
 
     for drive in drive_models {
-        let icon_name = if drive.removable {
+        let icon_name = if drive.disk.removable {
             "drive-removable-media-symbolic"
         } else {
             "disks-symbolic"
         };
 
-        let should_activate = selected.as_ref().is_some_and(|s| &drive.block_path == s);
+        let should_activate = selected.as_ref().is_some_and(|s| drive.device() == s);
 
-        let mut volumes_control = VolumesControl::new(drive.clone(), show_reserved);
+        let mut volumes_control = VolumesControl::new(&drive, show_reserved);
 
         // Initialize BTRFS state for the selected segment if it contains BTRFS
         // (checks all segments and looks through LUKS containers)
@@ -76,8 +76,8 @@ pub(super) fn update_nav(
             && let Some(volume) = &segment.volume
         {
             let btrfs_info = helpers::detect_btrfs_for_volume(&drive.volumes, volume);
-            tracing::info!("update_nav: drive={}, segment={}, btrfs_detected={}, id_type={}, has_filesystem={}, mount_points={:?}",
-                drive.name(), selected_idx, btrfs_info.is_some(), volume.id_type, volume.has_filesystem, volume.mount_points);
+            tracing::info!("update_nav: drive={}, segment={}, btrfs_detected={}, has_filesystem={}, mount_points={:?}",
+                drive.name(), selected_idx, btrfs_info.is_some(), volume.has_filesystem, volume.mount_points);
 
             if let Some((mount_point, block_path)) = btrfs_info {
                 tracing::info!("update_nav: Initializing BTRFS state with mount_point={:?}, block_path={}", mount_point, block_path);
@@ -90,7 +90,7 @@ pub(super) fn update_nav(
             .insert()
             .text(drive.name())
             .data::<VolumesControl>(volumes_control)
-            .data::<DriveModel>(drive.clone())
+            .data::<UiDrive>(drive.clone())
             .icon(icon::from_name(icon_name));
 
         if should_activate {
@@ -98,7 +98,7 @@ pub(super) fn update_nav(
         }
 
         let id = nav_item.id();
-        drive_entities.insert(drive.block_path.clone(), id);
+        drive_entities.insert(drive.device().to_string(), id);
     }
 
     app.sidebar.set_drive_entities(drive_entities);

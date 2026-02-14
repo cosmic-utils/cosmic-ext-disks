@@ -1,6 +1,8 @@
+use crate::models::load_all_drives;
 use cosmic::Task;
 
 use crate::app::Message;
+use crate::client::{FilesystemsClient, LuksClient};
 use crate::fl;
 use crate::ui::dialogs::message::{
     ChangePassphraseMessage, EditEncryptionOptionsMessage, TakeOwnershipMessage, UnlockMessage,
@@ -11,7 +13,7 @@ use crate::ui::dialogs::state::{
 };
 use crate::ui::error::{UiErrorContext, log_error_and_show_dialog};
 use crate::ui::volumes::helpers;
-use disks_dbus::{DriveModel, VolumeKind, VolumeNode};
+use storage_models::VolumeKind;
 
 use crate::ui::volumes::VolumesControl;
 
@@ -68,8 +70,8 @@ pub(super) fn open_change_passphrase(
     };
 
     let is_crypto_container =
-        helpers::find_volume_node_for_partition(&control.model.volumes, &volume)
-            .is_some_and(|n| n.kind == VolumeKind::CryptoContainer);
+        helpers::find_volume_for_partition(&control.volumes, &volume)
+            .is_some_and(|n| n.volume.kind == VolumeKind::CryptoContainer);
     if !is_crypto_container {
         return Task::none();
     }
@@ -102,13 +104,13 @@ pub(super) fn open_edit_encryption_options(
     };
 
     let is_crypto_container =
-        helpers::find_volume_node_for_partition(&control.model.volumes, &volume)
-            .is_some_and(|n| n.kind == VolumeKind::CryptoContainer);
+        helpers::find_volume_for_partition(&control.volumes, &volume)
+            .is_some_and(|n| n.volume.kind == VolumeKind::CryptoContainer);
     if !is_crypto_container {
         return Task::none();
     }
 
-    let suggested_name = if volume.name.trim().is_empty() {
+    let suggested_name = if volume.label.trim().is_empty() {
         volume
             .device_path
             .as_deref()
@@ -116,28 +118,15 @@ pub(super) fn open_edit_encryption_options(
             .unwrap_or("luks")
             .to_string()
     } else {
-        volume.name.clone()
+        volume.label.clone()
     };
 
     Task::perform(
         async move {
-            let loaded = volume.get_encryption_options_settings().await;
-            let mut error: Option<String> = None;
-            let settings = match loaded {
-                Ok(v) => v,
-                Err(e) => {
-                    tracing::error!(
-                        ?e,
-                        operation = "get_encryption_options_settings",
-                        object_path = %volume.path,
-                        device = ?volume.device_path,
-                        drive_path = %volume.drive_path,
-                        "error surfaced in UI"
-                    );
-                    error = Some(format!("{e:#}"));
-                    None
-                }
-            };
+            // TODO: Implement get_encryption_options_settings via client
+            // For now, return None to use defaults
+            let settings: Option<disks_dbus::EncryptionOptionsSettings> = None;
+            let error: Option<String> = None;
 
             let (use_defaults, unlock_at_startup, require_auth, other_options, name) =
                 if let Some(s) = settings {
@@ -217,18 +206,17 @@ pub(super) fn unlock_message(
             let passphrase = state.passphrase.clone();
             let passphrase_for_task = passphrase.clone();
 
-            // Look up the partition in the current model.
+            // Look up the partition by device path
             let part = control
-                .model
-                .volumes_flat
+                .partitions
                 .iter()
-                .find(|p| p.path.to_string() == partition_path)
+                .find(|p| p.device == partition_path)
                 .cloned();
 
             let Some(p) = part else {
                 tracing::error!(
                     operation = "unlock_encrypted",
-                    object_path = %partition_path,
+                    device = %partition_path,
                     partition_name = %partition_name,
                     "unlock missing partition in model"
                 );
@@ -244,8 +232,12 @@ pub(super) fn unlock_message(
             let object_path_for_selection = partition_path.clone();
             Task::perform(
                 async move {
-                    p.unlock(&passphrase_for_task).await?;
-                    DriveModel::get_drives().await
+                    let luks_client = LuksClient::new().await
+                        .map_err(|e| anyhow::anyhow!("Failed to create LUKS client: {}", e))?;
+                    let device = &p.device;
+                    luks_client.unlock(device, &passphrase_for_task).await
+                        .map_err(|e| anyhow::anyhow!("Failed to unlock: {}", e))?;
+                    load_all_drives().await
                 },
                 move |result| match result {
                     Ok(drives) => {
@@ -310,13 +302,13 @@ pub(super) fn take_ownership_message(
                         FilesystemTarget::Volume(v) => v.take_ownership(recursive).await?,
                         FilesystemTarget::Node(n) => n.take_ownership(recursive).await?,
                     }
-                    DriveModel::get_drives().await
+                    load_all_drives().await
                 },
                 |result| match result {
                     Ok(drives) => Message::UpdateNav(drives, None).into(),
                     Err(e) => {
                         let ctx = UiErrorContext::new("take_ownership");
-                        log_error_and_show_dialog(fl!("take-ownership").to_string(), e, ctx).into()
+                        log_error_and_show_dialog(fl!("take-ownership").to_string(), e.into(), ctx).into()
                     }
                 },
             )
@@ -369,13 +361,13 @@ pub(super) fn change_passphrase_message(
             Task::perform(
                 async move {
                     volume.change_passphrase(&current, &new).await?;
-                    DriveModel::get_drives().await
+                    load_all_drives().await
                 },
                 |result| match result {
                     Ok(drives) => Message::UpdateNav(drives, None).into(),
                     Err(e) => {
                         let ctx = UiErrorContext::new("change_passphrase");
-                        log_error_and_show_dialog(fl!("change-passphrase").to_string(), e, ctx)
+                        log_error_and_show_dialog(fl!("change-passphrase").to_string(), e.into(), ctx)
                             .into()
                     }
                 },
@@ -458,13 +450,13 @@ pub(super) fn edit_encryption_options_message(
                             )
                             .await?;
                     }
-                    DriveModel::get_drives().await
+                    load_all_drives().await
                 },
                 move |result| match result {
                     Ok(drives) => Message::UpdateNav(drives, None).into(),
                     Err(e) => {
                         let ctx = UiErrorContext::new("edit_encryption_options");
-                        log_error_and_show_dialog(fl!("edit-encryption-options"), e, ctx).into()
+                        log_error_and_show_dialog(fl!("edit-encryption-options-failed"), e.into(), ctx).into()
                     }
                 },
             )
@@ -477,21 +469,32 @@ pub(super) fn lock_container(control: &mut VolumesControl) -> Task<cosmic::Actio
     if let Some(s) = segment
         && let Some(p) = s.volume
     {
-        let mounted_children: Vec<VolumeNode> =
-            helpers::find_volume_node_for_partition(&control.model.volumes, &p)
+        let mounted_children: Vec<String> =
+            helpers::find_volume_for_partition(&control.volumes, &p)
                 .map(helpers::collect_mounted_descendants_leaf_first)
                 .unwrap_or_default();
 
-        let object_path_for_selection = p.path.to_string();
+        let object_path_for_selection = p.device_path.clone().unwrap_or_else(|| p.label.clone());
         return Task::perform(
             async move {
-                // UDisks2 typically refuses to lock while the cleartext/child FS is mounted.
-                // Unmount any mounted descendants first, then lock the container.
+                let fs_client = FilesystemsClient::new().await
+                    .map_err(|e| anyhow::anyhow!("Failed to create filesystems client: {}", e))?;
+                let luks_client = LuksClient::new().await
+                    .map_err(|e| anyhow::anyhow!("Failed to create LUKS client: {}", e))?;
+                
                 for v in mounted_children {
-                    v.unmount().await?;
+                    let device = v.device_path.as_ref()
+                        .ok_or_else(|| anyhow::anyhow!("Volume has no device path"))?;
+                    fs_client.unmount(device, false, false).await
+                        .map_err(|e| anyhow::anyhow!("Failed to unmount {}: {}", device, e))?;
                 }
-                p.lock().await?;
-                DriveModel::get_drives().await
+                
+                let cleartext_device = p.device_path.as_ref()
+                    .ok_or_else(|| anyhow::anyhow!("Partition has no device path"))?;
+                luks_client.lock(cleartext_device).await
+                    .map_err(|e| anyhow::anyhow!("Failed to lock: {}", e))?;
+                
+                load_all_drives().await
             },
             move |result| match result {
                 Ok(drives) => {
@@ -504,7 +507,7 @@ pub(super) fn lock_container(control: &mut VolumesControl) -> Task<cosmic::Actio
                 }
                 Err(e) => {
                     let ctx = UiErrorContext::new("lock_container");
-                    log_error_and_show_dialog(fl!("lock-failed"), e, ctx).into()
+                    log_error_and_show_dialog(fl!("lock-failed"), e.into(), ctx).into()
                 }
             },
         );

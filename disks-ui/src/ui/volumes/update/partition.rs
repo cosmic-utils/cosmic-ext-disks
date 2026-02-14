@@ -1,6 +1,8 @@
+use crate::models::load_all_drives;
 use cosmic::Task;
 
 use crate::app::Message;
+use crate::client::{FilesystemsClient, LuksClient, PartitionsClient};
 use crate::fl;
 use crate::ui::dialogs::message::{EditPartitionMessage, ResizePartitionMessage};
 use crate::ui::dialogs::state::{
@@ -9,7 +11,8 @@ use crate::ui::dialogs::state::{
 use crate::ui::error::{UiErrorContext, log_error_and_show_dialog};
 use crate::ui::volumes::helpers;
 use crate::utils::DiskSegmentKind;
-use disks_dbus::{CreatePartitionInfo, DriveModel, VolumeKind, VolumeModel, VolumeNode};
+use storage_models::{CreatePartitionInfo, VolumeKind};
+use crate::models::UiVolume;
 
 use crate::ui::volumes::VolumesControl;
 
@@ -44,12 +47,12 @@ pub(super) fn delete(
         return Task::none();
     };
 
-    let volume_node = helpers::find_volume_node_for_partition(&control.model.volumes, &p).cloned();
+    let volume_node = helpers::find_volume_for_partition(&control.volumes, &p).cloned();
     let is_unlocked_crypto = matches!(
         volume_node.as_ref(),
-        Some(v) if v.kind == VolumeKind::CryptoContainer && !v.locked
+        Some(v) if v.volume.kind == VolumeKind::CryptoContainer && !v.volume.locked
     );
-    let mounted_children: Vec<VolumeNode> = if is_unlocked_crypto {
+    let mounted_children: Vec<String> = if is_unlocked_crypto {
         volume_node
             .as_ref()
             .map(helpers::collect_mounted_descendants_leaf_first)
@@ -61,16 +64,31 @@ pub(super) fn delete(
     Task::perform(
         async move {
             if is_unlocked_crypto {
-                // UDisks2 typically refuses to lock while the cleartext/child FS is mounted.
-                // Unmount any mounted descendants first, then lock the container.
+                let fs_client = FilesystemsClient::new().await
+                    .map_err(|e| anyhow::anyhow!("Failed to create filesystems client: {}", e))?;
+                let luks_client = LuksClient::new().await
+                    .map_err(|e| anyhow::anyhow!("Failed to create LUKS client: {}", e))?;
+                
                 for v in mounted_children {
-                    v.unmount().await?;
+                    let device = &v;
+                    fs_client.unmount(device, false, false).await
+                        .map_err(|e| anyhow::anyhow!("Failed to unmount {}: {}", device, e))?;
                 }
-                p.lock().await?;
+                
+                let cleartext_device = p.device_path.as_ref()
+                    .ok_or_else(|| anyhow::anyhow!("Partition has no device path"))?;
+                luks_client.lock(cleartext_device).await
+                    .map_err(|e| anyhow::anyhow!("Failed to lock LUKS device: {}", e))?;
             }
 
-            p.delete().await?;
-            DriveModel::get_drives().await
+            let partitions_client = PartitionsClient::new().await
+                .map_err(|e| anyhow::anyhow!("Failed to create partitions client: {}", e))?;
+            let device = p.device_path.as_ref()
+                .ok_or_else(|| anyhow::anyhow!("Partition has no device path"))?;
+            partitions_client.delete_partition(device).await
+                .map_err(|e| anyhow::anyhow!("Failed to delete partition: {}", e))?;
+            
+            load_all_drives().await
         },
         |result| match result {
             Ok(drives) => Message::UpdateNav(drives, None).into(),
@@ -101,10 +119,10 @@ pub(super) fn open_format_partition(
         return Task::none();
     };
 
-    let table_type = if volume.table_type.trim().is_empty() {
+    let table_type = if segment.table_type.trim().is_empty() {
         "gpt".to_string()
     } else {
-        volume.table_type.clone()
+        segment.table_type.clone()
     };
 
     let selected_partition_type_index = helpers::common_partition_type_index_for(
@@ -117,10 +135,10 @@ pub(super) fn open_format_partition(
     );
 
     let info = CreatePartitionInfo {
-        name: volume.name.clone(),
-        size: volume.size,
-        max_size: volume.size,
-        offset: volume.offset,
+        name: volume.label.clone(),
+        size: segment.size,
+        max_size: segment.size,
+        offset: segment.offset,
         erase: false,
         selected_partition_type_index,
         table_type,
@@ -151,11 +169,11 @@ pub(super) fn open_edit_partition(
         return Task::none();
     };
 
-    if volume.volume_type != disks_dbus::VolumeType::Partition {
+    if volume.kind != storage_models::VolumeKind::Partition {
         return Task::none();
     }
 
-    let partition_types = disks_dbus::get_all_partition_type_infos(volume.table_type.as_str());
+    let partition_types = storage_models::get_all_partition_type_infos(segment.table_type.as_str());
     if partition_types.is_empty() {
         return Task::done(
             Message::Dialog(Box::new(ShowDialog::Info {
@@ -166,15 +184,19 @@ pub(super) fn open_edit_partition(
         );
     }
 
-    let selected_type_index = partition_types
-        .iter()
-        .position(|t| t.ty == volume.partition_type_id)
+    // Find corresponding PartitionInfo to get partition-specific data
+    let partition_info = control.partitions.iter()
+        .find(|p| Some(&p.device) == volume.device_path.as_ref());
+
+    let selected_type_index = partition_info
+        .and_then(|p| partition_types.iter().position(|t| t.ty == p.type_id))
         .unwrap_or(0);
 
-    let legacy_bios_bootable = volume.is_legacy_bios_bootable();
-    let system_partition = volume.is_system_partition();
-    let hidden = volume.is_hidden();
-    let name = volume.name.clone();
+    // TODO: Implement flag checking methods on PartitionInfo
+    let legacy_bios_bootable = partition_info.map(|p| (p.flags & 0x04) != 0).unwrap_or(false);
+    let system_partition = partition_info.map(|p| (p.flags & 0x01) != 0).unwrap_or(false);
+    let hidden = partition_info.map(|p| (p.flags & 0x02) != 0).unwrap_or(false);
+    let name = volume.label.clone();
 
     *dialog = Some(ShowDialog::EditPartition(EditPartitionDialog {
         volume,
@@ -205,7 +227,7 @@ pub(super) fn open_resize_partition(
         return Task::none();
     };
 
-    if volume.volume_type != disks_dbus::VolumeType::Partition {
+    if volume.kind != storage_models::VolumeKind::Partition {
         return Task::none();
     }
 
@@ -281,16 +303,27 @@ pub(super) fn edit_partition_message(
 
             return Task::perform(
                 async move {
-                    let flags = VolumeModel::make_partition_flags_bits(legacy, system, hidden);
+                    let flags = disks_dbus::VolumeModel::make_partition_flags_bits(legacy, system, hidden);
 
-                    volume.edit_partition(partition_type, name, flags).await?;
-                    DriveModel::get_drives().await
+                    let partitions_client = PartitionsClient::new().await
+                        .map_err(|e| anyhow::anyhow!("Failed to create partitions client: {}", e))?;
+                    let device = volume.device_path.as_ref()
+                        .ok_or_else(|| anyhow::anyhow!("Partition has no device path"))?;
+                    
+                    partitions_client.set_partition_type(device, &partition_type).await
+                        .map_err(|e| anyhow::anyhow!("Failed to set partition type: {}", e))?;
+                    partitions_client.set_partition_name(device, &name).await
+                        .map_err(|e| anyhow::anyhow!("Failed to set partition name: {}", e))?;
+                    partitions_client.set_partition_flags(device, flags).await
+                        .map_err(|e| anyhow::anyhow!("Failed to set partition flags: {}", e))?;
+                    
+                    load_all_drives().await
                 },
                 |result| match result {
                     Ok(drives) => Message::UpdateNav(drives, None).into(),
                     Err(e) => {
                         let ctx = UiErrorContext::new("edit_partition");
-                        log_error_and_show_dialog(fl!("edit-partition").to_string(), e, ctx).into()
+                        log_error_and_show_dialog(fl!("edit-partition").to_string(), e.into(), ctx).into()
                     }
                 },
             );
@@ -332,14 +365,19 @@ pub(super) fn resize_partition_message(
 
             return Task::perform(
                 async move {
-                    volume.resize(new_size).await?;
-                    DriveModel::get_drives().await
+                    let partitions_client = PartitionsClient::new().await
+                        .map_err(|e| anyhow::anyhow!("Failed to create partitions client: {}", e))?;
+                    let device = volume.device_path.as_ref()
+                        .ok_or_else(|| anyhow::anyhow!("Volume has no device path"))?;
+                    partitions_client.resize_partition(device, new_size).await
+                        .map_err(|e| anyhow::anyhow!("Failed to resize partition: {}", e))?;
+                    load_all_drives().await
                 },
                 |result| match result {
                     Ok(drives) => Message::UpdateNav(drives, None).into(),
                     Err(e) => {
                         let ctx = UiErrorContext::new("resize_partition");
-                        log_error_and_show_dialog(fl!("resize-partition").to_string(), e, ctx)
+                        log_error_and_show_dialog(fl!("resize-partition").to_string(), e.into(), ctx)
                             .into()
                     }
                 },

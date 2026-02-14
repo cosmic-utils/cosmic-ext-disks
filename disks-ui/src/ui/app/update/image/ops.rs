@@ -1,5 +1,7 @@
+use crate::client::FilesystemsClient;
+use crate::models::UiDrive;
 use crate::ui::dialogs::state::ImageOperationKind;
-use disks_dbus::DriveModel;
+use storage_models::VolumeInfo;
 use std::sync::{
     Arc,
     atomic::{AtomicBool, Ordering},
@@ -39,8 +41,8 @@ where
 
 pub(super) async fn run_image_operation(
     kind: ImageOperationKind,
-    drive: DriveModel,
-    partition: Option<disks_dbus::VolumeModel>,
+    drive: UiDrive,
+    partition: Option<VolumeInfo>,
     image_path: String,
     cancel: Arc<AtomicBool>,
 ) -> anyhow::Result<()> {
@@ -75,9 +77,15 @@ pub(super) async fn run_image_operation(
         }
         ImageOperationKind::RestoreToDrive => {
             // Preflight: attempt to unmount all mounted partitions.
+            let fs_client = FilesystemsClient::new().await
+                .map_err(|e| anyhow::anyhow!("Failed to create filesystems client: {}", e))?;
+            
             for p in &drive.volumes_flat {
                 if p.is_mounted() {
-                    p.unmount().await?;
+                    let device = p.device_path.as_ref()
+                        .ok_or_else(|| anyhow::anyhow!("Partition has no device path"))?;
+                    fs_client.unmount(device, false, false).await
+                        .map_err(|e| anyhow::anyhow!("Failed to unmount {}: {}", device, e))?;
                 }
             }
 
@@ -103,7 +111,12 @@ pub(super) async fn run_image_operation(
             };
 
             if partition.is_mounted() {
-                partition.unmount().await?;
+                let fs_client = FilesystemsClient::new().await
+                    .map_err(|e| anyhow::anyhow!("Failed to create filesystems client: {}", e))?;
+                let device = partition.device_path.as_ref()
+                    .ok_or_else(|| anyhow::anyhow!("Partition has no device path"))?;
+                fs_client.unmount(device, false, false).await
+                    .map_err(|e| anyhow::anyhow!("Failed to unmount: {}", e))?;
             }
 
             let src_meta = tokio::fs::metadata(&image_path).await?;

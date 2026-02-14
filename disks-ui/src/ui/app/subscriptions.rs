@@ -2,8 +2,7 @@ use super::Message;
 use crate::config::Config;
 use cosmic::Application;
 use cosmic::iced::Subscription;
-use disks_dbus::DiskManager;
-use futures_util::{SinkExt, StreamExt};
+// TODO: DisksClient needs device event subscription support
 
 use super::state::AppModel;
 
@@ -18,35 +17,19 @@ pub(crate) fn subscription(app: &AppModel) -> Subscription<Message> {
         // Create a subscription which emits updates through a channel.
         Subscription::run_with_id(
             std::any::TypeId::of::<DiskEventSubscription>(),
-            cosmic::iced::stream::channel(4, move |mut c| async move {
-                let manager = match DiskManager::new().await {
-                    Ok(m) => m,
-                    Err(e) => {
-                        tracing::error!(%e, "error creating DiskManager");
-                        return;
-                    }
-                };
-                let mut stream = match manager.device_event_stream_signals().await {
-                    Ok(stream) => stream,
-                    Err(e) => {
-                        tracing::warn!(
-                            %e,
-                            "device updates unavailable (failed to subscribe to UDisks2 signals)"
-                        );
-                        return;
-                    }
-                };
-
+            cosmic::iced::stream::channel(4, move |_c| async move {
+                // TODO: Replace with DisksClient signal subscription
+                // let disks_client = DisksClient::new().await.expect("DisksClient");
+                // let mut stream = disks_client.subscribe_device_events().await.expect("event stream");
+                todo!("Implement device event subscription with DisksClient");
+                
+                /*
                 while let Some(event) = stream.next().await {
                     match event {
-                        disks_dbus::DeviceEvent::Added(s) => {
-                            let _ = c.send(Message::DriveAdded(s)).await;
-                        }
-                        disks_dbus::DeviceEvent::Removed(s) => {
-                            let _ = c.send(Message::DriveRemoved(s)).await;
-                        }
+                        _ => {}
                     }
                 }
+                */
             }),
         ),
         // Watch for application configuration changes.

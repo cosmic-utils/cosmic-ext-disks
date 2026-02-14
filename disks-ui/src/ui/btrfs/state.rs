@@ -1,4 +1,4 @@
-use disks_dbus::BtrfsSubvolume;
+use storage_models::{BtrfsSubvolume, DeletedSubvolume};
 use std::collections::HashMap;
 
 /// State for BTRFS management UI
@@ -21,7 +21,7 @@ pub struct BtrfsState {
     /// Default subvolume ID
     pub default_subvolume_id: Option<u64>,
     /// List of deleted subvolumes pending cleanup
-    pub deleted_subvolumes: Option<Vec<BtrfsSubvolume>>,
+    pub deleted_subvolumes: Option<Vec<DeletedSubvolume>>,
     /// Whether to show deleted subvolumes in the UI
     pub show_deleted: bool,
     /// Currently selected subvolume (for properties/operations)

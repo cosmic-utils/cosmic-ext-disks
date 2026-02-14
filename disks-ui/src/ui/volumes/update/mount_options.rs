@@ -1,3 +1,4 @@
+use crate::models::load_all_drives;
 use cosmic::Task;
 
 use crate::app::Message;
@@ -5,7 +6,6 @@ use crate::fl;
 use crate::ui::dialogs::message::EditMountOptionsMessage;
 use crate::ui::dialogs::state::{EditMountOptionsDialog, FilesystemTarget, ShowDialog};
 use crate::ui::error::{UiErrorContext, log_error_and_show_dialog};
-use disks_dbus::DriveModel;
 
 use crate::ui::volumes::VolumesControl;
 
@@ -40,11 +40,11 @@ pub(super) fn open_edit_mount_options(
             let device = v
                 .device_path
                 .clone()
-                .unwrap_or_else(|| format!("/dev/{}", v.path.split('/').next_back().unwrap_or("")));
-            let name = if v.name.trim().is_empty() {
+                .unwrap_or_else(|| "/dev/unknown".to_string());
+            let name = if v.name().trim().is_empty() {
                 v.partition_type.clone()
             } else {
-                v.name.clone()
+                v.name()
             };
             let fstype = if v.id_type.trim().is_empty() {
                 "auto".to_string()
@@ -61,7 +61,7 @@ pub(super) fn open_edit_mount_options(
             let device = n.device_path.clone().unwrap_or_else(|| {
                 format!(
                     "/dev/{}",
-                    n.object_path.split('/').next_back().unwrap_or("")
+                    n.object_path().as_deref().unwrap_or("").split('/').next_back().unwrap_or("")
                 )
             });
             let name = if n.label.trim().is_empty() {
@@ -372,13 +372,13 @@ pub(super) fn edit_mount_options_message(
                             }
                         }
                     }
-                    DriveModel::get_drives().await
+                    load_all_drives().await
                 },
                 move |result| match result {
                     Ok(drives) => Message::UpdateNav(drives, None).into(),
                     Err(e) => {
                         let ctx = UiErrorContext::new("edit_mount_options");
-                        log_error_and_show_dialog(fl!("edit-mount-options"), e, ctx).into()
+                        log_error_and_show_dialog(fl!("edit-mount-options"), e.into(), ctx).into()
                     }
                 },
             )

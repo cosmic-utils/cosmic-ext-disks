@@ -66,13 +66,6 @@ pub fn settings<'a>(config: &Config) -> Element<'a, Message> {
             .push(tools_list)
             .spacing(space_s);
 
-        // Add EnableModules button if udisks2-btrfs is in missing tools
-        if missing_tools.iter().any(|t| t.fs_type == "btrfs_udisks") {
-            let enable_button = widget::button::standard(fl!("settings-enable-udisks-btrfs"))
-                .on_press(Message::EnableUDisksBtrfs);
-            tools_section = tools_section.push(enable_button);
-        }
-
         about_section = about_section
             .push(widget::divider::horizontal::default())
             .push(tools_section)

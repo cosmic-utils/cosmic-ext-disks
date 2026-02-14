@@ -5,6 +5,7 @@ mod client;
 mod config;
 mod i18n;
 mod logging;
+mod models;
 mod ui;
 mod utils;
 mod views;

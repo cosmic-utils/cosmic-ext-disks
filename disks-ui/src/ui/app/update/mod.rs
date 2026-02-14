@@ -8,8 +8,10 @@ use super::APP_ID;
 use super::message::{ImagePathPickerKind, Message};
 use super::state::AppModel;
 use crate::app::REPOSITORY;
+use crate::client::FilesystemsClient;
 use crate::config::Config;
 use crate::fl;
+use crate::models::load_all_drives;
 use crate::ui::dialogs::state::ShowDialog;
 use crate::ui::error::{UiErrorContext, log_error_and_show_dialog};
 use crate::ui::sidebar::SidebarNodeKey;
@@ -19,28 +21,27 @@ use cosmic::app::Task;
 use cosmic::cosmic_config::CosmicConfigEntry;
 use cosmic::dialog::file_chooser;
 use cosmic::widget::nav_bar;
-use disks_dbus::{DiskError, DiskManager, DriveModel, VolumeNode};
 
 /// Recursively search for a volume child by object_path
 fn find_volume_child_recursive<'a>(
-    children: &'a [VolumeNode],
-    object_path: &str,
-) -> Option<&'a VolumeNode> {
+    children: &'a [crate::models::UiVolume],
+    device_path: &str,
+) -> Option<&'a crate::models::UiVolume> {
     for child in children {
-        if child.object_path.as_str() == object_path {
+        if child.device() == Some(device_path) {
             return Some(child);
         }
-        if let Some(found) = find_volume_child_recursive(&child.children, object_path) {
+        if let Some(found) = find_volume_child_recursive(&child.children, device_path) {
             return Some(found);
         }
     }
     None
 }
 
-/// Find the segment index and whether the volume is a child for a given object path
+/// Find the segment index and whether the volume is a child for a given device path
 fn find_segment_for_volume(
     volumes_control: &VolumesControl,
-    object_path: &str,
+    device_path: &str,
 ) -> Option<(usize, bool)> {
     for (segment_idx, segment) in volumes_control.segments.iter().enumerate() {
         let Some(segment_vol) = &segment.volume else {
@@ -48,23 +49,45 @@ fn find_segment_for_volume(
         };
 
         // Direct match (partition itself)
-        if segment_vol.path.as_str() == object_path {
+        if segment_vol.device_path.as_ref().map_or(false, |p| p == device_path) {
             return Some((segment_idx, false));
         }
 
         // Check if volume is a child of this segment's partition
-        let Some(segment_node) = volumes_helpers::find_volume_node(
-            &volumes_control.model.volumes,
-            segment_vol.path.as_str(),
-        ) else {
+        let Some(segment_device) = &segment_vol.device_path else {
+            continue;
+        };
+        
+        // Search for the segment volume in the tree
+        let segment_node = volumes_control.volumes.iter()
+            .find(|v| v.device() == Some(segment_device.as_str()));
+        
+        let Some(segment_node) = segment_node else {
             continue;
         };
 
-        if find_volume_child_recursive(&segment_node.children, object_path).is_some() {
+        // Recursively check children
+        if find_volume_in_tree(&segment_node.children, device_path).is_some() {
             return Some((segment_idx, true));
         }
     }
 
+    None
+}
+
+/// Find a volume by device path in the tree
+fn find_volume_in_tree<'a>(
+    volumes: &'a [crate::models::UiVolume],
+    device_path: &str,
+) -> Option<&'a crate::models::UiVolume> {
+    for vol in volumes {
+        if vol.device() == Some(device_path) {
+            return Some(vol);
+        }
+        if let Some(found) = find_volume_in_tree(&vol.children, device_path) {
+            return Some(found);
+        }
+    }
     None
 }
 
@@ -102,48 +125,6 @@ pub(crate) fn update(app: &mut AppModel, message: Message) -> Task<Message> {
             if let Some(volumes_control) = app.nav.active_data_mut::<VolumesControl>() {
                 volumes_control.set_show_reserved(show_reserved);
             }
-        }
-        Message::EnableUDisksBtrfs => {
-            return Task::perform(
-                async {
-                    match DiskManager::new().await {
-                        Ok(manager) => match manager.enable_modules().await {
-                            Ok(()) => Ok(()),
-                            Err(e) => Err(format!("Failed to enable modules: {}", e)),
-                        },
-                        Err(e) => Err(format!("Failed to create manager: {}", e)),
-                    }
-                },
-                |result| Message::EnableUDisksBtrfsResult(result).into(),
-            );
-        }
-        Message::EnableUDisksBtrfsResult(result) => {
-            return match result {
-                Ok(()) => {
-                    tracing::info!("UDisks2 BTRFS modules enabled successfully");
-                    cosmic::Task::done(
-                        Message::Dialog(Box::new(
-                            crate::ui::dialogs::state::ShowDialog::Info {
-                                title: fl!("settings-udisks-btrfs-enabled"),
-                                body: fl!("settings-udisks-btrfs-enabled-body"),
-                            },
-                        ))
-                        .into(),
-                    )
-                }
-                Err(e) => {
-                    tracing::error!("Failed to enable UDisks2 BTRFS modules: {}", e);
-                    cosmic::Task::done(
-                        Message::Dialog(Box::new(
-                            crate::ui::dialogs::state::ShowDialog::Info {
-                                title: fl!("settings-udisks-btrfs-failed"),
-                                body: e,
-                            },
-                        ))
-                        .into(),
-                    )
-                }
-            };
         }
         Message::OpenImagePathPicker(kind) => {
             let title = match kind {
@@ -240,7 +221,7 @@ pub(crate) fn update(app: &mut AppModel, message: Message) -> Task<Message> {
         Message::DriveRemoved(_drive_model) => {
             return Task::perform(
                 async {
-                    match DriveModel::get_drives().await {
+                    match load_all_drives().await {
                         Ok(drives) => Some(drives),
                         Err(e) => {
                             tracing::error!(%e, "failed to refresh drives after drive removal");
@@ -257,7 +238,7 @@ pub(crate) fn update(app: &mut AppModel, message: Message) -> Task<Message> {
         Message::DriveAdded(_drive_model) => {
             return Task::perform(
                 async {
-                    match DriveModel::get_drives().await {
+                    match load_all_drives().await {
                         Ok(drives) => Some(drives),
                         Err(e) => {
                             tracing::error!(%e, "failed to refresh drives after drive add");
@@ -369,15 +350,15 @@ pub(crate) fn update(app: &mut AppModel, message: Message) -> Task<Message> {
                 .sidebar
                 .drives
                 .iter()
-                .find(|d| volumes_helpers::find_volume_node(&d.volumes, &object_path).is_some())
+                .find(|d| volumes_helpers::find_volume_in_ui_tree(&d.volumes, &object_path).is_some())
                 .cloned();
 
             // If the volume belongs to a different drive, switch to that drive first
             if let Some(drive) = drive_for_volume {
                 let current_drive_block_path = app.sidebar.active_drive_block_path(&app.nav);
-                if current_drive_block_path.as_deref() != Some(&drive.block_path) {
+                if current_drive_block_path.as_deref() != Some(drive.block_path()) {
                     // Switch to the correct drive
-                    if let Some(id) = app.sidebar.drive_entities.get(&drive.block_path).copied() {
+                    if let Some(id) = app.sidebar.drive_entities.get(drive.block_path()).copied() {
                         let switch_task = on_nav_select(app, id);
                         // After switching, we need to select the volume again
                         return switch_task.chain(Task::done(cosmic::Action::App(
@@ -393,7 +374,7 @@ pub(crate) fn update(app: &mut AppModel, message: Message) -> Task<Message> {
             };
 
             let Some(vol_node) =
-                volumes_helpers::find_volume_node(&volumes_control.model.volumes, &object_path)
+                volumes_helpers::find_volume_in_ui_tree(&volumes_control.volumes, &object_path)
             else {
                 return Task::none();
             };
@@ -407,7 +388,7 @@ pub(crate) fn update(app: &mut AppModel, message: Message) -> Task<Message> {
             // Apply the selection change
             volumes_control.selected_segment = segment_idx;
             volumes_control.selected_volume = if is_child {
-                Some(vol_node.object_path.to_string())
+                vol_node.object_path()
             } else {
                 None
             };
@@ -426,7 +407,7 @@ pub(crate) fn update(app: &mut AppModel, message: Message) -> Task<Message> {
         }
         Message::SidebarDriveEject(block_path) => {
             if let Some(drive) = app.sidebar.find_drive(&block_path) {
-                return drive::eject_drive(drive);
+                return drive::eject_drive(drive.clone());
             }
         }
         Message::SidebarVolumeUnmount { drive, object_path } => {
@@ -434,19 +415,26 @@ pub(crate) fn update(app: &mut AppModel, message: Message) -> Task<Message> {
                 return Task::none();
             };
 
+            // object_path is now actually a device_path (migration in progress)
+            let device_path = object_path.clone();
             let Some(node) =
-                volumes_helpers::find_volume_node(&drive_model.volumes, &object_path).cloned()
+                volumes_helpers::find_volume_in_ui_tree(&drive_model.volumes, &device_path)
             else {
                 return Task::none();
             };
 
-            let drive_path = drive_model.path.clone();
-            let device = drive_model.block_path.clone();
+            let device = drive_model.device().to_string();
 
             return Task::perform(
                 async move {
-                    node.unmount().await?;
-                    DriveModel::get_drives().await
+                    let fs_client = FilesystemsClient::new().await
+                        .map_err(|e| anyhow::anyhow!("Failed to create filesystems client: {}", e))?;
+                    let device_to_unmount = node.device()
+                        .ok_or_else(|| anyhow::anyhow!("Node has no device path"))?;
+                    fs_client.unmount(device_to_unmount, false, false).await
+                        .map_err(|e| anyhow::anyhow!("Failed to unmount: {}", e))?;
+                    load_all_drives().await
+                        .map_err(|e| anyhow::anyhow!("Failed to reload drives: {}", e))
                 },
                 move |res| match res {
                     Ok(drives) => Message::UpdateNav(drives, None).into(),
@@ -455,7 +443,7 @@ pub(crate) fn update(app: &mut AppModel, message: Message) -> Task<Message> {
                             operation: "sidebar_volume_unmount",
                             object_path: Some(object_path.as_str()),
                             device: Some(device.as_str()),
-                            drive_path: Some(drive_path.as_str()),
+                            drive_path: None,
                         };
                         log_error_and_show_dialog(fl!("unmount-failed"), e, ctx).into()
                     }
@@ -498,7 +486,7 @@ pub(crate) fn update(app: &mut AppModel, message: Message) -> Task<Message> {
             // Extract dialog data before consuming it
             let dialog_data = if let Some(ShowDialog::UnmountBusy(ref dialog)) = app.dialog {
                 Some((
-                    dialog.object_path.clone(),
+                    dialog.device_path.clone(),
                     dialog.mount_point.clone(),
                     dialog.processes.iter().map(|p| p.pid).collect::<Vec<_>>(),
                 ))
@@ -632,94 +620,86 @@ pub(crate) fn on_nav_select(app: &mut AppModel, id: nav_bar::Id) -> Task<Message
     }
 }
 
-/// Helper function to retry unmount operation on a volume by object path
-fn retry_unmount(volumes: &VolumesControl, object_path: String) -> Task<Message> {
+/// Helper function to retry unmount operation on a volume by device path
+fn retry_unmount(volumes: &VolumesControl, device_path: String) -> Task<Message> {
     // Find the volume node
-    let node = volumes_helpers::find_volume_node(&volumes.model.volumes, &object_path).cloned();
+    let node = volumes_helpers::find_volume_in_ui_tree(&volumes.volumes, &device_path).cloned();
 
     if let Some(node) = node {
         let device = node
+            .volume
             .device_path
             .clone()
-            .unwrap_or_else(|| node.object_path.to_string());
-        let mount_point = node.mount_points.first().cloned();
-        let object_path_for_retry = object_path.clone();
-        let object_path_for_selection = object_path.clone();
+            .unwrap_or_else(|| device_path.clone());
+        let mount_point = node.volume.mount_points.first().cloned();
+        let device_path_for_retry = device_path.clone();
+        let device_path_for_selection = device_path.clone();
 
         Task::perform(
             async move {
-                match node.unmount().await {
-                    Ok(()) => {
-                        // Success - reload drives
-                        match DriveModel::get_drives().await {
-                            Ok(drives) => Ok(drives),
-                            Err(e) => {
-                                tracing::error!(?e, "Failed to reload drives after unmount");
-                                Err(None)
-                            }
-                        }
-                    }
+                let fs_client = match FilesystemsClient::new().await {
+                    Ok(c) => c,
                     Err(e) => {
-                        // Check if it's still busy
-                        if let Some(disk_err) = e.downcast_ref::<DiskError>()
-                            && matches!(disk_err, DiskError::ResourceBusy { .. })
-                        {
-                            // Check if we have a mount point - can't find processes without it
-                            if let Some(mp) = mount_point {
-                                if !mp.trim().is_empty() {
-                                    // Still busy - find processes again and re-show dialog
-                                    match disks_dbus::find_processes_using_mount(&mp).await {
-                                        Ok(processes) => {
-                                            tracing::warn!(
-                                                mount_point = %mp,
-                                                process_count = processes.len(),
-                                                "Unmount still busy after retry"
-                                            );
-                                            return Err(Some((
-                                                device,
-                                                mp,
-                                                processes,
-                                                object_path_for_retry,
-                                            )));
-                                        }
-                                        Err(find_err) => {
-                                            tracing::warn!(
-                                                ?find_err,
-                                                "Failed to find processes on retry"
-                                            );
-                                        }
-                                    }
-                                } else {
-                                    tracing::warn!(
-                                        "Mount point is empty on retry, cannot find processes"
-                                    );
-                                }
-                            } else {
-                                tracing::warn!(
-                                    "No mount point available on retry, cannot find processes"
-                                );
-                            }
-                        }
-                        // Generic error
-                        tracing::error!(?e, "unmount retry failed");
-                        Err(None)
+                        tracing::error!(?e, "Failed to create filesystems client");
+                        return Err(None);
                     }
+                };
+                
+                let unmount_result = match fs_client.unmount(&device, false, false).await {
+                    Ok(r) => r,
+                    Err(e) => {
+                        tracing::error!(?e, "Failed to unmount");
+                        return Err(None);
+                    }
+                };
+                
+                if unmount_result.success {
+                    // Success - reload drives
+                    match load_all_drives().await {
+                        Ok(drives) => Ok(drives),
+                        Err(e) => {
+                            tracing::error!(?e, "Failed to reload drives after unmount");
+                            Err(None)
+                        }
+                    }
+                } else if !unmount_result.blocking_processes.is_empty() {
+                    // Device is busy with processes
+                    let mp = mount_point.unwrap_or_default();
+                    tracing::warn!(
+                        mount_point = %mp,
+                        process_count = unmount_result.blocking_processes.len(),
+                        "Unmount still busy after retry"
+                    );
+                    Err(Some((
+                        device,
+                        mp,
+                        unmount_result.blocking_processes,
+                        device_path_for_retry,
+                    )))
+                } else {
+                    // Generic error
+                    if let Some(err) = unmount_result.error {
+                        tracing::error!("unmount retry failed: {}", err);
+                    } else {
+                        tracing::error!("unmount retry failed with unknown error");
+                    }
+                    Err(None)
                 }
             },
             move |result| match result {
                 Ok(drives) => Message::UpdateNavWithChildSelection(
                     drives,
-                    Some(object_path_for_selection.clone()),
+                    Some(device_path_for_selection.clone()),
                 )
                 .into(),
-                Err(Some((device, mount_point, processes, object_path))) => {
+                Err(Some((device, mount_point, processes, device_path))) => {
                     // Still busy - show dialog again
                     Message::Dialog(Box::new(ShowDialog::UnmountBusy(
                         crate::ui::dialogs::state::UnmountBusyDialog {
                             device,
                             mount_point,
                             processes,
-                            object_path,
+                            device_path,
                         },
                     )))
                     .into()
@@ -731,7 +711,7 @@ fn retry_unmount(volumes: &VolumesControl, object_path: String) -> Task<Message>
             },
         )
     } else {
-        tracing::warn!("Volume not found for retry: {}", object_path);
+        tracing::warn!("Volume not found for retry: {}", device_path);
         Task::none()
     }
 }

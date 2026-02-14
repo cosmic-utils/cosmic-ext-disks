@@ -1,3 +1,4 @@
+use crate::models::load_all_drives;
 use cosmic::Task;
 
 use crate::app::Message;
@@ -7,7 +8,6 @@ use crate::ui::dialogs::state::{
     ConfirmActionDialog, EditFilesystemLabelDialog, FilesystemTarget, ShowDialog,
 };
 use crate::ui::error::{UiErrorContext, log_error_and_show_dialog};
-use disks_dbus::DriveModel;
 
 use crate::ui::volumes::{VolumesControl, VolumesControlMessage};
 
@@ -78,13 +78,13 @@ pub(super) fn edit_filesystem_label_message(
                         FilesystemTarget::Volume(v) => v.edit_filesystem_label(label).await?,
                         FilesystemTarget::Node(n) => n.edit_filesystem_label(&label).await?,
                     }
-                    DriveModel::get_drives().await
+                    load_all_drives().await
                 },
                 |result| match result {
                     Ok(drives) => Message::UpdateNav(drives, None).into(),
                     Err(e) => {
-                        let ctx = UiErrorContext::new("edit_filesystem_label");
-                        log_error_and_show_dialog(fl!("edit-filesystem").to_string(), e, ctx).into()
+                        let ctx = Ui ErrorContext::new("edit_filesystem");
+                        log_error_and_show_dialog(fl!("edit-filesystem").to_string(), e.into(), ctx)
                     }
                 },
             );
@@ -151,13 +151,13 @@ pub(super) fn check_filesystem_confirm(
                 FilesystemTarget::Volume(v) => v.check_filesystem().await?,
                 FilesystemTarget::Node(n) => n.check_filesystem().await?,
             }
-            DriveModel::get_drives().await
+            load_all_drives().await
         },
         |result| match result {
             Ok(drives) => Message::UpdateNav(drives, None).into(),
             Err(e) => {
                 let ctx = UiErrorContext::new("check_filesystem");
-                log_error_and_show_dialog(fl!("check-filesystem").to_string(), e, ctx).into()
+                log_error_and_show_dialog(fl!("check-filesystem").to_string(), e.into(), ctx).into()
             }
         },
     )
@@ -222,13 +222,13 @@ pub(super) fn repair_filesystem_confirm(
                 FilesystemTarget::Volume(v) => v.repair_filesystem().await?,
                 FilesystemTarget::Node(n) => n.repair_filesystem().await?,
             }
-            DriveModel::get_drives().await
+            load_all_drives().await
         },
         |result| match result {
             Ok(drives) => Message::UpdateNav(drives, None).into(),
             Err(e) => {
                 let ctx = UiErrorContext::new("repair_filesystem");
-                log_error_and_show_dialog(fl!("repair-filesystem").to_string(), e, ctx).into()
+                log_error_and_show_dialog(fl!("repair-filesystem").to_string(), e.into(), ctx).into()
             }
         },
     )

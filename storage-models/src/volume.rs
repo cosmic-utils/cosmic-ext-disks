@@ -62,6 +62,13 @@ pub struct VolumeInfo {
     /// Device path (e.g., "/dev/sda1", "/dev/mapper/luks-xxx")
     pub device_path: Option<String>,
     
+    /// Parent device path for building hierarchy
+    /// - For partition: parent disk device (e.g., "/dev/sda")
+    /// - For unlocked LUKS: parent partition (e.g., "/dev/sda1")
+    /// - For LVM LV: parent VG path
+    /// - None for root-level volumes
+    pub parent_path: Option<String>,
+    
     /// Whether this volume has a filesystem interface
     pub has_filesystem: bool,
     
@@ -117,5 +124,16 @@ impl VolumeInfo {
         }
         
         None
+    }
+    
+    /// Get display name for this volume
+    pub fn name(&self) -> String {
+        if !self.label.is_empty() {
+            self.label.clone()
+        } else if let Some(device) = &self.device_path {
+            device.clone()
+        } else {
+            "Unknown".to_string()
+        }
     }
 }

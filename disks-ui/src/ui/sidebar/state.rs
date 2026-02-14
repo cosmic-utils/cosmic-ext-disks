@@ -1,5 +1,5 @@
 use cosmic::widget::nav_bar;
-use disks_dbus::DriveModel;
+use crate::models::UiDrive;
 use std::collections::{HashMap, HashSet};
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
@@ -11,7 +11,7 @@ pub enum SidebarNodeKey {
 #[derive(Debug, Default)]
 pub struct SidebarState {
     /// Latest drive models used to render the tree.
-    pub drives: Vec<DriveModel>,
+    pub drives: Vec<UiDrive>,
 
     /// Mapping from drive `block_path` to the corresponding `nav_bar::Id` in `app.nav`.
     pub drive_entities: HashMap<String, nav_bar::Id>,
@@ -26,11 +26,11 @@ pub struct SidebarState {
 impl SidebarState {
     pub fn active_drive_block_path(&self, app_nav: &nav_bar::Model) -> Option<String> {
         app_nav
-            .active_data::<DriveModel>()
-            .map(|d| d.block_path.clone())
+            .active_data::<UiDrive>()
+            .map(|d| d.device().to_string())
     }
 
-    pub fn set_drives(&mut self, drives: Vec<DriveModel>) {
+    pub fn set_drives(&mut self, drives: Vec<UiDrive>) {
         self.drives = drives;
     }
 
@@ -48,10 +48,9 @@ impl SidebarState {
         }
     }
 
-    pub fn find_drive(&self, block_path: &str) -> Option<DriveModel> {
+    pub fn find_drive(&self, device: &str) -> Option<&UiDrive> {
         self.drives
             .iter()
-            .find(|d| d.block_path == block_path)
-            .cloned()
+            .find(|d| d.device() == device)
     }
 }
