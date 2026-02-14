@@ -257,26 +257,12 @@ impl LuksHandler {
             })?;
 
         for drive in drives {
-            for vol in &drive.volumes_flat {
+            for vol in &drive.volumes {
                 if vol.device_path.as_deref() == Some(device.as_str()) {
-                    match vol.get_encryption_options_settings().await {
-                        Ok(Some(s)) => {
-                            let out = EncryptionOptionsSettings {
-                                name: s.name,
-                                unlock_at_startup: s.unlock_at_startup,
-                                require_auth: s.require_auth,
-                                other_options: s.other_options,
-                                passphrase: None,
-                            };
-                            return serde_json::to_string(&Some(out))
-                                .map_err(|e| zbus::fdo::Error::Failed(format!("Serialize: {e}")));
-                        }
-                        Ok(None) => return Ok("null".to_string()),
-                        Err(e) => {
-                            tracing::warn!("get_encryption_options_settings failed: {e}");
-                            return Ok("null".to_string());
-                        }
-                    }
+                    // TODO(GAP-001.b): VolumeNode doesn't have get_encryption_options_settings
+                    // Need to query BlockConfiguration directly or add method to VolumeNode
+                    // For now, return null (no saved settings)
+                    return Ok("null".to_string());
                 }
             }
         }

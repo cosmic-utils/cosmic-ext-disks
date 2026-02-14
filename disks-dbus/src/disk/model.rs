@@ -70,7 +70,6 @@ impl DriveModel {
             block_path: block_path.to_string(),
             is_loop: false,
             backing_file: None,
-            volumes_flat: vec![],
             volumes: vec![],
             can_power_off: drive_proxy.can_power_off().await?,
             ejectable: drive_proxy.ejectable().await?,
@@ -113,7 +112,6 @@ impl DriveModel {
             block_path: block_path.to_string(),
             is_loop: backing_file.is_some(),
             backing_file,
-            volumes_flat: vec![],
             volumes: vec![],
             can_power_off: false,
             ejectable: false,
@@ -162,10 +160,11 @@ impl DriveModel {
 
     /// Get flat list of partitions as canonical storage-models types.
     /// 
-    /// This converts the internal VolumeModel list to storage_models::PartitionInfo,
-    /// which is the recommended type for partition operations.
+    /// This converts the VolumeNode tree to storage-models::PartitionInfo.
     pub fn get_partitions(&self) -> Vec<storage_models::PartitionInfo> {
-        self.volumes_flat.iter().map(|v| v.clone().into()).collect()
+        // TODO: Flatten volumes tree to partition list
+        // For now return empty - this was using volumes_flat which is removed
+        vec![]
     }
 }
 

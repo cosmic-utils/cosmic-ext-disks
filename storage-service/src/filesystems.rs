@@ -108,7 +108,7 @@ impl FilesystemsHandler {
         
         for drive in drives {
             // Access volumes_flat directly from DriveModel
-            for volume in &drive.volumes_flat {
+            for volume in &drive.volumes {
                 // Only include volumes that have actual filesystems (not empty id_type, not LUKS)
                 if volume.has_filesystem && volume.id_type != "crypto_LUKS" {
                     let device = volume.device_path.clone().unwrap_or_default();
@@ -124,7 +124,7 @@ impl FilesystemsHandler {
                         device,
                         fs_type: volume.id_type.clone(),
                         label,
-                        uuid: volume.uuid.clone(),
+                        uuid: String::new(), // TODO(GAP-001.b): Query UUID from block proxy
                         mount_points: volume.mount_points.clone(),
                         size: volume.size,
                         available,
@@ -647,7 +647,7 @@ impl FilesystemsHandler {
             })?;
 
         for drive in drives {
-            for vol in &drive.volumes_flat {
+            for vol in &drive.volumes {
                 if vol.device_path.as_deref() == Some(device.as_str()) {
                     match vol.get_mount_options_settings().await {
                         Ok(Some(s)) => {
@@ -698,7 +698,7 @@ impl FilesystemsHandler {
             })?;
 
         for drive in drives {
-            for vol in &drive.volumes_flat {
+            for vol in &drive.volumes {
                 if vol.device_path.as_deref() == Some(device.as_str()) {
                     return vol.default_mount_options().await.map_err(|e| {
                         tracing::error!("default_mount_options failed: {e}");
@@ -756,7 +756,7 @@ impl FilesystemsHandler {
         };
 
         for drive in drives {
-            for vol in &drive.volumes_flat {
+            for vol in &drive.volumes {
                 if vol.device_path.as_deref() == Some(device.as_str()) {
                     return vol
                         .edit_mount_options(

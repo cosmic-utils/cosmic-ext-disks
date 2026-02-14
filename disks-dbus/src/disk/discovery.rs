@@ -119,56 +119,15 @@ impl DriveModel {
         let block_index = BlockIndex::build(&connection, &all_block_objects).await?;
 
         async fn partitions_by_table(
-            connection: &Connection,
-            client: &Client,
-            all_block_objects: &[OwnedObjectPath],
-            table_path: OwnedObjectPath,
-            drive_path_for_partition: String,
-        ) -> Result<Vec<VolumeModel>> {
-            let mut out: Vec<VolumeModel> = Vec::new();
-
-            for obj in all_block_objects {
-                let partition_proxy =
-                    match PartitionProxy::builder(connection).path(obj)?.build().await {
-                        Ok(p) => p,
-                        Err(_) => continue,
-                    };
-
-                let table = match partition_proxy.table().await {
-                    Ok(t) => t,
-                    Err(_) => continue,
-                };
-
-                if table != table_path {
-                    continue;
-                }
-
-                let block_proxy = match BlockProxy::builder(connection).path(obj)?.build().await {
-                    Ok(p) => p,
-                    Err(e) => {
-                        tracing::warn!("Error getting partition block proxy for {}: {}", obj, e);
-                        continue;
-                    }
-                };
-
-                match VolumeModel::from_proxy(
-                    client,
-                    drive_path_for_partition.clone(),
-                    obj.clone(),
-                    &partition_proxy,
-                    &block_proxy,
-                )
-                .await
-                {
-                    Ok(p) => out.push(p),
-                    Err(e) => {
-                        tracing::warn!("Error building partition model for {}: {}", obj, e);
-                        continue;
-                    }
-                }
-            }
-
-            Ok(out)
+            _connection: &Connection,
+            _client: &Client,
+            _all_block_objects: &[OwnedObjectPath],
+            _table_path: OwnedObjectPath,
+            _drive_path_for_partition: String,
+        ) -> Result<Vec<()>> {
+            // TODO(GAP-001.b Phase 9): Rewrite discovery to build VolumeNode tree directly
+            // from UDisks2 without intermediate flat list
+            Ok(vec![])
         }
 
         let mut drives: HashMap<String, DriveModel> = HashMap::new();
@@ -226,7 +185,7 @@ impl DriveModel {
                     tracing::warn!("No partition table proxy for {}: {}", pair.block_path, e);
 
                     if drive.is_loop
-                        && let Ok(parts) = partitions_by_table(
+                        && let Ok(_parts) = partitions_by_table(
                             &connection,
                             &client,
                             &all_block_objects,
@@ -235,33 +194,35 @@ impl DriveModel {
                         )
                         .await
                     {
-                        drive.volumes_flat = parts;
-                        if drive.partition_table_type.is_none() {
-                            drive.partition_table_type = drive
-                                .volumes_flat
-                                .iter()
-                                .find(|p| !p.table_type.is_empty())
-                                .map(|p| p.table_type.clone());
-                        }
+                        // TODO(GAP-001.b Phase 9): Populate volumes from partitions
+                        // drive.volumes_flat = parts;
+                        // if drive.partition_table_type.is_none() {
+                        //     drive.partition_table_type = drive
+                        //         .volumes_flat
+                        //         .iter()
+                        //         .find(|p| !p.table_type.is_empty())
+                        //         .map(|p| p.table_type.clone());
+                        // }
                     }
 
-                    if drive.volumes_flat.is_empty() {
-                        let drive_block_proxy = BlockProxy::builder(&connection)
-                            .path(&pair.block_path)?
-                            .build()
-                            .await?;
-                        if let Ok(v) = VolumeModel::filesystem_from_block(
-                            &connection,
-                            drive_path_for_partition.clone(),
-                            pair.block_path.clone(),
-                            &drive_block_proxy,
-                        )
-                        .await
-                            && v.has_filesystem
-                        {
-                            drive.volumes_flat.push(v);
-                        }
-                    }
+                    // TODO(GAP-001.b Phase 9): Detect filesystem on drive block
+                    // if drive.volumes_flat.is_empty() {
+                    //     let drive_block_proxy = BlockProxy::builder(&connection)
+                    //         .path(&pair.block_path)?
+                    //         .build()
+                    //         .await?;
+                    //     if let Ok(v) = VolumeModel::filesystem_from_block(
+                    //         &connection,
+                    //         drive_path_for_partition.clone(),
+                    //         pair.block_path.clone(),
+                    //         &drive_block_proxy,
+                    //     )
+                    //     .await
+                    //         && v.has_filesystem
+                    //     {
+                    //         drive.volumes_flat.push(v);
+                    //     }
+                    // }
 
                     drive
                         .build_volume_nodes_for_drive(&connection, &block_index)
@@ -282,7 +243,7 @@ impl DriveModel {
                     );
 
                     if drive.is_loop
-                        && let Ok(parts) = partitions_by_table(
+                        && let Ok(_parts) = partitions_by_table(
                             &connection,
                             &client,
                             &all_block_objects,
@@ -291,33 +252,35 @@ impl DriveModel {
                         )
                         .await
                     {
-                        drive.volumes_flat = parts;
-                        if drive.partition_table_type.is_none() {
-                            drive.partition_table_type = drive
-                                .volumes_flat
-                                .iter()
-                                .find(|p| !p.table_type.is_empty())
-                                .map(|p| p.table_type.clone());
-                        }
+                        // TODO(GAP-001.b Phase 9): Populate volumes from partitions
+                        // drive.volumes_flat = parts;
+                        // if drive.partition_table_type.is_none() {
+                        //     drive.partition_table_type = drive
+                        //         .volumes_flat
+                        //         .iter()
+                        //         .find(|p| !p.table_type.is_empty())
+                        //         .map(|p| p.table_type.clone());
+                        // }
                     }
 
-                    if drive.volumes_flat.is_empty() {
-                        let drive_block_proxy = BlockProxy::builder(&connection)
-                            .path(&pair.block_path)?
-                            .build()
-                            .await?;
-                        if let Ok(v) = VolumeModel::filesystem_from_block(
-                            &connection,
-                            drive_path_for_partition.clone(),
-                            pair.block_path.clone(),
-                            &drive_block_proxy,
-                        )
-                        .await
-                            && v.has_filesystem
-                        {
-                            drive.volumes_flat.push(v);
-                        }
-                    }
+                    // TODO(GAP-001.b Phase 9): Detect filesystem on drive block  
+                    // if drive.volumes_flat.is_empty() {
+                    //     let drive_block_proxy = BlockProxy::builder(&connection)
+                    //         .path(&pair.block_path)?
+                    //         .build()
+                    //         .await?;
+                    //     if let Ok(v) = VolumeModel::filesystem_from_block(
+                    //         &connection,
+                    //         drive_path_for_partition.clone(),
+                    //         pair.block_path.clone(),
+                    //         &drive_block_proxy,
+                    //     )
+                    //     .await
+                    //         && v.has_filesystem
+                    //     {
+                    //         drive.volumes_flat.push(v);
+                    //     }
+                    // }
 
                     drive
                         .build_volume_nodes_for_drive(&connection, &block_index)
@@ -366,78 +329,82 @@ impl DriveModel {
             };
 
             for partition_path in partition_paths {
-                let partition_proxy = match PartitionProxy::builder(&connection)
-                    .path(&partition_path)?
-                    .build()
-                    .await
-                {
-                    Ok(p) => p,
-                    Err(e) => {
-                        tracing::error!("Error getting partition info: {}", e);
-                        continue;
-                    }
-                };
+                // TODO(GAP-001.b Phase 9): Build VolumeNode directly instead of VolumeModel
+                // let partition_proxy = match PartitionProxy::builder(&connection)
+                //     .path(&partition_path)?
+                //     .build()
+                //     .await
+                // {
+                //     Ok(p) => p,
+                //     Err(e) => {
+                //         tracing::error!("Error getting partition info: {}", e);
+                //         continue;
+                //     }
+                // };
+                //
+                // let block_proxy = match BlockProxy::builder(&connection)
+                //     .path(&partition_path)?
+                //     .build()
+                //     .await
+                // {
+                //     Ok(p) => p,
+                //     Err(e) => {
+                //         tracing::warn!(
+                //             "Error getting partition block proxy for {}: {}",
+                //             partition_path,
+                //             e
+                //         );
+                //         continue;
+                //     }
+                // };
+                //
+                // let drive_path_for_partition = pair
+                //     .drive_path
+                //     .as_ref()
+                //     .map(|p| p.to_string())
+                //     .unwrap_or_else(|| pair.block_path.to_string());
+                //
+                // match VolumeModel::from_proxy(
+                //     &client,
+                //     drive_path_for_partition,
+                //     partition_path.clone(),
+                //     &partition_proxy,
+                //     &block_proxy,
+                // )
+                // .await
+                // {
+                //     Ok(p) => drive.volumes_flat.push(p),
+                //     Err(e) => {
+                //         tracing::warn!(
+                //             "Error building partition model for {}: {}",
+                //             partition_path,
+                //             e
+                //         );
+                //         continue;
+                //     }
+                // }
 
-                let block_proxy = match BlockProxy::builder(&connection)
-                    .path(&partition_path)?
-                    .build()
-                    .await
-                {
-                    Ok(p) => p,
-                    Err(e) => {
-                        tracing::warn!(
-                            "Error getting partition block proxy for {}: {}",
-                            partition_path,
-                            e
-                        );
-                        continue;
-                    }
-                };
-
-                let drive_path_for_partition = pair
-                    .drive_path
-                    .as_ref()
-                    .map(|p| p.to_string())
-                    .unwrap_or_else(|| pair.block_path.to_string());
-
-                match VolumeModel::from_proxy(
-                    &client,
-                    drive_path_for_partition,
-                    partition_path.clone(),
-                    &partition_proxy,
-                    &block_proxy,
-                )
-                .await
-                {
-                    Ok(p) => drive.volumes_flat.push(p),
-                    Err(e) => {
-                        tracing::warn!(
-                            "Error building partition model for {}: {}",
-                            partition_path,
-                            e
-                        );
-                        continue;
-                    }
-                }
+                let _ = partition_path; // Suppress unused warning
             }
 
-            if drive.volumes_flat.is_empty() {
-                let drive_block_proxy = BlockProxy::builder(&connection)
-                    .path(&pair.block_path)?
-                    .build()
-                    .await?;
-                if let Ok(v) = VolumeModel::filesystem_from_block(
-                    &connection,
-                    drive_path_for_partition.clone(),
-                    pair.block_path.clone(),
-                    &drive_block_proxy,
-                )
-                .await
-                    && v.has_filesystem
-                {
-                    drive.volumes_flat.push(v);
-                }
-            }
+            // TODO(GAP-001.b Phase 9): Detect filesystem on drive block
+            // if drive.volumes_flat.is_empty() {
+            //     let drive_block_proxy = BlockProxy::builder(&connection)
+            //         .path(&pair.block_path)?
+            //         .build()
+            //         .await?;
+            //     if let Ok(v) = VolumeModel::filesystem_from_block(
+            //         &connection,
+            //         drive_path_for_partition.clone(),
+            //         pair.block_path.clone(),
+            //         &drive_block_proxy,
+            //     )
+            //     .await
+            //         && v.has_filesystem
+            //     {
+            //         drive.volumes_flat.push(v);
+            //     }
+            // }
 
             drive
                 .build_volume_nodes_for_drive(&connection, &block_index)

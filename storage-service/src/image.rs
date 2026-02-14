@@ -96,7 +96,7 @@ impl ImageHandler {
 
         // Try partition/volume match (e.g. /dev/sda1)
         for drive in &drives {
-            for volume in &drive.volumes_flat {
+            for volume in &drive.volumes {
                 let matches = volume.device_path.as_deref() == Some(device)
                     || volume
                         .device_path
@@ -104,7 +104,7 @@ impl ImageHandler {
                         .map(|p| p.strip_prefix("/dev/").unwrap_or(p))
                         == Some(device_name);
                 if matches {
-                    return Ok(volume.path.clone());
+                    return Ok(volume.object_path.clone());
                 }
             }
         }

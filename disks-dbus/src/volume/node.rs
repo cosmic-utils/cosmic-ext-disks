@@ -5,6 +5,9 @@ use crate::{
     join_options, remove_prefixed, remove_token, set_prefixed_value, set_token_present,
     split_options, stable_dedup,
 };
+use crate::error::DiskError;
+use crate::filesystem::config::MountOptionsSettings;
+use crate::lvm;
 use anyhow::Result;
 use std::collections::HashMap;
 use std::path::Path;
@@ -16,13 +19,6 @@ use udisks2::{
 use zbus::zvariant::OwnedValue;
 use zbus::zvariant::Value;
 use zbus::{Connection, zvariant::OwnedObjectPath};
-
-use super::MountOptionsSettings;
-
-use super::{
-    DiskError, lvm,
-    ops::{RealDiskBackend, crypto_lock, crypto_unlock, partition_mount, partition_unmount},
-};
 
 // VolumeKind enum moved to storage_models
 
@@ -289,21 +285,37 @@ impl VolumeNode {
     }
 
     pub async fn mount(&self) -> Result<()> {
+        // TODO(GAP-001.b): Use filesystem::mount_filesystem with proper device path
+        // For now, call FilesystemProxy directly
         if self.connection.is_none() {
             return Err(DiskError::NotConnected(self.label.clone()).into());
         }
 
-        let backend = RealDiskBackend::new(self.connection.as_ref().unwrap().clone());
-        partition_mount(&backend, self.object_path.clone()).await
+        let proxy = FilesystemProxy::builder(self.connection.as_ref().unwrap())
+            .path(&self.object_path)?
+            .build()
+            .await?;
+
+        let options: HashMap<&str, Value<'_>> = HashMap::new();
+        proxy.mount(options).await?;
+        Ok(())
     }
 
     pub async fn unmount(&self) -> Result<()> {
+        // TODO(GAP-001.b): Use filesystem::unmount_filesystem with proper device path
+        // For now, call FilesystemProxy directly
         if self.connection.is_none() {
             return Err(DiskError::NotConnected(self.label.clone()).into());
         }
 
-        let backend = RealDiskBackend::new(self.connection.as_ref().unwrap().clone());
-        partition_unmount(&backend, self.object_path.clone()).await
+        let proxy = FilesystemProxy::builder(self.connection.as_ref().unwrap())
+            .path(&self.object_path)?
+            .build()
+            .await?;
+
+        let options: HashMap<&str, Value<'_>> = HashMap::new();
+        proxy.unmount(options).await?;
+        Ok(())
     }
 
     pub async fn default_mount_options(&self) -> Result<()> {
@@ -477,19 +489,37 @@ impl VolumeNode {
     }
 
     pub async fn unlock(&self, passphrase: &str) -> Result<OwnedObjectPath> {
+        // TODO(GAP-001.b): Use encryption::unlock_luks with proper device path
+        // For now, call EncryptedProxy directly
         if self.connection.is_none() {
             return Err(DiskError::NotConnected(self.label.clone()).into());
         }
-        let backend = RealDiskBackend::new(self.connection.as_ref().unwrap().clone());
-        crypto_unlock(&backend, self.object_path.clone(), passphrase).await
+
+        let proxy = EncryptedProxy::builder(self.connection.as_ref().unwrap())
+            .path(&self.object_path)?
+            .build()
+            .await?;
+
+        let options: HashMap<&str, Value<'_>> = HashMap::new();
+        let cleartext_path = proxy.unlock(passphrase, options).await?;
+        Ok(cleartext_path)
     }
 
     pub async fn lock(&self) -> Result<()> {
+        // TODO(GAP-001.b): Use encryption::lock_luks with proper device path
+        // For now, call EncryptedProxy directly
         if self.connection.is_none() {
             return Err(DiskError::NotConnected(self.label.clone()).into());
         }
-        let backend = RealDiskBackend::new(self.connection.as_ref().unwrap().clone());
-        crypto_lock(&backend, self.object_path.clone()).await
+
+        let proxy = EncryptedProxy::builder(self.connection.as_ref().unwrap())
+            .path(&self.object_path)?
+            .build()
+            .await?;
+
+        let options: HashMap<&str, Value<'_>> = HashMap::new();
+        proxy.lock(options).await?;
+        Ok(())
     }
 
     pub async fn edit_filesystem_label(&self, label: &str) -> Result<()> {

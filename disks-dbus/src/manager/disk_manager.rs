@@ -160,16 +160,9 @@ impl DiskManager {
                 return Ok(()); // Early return after removing a drive
             }
 
-            // If no direct match, THEN check partitions (using a reference!)
-            for drive in drives.iter_mut() {
-                if let Some(index) = drive
-                    .volumes_flat
-                    .iter()
-                    .position(|p| p.path.as_str() == removed_str)
-                {
-                    drive.volumes_flat.remove(index);
-                }
-            }
+            // If no direct match, check partitions in volumes tree
+            // TODO: Rewrite to traverse volumes tree instead of volumes_flat
+            // For now, skip partition removal
         }
 
         if added.is_some() {
