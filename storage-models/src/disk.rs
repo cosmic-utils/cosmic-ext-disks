@@ -99,7 +99,7 @@ impl DiskInfo {
         } else {
             self.device
                 .split('/')
-                .last()
+                .next_back()
                 .unwrap_or(&self.device)
                 .to_string()
         }
