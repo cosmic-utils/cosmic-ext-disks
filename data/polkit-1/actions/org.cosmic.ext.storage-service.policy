@@ -37,6 +37,47 @@
     </defaults>
   </action>
 
+  <!-- Drive Operations -->
+  <action id="org.cosmic.ext.storage-service.disk-eject">
+    <description>Eject removable media</description>
+    <message>Authentication is required to eject removable media</message>
+    <defaults>
+      <allow_any>no</allow_any>
+      <allow_inactive>no</allow_inactive>
+      <allow_active>yes</allow_active>  <!-- No auth for eject -->
+    </defaults>
+  </action>
+
+  <action id="org.cosmic.ext.storage-service.disk-power-off">
+    <description>Power off a drive</description>
+    <message>Authentication is required to power off a drive</message>
+    <defaults>
+      <allow_any>auth_admin</allow_any>
+      <allow_inactive>auth_admin</allow_inactive>
+      <allow_active>auth_admin_keep</allow_active>  <!-- Auth once, remember for session -->
+    </defaults>
+  </action>
+
+  <action id="org.cosmic.ext.storage-service.disk-standby">
+    <description>Put drive in standby or wake up</description>
+    <message>Authentication is required to change drive power state</message>
+    <defaults>
+      <allow_any>no</allow_any>
+      <allow_inactive>no</allow_inactive>
+      <allow_active>yes</allow_active>  <!-- No auth for power state changes -->
+    </defaults>
+  </action>
+
+  <action id="org.cosmic.ext.storage-service.disk-remove">
+    <description>Safely remove a drive</description>
+    <message>Authentication is required to safely remove a drive</message>
+    <defaults>
+      <allow_any>auth_admin</allow_any>
+      <allow_inactive>auth_admin</allow_inactive>
+      <allow_active>auth_admin_keep</allow_active>  <!-- Auth once, remember for session -->
+    </defaults>
+  </action>
+
   <!-- BTRFS Read Operations -->
   <action id="org.cosmic.ext.storage-service.btrfs-read">
     <description>Read BTRFS filesystem information</description>

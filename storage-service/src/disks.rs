@@ -381,11 +381,264 @@ impl DisksHandler {
         Ok(json)
     }
     
+    /// Eject removable media (optical drives, USB sticks)
+    /// 
+    /// Args:
+    /// - device: Device identifier (e.g., "/dev/sda", "sda", or UDisks2 path)
+    /// 
+    /// Authorization: org.cosmic.ext.storage-service.disk-eject (allow_active)
+    async fn eject(
+        &self,
+        #[zbus(connection)] connection: &zbus::Connection,
+        device: String,
+    ) -> zbus::fdo::Result<()> {
+        // Check authorization
+        crate::auth::check_polkit_auth(connection, "org.cosmic.ext.storage-service.disk-eject")
+            .await
+            .map_err(|e| zbus::fdo::Error::Failed(format!("Authorization failed: {e}")))?;
+        
+        tracing::debug!("Ejecting device: {device}");
+        
+        // Get all drives (DriveModel instances)
+        let drives = disks_dbus::DriveModel::get_drives()
+            .await
+            .map_err(|e| {
+                tracing::error!("Failed to get drives: {e}");
+                zbus::fdo::Error::Failed(format!("Failed to enumerate drives: {e}"))
+            })?;
+        
+        // Extract device name from input
+        let device_name = device.strip_prefix("/dev/").unwrap_or(&device);
+        
+        // Find the matching drive
+        let drive_model = drives
+            .into_iter()
+            .find(|d| {
+                let disk_info: storage_models::DiskInfo = d.clone().into();
+                if disk_info.device == device {
+                    return true;
+                }
+                if let Some(disk_name) = disk_info.device.rsplit('/').next() {
+                    if disk_name == device_name {
+                        return true;
+                    }
+                }
+                if disk_info.id == device || disk_info.id == device_name {
+                    return true;
+                }
+                false
+            })
+            .ok_or_else(|| {
+                tracing::warn!("Device not found: {device}");
+                zbus::fdo::Error::Failed(format!("Device not found: {device}"))
+            })?;
+        
+        // Eject the drive
+        drive_model
+            .eject()
+            .await
+            .map_err(|e| {
+                tracing::error!("Failed to eject device: {e}");
+                zbus::fdo::Error::Failed(format!("Eject failed: {e}"))
+            })?;
+        
+        tracing::info!("Successfully ejected device: {device}");
+        Ok(())
+    }
+    
+    /// Power off a drive (external USB drives)
+    /// 
+    /// Args:
+    /// - device: Device identifier (e.g., "/dev/sda", "sda", or UDisks2 path)
+    /// 
+    /// Authorization: org.cosmic.ext.storage-service.disk-power-off (auth_admin_keep)
+    async fn power_off(
+        &self,
+        #[zbus(connection)] connection: &zbus::Connection,
+        device: String,
+    ) -> zbus::fdo::Result<()> {
+        // Check authorization
+        crate::auth::check_polkit_auth(connection, "org.cosmic.ext.storage-service.disk-power-off")
+            .await
+            .map_err(|e| zbus::fdo::Error::Failed(format!("Authorization failed: {e}")))?;
+        
+        tracing::debug!("Powering off device: {device}");
+        
+        let drives = disks_dbus::DriveModel::get_drives()
+            .await
+            .map_err(|e| zbus::fdo::Error::Failed(format!("Failed to enumerate drives: {e}")))?;
+        
+        let device_name = device.strip_prefix("/dev/").unwrap_or(&device);
+        
+        let drive_model = drives
+            .into_iter()
+            .find(|d| {
+                let disk_info: storage_models::DiskInfo = d.clone().into();
+                disk_info.device == device
+                    || disk_info.device.rsplit('/').next() == Some(device_name)
+                    || disk_info.id == device
+                    || disk_info.id == device_name
+            })
+            .ok_or_else(|| zbus::fdo::Error::Failed(format!("Device not found: {device}")))?;
+        
+        drive_model
+            .power_off()
+            .await
+            .map_err(|e| {
+                tracing::error!("Failed to power off device: {e}");
+                zbus::fdo::Error::Failed(format!("Power off failed: {e}"))
+            })?;
+        
+        tracing::info!("Successfully powered off device: {device}");
+        Ok(())
+    }
+    
+    /// Put drive in standby mode (low power, ATA drives)
+    /// 
+    /// Args:
+    /// - device: Device identifier (e.g., "/dev/sda", "sda", or UDisks2 path)
+    /// 
+    /// Authorization: org.cosmic.ext.storage-service.disk-standby (allow_active)
+    async fn standby_now(
+        &self,
+        #[zbus(connection)] connection: &zbus::Connection,
+        device: String,
+    ) -> zbus::fdo::Result<()> {
+        // Check authorization
+        crate::auth::check_polkit_auth(connection, "org.cosmic.ext.storage-service.disk-standby")
+            .await
+            .map_err(|e| zbus::fdo::Error::Failed(format!("Authorization failed: {e}")))?;
+        
+        tracing::debug!("Putting device in standby: {device}");
+        
+        let drives = disks_dbus::DriveModel::get_drives()
+            .await
+            .map_err(|e| zbus::fdo::Error::Failed(format!("Failed to enumerate drives: {e}")))?;
+        
+        let device_name = device.strip_prefix("/dev/").unwrap_or(&device);
+        
+        let drive_model = drives
+            .into_iter()
+            .find(|d| {
+                let disk_info: storage_models::DiskInfo = d.clone().into();
+                disk_info.device == device
+                    || disk_info.device.rsplit('/').next() == Some(device_name)
+                    || disk_info.id == device
+                    || disk_info.id == device_name
+            })
+            .ok_or_else(|| zbus::fdo::Error::Failed(format!("Device not found: {device}")))?;
+        
+        drive_model
+            .standby_now()
+            .await
+            .map_err(|e| {
+                tracing::error!("Failed to put device in standby: {e}");
+                zbus::fdo::Error::Failed(format!("Standby failed: {e}"))
+            })?;
+        
+        tracing::info!("Successfully put device in standby: {device}");
+        Ok(())
+    }
+    
+    /// Wake up drive from standby mode (ATA drives)
+    /// 
+    /// Args:
+    /// - device: Device identifier (e.g., "/dev/sda", "sda", or UDisks2 path)
+    /// 
+    /// Authorization: org.cosmic.ext.storage-service.disk-standby (allow_active)
+    async fn wakeup(
+        &self,
+        #[zbus(connection)] connection: &zbus::Connection,
+        device: String,
+    ) -> zbus::fdo::Result<()> {
+        // Check authorization
+        crate::auth::check_polkit_auth(connection, "org.cosmic.ext.storage-service.disk-standby")
+            .await
+            .map_err(|e| zbus::fdo::Error::Failed(format!("Authorization failed: {e}")))?;
+        
+        tracing::debug!("Waking up device: {device}");
+        
+        let drives = disks_dbus::DriveModel::get_drives()
+            .await
+            .map_err(|e| zbus::fdo::Error::Failed(format!("Failed to enumerate drives: {e}")))?;
+        
+        let device_name = device.strip_prefix("/dev/").unwrap_or(&device);
+        
+        let drive_model = drives
+            .into_iter()
+            .find(|d| {
+                let disk_info: storage_models::DiskInfo = d.clone().into();
+                disk_info.device == device
+                    || disk_info.device.rsplit('/').next() == Some(device_name)
+                    || disk_info.id == device
+                    || disk_info.id == device_name
+            })
+            .ok_or_else(|| zbus::fdo::Error::Failed(format!("Device not found: {device}")))?;
+        
+        drive_model
+            .wakeup()
+            .await
+            .map_err(|e| {
+                tracing::error!("Failed to wake up device: {e}");
+                zbus::fdo::Error::Failed(format!("Wakeup failed: {e}"))
+            })?;
+        
+        tracing::info!("Successfully woke up device: {device}");
+        Ok(())
+    }
+    
+    /// Safely remove a drive (unmount all volumes, lock LUKS, then eject/power off)
+    /// 
+    /// Args:
+    /// - device: Device identifier (e.g., "/dev/sda", "sda", or UDisks2 path)
+    /// 
+    /// Authorization: org.cosmic.ext.storage-service.disk-remove (auth_admin_keep)
+    async fn remove(
+        &self,
+        #[zbus(connection)] connection: &zbus::Connection,
+        device: String,
+    ) -> zbus::fdo::Result<()> {
+        // Check authorization
+        crate::auth::check_polkit_auth(connection, "org.cosmic.ext.storage-service.disk-remove")
+            .await
+            .map_err(|e| zbus::fdo::Error::Failed(format!("Authorization failed: {e}")))?;
+        
+        tracing::debug!("Safely removing device: {device}");
+        
+        let drives = disks_dbus::DriveModel::get_drives()
+            .await
+            .map_err(|e| zbus::fdo::Error::Failed(format!("Failed to enumerate drives: {e}")))?;
+        
+        let device_name = device.strip_prefix("/dev/").unwrap_or(&device);
+        
+        let drive_model = drives
+            .into_iter()
+            .find(|d| {
+                let disk_info: storage_models::DiskInfo = d.clone().into();
+                disk_info.device == device
+                    || disk_info.device.rsplit('/').next() == Some(device_name)
+                    || disk_info.id == device
+                    || disk_info.id == device_name
+            })
+            .ok_or_else(|| zbus::fdo::Error::Failed(format!("Device not found: {device}")))?;
+        
+        drive_model
+            .remove()
+            .await
+            .map_err(|e| {
+                tracing::error!("Failed to safely remove device: {e}");
+                zbus::fdo::Error::Failed(format!("Remove failed: {e}"))
+            })?;
+        
+        tracing::info!("Successfully removed device: {device}");
+        Ok(())
+    }
+    
     /// Start a SMART self-test
     /// 
     /// Args:
     /// - device: Device identifier (e.g., "/dev/sda", "sda", or UDisks2 path)
-    /// - test_type: Test type ("short" or "extended")
+    /// - test_type: Type of test ("short", "long", "conveyance")
     /// 
     /// Authorization: org.cosmic.ext.storage-service.smart-test (auth_admin_keep)
     async fn start_smart_test(
@@ -394,7 +647,7 @@ impl DisksHandler {
         device: String,
         test_type: String,
     ) -> zbus::fdo::Result<()> {
-        // Check authorization (requires admin password)
+        // Check authorization
         crate::auth::check_polkit_auth(connection, "org.cosmic.ext.storage-service.smart-test")
             .await
             .map_err(|e| zbus::fdo::Error::Failed(format!("Authorization failed: {e}")))?;
