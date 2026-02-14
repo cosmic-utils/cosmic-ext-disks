@@ -416,8 +416,10 @@ impl DisksHandler {
             })?;
         
         // Get SMART info from the drive
-        let smart_info = drive_model
-            .smart_info()
+        let smart_info = disks_dbus::get_drive_smart_info(
+                drive_model.path.clone().try_into()
+                    .map_err(|e| zbus::fdo::Error::Failed(format!("Invalid drive path: {e}")))?
+            )
             .await
             .map_err(|e| {
                 let err_str = e.to_string().to_lowercase();
@@ -511,8 +513,10 @@ impl DisksHandler {
             })?;
         
         // Get SMART info from the drive
-        let smart_info = drive_model
-            .smart_info()
+        let smart_info = disks_dbus::get_drive_smart_info(
+                drive_model.path.clone().try_into()
+                    .map_err(|e| zbus::fdo::Error::Failed(format!("Invalid drive path: {e}")))?
+            )
             .await
             .map_err(|e| {
                 let err_str = e.to_string().to_lowercase();
@@ -605,8 +609,11 @@ impl DisksHandler {
             })?;
         
         // Eject the drive
-        drive_model
-            .eject()
+        disks_dbus::eject_drive(
+                drive_model.path.clone().try_into()
+                    .map_err(|e| zbus::fdo::Error::Failed(format!("Invalid drive path: {e}")))?,
+                drive_model.ejectable
+            )
             .await
             .map_err(|e| {
                 tracing::error!("Failed to eject device: {e}");
@@ -652,8 +659,11 @@ impl DisksHandler {
             })
             .ok_or_else(|| zbus::fdo::Error::Failed(format!("Device not found: {device}")))?;
         
-        drive_model
-            .power_off()
+        disks_dbus::power_off_drive(
+                drive_model.path.clone().try_into()
+                    .map_err(|e| zbus::fdo::Error::Failed(format!("Invalid drive path: {e}")))?,
+                drive_model.can_power_off
+            )
             .await
             .map_err(|e| {
                 tracing::error!("Failed to power off device: {e}");
@@ -699,8 +709,10 @@ impl DisksHandler {
             })
             .ok_or_else(|| zbus::fdo::Error::Failed(format!("Device not found: {device}")))?;
         
-        drive_model
-            .standby_now()
+        disks_dbus::standby_drive(
+                drive_model.path.clone().try_into()
+                    .map_err(|e| zbus::fdo::Error::Failed(format!("Invalid drive path: {e}")))?
+            )
             .await
             .map_err(|e| {
                 tracing::error!("Failed to put device in standby: {e}");
@@ -746,8 +758,10 @@ impl DisksHandler {
             })
             .ok_or_else(|| zbus::fdo::Error::Failed(format!("Device not found: {device}")))?;
         
-        drive_model
-            .wakeup()
+        disks_dbus::wakeup_drive(
+                drive_model.path.clone().try_into()
+                    .map_err(|e| zbus::fdo::Error::Failed(format!("Invalid drive path: {e}")))?
+            )
             .await
             .map_err(|e| {
                 tracing::error!("Failed to wake up device: {e}");
@@ -793,13 +807,19 @@ impl DisksHandler {
             })
             .ok_or_else(|| zbus::fdo::Error::Failed(format!("Device not found: {device}")))?;
         
-        drive_model
-            .remove()
-            .await
-            .map_err(|e| {
-                tracing::error!("Failed to safely remove device: {e}");
-                zbus::fdo::Error::Failed(format!("Remove failed: {e}"))
-            })?;
+        disks_dbus::remove_drive(
+            drive_model.path.clone().try_into()
+                .map_err(|e| zbus::fdo::Error::Failed(format!("Invalid drive path: {e}")))?,
+            &drive_model.block_path.to_string(),
+            drive_model.is_loop,
+            drive_model.removable,
+            drive_model.can_power_off,
+        )
+        .await
+        .map_err(|e| {
+            tracing::error!("Failed to safely remove device: {e}");
+            zbus::fdo::Error::Failed(format!("Remove failed: {e}"))
+        })?;
         
         tracing::info!("Successfully removed device: {device}");
         Ok(())
@@ -872,8 +892,11 @@ impl DisksHandler {
             })?;
         
         // Start the self-test
-        drive_model
-            .smart_selftest_start(test_kind)
+        disks_dbus::start_drive_smart_selftest(
+                drive_model.path.clone().try_into()
+                    .map_err(|e| zbus::fdo::Error::Failed(format!("Invalid drive path: {e}")))?,
+                test_kind
+            )
             .await
             .map_err(|e| {
                 let err_str = e.to_string().to_lowercase();

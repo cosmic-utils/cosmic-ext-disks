@@ -251,7 +251,7 @@ impl FilesystemsHandler {
             .unwrap_or_default();
         
         // Delegate to disks-dbus operation
-        let actual_mount_point = disks_dbus::mount_filesystem_op(&device, &mount_point, mount_opts)
+        let actual_mount_point = disks_dbus::mount_filesystem(&device, &mount_point, mount_opts)
             .await
             .map_err(|e| {
                 tracing::error!("Failed to mount filesystem: {e}");

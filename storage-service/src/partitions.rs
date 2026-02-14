@@ -211,8 +211,7 @@ impl PartitionsHandler {
             })?;
         
         // Create partition table on drive (format_disk creates GPT/DOS partition table)
-        drive_model
-            .format_disk(normalized_type, false)
+        disks_dbus::format_disk(drive_model.block_path.to_string(), normalized_type, false)
             .await
             .map_err(|e| {
                 tracing::error!("Failed to create partition table: {e}");
