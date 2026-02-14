@@ -7,6 +7,24 @@ use crate::client::{DisksClient, PartitionsClient, error::ClientError};
 use super::{UiVolume, build_volume_tree};
 use std::ops::Deref;
 
+/// Recursively collect all volumes from a slice of roots into a flat list (each without children).
+fn collect_volumes_flat_slice(roots: &[UiVolume]) -> Vec<UiVolume> {
+    let mut out = Vec::new();
+    for root in roots {
+        collect_volumes_flat_one(root, &mut out);
+    }
+    out
+}
+
+fn collect_volumes_flat_one(volume: &UiVolume, out: &mut Vec<UiVolume>) {
+    if let Ok(flat_vol) = UiVolume::with_children(volume.volume.clone(), Vec::new()) {
+        out.push(flat_vol);
+    }
+    for child in &volume.children {
+        collect_volumes_flat_one(child, out);
+    }
+}
+
 /// UI model wrapping DiskInfo with owned client and volume tree
 /// 
 /// This model:
@@ -86,24 +104,9 @@ impl UiDrive {
         self.volumes = build_volume_tree(&self.disk.device, all_volumes)?;
         
         // Also populate flat list by collecting all volumes recursively
-        self.volumes_flat.clear();
-        for root in &self.volumes {
-            self.collect_volumes_flat(root);
-        }
-        
+        self.volumes_flat = collect_volumes_flat_slice(&self.volumes);
+
         Ok(())
-    }
-    
-    /// Helper to recursively collect all volumes into flat list
-    fn collect_volumes_flat(&mut self, volume: &UiVolume) {
-        // Clone the volume without children for flat list
-        if let Ok(flat_vol) = UiVolume::with_children(volume.volume.clone(), Vec::new()) {
-            self.volumes_flat.push(flat_vol);
-        }
-        
-        for child in &volume.children {
-            self.collect_volumes_flat(child);
-        }
     }
     
     /// Refresh partitions list
@@ -234,6 +237,7 @@ impl Clone for UiDrive {
             disk: self.disk.clone(),
             volumes: self.volumes.clone(),
             partitions: self.partitions.clone(),
+            volumes_flat: self.volumes_flat.clone(),
             client,
             partitions_client,
         }

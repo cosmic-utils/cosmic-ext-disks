@@ -479,9 +479,7 @@ pub(super) fn lock_container(control: &mut VolumesControl) -> Task<cosmic::Actio
                 let luks_client = LuksClient::new().await
                     .map_err(|e| anyhow::anyhow!("Failed to create LUKS client: {}", e))?;
                 
-                for v in mounted_children {
-                    let device = v.device_path.as_ref()
-                        .ok_or_else(|| anyhow::anyhow!("Volume has no device path"))?;
+                for device in &mounted_children {
                     fs_client.unmount(device, false, false).await
                         .map_err(|e| anyhow::anyhow!("Failed to unmount {}: {}", device, e))?;
                 }

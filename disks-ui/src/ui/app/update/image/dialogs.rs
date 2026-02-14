@@ -141,7 +141,7 @@ pub(super) fn attach_disk_image_dialog(
 
                     let fs_client = FilesystemsClient::new().await
                         .map_err(|e| anyhow::anyhow!("Failed to create filesystems client: {}", e))?;
-                    match fs_client.mount(&device_path, "", "{}").await {
+                    match fs_client.mount(&device_path, "", Some("{}")).await {
                         Ok(_mount_point) => Ok(AttachDiskResult {
                             mounted: true,
                             message: "Attached and mounted image.".to_string(),

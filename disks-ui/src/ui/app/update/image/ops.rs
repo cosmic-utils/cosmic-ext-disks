@@ -9,6 +9,16 @@ use std::sync::{
 use tokio::fs::OpenOptions;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
+/// Open a block device for reading (for backup).
+fn open_device_for_read(path: &str) -> anyhow::Result<std::fs::File> {
+    Ok(std::fs::OpenOptions::new().read(true).open(path)?)
+}
+
+/// Open a block device for writing (for restore).
+fn open_device_for_write(path: &str) -> anyhow::Result<std::fs::File> {
+    Ok(std::fs::OpenOptions::new().write(true).open(path)?)
+}
+
 async fn copy_with_cancel<R, W>(
     mut reader: R,
     mut writer: W,
@@ -48,8 +58,9 @@ pub(super) async fn run_image_operation(
 ) -> anyhow::Result<()> {
     match kind {
         ImageOperationKind::CreateFromDrive => {
-            let fd = drive.open_for_backup().await?;
-            let reader = tokio::fs::File::from_std(std::fs::File::from(fd));
+            let path = &drive.disk.device;
+            let file = open_device_for_read(path)?;
+            let reader = tokio::fs::File::from_std(file);
             let writer = OpenOptions::new()
                 .write(true)
                 .create_new(true)
@@ -64,8 +75,12 @@ pub(super) async fn run_image_operation(
                 anyhow::bail!("No partition selected");
             };
 
-            let fd = partition.open_for_backup().await?;
-            let reader = tokio::fs::File::from_std(std::fs::File::from(fd));
+            let path = partition
+                .device_path
+                .as_deref()
+                .ok_or_else(|| anyhow::anyhow!("Partition has no device path"))?;
+            let file = open_device_for_read(path)?;
+            let reader = tokio::fs::File::from_std(file);
             let writer = OpenOptions::new()
                 .write(true)
                 .create_new(true)
@@ -82,7 +97,7 @@ pub(super) async fn run_image_operation(
             
             for p in &drive.volumes_flat {
                 if p.is_mounted() {
-                    let device = p.device_path.as_ref()
+                    let device = p.volume.device_path.as_ref()
                         .ok_or_else(|| anyhow::anyhow!("Partition has no device path"))?;
                     fs_client.unmount(device, false, false).await
                         .map_err(|e| anyhow::anyhow!("Failed to unmount {}: {}", device, e))?;
@@ -90,17 +105,17 @@ pub(super) async fn run_image_operation(
             }
 
             let src_meta = tokio::fs::metadata(&image_path).await?;
-            if src_meta.len() > drive.size {
+            if src_meta.len() > drive.disk.size {
                 anyhow::bail!(
                     "Image is larger than the selected drive (image={} bytes, drive={} bytes)",
                     src_meta.len(),
-                    drive.size
+                    drive.disk.size
                 );
             }
 
             let src = tokio::fs::File::open(&image_path).await?;
-            let fd = drive.open_for_restore().await?;
-            let dest = tokio::fs::File::from_std(std::fs::File::from(fd));
+            let file = open_device_for_write(&drive.disk.device)?;
+            let dest = tokio::fs::File::from_std(file);
 
             let _bytes = copy_with_cancel(src, dest, cancel).await?;
             Ok(())
@@ -128,9 +143,13 @@ pub(super) async fn run_image_operation(
                 );
             }
 
+            let path = partition
+                .device_path
+                .as_deref()
+                .ok_or_else(|| anyhow::anyhow!("Partition has no device path"))?;
             let src = tokio::fs::File::open(&image_path).await?;
-            let fd = partition.open_for_restore().await?;
-            let dest = tokio::fs::File::from_std(std::fs::File::from(fd));
+            let file = open_device_for_write(path)?;
+            let dest = tokio::fs::File::from_std(file);
 
             let _bytes = copy_with_cancel(src, dest, cancel).await?;
             Ok(())
