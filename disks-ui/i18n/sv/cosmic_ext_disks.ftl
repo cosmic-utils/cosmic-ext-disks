@@ -122,6 +122,7 @@ lock-failed = Låsning misslyckades
 unlock-missing-partition = Kunde inte hitta { $name } i den aktuella enhetslistan.
 
 # Volume commands
+operation-cancelled = Åtgärden avbröts
 edit-mount-options = Redigera monteringsalternativ…
 edit-mount-options-failed = Redigering av monteringsalternativ misslyckades
 edit-encryption-options = Redigera krypteringsalternativ…

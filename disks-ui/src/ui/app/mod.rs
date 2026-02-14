@@ -49,7 +49,7 @@ impl Application for AppModel {
             nav: nav_bar::Model::default(),
             sidebar: SidebarState::default(),
             dialog: None,
-            image_op_cancel: None,
+            image_op_operation_id: None,
             // Optional configuration file for an application.
             config: cosmic_config::Config::new(Self::APP_ID, Config::VERSION)
                 .map(|context| match Config::get_entry(&context) {

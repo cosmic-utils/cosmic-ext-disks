@@ -74,7 +74,7 @@ impl ImageHandler {
         uuid::Uuid::new_v4().to_string()
     }
 
-    /// Find block device object path from device identifier
+    /// Find block device object path from device identifier (drive or partition)
     async fn find_block_object_path(device: &str) -> Result<OwnedObjectPath, String> {
         let drives = disks_dbus::DriveModel::get_drives()
             .await
@@ -82,7 +82,8 @@ impl ImageHandler {
 
         let device_name = device.strip_prefix("/dev/").unwrap_or(device);
 
-        for drive in drives {
+        // Try whole-disk match first
+        for drive in &drives {
             let disk_info: storage_models::DiskInfo = drive.clone().into();
             if disk_info.device == device
                 || disk_info.device.rsplit('/').next() == Some(device_name)
@@ -91,6 +92,21 @@ impl ImageHandler {
             {
                 return drive.block_path.as_str().try_into()
                     .map_err(|e| format!("Invalid block path: {e}"));
+            }
+        }
+
+        // Try partition/volume match (e.g. /dev/sda1)
+        for drive in &drives {
+            for volume in &drive.volumes_flat {
+                let matches = volume.device_path.as_deref() == Some(device)
+                    || volume
+                        .device_path
+                        .as_deref()
+                        .map(|p| p.strip_prefix("/dev/").unwrap_or(p))
+                        == Some(device_name);
+                if matches {
+                    return Ok(volume.path.clone());
+                }
             }
         }
 

@@ -51,6 +51,8 @@ pub(super) fn create_disk_from(app: &mut AppModel) -> Task<Message> {
             partition: None,
             image_path: String::new(),
             running: false,
+            operation_id: None,
+            progress: None,
             error: None,
         }
         .into(),
@@ -71,6 +73,8 @@ pub(super) fn restore_image_to(app: &mut AppModel) -> Task<Message> {
             partition: None,
             image_path: String::new(),
             running: false,
+            operation_id: None,
+            progress: None,
             error: None,
         }
         .into(),
@@ -112,6 +116,8 @@ pub(super) fn create_disk_from_partition(app: &mut AppModel) -> Task<Message> {
             partition: Some(partition),
             image_path: String::new(),
             running: false,
+            operation_id: None,
+            progress: None,
             error: None,
         }
         .into(),
@@ -153,6 +159,8 @@ pub(super) fn restore_image_to_partition(app: &mut AppModel) -> Task<Message> {
             partition: Some(partition),
             image_path: String::new(),
             running: false,
+            operation_id: None,
+            progress: None,
             error: None,
         }
         .into(),

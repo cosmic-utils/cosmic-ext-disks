@@ -204,6 +204,28 @@ pub fn image_operation<'a>(state: ImageOperationDialog) -> Element<'a, Message> 
 
     if state.running {
         content = content.push(caption(fl!("working")));
+        if let Some((bytes_completed, total_bytes, speed_bytes_per_sec)) = state.progress {
+            let fraction = if total_bytes > 0 {
+                (bytes_completed as f64 / total_bytes as f64).min(1.0) as f32
+            } else {
+                0.0_f32
+            };
+            content = content.push(
+                iced_widget::progress_bar(0.0..=1.0, fraction)
+                    .width(Length::Fill),
+            );
+            if total_bytes > 0 {
+                let done = storage_models::bytes_to_pretty(&bytes_completed, false);
+                let total = storage_models::bytes_to_pretty(&total_bytes, false);
+                let speed = storage_models::bytes_to_pretty(&speed_bytes_per_sec, false);
+                content = content.push(caption(format!(
+                    "{} / {} · {}/s",
+                    done,
+                    total,
+                    speed
+                )));
+            }
+        }
     }
 
     let primary_label = match state.kind {

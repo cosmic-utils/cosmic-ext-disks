@@ -134,6 +134,8 @@ pub struct AttachDiskResult {
 pub enum ImageOperationDialogMessage {
     Start,
     CancelOperation,
+    /// Progress update from subscription (operation_id, bytes_completed, total_bytes, speed_bytes_per_sec).
+    Progress(String, u64, u64, u64),
     Complete(Result<(), String>),
 }
 

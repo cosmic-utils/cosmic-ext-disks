@@ -59,6 +59,8 @@ pub enum Message {
     NewDiskImageDialog(NewDiskImageDialogMessage),
     AttachDiskImageDialog(AttachDiskImageDialogMessage),
     ImageOperationDialog(ImageOperationDialogMessage),
+    /// Emitted when Phase 1 completes; store operation_id and start progress subscription.
+    ImageOperationStarted(String),
     UnmountBusy(UnmountBusyMessage),
     RetryUnmountAfterKill(String),
     OpenImagePathPicker(ImagePathPickerKind),

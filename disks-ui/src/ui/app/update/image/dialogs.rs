@@ -6,13 +6,9 @@ use crate::ui::dialogs::message::{
 };
 use crate::ui::dialogs::state::{AttachDiskImageDialog, NewDiskImageDialog, ShowDialog};
 use cosmic::app::Task;
-use std::sync::{
-    Arc,
-    atomic::{AtomicBool, Ordering},
-};
 use tokio::fs::OpenOptions;
 
-use super::ops::run_image_operation;
+use super::ops::start_image_operation;
 use crate::client::{FilesystemsClient, ImageClient};
 use crate::ui::app::message::Message;
 use crate::ui::app::state::AppModel;
@@ -202,8 +198,15 @@ pub(super) fn image_operation_dialog(
     match msg {
         ImageOperationDialogMessage::CancelOperation => {
             if state.running {
-                if let Some(flag) = app.image_op_cancel.as_ref() {
-                    flag.store(true, Ordering::SeqCst);
+                if let Some(operation_id) = state.operation_id.clone() {
+                    return Task::perform(
+                        async move {
+                            let client = ImageClient::new().await?;
+                            client.cancel_operation(&operation_id).await?;
+                            Ok::<(), crate::client::error::ClientError>(())
+                        },
+                        |_| Message::None.into(),
+                    );
                 }
             } else {
                 app.dialog = None;
@@ -226,25 +229,32 @@ pub(super) fn image_operation_dialog(
             let drive = state.drive.clone();
             let partition = state.partition.clone();
 
-            let cancel = Arc::new(AtomicBool::new(false));
-            app.image_op_cancel = Some(cancel.clone());
-
             state.running = true;
             state.error = None;
 
             return Task::perform(
-                async move { run_image_operation(kind, drive, partition, image_path, cancel).await },
-                |res: anyhow::Result<()>| {
-                    Message::ImageOperationDialog(ImageOperationDialogMessage::Complete(
-                        res.map_err(|e| e.to_string()),
-                    ))
-                    .into()
+                async move { start_image_operation(kind, drive, partition, image_path).await },
+                |res: anyhow::Result<String>| {
+                    match res {
+                        Ok(operation_id) => Message::ImageOperationStarted(operation_id).into(),
+                        Err(e) => Message::ImageOperationDialog(
+                            ImageOperationDialogMessage::Complete(Err(e.to_string())),
+                        )
+                        .into(),
+                    }
                 },
             );
         }
+        ImageOperationDialogMessage::Progress(op_id, bytes, total, speed) => {
+            if state.operation_id.as_deref() == Some(op_id.as_str()) {
+                state.progress = Some((bytes, total, speed));
+            }
+        }
         ImageOperationDialogMessage::Complete(res) => {
             state.running = false;
-            app.image_op_cancel = None;
+            state.operation_id = None;
+            state.progress = None;
+            app.image_op_operation_id = None;
 
             match res {
                 Ok(()) => {
@@ -263,7 +273,12 @@ pub(super) fn image_operation_dialog(
                 }
                 Err(e) => {
                     tracing::error!(%e, "image operation dialog error");
-                    state.error = Some(e);
+                    let msg = if e.to_lowercase().contains("cancelled") {
+                        fl!("operation-cancelled")
+                    } else {
+                        e
+                    };
+                    state.error = Some(msg);
                 }
             }
         }

@@ -163,6 +163,10 @@ pub struct ImageOperationDialog {
     pub partition: Option<VolumeInfo>,
     pub image_path: String,
     pub running: bool,
+    /// Set when operation has been started (for cancel).
+    pub operation_id: Option<String>,
+    /// Progress: (bytes_completed, total_bytes, speed_bytes_per_sec).
+    pub progress: Option<(u64, u64, u64)>,
     pub error: Option<String>,
 }
 

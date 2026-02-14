@@ -482,6 +482,12 @@ pub(crate) fn update(app: &mut AppModel, message: Message) -> Task<Message> {
         Message::ImageOperationDialog(msg) => {
             return image::image_operation_dialog(app, msg);
         }
+        Message::ImageOperationStarted(operation_id) => {
+            app.image_op_operation_id = Some(operation_id.clone());
+            if let Some(ShowDialog::ImageOperation(state)) = app.dialog.as_mut() {
+                state.operation_id = Some(operation_id);
+            }
+        }
         Message::UnmountBusy(msg) => {
             use crate::ui::dialogs::message::UnmountBusyMessage;
 

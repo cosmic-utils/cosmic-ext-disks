@@ -8,7 +8,6 @@ use crate::ui::sidebar::SidebarState;
 use cosmic::ApplicationExt;
 use cosmic::app::{Core, Task};
 use cosmic::widget::nav_bar;
-use std::sync::{Arc, atomic::AtomicBool};
 
 /// The context page to display in the context drawer.
 #[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
@@ -32,7 +31,8 @@ pub struct AppModel {
     // Configuration data that persists between application runs.
     pub(crate) config: Config,
 
-    pub(crate) image_op_cancel: Option<Arc<AtomicBool>>,
+    /// Active image operation id (for progress subscription and cancel).
+    pub(crate) image_op_operation_id: Option<String>,
 
     pub dialog: Option<ShowDialog>,
 }

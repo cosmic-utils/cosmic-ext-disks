@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-only
 
-use zbus::{proxy, Connection};
 use crate::client::error::ClientError;
+use futures_util::StreamExt;
+use zbus::{proxy, Connection};
 
 /// D-Bus proxy interface for disk imaging operations
 #[proxy(
@@ -171,17 +172,23 @@ impl ImageClient {
         Ok(operations)
     }
     
-    /// Get the underlying proxy for signal subscriptions
-    /// 
-    /// Use this to subscribe to operation progress signals:
-    /// ```rust
-    /// let mut progress_stream = client.proxy().receive_operation_progress().await?;
-    /// while let Some(signal) = progress_stream.next().await {
-    ///     let args = signal.args()?;
-    ///     println!("Progress: {} / {}", args.bytes_completed, args.total_bytes);
-    /// }
-    /// ```
-    pub fn proxy(&self) -> &ImageInterfaceProxy<'static> {
-        &self.proxy
+    /// Wait for an operation to complete (success or failure).
+    /// Subscribes to the operation_completed signal and returns when the given operation_id is seen.
+    pub async fn wait_for_operation_completion(
+        &self,
+        operation_id: &str,
+    ) -> Result<(), ClientError> {
+        let mut stream = self.proxy.receive_operation_completed().await?;
+        while let Some(signal) = stream.next().await {
+            let args = signal.args().map_err(|e| ClientError::Connection(e.to_string()))?;
+            if args.operation_id == operation_id {
+                return if args.success {
+                    Ok(())
+                } else {
+                    Err(ClientError::OperationFailed(args.error_message.to_string()))
+                };
+            }
+        }
+        Ok(())
     }
 }
