@@ -325,7 +325,7 @@ pub(super) fn take_ownership_message(
                     Ok(drives) => Message::UpdateNav(drives, None).into(),
                     Err(e) => {
                         let ctx = UiErrorContext::new("take_ownership");
-                        log_error_and_show_dialog(fl!("take-ownership").to_string(), e.into(), ctx).into()
+                        log_error_and_show_dialog(fl!("take-ownership").to_string(), e, ctx).into()
                     }
                 },
             )
@@ -389,7 +389,7 @@ pub(super) fn change_passphrase_message(
                     Ok(drives) => Message::UpdateNav(drives, None).into(),
                     Err(e) => {
                         let ctx = UiErrorContext::new("change_passphrase");
-                        log_error_and_show_dialog(fl!("change-passphrase").to_string(), e.into(), ctx)
+                        log_error_and_show_dialog(fl!("change-passphrase").to_string(), e, ctx)
                             .into()
                     }
                 },
@@ -484,7 +484,7 @@ pub(super) fn edit_encryption_options_message(
                     Ok(drives) => Message::UpdateNav(drives, None).into(),
                     Err(e) => {
                         let ctx = UiErrorContext::new("edit_encryption_options");
-                        log_error_and_show_dialog(fl!("edit-encryption-options"), e.into(), ctx).into()
+                        log_error_and_show_dialog(fl!("edit-encryption-options"), e, ctx).into()
                     }
                 },
             )
@@ -533,7 +533,7 @@ pub(super) fn lock_container(control: &mut VolumesControl) -> Task<cosmic::Actio
                 }
                 Err(e) => {
                     let ctx = UiErrorContext::new("lock_container");
-                    log_error_and_show_dialog(fl!("lock-failed"), e.into(), ctx).into()
+                    log_error_and_show_dialog(fl!("lock-failed"), e, ctx).into()
                 }
             },
         );

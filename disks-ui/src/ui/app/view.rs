@@ -449,7 +449,7 @@ fn aggregate_children_usage(node: &crate::models::UiVolume) -> u64 {
 fn build_volume_node_info<'a>(
     v: &'a UiVolume,
     _volumes_control: &'a VolumesControl,
-    segment: &'a crate::ui::volumes::Segment,
+    _segment: &'a crate::ui::volumes::Segment,
     _selected_volume: Option<&'a UiVolume>,
 ) -> Element<'a, Message> {
     use crate::ui::volumes::usage_pie;

@@ -64,7 +64,7 @@ impl UiVolume {
     /// ```
     pub fn find_by_device(&self, device: &str) -> Option<&UiVolume> {
         // Check self
-        if self.volume.device_path.as_ref().map_or(false, |d| d == device) {
+        if self.volume.device_path.as_ref().is_some_and(|d| d == device) {
             return Some(self);
         }
         
@@ -81,7 +81,7 @@ impl UiVolume {
     /// Find a volume by device path (mutable, recursive search)
     pub fn find_by_device_mut(&mut self, device: &str) -> Option<&mut UiVolume> {
         // Check self
-        if self.volume.device_path.as_ref().map_or(false, |d| d == device) {
+        if self.volume.device_path.as_ref().is_some_and(|d| d == device) {
             return Some(self);
         }
         
@@ -111,11 +111,10 @@ impl UiVolume {
         let mut result = Vec::new();
         
         // Check self
-        if !self.volume.mount_points.is_empty() {
-            if let Some(device) = &self.volume.device_path {
+        if !self.volume.mount_points.is_empty()
+            && let Some(device) = &self.volume.device_path {
                 result.push(device.clone());
             }
-        }
         
         // Collect from children recursively
         for child in &self.children {
@@ -138,7 +137,7 @@ impl UiVolume {
     /// ```
     pub fn update_volume(&mut self, device: &str, updated_info: &VolumeInfo) -> bool {
         // Check if this is the target volume
-        if self.volume.device_path.as_ref().map_or(false, |d| d == device) {
+        if self.volume.device_path.as_ref().is_some_and(|d| d == device) {
             // Update volume info, preserving children
             let old_children = std::mem::take(&mut self.volume.children);
             self.volume = updated_info.clone();
@@ -173,7 +172,7 @@ impl UiVolume {
     pub fn remove_child(&mut self, device: &str) -> bool {
         // Try to remove direct child
         if let Some(idx) = self.children.iter().position(|c| {
-            c.volume.device_path.as_ref().map_or(false, |d| d == device)
+            c.volume.device_path.as_ref().is_some_and(|d| d == device)
         }) {
             self.children.remove(idx);
             return true;

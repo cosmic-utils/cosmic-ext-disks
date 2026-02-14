@@ -109,7 +109,7 @@ pub(super) fn create_message(
                         Ok(drives) => Message::UpdateNav(drives, None).into(),
                         Err(e) => {
                             let ctx = UiErrorContext::new("create_partition");
-                            log_error_and_show_dialog(fl!("create-partition-failed"), e.into(), ctx).into()
+                            log_error_and_show_dialog(fl!("create-partition-failed"), e, ctx).into()
                         }
                     },
                 );
@@ -163,7 +163,7 @@ pub(super) fn create_message(
                         Ok(drives) => Message::UpdateNav(drives, None).into(),
                         Err(e) => {
                             let ctx = UiErrorContext::new("format_partition");
-                            log_error_and_show_dialog(fl!("format-partition").to_string(), e.into(), ctx)
+                            log_error_and_show_dialog(fl!("format-partition").to_string(), e, ctx)
                                 .into()
                         }
                     },

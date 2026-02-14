@@ -1,6 +1,6 @@
 use cosmic::widget;
 use cosmic::iced::Length;
-use cosmic::{Element, Apply, iced_widget};
+use cosmic::{Element, iced_widget};
 use crate::app::Message;
 use crate::fl;
 use crate::ui::btrfs::state::BtrfsState;

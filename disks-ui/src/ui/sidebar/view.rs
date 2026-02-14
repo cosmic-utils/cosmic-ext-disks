@@ -443,7 +443,7 @@ pub(crate) fn sidebar(
                     });
 
                     for v in sorted_volumes {
-                        push_volume_tree(rows, sidebar, &drive.block_path(), v, 1, controls_enabled);
+                        push_volume_tree(rows, sidebar, drive.block_path(), v, 1, controls_enabled);
                     }
                 }
             }

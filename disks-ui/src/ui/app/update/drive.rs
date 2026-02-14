@@ -56,7 +56,7 @@ pub(super) fn format_disk(app: &mut AppModel, msg: FormatDiskMessage) -> Task<Me
                             device: Some(block_path_for_closure.as_str()),
                             drive_path: Some(drive_path_for_closure.as_str()),
                         };
-                        log_error_and_show_dialog(fl!("format-disk-failed"), e.into(), ctx).into()
+                        log_error_and_show_dialog(fl!("format-disk-failed"), e, ctx).into()
                     }
                 },
             );
@@ -195,9 +195,9 @@ pub(super) fn smart_data_for(app: &mut AppModel, drive: UiDrive) -> Task<Message
         async move { 
             let disks_client = DisksClient::new().await
                 .map_err(|e| format!("Failed to create disks client: {}", e))?;
-            let status = disks_client.get_smart_status(&drive.block_path()).await
+            let status = disks_client.get_smart_status(drive.block_path()).await
                 .map_err(|e| format!("Failed to get SMART status: {}", e))?;
-            let attributes = disks_client.get_smart_attributes(&drive.block_path()).await
+            let attributes = disks_client.get_smart_attributes(drive.block_path()).await
                 .map_err(|e| format!("Failed to get SMART attributes: {}", e))?;
             Ok((status, attributes))
         },
@@ -242,7 +242,7 @@ pub(super) fn standby_now_drive(drive: UiDrive) -> Task<Message> {
                     device: Some(device_for_closure.as_str()),
                     drive_path: Some(drive_path_for_closure.as_str()),
                 };
-                log_error_and_show_dialog(fl!("standby-failed"), e.into(), ctx).into()
+                log_error_and_show_dialog(fl!("standby-failed"), e, ctx).into()
             }
         },
     )

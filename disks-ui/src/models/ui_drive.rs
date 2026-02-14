@@ -178,7 +178,7 @@ impl UiDrive {
         // Remove from volumes tree
         let old_len = self.volumes.len();
         self.volumes.retain(|v| {
-            v.volume.device_path.as_ref().map_or(true, |d| d != device)
+            v.volume.device_path.as_ref().is_none_or(|d| d != device)
         });
         let volume_removed = self.volumes.len() < old_len;
         

@@ -37,11 +37,10 @@ pub(crate) fn collect_mounted_descendants_leaf_first(node: &UiVolume) -> Vec<Str
             visit(child, out);
         }
 
-        if node.volume.can_mount() && node.volume.is_mounted() {
-            if let Some(device) = &node.volume.device_path {
+        if node.volume.can_mount() && node.volume.is_mounted()
+            && let Some(device) = &node.volume.device_path {
                 out.push(device.clone());
             }
-        }
     }
 
     visit(node, &mut out);

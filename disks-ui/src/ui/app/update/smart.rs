@@ -44,9 +44,9 @@ pub(super) fn smart_dialog(app: &mut AppModel, msg: SmartDialogMessage) -> Task<
                 async move { 
                     let disks_client = DisksClient::new().await
                         .map_err(|e| format!("Failed to create disks client: {}", e))?;
-                    let status = disks_client.get_smart_status(&drive.block_path()).await
+                    let status = disks_client.get_smart_status(drive.block_path()).await
                         .map_err(|e| format!("Failed to get SMART status: {}", e))?;
-                    let attributes = disks_client.get_smart_attributes(&drive.block_path()).await
+                    let attributes = disks_client.get_smart_attributes(drive.block_path()).await
                         .map_err(|e| format!("Failed to get SMART attributes: {}", e))?;
                     Ok((status, attributes))
                 },
@@ -66,7 +66,7 @@ pub(super) fn smart_dialog(app: &mut AppModel, msg: SmartDialogMessage) -> Task<
                 async move {
                     DisksClient::new().await
                         .map_err(|e| format!("Failed to create disks client: {}", e))?
-                        .start_smart_test(&drive.block_path(), "short").await
+                        .start_smart_test(drive.block_path(), "short").await
                         .map_err(|e| format!("Failed to start SMART test: {}", e))
                 },
                 |res| Message::SmartDialog(SmartDialogMessage::ActionComplete(res)).into(),
@@ -85,7 +85,7 @@ pub(super) fn smart_dialog(app: &mut AppModel, msg: SmartDialogMessage) -> Task<
                 async move {
                     DisksClient::new().await
                         .map_err(|e| format!("Failed to create disks client: {}", e))?
-                        .start_smart_test(&drive.block_path(), "long").await
+                        .start_smart_test(drive.block_path(), "long").await
                         .map_err(|e| format!("Failed to start SMART test: {}", e))
                 },
                 |res| Message::SmartDialog(SmartDialogMessage::ActionComplete(res)).into(),
@@ -104,7 +104,7 @@ pub(super) fn smart_dialog(app: &mut AppModel, msg: SmartDialogMessage) -> Task<
                 async move {
                     DisksClient::new().await
                         .map_err(|e| format!("Failed to create disks client: {}", e))?
-                        .start_smart_test(&drive.block_path(), "abort").await
+                        .start_smart_test(drive.block_path(), "abort").await
                         .map_err(|e| format!("Failed to abort SMART test: {}", e))
                 },
                 |res| Message::SmartDialog(SmartDialogMessage::ActionComplete(res)).into(),
@@ -128,9 +128,9 @@ pub(super) fn smart_dialog(app: &mut AppModel, msg: SmartDialogMessage) -> Task<
                     async move { 
                         let disks_client = DisksClient::new().await
                             .map_err(|e| format!("Failed to create disks client: {}", e))?;
-                        let status = disks_client.get_smart_status(&drive.block_path()).await
+                        let status = disks_client.get_smart_status(drive.block_path()).await
                             .map_err(|e| format!("Failed to get SMART status: {}", e))?;
-                        let attributes = disks_client.get_smart_attributes(&drive.block_path()).await
+                        let attributes = disks_client.get_smart_attributes(drive.block_path()).await
                             .map_err(|e| format!("Failed to get SMART attributes: {}", e))?;
                         Ok((status, attributes))
                     },

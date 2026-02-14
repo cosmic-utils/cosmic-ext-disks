@@ -49,7 +49,7 @@ fn find_segment_for_volume(
         };
 
         // Direct match (partition itself)
-        if segment_vol.device_path.as_ref().map_or(false, |p| p == device_path) {
+        if segment_vol.device_path.as_ref().is_some_and(|p| p == device_path) {
             return Some((segment_idx, false));
         }
 

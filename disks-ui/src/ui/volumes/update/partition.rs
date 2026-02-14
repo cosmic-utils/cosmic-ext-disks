@@ -12,8 +12,7 @@ use crate::ui::dialogs::state::{
 use crate::ui::error::{UiErrorContext, log_error_and_show_dialog};
 use crate::ui::volumes::helpers;
 use crate::utils::DiskSegmentKind;
-use storage_models::{make_partition_flags_bits, CreatePartitionInfo, VolumeKind};
-use crate::models::UiVolume;
+use storage_models::{CreatePartitionInfo, VolumeKind};
 
 use crate::ui::volumes::VolumesControl;
 
@@ -323,7 +322,7 @@ pub(super) fn edit_partition_message(
                     Ok(drives) => Message::UpdateNav(drives, None).into(),
                     Err(e) => {
                         let ctx = UiErrorContext::new("edit_partition");
-                        log_error_and_show_dialog(fl!("edit-partition").to_string(), e.into(), ctx).into()
+                        log_error_and_show_dialog(fl!("edit-partition").to_string(), e, ctx).into()
                     }
                 },
             );
@@ -377,7 +376,7 @@ pub(super) fn resize_partition_message(
                     Ok(drives) => Message::UpdateNav(drives, None).into(),
                     Err(e) => {
                         let ctx = UiErrorContext::new("resize_partition");
-                        log_error_and_show_dialog(fl!("resize-partition").to_string(), e.into(), ctx)
+                        log_error_and_show_dialog(fl!("resize-partition").to_string(), e, ctx)
                             .into()
                     }
                 },

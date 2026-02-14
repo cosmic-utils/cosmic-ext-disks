@@ -136,14 +136,13 @@ pub(super) fn handle_btrfs_message(app: &mut AppModel, message: Message) -> Task
             mount_point,
         } => {
             // Mark as loading in state
-            if let Some(volumes_control) = app.nav.active_data_mut::<VolumesControl>() {
-                if let Some(btrfs_state) = &mut volumes_control.btrfs_state {
+            if let Some(volumes_control) = app.nav.active_data_mut::<VolumesControl>()
+                && let Some(btrfs_state) = &mut volumes_control.btrfs_state {
                     btrfs_state.loading_usage = true;
                 }
-            }
 
             // Load usage in background task
-            return Task::perform(
+            Task::perform(
                 async move {
                     let btrfs_client = match BtrfsClient::new().await {
                         Ok(client) => client,
@@ -164,19 +163,18 @@ pub(super) fn handle_btrfs_message(app: &mut AppModel, message: Message) -> Task
                     }
                 },
                 |msg| msg.into(),
-            );
+            )
         }
 
         Message::BtrfsUsageLoaded {
             mount_point: _,
             used_space,
         } => {
-            if let Some(volumes_control) = app.nav.active_data_mut::<VolumesControl>() {
-                if let Some(btrfs_state) = &mut volumes_control.btrfs_state {
+            if let Some(volumes_control) = app.nav.active_data_mut::<VolumesControl>()
+                && let Some(btrfs_state) = &mut volumes_control.btrfs_state {
                     btrfs_state.loading_usage = false;
                     btrfs_state.used_space = Some(used_space);
                 }
-            }
             Task::none()
         }
 
@@ -282,7 +280,7 @@ pub(super) fn handle_btrfs_message(app: &mut AppModel, message: Message) -> Task
                                 let ctx = UiErrorContext::new("set_default_subvolume");
                                 log_error_and_show_dialog(
                                     fl!("btrfs-set-default-failed"),
-                                    e.into(),
+                                    e,
                                     ctx,
                                 )
                             }

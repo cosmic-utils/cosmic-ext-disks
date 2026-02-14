@@ -60,7 +60,7 @@ pub fn settings<'a>(config: &Config) -> Element<'a, Message> {
             tools_list = tools_list.push(tool_text);
         }
 
-        let mut tools_section = widget::column()
+        let tools_section = widget::column()
             .push(tools_title)
             .push(tools_description)
             .push(tools_list)

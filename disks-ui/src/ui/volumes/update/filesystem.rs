@@ -91,7 +91,7 @@ pub(super) fn edit_filesystem_label_message(
                     Ok(drives) => Message::UpdateNav(drives, None).into(),
                     Err(e) => {
                         let ctx = UiErrorContext::new("edit_filesystem");
-                        log_error_and_show_dialog(fl!("edit-filesystem").to_string(), e.into(), ctx).into()
+                        log_error_and_show_dialog(fl!("edit-filesystem").to_string(), e, ctx).into()
                     }
                 },
             );
@@ -170,7 +170,7 @@ pub(super) fn check_filesystem_confirm(
             Ok(drives) => Message::UpdateNav(drives, None).into(),
             Err(e) => {
                 let ctx = UiErrorContext::new("check_filesystem");
-                log_error_and_show_dialog(fl!("check-filesystem").to_string(), e.into(), ctx).into()
+                log_error_and_show_dialog(fl!("check-filesystem").to_string(), e, ctx).into()
             }
         },
     )
@@ -247,7 +247,7 @@ pub(super) fn repair_filesystem_confirm(
             Ok(drives) => Message::UpdateNav(drives, None).into(),
             Err(e) => {
                 let ctx = UiErrorContext::new("repair_filesystem");
-                log_error_and_show_dialog(fl!("repair-filesystem").to_string(), e.into(), ctx).into()
+                log_error_and_show_dialog(fl!("repair-filesystem").to_string(), e, ctx).into()
             }
         },
     )

@@ -67,7 +67,7 @@ pub(super) fn update_nav(
 
         let should_activate = selected.as_ref().is_some_and(|s| drive.device() == s);
 
-        let mut volumes_control = VolumesControl::new(&drive, show_reserved);
+        let mut volumes_control = VolumesControl::new(drive, show_reserved);
 
         // Initialize BTRFS state for the selected segment if it contains BTRFS
         // (checks all segments and looks through LUKS containers)
