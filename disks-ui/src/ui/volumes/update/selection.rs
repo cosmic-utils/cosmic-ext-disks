@@ -49,7 +49,7 @@ pub(super) fn segment_selected(
                     let device_path = volume.device_path.clone().unwrap_or_else(|| volume.label.clone());
                     let mut tasks = vec![Task::done(cosmic::Action::App(
                         Message::SidebarSelectChild {
-                            object_path: device_path,
+                            device_path: device_path.clone(),
                         },
                     ))];
 
@@ -84,7 +84,7 @@ pub(super) fn segment_selected(
             let device_path = vol.device_path.clone().unwrap_or_else(|| vol.label.clone());
             return Task::batch(vec![Task::done(cosmic::Action::App(
                 Message::SidebarSelectChild {
-                    object_path: device_path,
+                    device_path,
                 },
             ))]);
         }
@@ -101,7 +101,7 @@ pub(super) fn segment_selected(
 pub(super) fn select_volume(
     control: &mut VolumesControl,
     segment_index: usize,
-    object_path: String,
+    device_path: String,
     dialog: &Option<ShowDialog>,
 ) -> Task<cosmic::Action<Message>> {
     if dialog.is_none() {
@@ -113,7 +113,7 @@ pub(super) fn select_volume(
 
         let segment_index = segment_index.min(last_index);
         control.selected_segment = segment_index;
-        control.selected_volume = Some(object_path.clone());
+        control.selected_volume = Some(device_path.clone());
         control.detail_tab = DetailTab::VolumeInfo;
         control.segments.iter_mut().for_each(|s| s.state = false);
         if let Some(segment) = control.segments.get_mut(segment_index) {
@@ -136,7 +136,7 @@ pub(super) fn select_volume(
                 if let Some(mp) = mount_point {
                     let mut tasks = vec![Task::done(cosmic::Action::App(
                         Message::SidebarSelectChild {
-                            object_path: object_path.clone(),
+                            device_path: device_path.clone(),
                         },
                     ))];
 
@@ -166,7 +166,7 @@ pub(super) fn select_volume(
 
         // Sync with sidebar: select the corresponding volume in sidebar
         return Task::batch(vec![Task::done(cosmic::Action::App(
-            Message::SidebarSelectChild { object_path },
+            Message::SidebarSelectChild { device_path },
         ))]);
     }
 

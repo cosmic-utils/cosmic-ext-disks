@@ -230,7 +230,7 @@ fn volume_row_compact<'a>(
     let mut buttons: Vec<Element<Message>> = Vec::new();
 
     for child in children {
-        let child_object_path = child.object_path().unwrap_or_default();
+        let child_device_path = child.device_path().unwrap_or_default();
         let denom = total;
         let width = (((child.size as f64 / denom as f64) * 1000.).log10().ceil() as u16).max(1);
 
@@ -241,7 +241,7 @@ fn volume_row_compact<'a>(
         .width(Length::Fill)
         .align_x(Alignment::Center);
 
-        let is_selected = selected_volume.is_some_and(|p| p == child_object_path);
+        let is_selected = selected_volume.is_some_and(|p| p == child_device_path);
         let active_state = if is_selected {
             ToggleState::Active
         } else {
@@ -257,7 +257,7 @@ fn volume_row_compact<'a>(
             .on_press(
                 VolumesControlMessage::SelectVolume {
                     segment_index,
-                    object_path: child_object_path,
+                    device_path: child_device_path,
                 }
                 .into(),
             )

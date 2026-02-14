@@ -17,4 +17,4 @@ pub mod load;
 pub use ui_drive::UiDrive;
 pub use ui_volume::UiVolume;
 pub use helpers::build_volume_tree;
-pub use load::{load_all_drives,load_drive};
+pub use load::load_all_drives;

@@ -52,7 +52,7 @@ pub(super) fn format_disk(app: &mut AppModel, msg: FormatDiskMessage) -> Task<Me
                     Err(e) => {
                         let ctx = UiErrorContext {
                             operation: "format_disk",
-                            object_path: Some(drive_path_for_closure.as_str()),
+                            device_path: Some(drive_path_for_closure.as_str()),
                             device: Some(block_path_for_closure.as_str()),
                             drive_path: Some(drive_path_for_closure.as_str()),
                         };
@@ -99,7 +99,7 @@ pub(super) fn eject_drive(drive: UiDrive) -> Task<Message> {
             Err(e) => {
                 let ctx = UiErrorContext {
                     operation: "eject_or_remove",
-                    object_path: Some(drive_path_for_closure.as_str()),
+                    device_path: Some(drive_path_for_closure.as_str()),
                     device: Some(block_path_for_closure.as_str()),
                     drive_path: Some(drive_path_for_closure.as_str()),
                 };
@@ -142,7 +142,7 @@ pub(super) fn power_off_drive(drive: UiDrive) -> Task<Message> {
             Err(e) => {
                 let ctx = UiErrorContext {
                     operation: "power_off",
-                    object_path: Some(drive_path_for_closure.as_str()),
+                    device_path: Some(drive_path_for_closure.as_str()),
                     device: Some(block_path_for_closure.as_str()),
                     drive_path: Some(drive_path_for_closure.as_str()),
                 };
@@ -238,7 +238,7 @@ pub(super) fn standby_now_drive(drive: UiDrive) -> Task<Message> {
             Err(e) => {
                 let ctx = UiErrorContext {
                     operation: "standby_now",
-                    object_path: Some(drive_path_for_closure.as_str()),
+                    device_path: Some(drive_path_for_closure.as_str()),
                     device: Some(device_for_closure.as_str()),
                     drive_path: Some(drive_path_for_closure.as_str()),
                 };
@@ -276,7 +276,7 @@ pub(super) fn wakeup_drive(drive: UiDrive) -> Task<Message> {
         Err(e) => {
             let ctx = UiErrorContext {
                 operation: "wakeup",
-                object_path: Some(drive_path_for_closure.as_str()),
+                device_path: Some(drive_path_for_closure.as_str()),
                 device: Some(device_for_closure.as_str()),
                 drive_path: Some(drive_path_for_closure.as_str()),
             };

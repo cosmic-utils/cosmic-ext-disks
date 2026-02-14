@@ -36,25 +36,21 @@ pub enum Message {
     // Sidebar (custom treeview)
     SidebarSelectDrive(String),
     SidebarSelectChild {
-        object_path: String,
+        device_path: String,
     },
     SidebarClearChildSelection,
     SidebarToggleExpanded(crate::ui::sidebar::SidebarNodeKey),
     SidebarDriveEject(String),
     SidebarVolumeUnmount {
         drive: String,
-        object_path: String,
+        device_path: String,
     },
     SmartDialog(SmartDialogMessage),
     NewDiskImage,
     AttachDisk,
-    #[allow(dead_code)]
     CreateDiskFrom,
-    #[allow(dead_code)]
     RestoreImageTo,
-    #[allow(dead_code)]
     CreateDiskFromPartition,
-    #[allow(dead_code)]
     RestoreImageToPartition,
     NewDiskImageDialog(NewDiskImageDialogMessage),
     AttachDiskImageDialog(AttachDiskImageDialogMessage),
@@ -66,8 +62,6 @@ pub enum Message {
     OpenImagePathPicker(ImagePathPickerKind),
     ImagePathPicked(ImagePathPickerKind, Option<String>),
     ToggleShowReserved(bool),
-    #[allow(dead_code)]
-    Surface(cosmic::surface::Action),
 
     // BTRFS management
     BtrfsLoadSubvolumes {

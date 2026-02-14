@@ -57,13 +57,13 @@ impl VolumesControl {
             }
             VolumesControlMessage::SelectVolume {
                 segment_index,
-                object_path,
-            } => selection::select_volume(self, segment_index, object_path, dialog),
+                device_path,
+            } => selection::select_volume(self, segment_index, device_path, dialog),
             VolumesControlMessage::Mount => mount::mount(self),
             VolumesControlMessage::Unmount => mount::unmount(self),
-            VolumesControlMessage::ChildMount(object_path) => mount::child_mount(self, object_path),
-            VolumesControlMessage::ChildUnmount(object_path) => {
-                mount::child_unmount(self, object_path)
+            VolumesControlMessage::ChildMount(device_path) => mount::child_mount(self, device_path),
+            VolumesControlMessage::ChildUnmount(device_path) => {
+                mount::child_unmount(self, device_path)
             }
 
             VolumesControlMessage::LockContainer => encryption::lock_container(self),

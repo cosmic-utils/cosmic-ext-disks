@@ -168,3 +168,4 @@ pub(super) fn restore_image_to_partition(app: &mut AppModel) -> Task<Message> {
 
     Task::none()
 }
+

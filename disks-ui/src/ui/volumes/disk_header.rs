@@ -134,22 +134,22 @@ pub fn disk_header<'a>(
         );
     }
 
-    // Create Image
+    // Create image from drive (backup whole drive via image client)
     drive_actions.push(
         widget::tooltip(
             widget::button::icon(icon::from_name("document-save-as-symbolic"))
-                .on_press(Message::NewDiskImage),
+                .on_press(Message::CreateDiskFrom),
             widget::text(fl!("create-image")),
             widget::tooltip::Position::Bottom,
         )
         .into(),
     );
 
-    // Restore Image
+    // Restore image to drive (restore whole drive via image client)
     drive_actions.push(
         widget::tooltip(
             widget::button::icon(icon::from_name("document-revert-symbolic"))
-                .on_press(Message::AttachDisk),
+                .on_press(Message::RestoreImageTo),
             widget::text(fl!("restore-image")),
             widget::tooltip::Position::Bottom,
         )
@@ -162,7 +162,7 @@ pub fn disk_header<'a>(
         .filter(|s| s.kind == DiskSegmentKind::Partition)
         .map(|s| {
             let used = if let Some(ref volume_model) = s.volume {
-                // Look up the corresponding VolumeNode to check if it's a LUKS container
+                // Look up the corresponding UiVolume to check if it's a LUKS container
                 if let Some(volume_node) =
                     helpers::find_volume_for_partition(volumes, volume_model)
                 {

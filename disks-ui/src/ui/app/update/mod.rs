@@ -22,7 +22,7 @@ use cosmic::cosmic_config::CosmicConfigEntry;
 use cosmic::dialog::file_chooser;
 use cosmic::widget::nav_bar;
 
-/// Recursively search for a volume child by object_path
+/// Recursively search for a volume child by device_path
 fn find_volume_child_recursive<'a>(
     children: &'a [crate::models::UiVolume],
     device_path: &str,
@@ -279,22 +279,22 @@ pub(crate) fn update(app: &mut AppModel, message: Message) -> Task<Message> {
             return btrfs::handle_btrfs_message(app, message);
         }
 
-        Message::UpdateNavWithChildSelection(drive_models, child_object_path) => {
+        Message::UpdateNavWithChildSelection(drive_models, child_device_path) => {
             // Update drives while preserving child volume selection
             let task = nav::update_nav(app, drive_models, None);
 
             // Restore child selection if provided
-            if let Some(object_path) = child_object_path {
+            if let Some(device_path) = child_device_path {
                 app.sidebar.selected_child = Some(crate::ui::sidebar::SidebarNodeKey::Volume(
-                    object_path.clone(),
+                    device_path.clone(),
                 ));
 
                 if let Some(control) = app.nav.active_data_mut::<VolumesControl>()
                     && let Some((segment_idx, is_child)) =
-                        find_segment_for_volume(control, &object_path)
+                        find_segment_for_volume(control, &device_path)
                 {
                     control.selected_volume = if is_child {
-                        Some(object_path.clone())
+                        Some(device_path.clone())
                     } else {
                         None
                     };
@@ -342,15 +342,15 @@ pub(crate) fn update(app: &mut AppModel, message: Message) -> Task<Message> {
         Message::SidebarClearChildSelection => {
             app.sidebar.selected_child = None;
         }
-        Message::SidebarSelectChild { object_path } => {
-            app.sidebar.selected_child = Some(SidebarNodeKey::Volume(object_path.clone()));
+        Message::SidebarSelectChild { device_path } => {
+            app.sidebar.selected_child = Some(SidebarNodeKey::Volume(device_path.clone()));
 
             // Find which drive contains this volume node
             let drive_for_volume = app
                 .sidebar
                 .drives
                 .iter()
-                .find(|d| volumes_helpers::find_volume_in_ui_tree(&d.volumes, &object_path).is_some())
+                .find(|d| volumes_helpers::find_volume_in_ui_tree(&d.volumes, &device_path).is_some())
                 .cloned();
 
             // If the volume belongs to a different drive, switch to that drive first
@@ -362,7 +362,7 @@ pub(crate) fn update(app: &mut AppModel, message: Message) -> Task<Message> {
                         let switch_task = on_nav_select(app, id);
                         // After switching, we need to select the volume again
                         return switch_task.chain(Task::done(cosmic::Action::App(
-                            Message::SidebarSelectChild { object_path },
+                            Message::SidebarSelectChild { device_path },
                         )));
                     }
                 }
@@ -374,13 +374,13 @@ pub(crate) fn update(app: &mut AppModel, message: Message) -> Task<Message> {
             };
 
             let Some(vol_node) =
-                volumes_helpers::find_volume_in_ui_tree(&volumes_control.volumes, &object_path)
+                volumes_helpers::find_volume_in_ui_tree(&volumes_control.volumes, &device_path)
             else {
                 return Task::none();
             };
 
             let Some((segment_idx, is_child)) =
-                find_segment_for_volume(volumes_control, &object_path)
+                find_segment_for_volume(volumes_control, &device_path)
             else {
                 return Task::none();
             };
@@ -388,7 +388,7 @@ pub(crate) fn update(app: &mut AppModel, message: Message) -> Task<Message> {
             // Apply the selection change
             volumes_control.selected_segment = segment_idx;
             volumes_control.selected_volume = if is_child {
-                vol_node.object_path()
+                vol_node.device_path()
             } else {
                 None
             };
@@ -410,13 +410,11 @@ pub(crate) fn update(app: &mut AppModel, message: Message) -> Task<Message> {
                 return drive::eject_drive(drive.clone());
             }
         }
-        Message::SidebarVolumeUnmount { drive, object_path } => {
+        Message::SidebarVolumeUnmount { drive, device_path } => {
             let Some(drive_model) = app.sidebar.find_drive(&drive) else {
                 return Task::none();
             };
 
-            // object_path is now actually a device_path (migration in progress)
-            let device_path = object_path.clone();
             let Some(node) =
                 volumes_helpers::find_volume_in_ui_tree(&drive_model.volumes, &device_path)
             else {
@@ -426,7 +424,7 @@ pub(crate) fn update(app: &mut AppModel, message: Message) -> Task<Message> {
             let Some(device_to_unmount) = node.device().map(|s| s.to_string()) else {
                 return Task::none();
             };
-            let object_path_for_closure = object_path.clone();
+            let device_path_for_closure = device_path.clone();
             let device = drive_model.device().to_string();
 
             return Task::perform(
@@ -443,7 +441,7 @@ pub(crate) fn update(app: &mut AppModel, message: Message) -> Task<Message> {
                     Err(e) => {
                         let ctx = UiErrorContext {
                             operation: "sidebar_volume_unmount",
-                            object_path: Some(object_path_for_closure.as_str()),
+                            device_path: Some(device_path_for_closure.as_str()),
                             device: Some(device.as_str()),
                             drive_path: None,
                         };
@@ -509,18 +507,18 @@ pub(crate) fn update(app: &mut AppModel, message: Message) -> Task<Message> {
                 }
                 UnmountBusyMessage::Retry => {
                     tracing::info!(
-                        object_path = dialog_data
+                        device_path = dialog_data
                             .as_ref()
-                            .map(|(op, _, _)| op.as_str())
+                            .map(|(dp, _, _)| dp.as_str())
                             .unwrap_or("unknown"),
                         "User requested unmount retry"
                     );
                     app.dialog = None;
 
-                    if let Some((object_path, _, _)) = dialog_data {
+                    if let Some((device_path, _, _)) = dialog_data {
                         // Retry the unmount operation
                         if let Some(volumes) = app.nav.active_data::<VolumesControl>() {
-                            return retry_unmount(volumes, object_path);
+                            return retry_unmount(volumes, device_path);
                         }
                     }
                 }
@@ -599,16 +597,11 @@ pub(crate) fn update(app: &mut AppModel, message: Message) -> Task<Message> {
                 }
             }
         }
-        Message::RetryUnmountAfterKill(object_path) => {
+        Message::RetryUnmountAfterKill(device_path) => {
             tracing::debug!("Retrying unmount after killing processes");
             if let Some(volumes) = app.nav.active_data::<VolumesControl>() {
-                return retry_unmount(volumes, object_path);
+                return retry_unmount(volumes, device_path);
             }
-        }
-        Message::Surface(action) => {
-            return cosmic::task::message(cosmic::Action::Cosmic(cosmic::app::Action::Surface(
-                action,
-            )));
         }
     }
     Task::none()

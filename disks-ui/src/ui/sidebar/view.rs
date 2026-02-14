@@ -256,7 +256,7 @@ fn volume_row(
     depth: u16,
     controls_enabled: bool,
 ) -> Element<'static, Message> {
-    let key = SidebarNodeKey::Volume(node.object_path().unwrap_or_default());
+    let key = SidebarNodeKey::Volume(node.device_path().unwrap_or_default());
     let selected = sidebar.selected_child.as_ref() == Some(&key);
 
     let expanded = sidebar.is_expanded(&key);
@@ -277,14 +277,14 @@ fn volume_row(
     let title_text = if node.volume.label.trim().is_empty() {
         match node.volume.device_path.as_deref() {
             Some(p) => p.to_string(),
-            None => node.object_path().unwrap_or_default(),
+            None => node.device_path().unwrap_or_default(),
         }
     } else {
         node.volume.label.clone()
     };
 
     let select_msg = Message::SidebarSelectChild {
-        object_path: node.object_path().unwrap_or_default(),
+        device_path: node.device_path().unwrap_or_default(),
     };
 
     let mut select_button = widget::button::custom(
@@ -314,7 +314,7 @@ fn volume_row(
         if controls_enabled {
             unmount_btn = unmount_btn.on_press(Message::SidebarVolumeUnmount {
                 drive: drive_block_path.to_string(),
-                object_path: node.object_path().unwrap_or_default(),
+                device_path: node.device_path().unwrap_or_default(),
             });
         }
         actions.push(unmount_btn.into());
@@ -363,13 +363,13 @@ fn push_volume_tree(
         controls_enabled,
     ));
 
-    let key = SidebarNodeKey::Volume(node.object_path().unwrap_or_default());
+    let key = SidebarNodeKey::Volume(node.device_path().unwrap_or_default());
     let expanded = sidebar.is_expanded(&key);
 
     if expanded {
-        // Sort children by object_path to maintain disk offset order
+        // Sort children by device_path to maintain disk offset order
         let mut sorted_children: Vec<&UiVolume> = node.children.iter().collect();
-        sorted_children.sort_by(|a, b| a.object_path().as_deref().unwrap_or("").cmp(b.object_path().as_deref().unwrap_or("")));
+        sorted_children.sort_by(|a, b| a.device_path().as_deref().unwrap_or("").cmp(b.device_path().as_deref().unwrap_or("")));
 
         for child in sorted_children {
             push_volume_tree(

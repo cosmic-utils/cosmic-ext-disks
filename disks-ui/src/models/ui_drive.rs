@@ -1,27 +1,28 @@
 // SPDX-License-Identifier: GPL-3.0-only
 
-//! UI model for a disk drive with owned client and hierarchical volumes
+//! UI model for a disk drive with shared clients and hierarchical volumes
 
 use storage_models::{DiskInfo, PartitionInfo};
 use crate::client::{DisksClient, PartitionsClient, error::ClientError};
 use super::{UiVolume, build_volume_tree};
 use std::ops::Deref;
+use std::sync::Arc;
 
 /// Recursively collect all volumes from a slice of roots into a flat list (each without children).
-fn collect_volumes_flat_slice(roots: &[UiVolume]) -> Vec<UiVolume> {
+fn collect_volumes_flat_slice(roots: &[UiVolume], fs_client: Arc<crate::client::FilesystemsClient>) -> Vec<UiVolume> {
     let mut out = Vec::new();
     for root in roots {
-        collect_volumes_flat_one(root, &mut out);
+        collect_volumes_flat_one(root, &mut out, Arc::clone(&fs_client));
     }
     out
 }
 
-fn collect_volumes_flat_one(volume: &UiVolume, out: &mut Vec<UiVolume>) {
-    if let Ok(flat_vol) = UiVolume::with_children(volume.volume.clone(), Vec::new()) {
+fn collect_volumes_flat_one(volume: &UiVolume, out: &mut Vec<UiVolume>, fs_client: Arc<crate::client::FilesystemsClient>) {
+    if let Ok(flat_vol) = UiVolume::with_children(volume.volume.clone(), Vec::new(), Arc::clone(&fs_client)) {
         out.push(flat_vol);
     }
     for child in &volume.children {
-        collect_volumes_flat_one(child, out);
+        collect_volumes_flat_one(child, out, Arc::clone(&fs_client));
     }
 }
 
@@ -46,11 +47,14 @@ pub struct UiDrive {
     /// Flat list of all volumes (non-hierarchical) for bulk operations
     pub volumes_flat: Vec<UiVolume>,
     
-    /// Owned client for refreshing disk data
-    client: DisksClient,
+    /// Shared client for refreshing disk data
+    client: Arc<DisksClient>,
     
-    /// Owned client for refreshing partition data
-    partitions_client: PartitionsClient,
+    /// Shared client for refreshing partition data
+    partitions_client: Arc<PartitionsClient>,
+    
+    /// Shared client for filesystem operations (used when building volume tree)
+    filesystems_client: Arc<crate::client::FilesystemsClient>,
 }
 
 impl UiDrive {
@@ -64,9 +68,10 @@ impl UiDrive {
     /// let ui_drive = UiDrive::new(disk_info).await?;
     /// ```
     pub async fn new(disk: DiskInfo) -> Result<Self, ClientError> {
-        let client = DisksClient::new().await?;
-        let partitions_client = PartitionsClient::new().await?;
-        
+        let client = Arc::new(DisksClient::new().await?);
+        let partitions_client = Arc::new(PartitionsClient::new().await?);
+        let filesystems_client = Arc::new(crate::client::FilesystemsClient::new().await?);
+
         let mut drive = Self {
             disk,
             volumes: Vec::new(),
@@ -74,8 +79,9 @@ impl UiDrive {
             volumes_flat: Vec::new(),
             client,
             partitions_client,
+            filesystems_client,
         };
-        
+
         drive.refresh().await?;
         Ok(drive)
     }
@@ -101,10 +107,10 @@ impl UiDrive {
     /// Uses list_volumes() and builds tree from parent_path references.
     pub async fn refresh_volumes(&mut self) -> Result<(), ClientError> {
         let all_volumes = self.client.list_volumes().await?;
-        self.volumes = build_volume_tree(&self.disk.device, all_volumes)?;
-        
+        self.volumes = build_volume_tree(&self.disk.device, all_volumes, Arc::clone(&self.filesystems_client))?;
+
         // Also populate flat list by collecting all volumes recursively
-        self.volumes_flat = collect_volumes_flat_slice(&self.volumes);
+        self.volumes_flat = collect_volumes_flat_slice(&self.volumes, Arc::clone(&self.filesystems_client));
 
         Ok(())
     }
@@ -224,22 +230,17 @@ impl Deref for UiDrive {
     }
 }
 
-/// Clone creates a shallow clone of data but with new client instances.
-/// This is acceptable since clients are lightweight D-Bus proxies.
+/// Clone is cheap: only clones Arc pointers and data, no new D-Bus clients or runtime.
 impl Clone for UiDrive {
     fn clone(&self) -> Self {
-        // Create new client instances (blocking runtime for sync context)
-        let rt = tokio::runtime::Runtime::new().expect("Failed to create runtime");
-        let client = rt.block_on(DisksClient::new()).expect("Failed to create DisksClient");
-        let partitions_client = rt.block_on(PartitionsClient::new()).expect("Failed to create PartitionsClient");
-        
         Self {
             disk: self.disk.clone(),
             volumes: self.volumes.clone(),
             partitions: self.partitions.clone(),
             volumes_flat: self.volumes_flat.clone(),
-            client,
-            partitions_client,
+            client: Arc::clone(&self.client),
+            partitions_client: Arc::clone(&self.partitions_client),
+            filesystems_client: Arc::clone(&self.filesystems_client),
         }
     }
 }

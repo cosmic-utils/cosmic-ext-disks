@@ -13,7 +13,7 @@ pub enum VolumesControlMessage {
     SelectDetailTab(DetailTab),
     SelectVolume {
         segment_index: usize,
-        object_path: String,
+        device_path: String,
     },
     Mount,
     Unmount,

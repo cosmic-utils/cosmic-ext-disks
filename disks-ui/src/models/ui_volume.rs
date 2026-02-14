@@ -1,15 +1,16 @@
 // SPDX-License-Identifier: GPL-3.0-only
 
-//! UI model for a volume with hierarchical children and owned client
+//! UI model for a volume with hierarchical children and shared client
 
 use storage_models::VolumeInfo;
 use crate::client::{FilesystemsClient, error::ClientError};
 use std::ops::Deref;
+use std::sync::Arc;
 
-/// UI model wrapping VolumeInfo with owned client and hierarchical children
-/// 
+/// UI model wrapping VolumeInfo with shared client and hierarchical children
+///
 /// This model:
-/// - Owns a FilesystemsClient for filesystem operations
+/// - Shares an Arc<FilesystemsClient> for filesystem operations
 /// - Maintains hierarchical children relationships
 /// - Provides helper methods for recursive searches
 /// - Supports atomic updates
@@ -17,36 +18,35 @@ use std::ops::Deref;
 pub struct UiVolume {
     /// Volume information from storage-service
     pub volume: VolumeInfo,
-    
+
     /// Child volumes (e.g., unlocked LUKS containers, nested partitions)
     pub children: Vec<UiVolume>,
-    
-    /// Owned client for filesystem operations
-    client: FilesystemsClient,
+
+    /// Shared client for filesystem operations
+    client: Arc<FilesystemsClient>,
 }
 
 impl UiVolume {
     /// Create a new UiVolume from VolumeInfo
-    /// 
+    ///
     /// Note: children is empty initially - call build_volume_tree() to populate.
     pub async fn new(volume: VolumeInfo) -> Result<Self, ClientError> {
-        let client = FilesystemsClient::new().await?;
+        let client = Arc::new(FilesystemsClient::new().await?);
         Ok(Self {
             volume,
             children: Vec::new(),
             client,
         })
     }
-    
+
     /// Create a UiVolume with children (used by tree builder)
-    /// 
-    /// Note: This uses a blocking client creation internally.
-    pub fn with_children(volume: VolumeInfo, children: Vec<UiVolume>) -> Result<Self, ClientError> {
-        // Create client using tokio block_on
-        let rt = tokio::runtime::Runtime::new()
-            .map_err(|e| ClientError::Connection(format!("Failed to create runtime: {}", e)))?;
-        let client = rt.block_on(FilesystemsClient::new())?;
-        
+    ///
+    /// Uses the shared filesystems client so Clone is cheap.
+    pub fn with_children(
+        volume: VolumeInfo,
+        children: Vec<UiVolume>,
+        client: Arc<FilesystemsClient>,
+    ) -> Result<Self, ClientError> {
         Ok(Self {
             volume,
             children,
@@ -196,7 +196,7 @@ impl UiVolume {
     
     /// Get filesystem client for operations
     pub fn filesystem_client(&self) -> &FilesystemsClient {
-        &self.client
+        self.client.as_ref()
     }
     
     /// Check if this volume can be mounted
@@ -209,8 +209,8 @@ impl UiVolume {
         self.volume.is_mounted()
     }
     
-    /// Get object_path (device_path) for compatibility during migration
-    pub fn object_path(&self) -> Option<String> {
+    /// Get device path for this volume (e.g. /dev/sda1, /dev/mapper/luks-xxx)
+    pub fn device_path(&self) -> Option<String> {
         self.volume.device_path.clone()
     }
 }
@@ -224,21 +224,13 @@ impl Deref for UiVolume {
     }
 }
 
-/// Clone creates a shallow clone of data but with new client instance.
-/// This is acceptable since clients are lightweight D-Bus proxies.
+/// Clone is cheap: only clones Arc and data, no new D-Bus client or runtime.
 impl Clone for UiVolume {
     fn clone(&self) -> Self {
-        // Create new client instance (blocking runtime for sync context)
-        let rt = tokio::runtime::Runtime::new().expect("Failed to create runtime");
-        let client = rt.block_on(FilesystemsClient::new()).expect("Failed to create FilesystemsClient");
-        
         Self {
             volume: self.volume.clone(),
             children: self.children.clone(),
-            client,
+            client: Arc::clone(&self.client),
         }
     }
 }
-
-// Note: Clone creates a shallow clone that shares the same client connection state.
-// This is acceptable for UI rendering purposes.

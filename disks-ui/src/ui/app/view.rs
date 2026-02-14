@@ -314,7 +314,7 @@ pub(crate) fn view(app: &AppModel) -> Element<'_, Message> {
                 .iter()
                 .filter_map(|s| s.volume.as_ref())
                 .map(|volume_model| {
-                    // Look up the corresponding VolumeNode to check if it's a LUKS container
+                    // Look up the corresponding UiVolume to check if it's a LUKS container
                     if let Some(volume_node) =
                         crate::ui::volumes::helpers::find_volume_for_partition(
                     &volumes_control.volumes,
@@ -445,7 +445,7 @@ fn aggregate_children_usage(node: &crate::models::UiVolume) -> u64 {
         .sum()
 }
 
-/// Build info display for a volume node (child filesystem/LV) - mirrors disk header layout
+/// Build info display for a volume (child filesystem/LV) - mirrors disk header layout
 fn build_volume_node_info<'a>(
     v: &'a UiVolume,
     _volumes_control: &'a VolumesControl,
@@ -539,7 +539,7 @@ fn build_volume_node_info<'a>(
                 widget::tooltip(
                     widget::button::icon(icon::from_name("media-playback-stop-symbolic")).on_press(
                         Message::VolumesMessage(VolumesControlMessage::ChildUnmount(
-                            v.object_path().unwrap_or_default(),
+                            v.device_path().unwrap_or_default(),
                         )),
                     ),
                     widget::text(fl!("unmount")),
@@ -552,7 +552,7 @@ fn build_volume_node_info<'a>(
                 widget::tooltip(
                     widget::button::icon(icon::from_name("media-playback-start-symbolic"))
                         .on_press(Message::VolumesMessage(VolumesControlMessage::ChildMount(
-                            v.object_path().unwrap_or_default(),
+                            v.device_path().unwrap_or_default(),
                         ))),
                     widget::text(fl!("mount")),
                     widget::tooltip::Position::Bottom,
@@ -646,6 +646,7 @@ fn build_volume_node_info<'a>(
         );
     }
 
+    // Create image from partition (backup via image client)
     action_buttons.push(
         widget::tooltip(
             widget::button::icon(icon::from_name("document-save-as-symbolic"))
@@ -656,6 +657,7 @@ fn build_volume_node_info<'a>(
         .into(),
     );
 
+    // Restore image to partition (restore via image client)
     action_buttons.push(
         widget::tooltip(
             widget::button::icon(icon::from_name("document-revert-symbolic"))
@@ -999,6 +1001,7 @@ fn build_partition_info<'a>(
         );
     }
 
+    // Create image from partition (backup via image client)
     action_buttons.push(
         widget::tooltip(
             widget::button::icon(icon::from_name("document-save-as-symbolic"))
@@ -1009,6 +1012,7 @@ fn build_partition_info<'a>(
         .into(),
     );
 
+    // Restore image to partition (restore via image client)
     action_buttons.push(
         widget::tooltip(
             widget::button::icon(icon::from_name("document-revert-symbolic"))

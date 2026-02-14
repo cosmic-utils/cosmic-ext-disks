@@ -236,7 +236,7 @@ pub(super) fn unlock_message(
                 );
             };
 
-            let object_path_for_selection = partition_path.clone();
+            let device_path_for_selection = partition_path.clone();
             Task::perform(
                 async move {
                     let luks_client = LuksClient::new().await
@@ -251,7 +251,7 @@ pub(super) fn unlock_message(
                         // After unlock, select the unlocked volume (which may have new child nodes)
                         Message::UpdateNavWithChildSelection(
                             drives,
-                            Some(object_path_for_selection.clone()),
+                            Some(device_path_for_selection.clone()),
                         )
                         .into()
                     }
@@ -259,7 +259,7 @@ pub(super) fn unlock_message(
                         tracing::error!(
                             ?e,
                             operation = "unlock_encrypted",
-                            object_path = %partition_path,
+                            device_path = %partition_path,
                             "unlock encrypted dialog error"
                         );
                         Message::Dialog(Box::new(ShowDialog::UnlockEncrypted(
@@ -300,8 +300,9 @@ pub(super) fn take_ownership_message(
             }
 
             state.running = true;
-            let target = state.target.clone();
-            let recursive = state.recursive;
+            // Reserved for when storage-service implements take_ownership
+            let _target = state.target.clone();
+            let _recursive = state.recursive;
 
             Task::perform(
                 async move {
@@ -435,14 +436,14 @@ pub(super) fn edit_encryption_options_message(
                 return Task::none();
             }
             state.running = true;
-
-            let volume = state.volume.clone();
-            let use_defaults = state.use_defaults;
-            let unlock_at_startup = state.unlock_at_startup;
-            let require_auth = state.require_auth;
-            let other_options = state.other_options.clone();
-            let name = state.name.clone();
-            let passphrase = state.passphrase.clone();
+            // Reserved for when storage-service implements encryption options management
+            let _volume = state.volume.clone();
+            let _use_defaults = state.use_defaults;
+            let _unlock_at_startup = state.unlock_at_startup;
+            let _require_auth = state.require_auth;
+            let _other_options = state.other_options.clone();
+            let _name = state.name.clone();
+            let _passphrase = state.passphrase.clone();
 
             Task::perform(
                 async move {
@@ -471,7 +472,7 @@ pub(super) fn lock_container(control: &mut VolumesControl) -> Task<cosmic::Actio
                 .map(helpers::collect_mounted_descendants_leaf_first)
                 .unwrap_or_default();
 
-        let object_path_for_selection = p.device_path.clone().unwrap_or_else(|| p.label.clone());
+        let device_path_for_selection = p.device_path.clone().unwrap_or_else(|| p.label.clone());
         return Task::perform(
             async move {
                 let fs_client = FilesystemsClient::new().await
@@ -496,7 +497,7 @@ pub(super) fn lock_container(control: &mut VolumesControl) -> Task<cosmic::Actio
                     // After lock, stay on the locked container
                     Message::UpdateNavWithChildSelection(
                         drives,
-                        Some(object_path_for_selection.clone()),
+                        Some(device_path_for_selection.clone()),
                     )
                     .into()
                 }

@@ -6,7 +6,7 @@ use cosmic::Application;
 use cosmic::iced::Subscription;
 use cosmic::iced::futures::SinkExt;
 use std::time::Duration;
-// TODO: DisksClient needs device event subscription support
+// TODO: DisksClient device event subscription — disk hotplug will be wired here once the client exposes the API
 
 use super::state::AppModel;
 
@@ -25,9 +25,7 @@ pub(crate) fn subscription(app: &AppModel) -> Subscription<Message> {
         Subscription::run_with_id(
             std::any::TypeId::of::<DiskEventSubscription>(),
             cosmic::iced::stream::channel(4, move |_c| async move {
-                // TODO: Replace with DisksClient signal subscription
-                // let disks_client = DisksClient::new().await.expect("DisksClient");
-                // let mut stream = disks_client.subscribe_device_events().await.expect("event stream");
+                // Placeholder until DisksClient exposes device event subscription
                 std::future::pending::<()>().await
             }),
         ),

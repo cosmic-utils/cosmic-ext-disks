@@ -33,15 +33,3 @@ pub async fn load_all_drives() -> Result<Vec<UiDrive>, ClientError> {
     
     Ok(drives)
 }
-
-/// Load a single drive by device path
-/// 
-/// # Example
-/// ```no_run
-/// let drive = load_drive("/dev/sda").await?;
-/// ```
-pub async fn load_drive(device: &str) -> Result<UiDrive, ClientError> {
-    let client = DisksClient::new().await?;
-    let disk = client.get_disk_info(device).await?;
-    UiDrive::new(disk).await
-}

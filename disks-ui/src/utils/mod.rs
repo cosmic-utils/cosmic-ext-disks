@@ -14,10 +14,3 @@ pub use segments::{DiskSegmentKind, PartitionExtent, SegmentAnomaly, compute_dis
 
 // Explicit exports from ui module
 pub use ui::labelled_spinner;
-
-// Re-export unused utility functions for future features
-#[allow(unused_imports)]
-pub use ui::{
-    error, error_style, info, info_style, labelled_info, link_info, success, success_style,
-    warning, warning_style,
-};

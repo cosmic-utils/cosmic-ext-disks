@@ -42,7 +42,6 @@ pub struct VolumesControl {
 pub struct Segment {
     pub label: String,
     pub name: String,
-    #[allow(dead_code)]
     pub partition_type: String,
     pub size: u64,
     pub offset: u64,
@@ -51,7 +50,6 @@ pub struct Segment {
     pub width: u16,
     pub volume: Option<VolumeInfo>,
     pub device_path: Option<String>,  // Device path to look up PartitionInfo
-    #[allow(dead_code)]
     pub table_type: String,
 }
 
@@ -107,7 +105,6 @@ impl Segment {
         }
     }
 
-    #[allow(dead_code)]
     pub fn get_create_info(&self) -> CreatePartitionInfo {
         // Auto-select appropriate unit and format size text
         let unit = crate::utils::SizeUnit::auto_select(self.size);
