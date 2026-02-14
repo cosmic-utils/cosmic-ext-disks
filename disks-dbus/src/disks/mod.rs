@@ -1,5 +1,4 @@
 mod btrfs_native;
-mod create_partition_info;
 mod drive;
 mod gpt;
 pub mod image;
@@ -12,17 +11,18 @@ mod volume;
 mod volume_model;
 
 pub use btrfs_native::{BtrfsFilesystem, BtrfsSubvolume};
-pub use create_partition_info::CreatePartitionInfo;
 pub use drive::DriveModel;
-pub use gpt::{GPT_ALIGNMENT_BYTES, fallback_gpt_usable_range_bytes, probe_gpt_usable_range_bytes};
-pub use image::{loop_setup, mount_filesystem, open_for_backup, open_for_restore};
+pub use gpt::{fallback_gpt_usable_range_bytes, probe_gpt_usable_range_bytes};
 pub use lvm::list_lvs_for_pv;
 pub use manager::{DeviceEvent, DeviceEventStream, DiskManager};
 pub use process_finder::{find_processes_using_mount, kill_processes};
 pub use smart::{SmartInfo, SmartSelfTestKind};
 use thiserror::Error;
-pub use volume::{BlockIndex, VolumeKind, VolumeNode};
-pub use volume_model::{VolumeModel, VolumeType};
+pub use volume::{BlockIndex, VolumeNode};
+pub use volume_model::VolumeModel;
+
+// Re-export these from storage_models (they're defined there now)
+pub use storage_models::{CreatePartitionInfo, GPT_ALIGNMENT_BYTES, VolumeKind, VolumeType};
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct MountOptionsSettings {

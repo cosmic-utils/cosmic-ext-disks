@@ -11,6 +11,17 @@ use serde::{Deserialize, Serialize};
 
 use crate::Usage;
 
+/// Volume classification (high-level type)
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum VolumeType {
+    /// Container type (encrypted volumes, LVM)
+    Container,
+    /// Partition type
+    Partition,
+    /// Filesystem type (mountable)
+    Filesystem,
+}
+
 /// Type of volume
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum VolumeKind {

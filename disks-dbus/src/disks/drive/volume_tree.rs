@@ -1,9 +1,10 @@
 use anyhow::Result;
+use storage_models::VolumeKind;
 use udisks2::encrypted::EncryptedProxy;
 use zbus::Connection;
 
 use super::model::DriveModel;
-use crate::disks::{BlockIndex, volume::{VolumeKind, VolumeNode}};
+use crate::disks::{BlockIndex, volume::VolumeNode};
 
 impl DriveModel {
     pub(super) async fn build_volume_nodes_for_drive(

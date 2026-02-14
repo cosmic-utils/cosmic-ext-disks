@@ -9,3 +9,6 @@ description = "Shared data types for COSMIC storage service and clients"
 serde.workspace = true
 uuid.workspace = true
 chrono.workspace = true
+anyhow.workspace = true
+num-format.workspace = true
+toml.workspace = true

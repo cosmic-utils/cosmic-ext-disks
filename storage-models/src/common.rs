@@ -1,6 +1,11 @@
 //! Common utility types shared across models
 
+use anyhow::Result;
+use num_format::{Locale, ToFormattedString};
 use serde::{Deserialize, Serialize};
+
+/// GPT alignment boundary (1 MiB) - standard for modern disks
+pub const GPT_ALIGNMENT_BYTES: u64 = 1024 * 1024;
 
 /// A byte range representing a contiguous region (used for GPT usable space, etc.)
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -68,4 +73,97 @@ impl Usage {
     pub fn available_bytes(&self) -> u64 {
         self.available * 4096
     }
+}
+
+/// Format utilities for converting between bytes and human-readable strings
+
+/// Convert bytes to human-readable format (e.g., "1.50 GB")
+pub fn bytes_to_pretty(bytes: &u64, add_bytes: bool) -> String {
+    let mut steps = 0;
+    let mut val: f64 = *bytes as f64;
+
+    while val > 1024. && steps <= 8 {
+        val /= 1024.;
+        steps += 1;
+    }
+
+    let unit = match steps {
+        0 => "B",
+        1 => "KB",
+        2 => "MB",
+        3 => "GB",
+        4 => "TB",
+        5 => "PB",
+        6 => "EB",
+        7 => "ZB",
+        8 => "YB",
+        _ => "Not Supported",
+    };
+
+    if add_bytes {
+        let bytes_str = bytes.to_formatted_string(&Locale::en);
+        format!("{:.2} {} ({} bytes)", val, unit, bytes_str)
+    } else {
+        format!("{:.2} {}", val, unit)
+    }
+}
+
+/// Parse human-readable format to bytes (e.g., "1.5 GB" -> bytes)
+pub fn pretty_to_bytes(pretty: &str) -> Result<u64> {
+    let split = pretty.split_whitespace().collect::<Vec<&str>>();
+    let string_value = split.first();
+
+    if string_value.is_none() {
+        return Err(anyhow::anyhow!("Invalid input"));
+    }
+    let string_value = string_value.unwrap();
+
+    let mut val: f64 = string_value.parse()?;
+    let unit = pretty.split_whitespace().last().unwrap();
+
+    let mut steps = match unit {
+        "B" => 0,
+        "KB" => 1,
+        "MB" => 2,
+        "GB" => 3,
+        "TB" => 4,
+        "PB" => 5,
+        "EB" => 6,
+        "ZB" => 7,
+        "YB" => 8,
+        _ => 0,
+    };
+
+    while steps > 0 {
+        val *= 1024.;
+        steps -= 1;
+    }
+
+    Ok(val as u64)
+}
+
+/// Get numeric value that would be displayed in bytes_to_pretty
+pub fn get_numeric(bytes: &u64) -> f64 {
+    let mut steps = 0;
+    let mut val: f64 = *bytes as f64;
+
+    while val > 1024. && steps <= 8 {
+        val /= 1024.;
+        steps += 1;
+    }
+
+    val
+}
+
+/// Return decent step value for numeric boxes based on displayed value
+pub fn get_step(bytes: &u64) -> f64 {
+    let mut denomination = 0;
+    let mut val: f64 = *bytes as f64;
+
+    while val > 1024. && denomination <= 8 {
+        val /= 1024.;
+        denomination += 1;
+    }
+
+    1024_f64.powi(denomination)
 }

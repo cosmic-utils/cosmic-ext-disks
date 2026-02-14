@@ -1,14 +1,30 @@
 mod dbus;
 mod disks;
-mod format;
 mod options;
-mod partition_types;
 mod udisks_block_config;
 mod usage;
 
 // Re-export storage-models types (canonical domain models)
 pub use storage_models;
 pub use storage_models::ProcessInfo;
+
+// Re-export format utilities (now in storage-models)
+pub use storage_models::{bytes_to_pretty, get_numeric, get_step, pretty_to_bytes};
+
+// Re-export partition type catalog (now in storage-models)
+pub use storage_models::{
+    COMMON_DOS_TYPES, COMMON_GPT_TYPES, PartitionTypeInfo, PartitionTypeInfoFlags,
+    get_all_partition_type_infos, get_valid_partition_names,
+};
+
+// Re-export volume types (now in storage-models)
+pub use storage_models::{VolumeKind, VolumeType};
+
+// Re-export CreatePartitionInfo (now in storage-models)
+pub use storage_models::CreatePartitionInfo;
+
+// Re-export GPT alignment (now in storage-models)
+pub use storage_models::GPT_ALIGNMENT_BYTES;
 
 // Re-export commonly used zbus types
 pub use zbus::zvariant::OwnedObjectPath;
@@ -21,10 +37,10 @@ pub use dbus::bytestring::{
 
 // Explicit exports from disks module
 pub use disks::{
-    BtrfsFilesystem, BtrfsSubvolume, CreatePartitionInfo, DeviceEvent, DeviceEventStream,
-    DiskError, DiskManager, DriveModel, EncryptionOptionsSettings, GPT_ALIGNMENT_BYTES,
-    MountOptionsSettings, SmartInfo, SmartSelfTestKind, VolumeKind,
-    VolumeModel, VolumeNode, VolumeType, fallback_gpt_usable_range_bytes,
+    BtrfsFilesystem, BtrfsSubvolume, DeviceEvent, DeviceEventStream,
+    DiskError, DiskManager, DriveModel, EncryptionOptionsSettings,
+    MountOptionsSettings, SmartInfo, SmartSelfTestKind,
+    VolumeModel, VolumeNode, fallback_gpt_usable_range_bytes,
     find_processes_using_mount, kill_processes, list_lvs_for_pv,
     probe_gpt_usable_range_bytes,
 };
@@ -32,8 +48,7 @@ pub use disks::{
 // Explicit exports from disks::image submodule
 pub use disks::image::{loop_setup, mount_filesystem, open_for_backup, open_for_restore};
 
-// Explicit exports from format module
-pub use format::{bytes_to_pretty, get_numeric, get_step, pretty_to_bytes};
+// NOTE: format utilities moved to storage-models (already re-exported above)
 
 // Explicit exports from options module (mount/encryption option parsing)
 pub use options::{
@@ -41,11 +56,7 @@ pub use options::{
     set_prefixed_value, set_token_present, split_options, stable_dedup,
 };
 
-// Explicit exports from partition_types module (partition type catalogs)
-pub use partition_types::{
-    COMMON_DOS_TYPES, COMMON_GPT_TYPES, PartitionTypeInfo, PartitionTypeInfoFlags,
-    get_all_partition_type_infos, get_valid_partition_names,
-};
+// NOTE: partition type catalog moved to storage-models (already re-exported above)
 
 // Explicit exports from udisks_block_config module (UDisks2 configuration helpers)
 pub use udisks_block_config::{ConfigurationItem, UDisks2BlockConfigurationProxy};

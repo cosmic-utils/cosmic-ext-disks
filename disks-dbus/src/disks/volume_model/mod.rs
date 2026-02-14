@@ -10,6 +10,7 @@ use crate::dbus::bytestring as bs;
 use anyhow::Result;
 use enumflags2::BitFlags;
 use std::path::Path;
+use storage_models::VolumeType; // Import from storage_models
 use udisks2::partitiontable::PartitionTableProxy;
 use udisks2::{
     Client,
@@ -19,12 +20,7 @@ use udisks2::{
 };
 use zbus::{Connection, zvariant::OwnedObjectPath};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum VolumeType {
-    Container,
-    Partition,
-    Filesystem,
-}
+// VolumeType enum moved to storage_models
 
 #[derive(Debug, Clone)]
 pub struct VolumeModel {

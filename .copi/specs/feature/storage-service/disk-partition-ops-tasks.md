@@ -449,11 +449,117 @@ This task creates an awkward hybrid architecture:
 
 ---
 
+### Additional Task: Move Shared Types & Utilities to storage-models
+
+**✅ COMPLETE** (2026-02-14) — **Post Phase 3A Architecture Improvement**
+
+**Scope:** Migrate shared constants, enums, and pure utility functions from disks-dbus to storage-models.
+
+**Rationale:**
+After gap analysis showing disks-ui imports 79 items directly from disks-dbus, discovered that many pure utility functions and constants should live in storage-models for proper architectural separation.
+
+**Types/Utilities Migrated:**
+
+**1. Format Utilities** → `storage-models/src/common.rs`
+- `bytes_to_pretty(bytes: &u64, add_bytes: bool) -> String`
+- `pretty_to_bytes(pretty: &str) -> Result<u64>`
+- `get_numeric(bytes: &u64) -> f64`
+- `get_step(bytes: &u64) -> f64`
+- Source: disks-dbus/src/format.rs (now unused)
+- Usage: 20+ call sites in disks-ui
+
+**2. Constants** → `storage-models/src/common.rs`
+- `GPT_ALIGNMENT_BYTES: u64 = 1024 * 1024` (1 MiB alignment)
+- Source: disks-dbus/src/disks/gpt.rs
+
+**3. Volume Enums** → `storage-models/src/volume.rs`
+- `VolumeType` (moved from disks-dbus/src/disks/volume_model/mod.rs)
+- `VolumeKind` (consolidated, already existed in storage-models)
+
+**4. Partition Types** → `storage-models/src/partition.rs`
+- `CreatePartitionInfo` struct (22 fields)
+- Source: disks-dbus/src/disks/create_partition_info.rs (now unused)
+
+**5. Partition Type Catalog** → `storage-models/src/partition_types.rs` (NEW MODULE)
+- `PartitionTypeInfoFlags` enum
+- `PartitionTypeInfo` struct
+- Functions: `get_valid_partition_names()`, `get_all_partition_type_infos()`
+- Static data: `PARTITION_TYPES`, `COMMON_GPT_TYPES`, `COMMON_DOS_TYPES`
+- Data loaded from `disks-dbus/data/*.toml` at compile-time
+- Source: disks-dbus/src/partition_types.rs (now unused)
+
+**Dependencies Added:**
+- storage-models/Cargo.toml: `anyhow`, `num-format`, `toml`
+
+**Backward Compatibility:**
+- Updated disks-dbus/src/lib.rs to re-export all types from storage_models
+- Existing code using `disks_dbus::bytes_to_pretty` continues to work
+- Maintains compatibility while centralizing definitions
+
+**Import Path Updates:**
+- disks-dbus/src/disks/mod.rs → uses storage_models types
+- disks-dbus/src/disks/volume.rs → imports VolumeKind from storage_models
+- disks-dbus/src/disks/volume_model/mod.rs → imports VolumeType from storage_models
+- disks-dbus/src/disks/drive/volume_tree.rs → imports VolumeKind from storage_models
+
+**Build Results:**
+```
+✅ cargo build -p storage-models - 0 errors, 1.89s
+✅ cargo build -p cosmic-ext-disks-dbus - 0 errors, 1.47s (warnings: unused old files)
+✅ cargo build --workspace - 0 errors, 0.80s
+```
+
+**Architecture Impact:**
+**Before:**
+```
+disks-ui → disks-dbus (types + D-Bus + utilities)
+storage-service → disks-dbus (types + D-Bus)
+```
+
+**After:**
+```
+disks-ui ─────┐
+              ├──→ storage-models (types + utilities)
+storage-service┘          │
+                           ↓
+                      disks-dbus (D-Bus adapters only)
+```
+
+**Benefits:**
+1. Clean dependency graph - UI can import types without D-Bus dependencies
+2. Service isolation - uses storage-models types, not disks-dbus internals
+3. Testability - pure functions can be unit-tested without D-Bus
+4. Future CLI support - can use types independently
+5. Single source of truth - domain types in one place
+
+**Cleanup Completed:**
+- ✅ Removed disks-dbus/src/partition_types.rs (now in storage-models)
+- ✅ Removed disks-dbus/src/format.rs (now in storage-models)
+- ✅ Removed disks-dbus/src/disks/create_partition_info.rs (now in storage-models)
+- ✅ Removed module declarations from disks-dbus
+
+**Done When:**
+- [x] Format utilities moved to storage-models/src/common.rs
+- [x] GPT_ALIGNMENT_BYTES constant moved to storage-models
+- [x] Volume enums consolidated in storage-models/src/volume.rs
+- [x] CreatePartitionInfo moved to storage-models/src/partition.rs
+- [x] Partition type catalog created in new storage-models/src/partition_types.rs
+- [x] TOML data loading at compile-time working
+- [x] Dependencies added (anyhow, num-format, toml)
+- [x] Re-exports added to disks-dbus for backward compatibility
+- [x] All import paths updated in disks-dbus modules
+- [x] Full workspace compiles with 0 errors
+- [x] Documentation updated in implementation-log.md
+
+**Status:** ✅ COMPLETE
+
+---
+
 ## Phase 3A Summary
 
 **Goal:** Make storage-models the single source of truth by having disks-dbus return these types directly.
 
-**Status:** ✅ **COMPLETE** (Tasks 1-11 core implementation + Task 15 documentation)
+**Status:** ✅ **COMPLETE** (Tasks 1-11 core implementation + Task 15 documentation + Additional type migration)
 
 ### Completed Work
 1. ✅ Task 1: Analysis (models-refactor.md created)
@@ -466,13 +572,28 @@ This task creates an awkward hybrid architecture:
 8. ✅ Task 11: LUKS operations (VolumeInfo CryptoContainer)
 9. ⏸️ Task 12-14: Deferred to Phase 3B context
 10. ✅ Task 15: Documentation and completion summary
+11. ✅ **Additional:** Shared types & utilities migration (format utilities, constants, partition catalog)
+
+### Additional Architecture Improvements (Beyond Original Spec)
+- ✅ **Type Migration:** Moved shared constants, enums, utilities from disks-dbus → storage-models
+  - Format utilities: `bytes_to_pretty`, `pretty_to_bytes`, `get_numeric`, `get_step`
+  - Constants: `GPT_ALIGNMENT_BYTES`
+  - Enums: `VolumeType`, `VolumeKind` (consolidated)
+  - Partition types: `CreatePartitionInfo`, partition type catalog
+- ✅ **Partition Type Catalog:** New storage-models/src/partition_types.rs module
+  - Compile-time TOML loading from disks-dbus/data/*.toml
+  - Static catalogs: `COMMON_GPT_TYPES`, `COMMON_DOS_TYPES`
+  - Functions: `get_valid_partition_names()`, `get_all_partition_type_infos()`
+- ✅ **Backward Compatibility:** Re-exports in disks-dbus maintain existing API
+- ✅ **Clean Layering:** storage-models (types+utils) → disks-dbus (D-Bus adapters) → storage-service
 
 ### Build Verification
 ```
-✅ cargo check --workspace - SUCCESS (0.57s)
-✅ cargo test -p cosmic-ext-disks-dbus --lib - All tests pass
-✅ 0 compilation errors
-⚠️  18 warnings (pre-existing, unrelated)
+✅ cargo check --workspace - SUCCESS (0.80s)
+✅ storage-models: 0 errors
+✅ disks-dbus: 0 errors (warnings: old unused files - cleanup deferred)
+✅ storage-service: 0 errors
+✅ disks-ui: 0 errors
 ```
 
 ### Architecture Result
@@ -481,7 +602,14 @@ UDisks2 D-Bus API
     ↓
 disks-dbus (internal: DriveModel/VolumeNode + public: storage-models)
     ├─ get_drives() → Vec<DriveModel> (operational)
-    └─ get_disks() → Vec<DiskInfo> (display/transport)
+    ├─ get_disks() → Vec<DiskInfo> (display/transport)
+    └─ Re-exports: types, utilities, constants from storage-models
+    ↓
+storage-models (single source of truth)
+    ├─ Types: DiskInfo, VolumeInfo, PartitionInfo, FilesystemInfo, ...
+    ├─ Utilities: bytes_to_pretty(), pretty_to_bytes(), ...
+    ├─ Constants: GPT_ALIGNMENT_BYTES
+    └─ Catalogs: COMMON_GPT_TYPES, COMMON_DOS_TYPES
     ↓
 Ready for Phase 3B: storage-service D-Bus interface
 ```

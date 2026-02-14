@@ -8,6 +8,7 @@ use crate::{
 use anyhow::Result;
 use std::collections::HashMap;
 use std::path::Path;
+use storage_models::VolumeKind; // Import from storage_models
 use udisks2::{
     block::BlockProxy, encrypted::EncryptedProxy, filesystem::FilesystemProxy,
     partitiontable::PartitionTableProxy,
@@ -23,15 +24,7 @@ use super::{
     ops::{RealDiskBackend, crypto_lock, crypto_unlock, partition_mount, partition_unmount},
 };
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum VolumeKind {
-    Partition,
-    CryptoContainer,
-    Filesystem,
-    LvmPhysicalVolume,
-    LvmLogicalVolume,
-    Block,
-}
+// VolumeKind enum moved to storage_models
 
 #[derive(Debug, Clone)]
 pub struct VolumeNode {
