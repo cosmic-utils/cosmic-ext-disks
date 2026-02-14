@@ -52,11 +52,10 @@ pub use dbus::bytestring::{
 };
 
 // Re-export key types from new modules
-pub use disk::model::DriveModel;
+// DriveModel and VolumeNode are now internal only - operations return storage_models types
 pub use manager::{DiskManager, DeviceEvent, DeviceEventStream};
 pub use smart::{SmartInfo, SmartSelfTestKind};
 pub use btrfs::{BtrfsFilesystem, BtrfsSubvolume};
-pub use volume::node::VolumeNode;
 
 // Re-export error types
 pub use error::DiskError;

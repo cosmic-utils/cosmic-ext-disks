@@ -78,7 +78,7 @@ impl DisksHandler {
         tracing::debug!("ListDisks called");
         
         // Get disks from disks-dbus using new storage-models API
-        let disks = disks_dbus::DriveModel::get_disks()
+        let disks = disks_dbus::disk::get_disks()
             .await
             .map_err(|e| {
                 tracing::error!("Failed to get disks: {e}");
@@ -125,7 +125,7 @@ impl DisksHandler {
         tracing::debug!("ListVolumes called");
         
         // Get all drives using disks-dbus
-        let drives = disks_dbus::DriveModel::get_drives()
+        let drives = disks_dbus::disk::get_disks_with_volumes()
             .await
             .map_err(|e| {
                 tracing::error!("Failed to get drives: {e}");
@@ -212,7 +212,7 @@ impl DisksHandler {
         tracing::debug!("GetDiskInfo called for device: {device}");
         
         // Get all disks and find the requested one
-        let disks = disks_dbus::DriveModel::get_disks()
+        let disks = disks_dbus::disk::get_disks()
             .await
             .map_err(|e| {
                 tracing::error!("Failed to get disks: {e}");
@@ -305,7 +305,7 @@ impl DisksHandler {
         tracing::debug!("GetVolumeInfo called for device: {device}");
         
         // Get all drives and search for the volume
-        let drives = disks_dbus::DriveModel::get_drives()
+        let drives = disks_dbus::disk::get_disks_with_volumes()
             .await
             .map_err(|e| {
                 tracing::error!("Failed to get drives: {e}");
@@ -379,7 +379,7 @@ impl DisksHandler {
         tracing::debug!("Getting SMART status for device: {device}");
         
         // Get all drives (DriveModel instances, not DiskInfo)
-        let drives = disks_dbus::DriveModel::get_drives()
+        let drives = disks_dbus::disk::get_disks_with_volumes()
             .await
             .map_err(|e| {
                 tracing::error!("Failed to get drives: {e}");
@@ -479,7 +479,7 @@ impl DisksHandler {
         tracing::debug!("Getting SMART attributes for device: {device}");
         
         // Get all drives (DriveModel instances, not DiskInfo)
-        let drives = disks_dbus::DriveModel::get_drives()
+        let drives = disks_dbus::disk::get_disks_with_volumes()
             .await
             .map_err(|e| {
                 tracing::error!("Failed to get drives: {e}");
@@ -575,7 +575,7 @@ impl DisksHandler {
         tracing::debug!("Ejecting device: {device}");
         
         // Get all drives (DriveModel instances)
-        let drives = disks_dbus::DriveModel::get_drives()
+        let drives = disks_dbus::disk::get_disks_with_volumes()
             .await
             .map_err(|e| {
                 tracing::error!("Failed to get drives: {e}");
@@ -642,7 +642,7 @@ impl DisksHandler {
         
         tracing::debug!("Powering off device: {device}");
         
-        let drives = disks_dbus::DriveModel::get_drives()
+        let drives = disks_dbus::disk::get_disks_with_volumes()
             .await
             .map_err(|e| zbus::fdo::Error::Failed(format!("Failed to enumerate drives: {e}")))?;
         
@@ -692,7 +692,7 @@ impl DisksHandler {
         
         tracing::debug!("Putting device in standby: {device}");
         
-        let drives = disks_dbus::DriveModel::get_drives()
+        let drives = disks_dbus::disk::get_disks_with_volumes()
             .await
             .map_err(|e| zbus::fdo::Error::Failed(format!("Failed to enumerate drives: {e}")))?;
         
@@ -741,7 +741,7 @@ impl DisksHandler {
         
         tracing::debug!("Waking up device: {device}");
         
-        let drives = disks_dbus::DriveModel::get_drives()
+        let drives = disks_dbus::disk::get_disks_with_volumes()
             .await
             .map_err(|e| zbus::fdo::Error::Failed(format!("Failed to enumerate drives: {e}")))?;
         
@@ -790,7 +790,7 @@ impl DisksHandler {
         
         tracing::debug!("Safely removing device: {device}");
         
-        let drives = disks_dbus::DriveModel::get_drives()
+        let drives = disks_dbus::disk::get_disks_with_volumes()
             .await
             .map_err(|e| zbus::fdo::Error::Failed(format!("Failed to enumerate drives: {e}")))?;
         
@@ -858,7 +858,7 @@ impl DisksHandler {
         };
         
         // Get all drives (DriveModel instances, not DiskInfo)
-        let drives = disks_dbus::DriveModel::get_drives()
+        let drives = disks_dbus::disk::get_disks_with_volumes()
             .await
             .map_err(|e| {
                 tracing::error!("Failed to get drives: {e}");
@@ -1055,7 +1055,7 @@ async fn get_disk_info_for_path(
     object_path: &zbus::zvariant::ObjectPath<'_>,
 ) -> Result<storage_models::DiskInfo> {
     // Get all drives and find the one matching this object path
-    let drives = disks_dbus::DriveModel::get_drives().await?;
+    let drives = disks_dbus::disk::get_disks_with_volumes().await?;
     
     for drive in drives {
         // Check if this drive's path matches

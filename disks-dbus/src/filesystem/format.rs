@@ -10,7 +10,7 @@ use storage_models::FormatOptions;
 
 /// Helper function to find UDisks2 block object path for a device
 async fn find_block_object_path(device_path: &str) -> Result<OwnedObjectPath, DiskError> {
-    let drives = crate::DriveModel::get_drives().await
+    let drives = crate::disk::model::DriveModel::get_drives().await
         .map_err(|e| DiskError::OperationFailed(format!("Failed to get drives: {}", e)))?;
     
     for drive in drives {

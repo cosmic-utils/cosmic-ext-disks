@@ -17,7 +17,7 @@ pub async fn change_luks_passphrase(
         .map_err(|e| DiskError::ConnectionFailed(e.to_string()))?;
     
     // Find encrypted device object path
-    let drives = crate::DriveModel::get_drives().await
+    let drives = crate::disk::model::DriveModel::get_drives().await
         .map_err(|e| DiskError::OperationFailed(format!("Failed to get drives: {}", e)))?;
     let mut encrypted_path: Option<OwnedObjectPath> = None;
     

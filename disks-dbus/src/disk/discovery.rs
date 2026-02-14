@@ -465,3 +465,31 @@ impl DriveModel {
             .collect())
     }
 }
+
+// Re-export public discovery functions so they can be accessed without DriveModel
+// These are the recommended public API functions
+
+/// Get disk information as canonical storage-models types (public API).
+/// 
+/// This is the recommended method for clients to retrieve disk information.
+/// Returns storage_models::DiskInfo with all domain data, excluding internal
+/// connection handles.
+pub async fn get_disks() -> Result<Vec<storage_models::DiskInfo>> {
+    DriveModel::get_disks().await
+}
+
+/// Get disks with their volume hierarchies as canonical storage-models types.
+/// 
+/// Returns DiskInfo along with VolumeInfo trees for each disk.
+/// This is the complete public API for retrieving full disk topology.
+pub async fn get_disks_with_volumes() -> Result<Vec<(storage_models::DiskInfo, Vec<storage_models::VolumeInfo>)>> {
+    DriveModel::get_disks_with_volumes().await
+}
+
+/// Get disks with flat partition lists as canonical storage-models types.
+/// 
+/// Returns DiskInfo along with PartitionInfo for each partition on the disk.
+/// Useful for partition-focused operations without needing the full tree structure.
+pub async fn get_disks_with_partitions() -> Result<Vec<(storage_models::DiskInfo, Vec<storage_models::PartitionInfo>)>> {
+    DriveModel::get_disks_with_partitions().await
+}

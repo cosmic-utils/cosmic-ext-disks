@@ -18,7 +18,7 @@ pub async fn mount_filesystem(
         .map_err(|e| DiskError::ConnectionFailed(e.to_string()))?;
     
     // Find filesystem object path
-    let drives = crate::DriveModel::get_drives().await
+    let drives = crate::disk::model::DriveModel::get_drives().await
         .map_err(|e| DiskError::OperationFailed(format!("Failed to get drives: {}", e)))?;
     let mut fs_path: Option<OwnedObjectPath> = None;
     
@@ -78,7 +78,7 @@ pub async fn unmount_filesystem(device_or_mount: &str, force: bool) -> Result<()
         .map_err(|e| DiskError::ConnectionFailed(e.to_string()))?;
     
     // Find filesystem object path
-    let drives = crate::DriveModel::get_drives().await
+    let drives = crate::disk::model::DriveModel::get_drives().await
         .map_err(|e| DiskError::OperationFailed(format!("Failed to get drives: {}", e)))?;
     let mut fs_path: Option<OwnedObjectPath> = None;
     
@@ -127,7 +127,7 @@ pub async fn get_mount_point(device: &str) -> Result<String, DiskError> {
         .await
         .map_err(|e| DiskError::ConnectionFailed(format!("Failed to connect to system bus: {}", e)))?;
     
-    let drives = crate::DriveModel::get_drives().await
+    let drives = crate::disk::model::DriveModel::get_drives().await
         .map_err(|e| DiskError::OperationFailed(format!("Failed to get drives: {}", e)))?;
     let mut fs_path: Option<OwnedObjectPath> = None;
     

@@ -23,7 +23,7 @@ use zbus::{Connection, zvariant::OwnedObjectPath};
 // VolumeKind enum moved to storage_models
 
 #[derive(Debug, Clone)]
-pub struct VolumeNode {
+pub(crate) struct VolumeNode {
     pub kind: VolumeKind,
     pub label: String,
     pub size: u64,

@@ -95,7 +95,7 @@ impl PartitionsHandler {
         tracing::debug!("Listing partitions for disk: {disk}");
         
         // Get all drives and find the requested one
-        let drives = disks_dbus::DriveModel::get_drives()
+        let drives = disks_dbus::disk::get_disks_with_volumes()
             .await
             .map_err(|e| {
                 tracing::error!("Failed to get drives: {e}");
@@ -177,7 +177,7 @@ impl PartitionsHandler {
         };
         
         // Get all drives and find the requested one
-        let drives = disks_dbus::DriveModel::get_drives()
+        let drives = disks_dbus::disk::get_disks_with_volumes()
             .await
             .map_err(|e| {
                 tracing::error!("Failed to get drives: {e}");
@@ -251,7 +251,7 @@ impl PartitionsHandler {
         tracing::info!("Creating partition on {}: offset={}, size={}, type={}", disk, offset, size, type_id);
         
         // Find drive and get its block path
-        let drives = disks_dbus::DriveModel::get_drives()
+        let drives = disks_dbus::disk::get_disks_with_volumes()
             .await
             .map_err(|e| {
                 tracing::error!("Failed to get drives: {e}");
@@ -522,7 +522,7 @@ impl PartitionsHandler {
         partition: &str,
     ) -> zbus::fdo::Result<OwnedObjectPath> {
         // Get all drives and search their partitions
-        let drives = disks_dbus::DriveModel::get_drives()
+        let drives = disks_dbus::disk::get_disks_with_volumes()
             .await
             .map_err(|e| {
                 tracing::error!("Failed to get drives: {e}");

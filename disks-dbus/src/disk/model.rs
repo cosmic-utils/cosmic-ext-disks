@@ -6,10 +6,10 @@ use udisks2::{
 };
 use zbus::{Connection, zvariant::OwnedObjectPath};
 
-use crate::volume::{VolumeNode, BlockIndex};
+use crate::volume::node::{VolumeNode, BlockIndex};
 
 #[derive(Debug, Clone)]
-pub struct DriveModel {
+pub(crate) struct DriveModel {
     pub can_power_off: bool,
     pub ejectable: bool,
     pub media_available: bool,

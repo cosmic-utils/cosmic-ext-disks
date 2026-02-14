@@ -97,7 +97,7 @@ impl FilesystemsHandler {
         tracing::debug!("Listing filesystems");
         
         // Get all drives
-        let drives = disks_dbus::DriveModel::get_drives()
+        let drives = disks_dbus::disk::get_disks_with_volumes()
             .await
             .map_err(|e| {
                 tracing::error!("Failed to get drives: {e}");
@@ -639,7 +639,7 @@ impl FilesystemsHandler {
             .await
             .map_err(|e| zbus::fdo::Error::Failed(format!("Authorization failed: {e}")))?;
 
-        let drives = disks_dbus::DriveModel::get_drives()
+        let drives = disks_dbus::disk::get_disks_with_volumes()
             .await
             .map_err(|e| {
                 tracing::error!("Failed to get drives: {e}");
@@ -690,7 +690,7 @@ impl FilesystemsHandler {
             .await
             .map_err(|e| zbus::fdo::Error::Failed(format!("Authorization failed: {e}")))?;
 
-        let drives = disks_dbus::DriveModel::get_drives()
+        let drives = disks_dbus::disk::get_disks_with_volumes()
             .await
             .map_err(|e| {
                 tracing::error!("Failed to get drives: {e}");
@@ -732,7 +732,7 @@ impl FilesystemsHandler {
             .await
             .map_err(|e| zbus::fdo::Error::Failed(format!("Authorization failed: {e}")))?;
 
-        let drives = disks_dbus::DriveModel::get_drives()
+        let drives = disks_dbus::disk::get_disks_with_volumes()
             .await
             .map_err(|e| {
                 tracing::error!("Failed to get drives: {e}");

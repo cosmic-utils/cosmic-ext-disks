@@ -75,7 +75,7 @@ impl ImageHandler {
 
     /// Find block device object path from device identifier (drive or partition)
     async fn find_block_object_path(device: &str) -> Result<OwnedObjectPath, String> {
-        let drives = disks_dbus::DriveModel::get_drives()
+        let drives = disks_dbus::disk::get_disks_with_volumes()
             .await
             .map_err(|e| format!("Failed to enumerate drives: {e}"))?;
 
