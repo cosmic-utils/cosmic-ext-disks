@@ -320,6 +320,7 @@ impl LVMHandler {
     async fn create_volume_group(
         &self,
         #[zbus(connection)] connection: &Connection,
+        #[zbus(signal_context)] signal_ctx: zbus::object_server::SignalEmitter<'_>,
         vg_name: String,
         devices_json: String,
     ) -> zbus::fdo::Result<()> {
@@ -356,9 +357,7 @@ impl LVMHandler {
         }
         
         tracing::info!("Volume group '{}' created successfully", vg_name);
-        
-        // TODO: Emit VolumeGroupCreated signal
-        
+        let _ = Self::volume_group_created(&signal_ctx, &vg_name).await;
         Ok(())
     }
     
@@ -373,6 +372,7 @@ impl LVMHandler {
     async fn create_logical_volume(
         &self,
         #[zbus(connection)] connection: &Connection,
+        #[zbus(signal_context)] signal_ctx: zbus::object_server::SignalEmitter<'_>,
         vg_name: String,
         lv_name: String,
         size_bytes: u64,
@@ -403,9 +403,7 @@ impl LVMHandler {
         
         let device_path = format!("/dev/{}/{}", vg_name, lv_name);
         tracing::info!("Logical volume created: {}", device_path);
-        
-        // TODO: Emit LogicalVolumeCreated signal
-        
+        let _ = Self::logical_volume_created(&signal_ctx, &vg_name, &lv_name).await;
         Ok(device_path)
     }
     
@@ -460,6 +458,7 @@ impl LVMHandler {
     async fn delete_volume_group(
         &self,
         #[zbus(connection)] connection: &Connection,
+        #[zbus(signal_context)] signal_ctx: zbus::object_server::SignalEmitter<'_>,
         vg_name: String,
     ) -> zbus::fdo::Result<()> {
         check_polkit_auth(connection, "org.cosmic.ext.storage-service.lvm-modify")
@@ -486,9 +485,7 @@ impl LVMHandler {
         }
         
         tracing::info!("Volume group '{}' deleted successfully", vg_name);
-        
-        // TODO: Emit VolumeGroupRemoved signal
-        
+        let _ = Self::volume_group_removed(&signal_ctx, &vg_name).await;
         Ok(())
     }
     
@@ -501,6 +498,7 @@ impl LVMHandler {
     async fn delete_logical_volume(
         &self,
         #[zbus(connection)] connection: &Connection,
+        #[zbus(signal_context)] signal_ctx: zbus::object_server::SignalEmitter<'_>,
         lv_path: String,
     ) -> zbus::fdo::Result<()> {
         check_polkit_auth(connection, "org.cosmic.ext.storage-service.lvm-modify")
@@ -527,9 +525,12 @@ impl LVMHandler {
         }
         
         tracing::info!("Logical volume '{}' deleted successfully", lv_path);
-        
-        // TODO: Emit LogicalVolumeRemoved signal
-        
+        let (vg_name, lv_name) = lv_path
+            .trim_start_matches("/dev/")
+            .rsplit_once('/')
+            .map(|(vg, lv)| (vg.to_string(), lv.to_string()))
+            .unwrap_or_else(|| (String::new(), lv_path.clone()));
+        let _ = Self::logical_volume_removed(&signal_ctx, &vg_name, &lv_name).await;
         Ok(())
     }
     

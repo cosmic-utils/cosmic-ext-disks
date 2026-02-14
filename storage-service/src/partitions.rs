@@ -155,6 +155,7 @@ impl PartitionsHandler {
     async fn create_partition_table(
         &self,
         #[zbus(connection)] connection: &Connection,
+        #[zbus(signal_context)] signal_ctx: zbus::object_server::SignalEmitter<'_>,
         disk: String,
         table_type: String,
     ) -> zbus::fdo::Result<()> {
@@ -221,9 +222,7 @@ impl PartitionsHandler {
             })?;
         
         tracing::info!("Successfully created {} partition table on {}", normalized_type, disk);
-        
-        // TODO: Emit PartitionTableCreated signal
-        
+        let _ = Self::partition_table_created(&signal_ctx, &disk, normalized_type).await;
         Ok(())
     }
     
@@ -241,6 +240,7 @@ impl PartitionsHandler {
     async fn create_partition(
         &self,
         #[zbus(connection)] connection: &Connection,
+        #[zbus(signal_context)] signal_ctx: zbus::object_server::SignalEmitter<'_>,
         disk: String,
         offset: u64,
         size: u64,
@@ -341,9 +341,24 @@ impl PartitionsHandler {
             .unwrap_or_else(|_| format!("/dev/{}", partition_path.as_str().rsplit('/').next().unwrap_or("unknown")));
         
         tracing::info!("Successfully created partition: {}", device_path);
-        
-        // TODO: Emit PartitionCreated signal
-        
+        let partition_info_json = serde_json::to_string(&storage_models::PartitionInfo {
+            device: device_path.clone(),
+            number: 0,
+            parent_path: disk.clone(),
+            size,
+            offset,
+            type_id: type_id.clone(),
+            type_name: String::new(),
+            flags: 0,
+            name: String::new(),
+            uuid: String::new(),
+            table_type: String::new(),
+            has_filesystem: false,
+            filesystem_type: None,
+            mount_points: vec![],
+            usage: None,
+        }).unwrap_or_default();
+        let _ = Self::partition_created(&signal_ctx, &disk, &device_path, &partition_info_json).await;
         Ok(device_path)
     }
     
@@ -356,6 +371,7 @@ impl PartitionsHandler {
     async fn delete_partition(
         &self,
         #[zbus(connection)] connection: &Connection,
+        #[zbus(signal_context)] signal_ctx: zbus::object_server::SignalEmitter<'_>,
         partition: String,
     ) -> zbus::fdo::Result<()> {
         // Check authorization
@@ -405,9 +421,8 @@ impl PartitionsHandler {
             })?;
         
         tracing::info!("Successfully deleted partition: {}", partition);
-        
-        // TODO: Emit PartitionDeleted signal
-        
+        let disk = partition.trim_end_matches(|c: char| c.is_ascii_digit()).to_string();
+        let _ = Self::partition_deleted(&signal_ctx, &disk, &partition).await;
         Ok(())
     }
     
@@ -421,6 +436,7 @@ impl PartitionsHandler {
     async fn resize_partition(
         &self,
         #[zbus(connection)] connection: &Connection,
+        #[zbus(signal_context)] signal_ctx: zbus::object_server::SignalEmitter<'_>,
         partition: String,
         new_size: u64,
     ) -> zbus::fdo::Result<()> {
@@ -456,9 +472,8 @@ impl PartitionsHandler {
             })?;
         
         tracing::info!("Successfully resized partition: {}", partition);
-        
-        // TODO: Emit PartitionModified signal
-        
+        let disk = partition.trim_end_matches(|c: char| c.is_ascii_digit()).to_string();
+        let _ = Self::partition_modified(&signal_ctx, &disk, &partition, "").await;
         Ok(())
     }
     
@@ -472,6 +487,7 @@ impl PartitionsHandler {
     async fn set_partition_type(
         &self,
         #[zbus(connection)] connection: &Connection,
+        #[zbus(signal_context)] signal_ctx: zbus::object_server::SignalEmitter<'_>,
         partition: String,
         type_id: String,
     ) -> zbus::fdo::Result<()> {
@@ -507,9 +523,8 @@ impl PartitionsHandler {
             })?;
         
         tracing::info!("Successfully set partition type: {}", partition);
-        
-        // TODO: Emit PartitionModified signal
-        
+        let disk = partition.trim_end_matches(|c: char| c.is_ascii_digit()).to_string();
+        let _ = Self::partition_modified(&signal_ctx, &disk, &partition, "").await;
         Ok(())
     }
     
@@ -523,6 +538,7 @@ impl PartitionsHandler {
     async fn set_partition_flags(
         &self,
         #[zbus(connection)] connection: &Connection,
+        #[zbus(signal_context)] signal_ctx: zbus::object_server::SignalEmitter<'_>,
         partition: String,
         flags: u64,
     ) -> zbus::fdo::Result<()> {
@@ -559,9 +575,8 @@ impl PartitionsHandler {
             })?;
         
         tracing::info!("Successfully set partition flags: {}", partition);
-        
-        // TODO: Emit PartitionModified signal
-        
+        let disk = partition.trim_end_matches(|c: char| c.is_ascii_digit()).to_string();
+        let _ = Self::partition_modified(&signal_ctx, &disk, &partition, "").await;
         Ok(())
     }
     
@@ -575,6 +590,7 @@ impl PartitionsHandler {
     async fn set_partition_name(
         &self,
         #[zbus(connection)] connection: &Connection,
+        #[zbus(signal_context)] signal_ctx: zbus::object_server::SignalEmitter<'_>,
         partition: String,
         name: String,
     ) -> zbus::fdo::Result<()> {
@@ -618,9 +634,8 @@ impl PartitionsHandler {
             })?;
         
         tracing::info!("Successfully set partition name: {}", partition);
-        
-        // TODO: Emit PartitionModified signal
-        
+        let disk = partition.trim_end_matches(|c: char| c.is_ascii_digit()).to_string();
+        let _ = Self::partition_modified(&signal_ctx, &disk, &partition, "").await;
         Ok(())
     }
 }

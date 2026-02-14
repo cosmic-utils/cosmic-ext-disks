@@ -300,14 +300,26 @@ pub(super) fn take_ownership_message(
             }
 
             state.running = true;
-            // Reserved for when storage-service implements take_ownership
-            let _target = state.target.clone();
-            let _recursive = state.recursive;
+            let device_path = match &state.target {
+                FilesystemTarget::Volume(v) => v
+                    .device_path
+                    .clone()
+                    .unwrap_or_else(|| "/dev/unknown".to_string()),
+                FilesystemTarget::Node(n) => n
+                    .volume
+                    .device_path
+                    .clone()
+                    .unwrap_or_else(|| "/dev/unknown".to_string()),
+            };
+            let recursive = state.recursive;
 
             Task::perform(
                 async move {
-                    // TODO: Implement take_ownership operation in storage-service
-                    Err::<Vec<UiDrive>, anyhow::Error>(anyhow::anyhow!("Take ownership operation not yet implemented"))
+                    let client = FilesystemsClient::new().await
+                        .map_err(|e| anyhow::anyhow!("Failed to create filesystems client: {}", e))?;
+                    client.take_ownership(&device_path, recursive).await
+                        .map_err(|e| anyhow::anyhow!("Take ownership failed: {}", e))?;
+                    load_all_drives().await.map_err(|e| e.into())
                 },
                 |result: Result<Vec<UiDrive>, anyhow::Error>| match result {
                     Ok(drives) => Message::UpdateNav(drives, None).into(),
@@ -436,19 +448,37 @@ pub(super) fn edit_encryption_options_message(
                 return Task::none();
             }
             state.running = true;
-            // Reserved for when storage-service implements encryption options management
-            let _volume = state.volume.clone();
-            let _use_defaults = state.use_defaults;
-            let _unlock_at_startup = state.unlock_at_startup;
-            let _require_auth = state.require_auth;
-            let _other_options = state.other_options.clone();
-            let _name = state.name.clone();
-            let _passphrase = state.passphrase.clone();
+            let device_path = state
+                .volume
+                .device_path
+                .clone()
+                .unwrap_or_else(|| "/dev/unknown".to_string());
+            let use_defaults = state.use_defaults;
+            let unlock_at_startup = state.unlock_at_startup;
+            let require_auth = state.require_auth;
+            let other_options = state.other_options.clone();
+            let name = state.name.clone();
+            let passphrase = state.passphrase.clone();
 
             Task::perform(
                 async move {
-                    // TODO: Implement encryption options management in storage-service
-                    Err::<Vec<UiDrive>, anyhow::Error>(anyhow::anyhow!("Encryption options management not yet implemented"))
+                    let luks_client = LuksClient::new().await
+                        .map_err(|e| anyhow::anyhow!("Failed to create LUKS client: {}", e))?;
+                    if use_defaults {
+                        luks_client.default_encryption_options(&device_path).await
+                            .map_err(|e| anyhow::anyhow!("Failed to clear encryption options: {}", e))?;
+                    } else {
+                        let settings = storage_models::EncryptionOptionsSettings {
+                            name,
+                            unlock_at_startup,
+                            require_auth,
+                            other_options,
+                            passphrase: if passphrase.is_empty() { None } else { Some(passphrase) },
+                        };
+                        luks_client.set_encryption_options(&device_path, &settings).await
+                            .map_err(|e| anyhow::anyhow!("Failed to set encryption options: {}", e))?;
+                    }
+                    load_all_drives().await.map_err(|e| e.into())
                 },
                 move |result: Result<Vec<UiDrive>, anyhow::Error>| match result {
                     Ok(drives) => Message::UpdateNav(drives, None).into(),

@@ -193,10 +193,9 @@ pub(super) fn open_edit_partition(
         .and_then(|p| partition_types.iter().position(|t| t.ty == p.type_id))
         .unwrap_or(0);
 
-    // TODO: Implement flag checking methods on PartitionInfo
-    let legacy_bios_bootable = partition_info.map(|p| (p.flags & 0x04) != 0).unwrap_or(false);
-    let system_partition = partition_info.map(|p| (p.flags & 0x01) != 0).unwrap_or(false);
-    let hidden = partition_info.map(|p| (p.flags & 0x02) != 0).unwrap_or(false);
+    let legacy_bios_bootable = partition_info.map(|p| p.is_legacy_bios_bootable()).unwrap_or(false);
+    let system_partition = partition_info.map(|p| p.is_system_partition()).unwrap_or(false);
+    let hidden = partition_info.map(|p| p.is_hidden()).unwrap_or(false);
     let name = volume.label.clone();
 
     *dialog = Some(ShowDialog::EditPartition(EditPartitionDialog {

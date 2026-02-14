@@ -81,4 +81,6 @@ pub struct EncryptionOptionsSettings {
     pub require_auth: bool,
     /// Other crypttab options (e.g. "nofail")
     pub other_options: String,
+    /// Optional passphrase to store (e.g. in /etc/luks-keys/) for unlock at startup
+    pub passphrase: Option<String>,
 }

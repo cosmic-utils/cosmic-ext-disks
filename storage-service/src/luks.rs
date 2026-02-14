@@ -7,8 +7,12 @@
 use std::collections::HashMap;
 use udisks2::{block::BlockProxy, encrypted::EncryptedProxy};
 use zbus::{interface, Connection};
-use zbus::zvariant::{OwnedObjectPath, Value};
+use zbus::zvariant::{OwnedObjectPath, OwnedValue, Value};
 use storage_models::{EncryptionOptionsSettings, LuksInfo, LuksVersion};
+use disks_dbus::{
+    bytestring_owned_value, join_options, set_token_present, split_options, stable_dedup,
+    owned_value_to_bytestring, ConfigurationItem, UDisks2BlockConfigurationProxy,
+};
 
 use crate::auth::check_polkit_auth;
 
@@ -175,6 +179,7 @@ impl LuksHandler {
     async fn format(
         &self,
         #[zbus(connection)] connection: &Connection,
+        #[zbus(signal_context)] signal_ctx: zbus::object_server::SignalEmitter<'_>,
         device: String,
         passphrase: String,
         version: String,
@@ -220,9 +225,7 @@ impl LuksHandler {
             })?;
         
         tracing::info!("Device '{}' formatted as LUKS successfully", device);
-        
-        // TODO: Emit ContainerCreated signal
-        
+        let _ = Self::container_created(&signal_ctx, &device).await;
         Ok(())
     }
     
@@ -238,6 +241,7 @@ impl LuksHandler {
     async fn unlock(
         &self,
         #[zbus(connection)] connection: &Connection,
+        #[zbus(signal_context)] signal_ctx: zbus::object_server::SignalEmitter<'_>,
         device: String,
         passphrase: String,
     ) -> zbus::fdo::Result<String> {
@@ -272,9 +276,7 @@ impl LuksHandler {
         let cleartext_device = Self::path_to_device(connection, &cleartext_path).await?;
         
         tracing::info!("LUKS device '{}' unlocked to '{}'", device, cleartext_device);
-        
-        // TODO: Emit ContainerUnlocked signal
-        
+        let _ = Self::container_unlocked(&signal_ctx, &device, &cleartext_device).await;
         Ok(cleartext_device)
     }
     
@@ -287,6 +289,7 @@ impl LuksHandler {
     async fn lock(
         &self,
         #[zbus(connection)] connection: &Connection,
+        #[zbus(signal_context)] signal_ctx: zbus::object_server::SignalEmitter<'_>,
         device: String,
     ) -> zbus::fdo::Result<()> {
         check_polkit_auth(connection, "org.cosmic.ext.storage-service.luks-lock")
@@ -317,9 +320,7 @@ impl LuksHandler {
             })?;
         
         tracing::info!("LUKS device '{}' locked successfully", device);
-        
-        // TODO: Emit ContainerLocked signal
-        
+        let _ = Self::container_locked(&signal_ctx, &device).await;
         Ok(())
     }
     
@@ -401,6 +402,7 @@ impl LuksHandler {
                                 unlock_at_startup: s.unlock_at_startup,
                                 require_auth: s.require_auth,
                                 other_options: s.other_options,
+                                passphrase: None,
                             };
                             return serde_json::to_string(&Some(out))
                                 .map_err(|e| zbus::fdo::Error::Failed(format!("Serialize: {e}")));
@@ -415,6 +417,138 @@ impl LuksHandler {
             }
         }
         Ok("null".to_string())
+    }
+
+    /// Set encryption options (crypttab) for a LUKS device
+    ///
+    /// Args:
+    /// - device: Device path (e.g. "/dev/sda1")
+    /// - options_json: JSON-serialized EncryptionOptionsSettings (name, unlock_at_startup, require_auth, other_options, optional passphrase)
+    ///
+    /// Authorization: org.cosmic.ext.storage-service.luks-set-options
+    async fn set_encryption_options(
+        &self,
+        #[zbus(connection)] connection: &Connection,
+        device: String,
+        options_json: String,
+    ) -> zbus::fdo::Result<()> {
+        check_polkit_auth(connection, "org.cosmic.ext.storage-service.luks-set-options")
+            .await
+            .map_err(|e| zbus::fdo::Error::Failed(format!("Authorization failed: {e}")))?;
+
+        let settings: EncryptionOptionsSettings = serde_json::from_str(&options_json)
+            .map_err(|e| zbus::fdo::Error::InvalidArgs(format!("Invalid options JSON: {e}")))?;
+
+        if settings.name.trim().is_empty() {
+            return Err(zbus::fdo::Error::InvalidArgs("Name must not be empty".to_string()));
+        }
+
+        let block_path = Self::device_to_path(&device);
+        let block_proxy = BlockProxy::builder(connection)
+            .path(&block_path)
+            .map_err(|e| zbus::fdo::Error::Failed(format!("Failed to create block proxy: {e}")))?
+            .build()
+            .await
+            .map_err(|e| zbus::fdo::Error::Failed(format!("Failed to access block device: {e}")))?;
+
+        let id_uuid = block_proxy.id_uuid().await
+            .map_err(|e| zbus::fdo::Error::Failed(format!("Failed to get block UUID: {e}")))?
+            .trim()
+            .to_string();
+        if id_uuid.is_empty() {
+            return Err(zbus::fdo::Error::Failed(
+                "Missing block UUID; cannot write crypttab entry".to_string(),
+            ));
+        }
+        let device_uuid = format!("UUID={id_uuid}");
+
+        let mut tokens = split_options(&settings.other_options);
+        tokens = set_token_present(tokens, "noauto", !settings.unlock_at_startup);
+        tokens = set_token_present(tokens, "x-udisks-auth", settings.require_auth);
+        let options = join_options(&stable_dedup(tokens));
+
+        let config_proxy = UDisks2BlockConfigurationProxy::builder(connection)
+            .path(&block_path)
+            .map_err(|e| zbus::fdo::Error::Failed(format!("Failed to create config proxy: {e}")))?
+            .build()
+            .await
+            .map_err(|e| zbus::fdo::Error::Failed(format!("Failed to access block configuration: {e}")))?;
+
+        let items = config_proxy.configuration().await
+            .map_err(|e| zbus::fdo::Error::Failed(format!("Failed to get configuration: {e}")))?;
+        let old_item = items.iter().find(|(t, _)| t == "crypttab").cloned();
+
+        let existing_passphrase_path = old_item
+            .as_ref()
+            .and_then(|(_, d)| d.get("passphrase-path"))
+            .and_then(owned_value_to_bytestring)
+            .unwrap_or_default();
+
+        let passphrase = settings.passphrase.as_deref().unwrap_or("");
+        let (passphrase_path, passphrase_contents) = if passphrase.is_empty() {
+            (String::new(), String::new())
+        } else if !existing_passphrase_path.is_empty() && !existing_passphrase_path.starts_with("/dev") {
+            (existing_passphrase_path, passphrase.to_string())
+        } else {
+            (format!("/etc/luks-keys/{}", settings.name.trim()), passphrase.to_string())
+        };
+
+        let mut dict: HashMap<String, OwnedValue> = HashMap::new();
+        dict.insert("device".to_string(), bytestring_owned_value(&device_uuid));
+        dict.insert("name".to_string(), bytestring_owned_value(settings.name.trim()));
+        dict.insert("options".to_string(), bytestring_owned_value(options.trim()));
+        dict.insert("passphrase-path".to_string(), bytestring_owned_value(&passphrase_path));
+        dict.insert("passphrase-contents".to_string(), bytestring_owned_value(&passphrase_contents));
+
+        let new_item: ConfigurationItem = ("crypttab".to_string(), dict);
+        let empty = HashMap::new();
+
+        if let Some(old_item) = old_item {
+            config_proxy
+                .update_configuration_item(old_item, new_item, empty)
+                .await
+                .map_err(|e| zbus::fdo::Error::Failed(format!("Failed to update crypttab: {e}")))?;
+        } else {
+            config_proxy
+                .add_configuration_item(new_item, empty)
+                .await
+                .map_err(|e| zbus::fdo::Error::Failed(format!("Failed to add crypttab entry: {e}")))?;
+        }
+
+        tracing::info!("Set encryption options for LUKS device '{}'", device);
+        Ok(())
+    }
+
+    /// Clear encryption options (remove crypttab entry) for a LUKS device
+    ///
+    /// Authorization: org.cosmic.ext.storage-service.luks-set-options
+    async fn default_encryption_options(
+        &self,
+        #[zbus(connection)] connection: &Connection,
+        device: String,
+    ) -> zbus::fdo::Result<()> {
+        check_polkit_auth(connection, "org.cosmic.ext.storage-service.luks-set-options")
+            .await
+            .map_err(|e| zbus::fdo::Error::Failed(format!("Authorization failed: {e}")))?;
+
+        let block_path = Self::device_to_path(&device);
+        let config_proxy = UDisks2BlockConfigurationProxy::builder(connection)
+            .path(&block_path)
+            .map_err(|e| zbus::fdo::Error::Failed(format!("Failed to create config proxy: {e}")))?
+            .build()
+            .await
+            .map_err(|e| zbus::fdo::Error::Failed(format!("Failed to access block configuration: {e}")))?;
+
+        let items = config_proxy.configuration().await
+            .map_err(|e| zbus::fdo::Error::Failed(format!("Failed to get configuration: {e}")))?;
+        if let Some(old_item) = items.iter().find(|(t, _)| t == "crypttab").cloned() {
+            config_proxy
+                .remove_configuration_item(old_item, HashMap::new())
+                .await
+                .map_err(|e| zbus::fdo::Error::Failed(format!("Failed to remove crypttab entry: {e}")))?;
+        }
+        tracing::info!("Cleared encryption options for LUKS device '{}'", device);
+        Ok(())
     }
 
     // NOTE: add_key and remove_key are not available in UDisks2 EncryptedProxy

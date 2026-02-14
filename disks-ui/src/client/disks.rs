@@ -10,7 +10,7 @@ use crate::client::error::ClientError;
     default_service = "org.cosmic.ext.StorageService",
     default_path = "/org/cosmic/ext/StorageService/disks"
 )]
-trait DisksInterface {
+pub trait DisksInterface {
     /// List all disks in the system
     async fn list_disks(&self) -> zbus::Result<String>;
     

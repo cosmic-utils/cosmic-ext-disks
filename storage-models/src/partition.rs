@@ -161,6 +161,21 @@ impl PartitionInfo {
     pub fn is_mbr(&self) -> bool {
         self.table_type == "dos" || self.table_type == "mbr"
     }
+
+    /// Check if the system partition flag is set (e.g. ESP / boot)
+    pub fn is_system_partition(&self) -> bool {
+        (self.flags & PARTITION_FLAG_SYSTEM) != 0
+    }
+
+    /// Check if the legacy BIOS bootable flag is set
+    pub fn is_legacy_bios_bootable(&self) -> bool {
+        (self.flags & PARTITION_FLAG_LEGACY_BIOS_BOOTABLE) != 0
+    }
+
+    /// Check if the hidden partition flag is set
+    pub fn is_hidden(&self) -> bool {
+        (self.flags & PARTITION_FLAG_HIDDEN) != 0
+    }
 }
 
 /// Partition table information

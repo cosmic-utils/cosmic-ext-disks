@@ -192,6 +192,7 @@ impl FilesystemsHandler {
     async fn format(
         &self,
         #[zbus(connection)] connection: &Connection,
+        #[zbus(signal_context)] signal_ctx: zbus::object_server::SignalEmitter<'_>,
         device: String,
         fs_type: String,
         label: String,
@@ -262,9 +263,7 @@ impl FilesystemsHandler {
             })?;
         
         tracing::info!("Successfully formatted {} as {}", device, fs_type);
-        
-        // TODO: Emit Formatted signal
-        
+        let _ = Self::formatted(&signal_ctx, &device, &fs_type).await;
         Ok(())
     }
     
@@ -281,6 +280,7 @@ impl FilesystemsHandler {
     async fn mount(
         &self,
         #[zbus(connection)] connection: &Connection,
+        #[zbus(signal_context)] signal_ctx: zbus::object_server::SignalEmitter<'_>,
         device: String,
         mount_point: String,
         options_json: String,
@@ -351,9 +351,7 @@ impl FilesystemsHandler {
             })?;
         
         tracing::info!("Successfully mounted at: {}", actual_mount_point);
-        
-        // TODO: Emit Mounted signal
-        
+        let _ = Self::mounted(&signal_ctx, &device, &actual_mount_point).await;
         Ok(actual_mount_point)
     }
     
@@ -371,6 +369,7 @@ impl FilesystemsHandler {
     async fn unmount(
         &self,
         #[zbus(connection)] connection: &Connection,
+        #[zbus(signal_context)] signal_ctx: zbus::object_server::SignalEmitter<'_>,
         device_or_mount: String,
         force: bool,
         kill_processes: bool,
@@ -424,9 +423,7 @@ impl FilesystemsHandler {
         match unmount_result {
             Ok(_) => {
                 tracing::info!("Successfully unmounted {}", device_or_mount);
-                
-                // TODO: Emit Unmounted signal
-                
+                let _ = Self::unmounted(&signal_ctx, &device_or_mount).await;
                 let result = UnmountResult {
                     success: true,
                     error: None,
@@ -924,6 +921,54 @@ impl FilesystemsHandler {
         }
         Err(zbus::fdo::Error::Failed(format!("Device not found: {}", device)))
     }
+
+    /// Take ownership of a mounted filesystem (e.g. for fstab/crypttab)
+    ///
+    /// Args:
+    /// - device: Device path (e.g. "/dev/sda1" or "/dev/mapper/luks-xxx")
+    /// - recursive: Take ownership of child mounts
+    ///
+    /// Authorization: org.cosmic.ext.storage-service.filesystems-take-ownership
+    async fn take_ownership(
+        &self,
+        #[zbus(connection)] connection: &Connection,
+        device: String,
+        recursive: bool,
+    ) -> zbus::fdo::Result<()> {
+        check_polkit_auth(connection, "org.cosmic.ext.storage-service.filesystems-take-ownership")
+            .await
+            .map_err(|e| zbus::fdo::Error::Failed(format!("Authorization failed: {e}")))?;
+
+        tracing::info!("Taking ownership of {} (recursive={})", device, recursive);
+
+        let block_path = self.find_block_path(connection, &device).await?;
+
+        let fs_proxy = FilesystemProxy::builder(connection)
+            .path(&block_path)
+            .map_err(|e| {
+                tracing::error!("Failed to create filesystem proxy: {e}");
+                zbus::fdo::Error::Failed(format!("Failed to create filesystem proxy: {e}"))
+            })?
+            .build()
+            .await
+            .map_err(|e| {
+                tracing::error!("Failed to build filesystem proxy: {e}");
+                zbus::fdo::Error::Failed(format!("Failed to access filesystem: {e}"))
+            })?;
+
+        let mut options: HashMap<&str, Value<'_>> = HashMap::new();
+        options.insert("recursive", Value::from(recursive));
+        fs_proxy
+            .take_ownership(options)
+            .await
+            .map_err(|e| {
+                tracing::error!("TakeOwnership failed: {e}");
+                zbus::fdo::Error::Failed(format!("Take ownership failed: {e}"))
+            })?;
+
+        tracing::info!("Successfully took ownership of {}", device);
+        Ok(())
+    }
 }
 
 /// Helper methods
@@ -935,7 +980,8 @@ impl FilesystemsHandler {
         device: &str,
     ) -> zbus::fdo::Result<OwnedObjectPath> {
         let device_clean = device.strip_prefix("/dev/").unwrap_or(device);
-        let path = format!("/org/freedesktop/UDisks2/block_devices/{}", device_clean);
+        let encoded = device_clean.replace('/', "_").replace('-', "_");
+        let path = format!("/org/freedesktop/UDisks2/block_devices/{}", encoded);
         
         path.try_into()
             .map_err(|e| {

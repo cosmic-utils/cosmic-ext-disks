@@ -10,7 +10,7 @@ use crate::client::error::ClientError;
     default_service = "org.cosmic.ext.StorageService",
     default_path = "/org/cosmic/ext/StorageService/luks"
 )]
-trait LuksInterface {
+pub trait LuksInterface {
     /// List all encrypted devices
     async fn list_encrypted_devices(&self) -> zbus::Result<String>;
     
@@ -38,18 +38,24 @@ trait LuksInterface {
     
     /// Get encryption options (crypttab settings) for a LUKS device
     async fn get_encryption_options(&self, device: &str) -> zbus::Result<String>;
+
+    /// Set encryption options (crypttab) for a LUKS device
+    async fn set_encryption_options(&self, device: &str, options_json: &str) -> zbus::Result<()>;
+
+    /// Clear encryption options (remove crypttab entry) for a LUKS device
+    async fn default_encryption_options(&self, device: &str) -> zbus::Result<()>;
     
-    /// Signal emitted when a device is formatted with LUKS
+    /// Signal emitted when a LUKS container is formatted (matches storage-service container_created)
     #[zbus(signal)]
-    async fn luks_formatted(&self, device: &str) -> zbus::Result<()>;
+    async fn container_created(&self, device: &str) -> zbus::Result<()>;
     
-    /// Signal emitted when a LUKS volume is unlocked
+    /// Signal emitted when a LUKS container is unlocked
     #[zbus(signal)]
-    async fn luks_unlocked(&self, device: &str, cleartext_device: &str) -> zbus::Result<()>;
+    async fn container_unlocked(&self, device: &str, cleartext_device: &str) -> zbus::Result<()>;
     
-    /// Signal emitted when a LUKS volume is locked
+    /// Signal emitted when a LUKS container is locked
     #[zbus(signal)]
-    async fn luks_locked(&self, cleartext_device: &str) -> zbus::Result<()>;
+    async fn container_locked(&self, device: &str) -> zbus::Result<()>;
 }
 
 /// Client for LUKS encryption operations
@@ -118,6 +124,22 @@ impl LuksClient {
         let opt: Option<EncryptionOptionsSettings> = serde_json::from_str(&json)
             .map_err(|e| ClientError::ParseError(format!("Failed to parse encryption options: {}", e)))?;
         Ok(opt)
+    }
+
+    /// Set encryption options (crypttab) for a LUKS device
+    pub async fn set_encryption_options(
+        &self,
+        device: &str,
+        options: &EncryptionOptionsSettings,
+    ) -> Result<(), ClientError> {
+        let json = serde_json::to_string(options)
+            .map_err(|e| ClientError::ParseError(format!("Failed to serialize options: {}", e)))?;
+        Ok(self.proxy.set_encryption_options(device, &json).await?)
+    }
+
+    /// Clear encryption options (remove crypttab entry) for a LUKS device
+    pub async fn default_encryption_options(&self, device: &str) -> Result<(), ClientError> {
+        Ok(self.proxy.default_encryption_options(device).await?)
     }
     
     /// Get the underlying proxy for signal subscriptions

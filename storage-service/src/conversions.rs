@@ -30,11 +30,11 @@ pub fn drive_model_to_disk_info(drive: &disks_dbus::DriveModel) -> DiskInfo {
     DiskInfo {
         // Identity
         device: drive.block_path.clone(),
-        id: String::new(), // TODO: Get from UDisks2 Drive.Id property
+        id: drive.id.clone(),
         model: drive.model.clone(),
         serial: drive.serial.clone(),
         vendor: drive.vendor.clone(),
-        revision: String::new(), // TODO: Get from UDisks2 Drive.Revision property
+        revision: drive.revision.clone(),
         
         // Physical properties
         size: drive.size,
@@ -44,19 +44,19 @@ pub fn drive_model_to_disk_info(drive: &disks_dbus::DriveModel) -> DiskInfo {
         // Media properties
         removable: drive.removable,
         ejectable: drive.ejectable,
-        media_removable: false, // TODO: Get from UDisks2 Drive.MediaRemovable
-        media_available: true, // Assume available if we have drive info
-        optical: false, // TODO: Get from UDisks2 Drive.Optical
-        optical_blank: false, // TODO: Get from UDisks2 Drive.OpticalBlank
+        media_removable: drive.media_removable,
+        media_available: drive.media_available,
+        optical: drive.optical,
+        optical_blank: drive.optical_blank,
         can_power_off: drive.can_power_off,
         
         // Loop device
         is_loop: drive.is_loop,
-        backing_file: None, // TODO: Get from UDisks2 Loop.BackingFile
+        backing_file: drive.backing_file.clone(),
         
-        // Partitioning (handled by separate volume/partition queries)
-        partition_table_type: None, // TODO: Get from Block.IdType == "dos"/"gpt"
-        gpt_usable_range: None, // TODO: Parse from PartitionTable.Type/Ranges
+        // Partitioning (from Block.IdType / PartitionTable in disks-dbus)
+        partition_table_type: drive.partition_table_type.clone(),
+        gpt_usable_range: drive.gpt_usable_range,
     }
 }
 

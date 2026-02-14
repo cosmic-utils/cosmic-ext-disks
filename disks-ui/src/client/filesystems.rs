@@ -10,7 +10,7 @@ use crate::client::error::ClientError;
     default_service = "org.cosmic.ext.StorageService",
     default_path = "/org/cosmic/ext/StorageService/filesystems"
 )]
-trait FilesystemsInterface {
+pub trait FilesystemsInterface {
     /// List all filesystems
     async fn list_filesystems(&self) -> zbus::Result<String>;
     
@@ -75,6 +75,9 @@ trait FilesystemsInterface {
         identify_as: &str,
         filesystem_type: &str,
     ) -> zbus::Result<()>;
+
+    /// Take ownership of a mounted filesystem (e.g. for fstab)
+    async fn take_ownership(&self, device: &str, recursive: bool) -> zbus::Result<()>;
     
     /// Signal emitted during format operation with progress
     #[zbus(signal)]
@@ -237,6 +240,11 @@ impl FilesystemsClient {
             identify_as,
             filesystem_type,
         ).await?)
+    }
+
+    /// Take ownership of a mounted filesystem
+    pub async fn take_ownership(&self, device: &str, recursive: bool) -> Result<(), ClientError> {
+        Ok(self.proxy.take_ownership(device, recursive).await?)
     }
     
     /// Get the underlying proxy for signal subscriptions
