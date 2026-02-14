@@ -14,10 +14,12 @@ mod btrfs;
 mod conversions;
 mod disks;
 mod error;
+mod partitions;
 mod service;
 
 use btrfs::BtrfsHandler;
 use disks::DisksHandler;
+use partitions::PartitionsHandler;
 use service::StorageService;
 
 #[tokio::main]
@@ -48,6 +50,10 @@ async fn main() -> Result<()> {
             "/org/cosmic/ext/StorageService/disks",
             DisksHandler::new().await?,
         )?
+        .serve_at(
+            "/org/cosmic/ext/StorageService/partitions",
+            PartitionsHandler::new(),
+        )?
         .build()
         .await?;
     
@@ -55,6 +61,7 @@ async fn main() -> Result<()> {
     tracing::info!("  - org.cosmic.ext.StorageService at /org/cosmic/ext/StorageService");
     tracing::info!("  - BTRFS interface at /org/cosmic/ext/StorageService/btrfs");
     tracing::info!("  - Disks interface at /org/cosmic/ext/StorageService/disks");
+    tracing::info!("  - Partitions interface at /org/cosmic/ext/StorageService/partitions");
     
     // Start disk hotplug monitoring
     disks::monitor_hotplug_events(
