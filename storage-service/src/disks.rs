@@ -57,7 +57,7 @@ impl DisksHandler {
     /// 
     /// Returns a JSON-serialized array of DiskInfo objects.
     /// 
-    /// **Authorization:** Requires `disks-read` (allow_active)
+    /// **Authorization:** Requires `disk-read` (allow_active)
     /// 
     /// **Example:**
     /// ```bash
@@ -70,7 +70,7 @@ impl DisksHandler {
         // Check Polkit authorization
         check_polkit_auth(
             connection,
-            "org.cosmic.ext.storage-service.disks-read",
+            "org.cosmic.ext.storage-service.disk-read",
         )
         .await
         .map_err(|e| zbus::fdo::Error::from(e))?;
@@ -104,7 +104,7 @@ impl DisksHandler {
     /// 
     /// Returns a JSON-serialized DiskInfo object.
     /// 
-    /// **Authorization:** Requires `disks-read` (allow_active)
+    /// **Authorization:** Requires `disk-read` (allow_active)
     /// 
     /// **Example:**
     /// ```bash
@@ -121,7 +121,7 @@ impl DisksHandler {
         // Check Polkit authorization
         check_polkit_auth(
             connection,
-            "org.cosmic.ext.storage-service.disks-read",
+            "org.cosmic.ext.storage-service.disk-read",
         )
         .await
         .map_err(|e| zbus::fdo::Error::from(e))?;

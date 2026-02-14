@@ -14,11 +14,13 @@ mod btrfs;
 mod conversions;
 mod disks;
 mod error;
+mod filesystems;
 mod partitions;
 mod service;
 
 use btrfs::BtrfsHandler;
 use disks::DisksHandler;
+use filesystems::FilesystemsHandler;
 use partitions::PartitionsHandler;
 use service::StorageService;
 
@@ -54,10 +56,15 @@ async fn main() -> Result<()> {
             "/org/cosmic/ext/StorageService/partitions",
             PartitionsHandler::new(),
         )?
+        .serve_at(
+            "/org/cosmic/ext/StorageService/filesystems",
+            FilesystemsHandler::new(),
+        )?
         .build()
         .await?;
     
     tracing::info!("Service registered on D-Bus system bus");
+    tracing::info!("Filesystems interface at /org/cosmic/ext/StorageService/filesystems");
     tracing::info!("  - org.cosmic.ext.StorageService at /org/cosmic/ext/StorageService");
     tracing::info!("  - BTRFS interface at /org/cosmic/ext/StorageService/btrfs");
     tracing::info!("  - Disks interface at /org/cosmic/ext/StorageService/disks");

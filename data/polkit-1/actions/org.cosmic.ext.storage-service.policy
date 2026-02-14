@@ -6,7 +6,7 @@
   <vendor_url>https://github.com/cosmic-utils/cosmic-ext-disks</vendor_url>
 
   <!-- Disk Discovery and Read Operations -->
-  <action id="org.cosmic.ext.storage-service.disks-read">
+  <action id="org.cosmic.ext.storage-service.disk-read">
     <description>Read disk information</description>
     <message>Authentication is required to read disk information</message>
     <defaults>
@@ -85,6 +85,61 @@
   <action id="org.cosmic.ext.storage-service.lvm-modify">
     <description>Modify LVM volumes</description>
     <message>Authentication is required to modify LVM volumes</message>
+    <defaults>
+      <allow_any>auth_admin</allow_any>
+      <allow_inactive>auth_admin</allow_inactive>
+      <allow_active>auth_admin_keep</allow_active>
+    </defaults>
+  </action>
+
+  <!-- Filesystem Read Operations -->
+  <action id="org.cosmic.ext.storage-service.filesystem-read">
+    <description>Read filesystem information</description>
+    <message>Authentication is required to read filesystem information</message>
+    <defaults>
+      <allow_any>no</allow_any>
+      <allow_inactive>no</allow_inactive>
+      <allow_active>yes</allow_active>
+    </defaults>
+  </action>
+
+  <!-- Filesystem Mount/Unmount -->
+  <action id="org.cosmic.ext.storage-service.filesystem-mount">
+    <description>Mount and unmount filesystems</description>
+    <message>Authentication is required to mount or unmount filesystems</message>
+    <defaults>
+      <allow_any>no</allow_any>
+      <allow_inactive>no</allow_inactive>
+      <allow_active>yes</allow_active>
+    </defaults>
+  </action>
+
+  <!-- Filesystem Modify Operations -->
+  <action id="org.cosmic.ext.storage-service.filesystem-modify">
+    <description>Modify filesystem properties</description>
+    <message>Authentication is required to modify filesystem properties</message>
+    <defaults>
+      <allow_any>auth_admin</allow_any>
+      <allow_inactive>auth_admin</allow_inactive>
+      <allow_active>auth_admin_keep</allow_active>
+    </defaults>
+  </action>
+
+  <!-- Filesystem Format Operation -->
+  <action id="org.cosmic.ext.storage-service.filesystem-format">
+    <description>Format storage devices</description>
+    <message>Authentication is required to format storage devices</message>
+    <defaults>
+      <allow_any>auth_admin</allow_any>
+      <allow_inactive>auth_admin</allow_inactive>
+      <allow_active>auth_admin</allow_active>  <!-- Always prompt -->
+    </defaults>
+  </action>
+
+  <!-- Kill Blocking Processes -->
+  <action id="org.cosmic.ext.storage-service.filesystem-kill-processes">
+    <description>Kill processes blocking filesystem operations</description>
+    <message>Authentication is required to kill processes</message>
     <defaults>
       <allow_any>auth_admin</allow_any>
       <allow_inactive>auth_admin</allow_inactive>
