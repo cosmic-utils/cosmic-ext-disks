@@ -32,7 +32,7 @@ impl SubvolumeManager {
         // Use btrfs command-line tool instead of btrfsutil iterator
         // The iterator fails with "Could not statfs" when running via pkexec
         let output = Command::new("btrfs")
-            .args(&["subvolume", "list", "-a", "-u", "-q", "-R"])
+            .args(["subvolume", "list", "-a", "-u", "-q", "-R"])
             .arg(&self.mount_point)
             .output()
             .map_err(|e| BtrfsError::CommandFailed(format!("Failed to run btrfs command: {}", e)))?;
