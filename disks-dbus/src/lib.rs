@@ -5,6 +5,20 @@ mod options;
 mod udisks_block_config;
 mod usage;
 
+// New domain-based modules (GAP-001.b)
+pub mod disk;
+pub mod partition;
+pub mod filesystem;
+pub mod encryption;
+pub mod image;
+pub mod smart;
+pub mod lvm;
+pub mod btrfs;
+pub mod gpt;
+pub mod manager;
+pub mod volume;
+pub mod util;
+
 // Re-export storage-models types (canonical domain models)
 pub use storage_models;
 pub use storage_models::ProcessInfo;

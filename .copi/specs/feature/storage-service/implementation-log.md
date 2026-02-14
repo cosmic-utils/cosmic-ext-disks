@@ -1384,3 +1384,77 @@ From `plan.md`:
 1. Update `.copi/specs/feature/storage-service/tasks.md` to mark all tasks complete
 2. Consider creating PR for review
 3. Plan next GAP (if any remaining work in the overall GAP-001 roadmap)
+
+---
+
+## Stretch Goal Identified: GAP-001.b (Revised Scope)
+
+**Date:** 2026-02-14  
+**Status:** Planned (not started)  
+**Scope:** EXPANDED - Complete disks-dbus restructuring
+
+### Summary
+
+Based on user feedback, expanded GAP-001.b from "flatten drive/volume" to **complete disks-dbus architectural restructuring**. This addresses all identified inconsistencies and duplications, not just drive and volume models.
+
+**Current State:**
+- ✅ `/operations` module uses flat functions (partitions, filesystems, luks) - from GAP-001
+- ⚠️ `/disks/drive/` uses OOP methods on DriveModel (~13 methods, 1,453 lines)
+- ⚠️ `/disks/volume_model/` uses OOP methods on VolumeModel (~15 methods, 994 lines)
+- ⚠️ **DUPLICATES FOUND:** ~20 operations exist in BOTH `/operations` AND `/volume_model`
+- ⚠️ Remaining modules scattered: image.rs, lvm.rs, gpt.rs, smart.rs, manager.rs, etc.
+
+**Revised Plan:**
+
+1. **Domain-Based Restructuring**
+   - Organize ALL of disks-dbus by domain: `disk/`, `partition/`, `filesystem/`, `encryption/`, `image/`, `smart/`, `lvm/`, `gpt/`, `manager/`, `volume/`, `util/`
+   - Delete `/operations/` folder - merge into domain modules
+   - Delete `/disks/drive/` folder - merge into `disk/`
+   - Delete `/disks/volume_model/` folder - merge into domain modules
+
+2. **Eliminate All Duplicates**
+   - **20+ duplicate operations** identified between `/operations` and `/volume_model`
+   - Keep best implementation of each (newer operations/ usually better)
+   - Merge unmount-before-delete logic from volume_model into partition operations
+   - Keep convenience wrappers (edit_partition all-in-one, repair_filesystem)
+
+3. **Consistent Flat Architecture**
+   - All operations as flat functions: `pub async fn operation(identifier, ...) -> Result<T>`
+   - DriveModel and VolumeModel become data-only (no methods, only constructors)
+   - Top-level exports for all operations in lib.rs
+
+4. **Complete Coverage**
+   - Not just drive/volume - includes image, lvm, gpt, smart, manager, utilities
+   - All 2,447 lines of existing code reorganized
+   - Single source of truth for every operation
+
+**Benefits:**
+- Eliminates ~20 duplicate operations (single implementation each)
+- Architectural consistency across 100% of disks-dbus
+- Better discoverability (domain-based organization)
+- Easier testing (flat functions, no model construction)
+- Clear separation: models = data, operations = behavior
+
+**Effort:** 5-7 days (increased from original 3-4 days)  
+**Priority:** Medium (improves maintainability, not blocking)
+
+**Phases:**
+- Phase 1: Structure setup (2-3h)
+- Phase 2: Merge partition operations + resolve duplicates (3-4h)
+- Phase 3: Merge filesystem operations + resolve duplicates (3-4h)
+- Phase 4: Merge encryption operations + resolve duplicates (2-3h)
+- Phase 5: Flatten drive operations (3-4h)
+- Phase 6: Flatten SMART operations (1-2h)
+- Phase 7: Organize remaining modules (3-4h)
+- Phase 8: Update exports/imports (2-3h)
+- Phase 9: Cleanup, testing, documentation (4-6h)
+
+**Key Changes from Original Plan:**
+- `/operations/` folder will be **deleted** (not kept alongside new structure)
+- Folder names simplified: `disk/` not `drive_ops/`, `partition/` not `volume_ops/partition`
+- Comprehensive duplicate resolution with decision matrix
+- Covers ALL of disks-dbus, not just drive/volume
+
+See [GAP-001.b.md](GAP-001.b.md) for complete 1,050-line specification.
+
+**Decision:** Defer to separate work session (not part of GAP-001 core scope)

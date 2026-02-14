@@ -1,4 +1,4 @@
-use crate::models::load_all_drives;
+use crate::models::{UiDrive, load_all_drives};
 use cosmic::Task;
 
 use crate::app::Message;
