@@ -125,7 +125,7 @@ impl DisksHandler {
         tracing::debug!("ListVolumes called");
         
         // Get all drives using disks-dbus
-        let drives = disks_dbus::disk::get_disks_with_volumes()
+        let disk_volumes = disks_dbus::disk::get_disks_with_volumes()
             .await
             .map_err(|e| {
                 tracing::error!("Failed to get drives: {e}");
@@ -135,36 +135,34 @@ impl DisksHandler {
         // Flatten volumes from all drives and populate parent_path
         let mut all_volumes = Vec::new();
         
-        for drive in drives {
-            let disk_device = drive.block_path.clone(); // e.g., "/dev/sda"
+        for (disk_info, volumes) in disk_volumes {
+            let disk_device = disk_info.device.clone(); // e.g., "/dev/sda"
             
             // Recursively flatten volume tree
             fn flatten_volumes(
-                node: &disks_dbus::VolumeNode,
+                vol_info: &storage_models::VolumeInfo,
                 parent_device: Option<String>,
                 output: &mut Vec<storage_models::VolumeInfo>,
             ) {
-                // Convert node to VolumeInfo
-                let mut vol_info: storage_models::VolumeInfo = node.clone().into();
+                // Clone and update parent_path
+                let mut vol = vol_info.clone();
+                vol.parent_path = parent_device.clone();
                 
-                // Set parent_path
-                vol_info.parent_path = parent_device.clone();
-                
-                // Process children
-                let current_device = vol_info.device_path.clone();
-                for child in &node.children {
+                // Process children recursively
+                let current_device = vol.device_path.clone();
+                for child in &vol_info.children {
                     flatten_volumes(child, current_device.clone(), output);
                 }
                 
-                // Clear children (flat list, not hierarchical)
-                vol_info.children.clear();
+                // Clear children in the flat output (not hierarchical)
+                vol.children.clear();
                 
-                output.push(vol_info);
+                output.push(vol);
             }
             
             // Process each root volume
-            for volume_node in &drive.volumes {
-                flatten_volumes(volume_node, Some(disk_device.clone()), &mut all_volumes);
+            for volume_info in &volumes {
+                flatten_volumes(volume_info, Some(disk_device.clone()), &mut all_volumes);
             }
         }
         
@@ -305,7 +303,7 @@ impl DisksHandler {
         tracing::debug!("GetVolumeInfo called for device: {device}");
         
         // Get all drives and search for the volume
-        let drives = disks_dbus::disk::get_disks_with_volumes()
+        let disk_volumes = disks_dbus::disk::get_disks_with_volumes()
             .await
             .map_err(|e| {
                 tracing::error!("Failed to get drives: {e}");
@@ -314,21 +312,21 @@ impl DisksHandler {
         
         // Search for the volume
         fn find_volume(
-            node: &disks_dbus::VolumeNode,
+            vol_info: &storage_models::VolumeInfo,
             target_device: &str,
             parent_device: Option<String>,
         ) -> Option<storage_models::VolumeInfo> {
             // Check if this is the target volume
-            if node.device_path.as_deref() == Some(target_device) {
-                let mut vol_info: storage_models::VolumeInfo = node.clone().into();
-                vol_info.parent_path = parent_device;
-                vol_info.children.clear(); // Flatten
-                return Some(vol_info);
+            if vol_info.device_path.as_deref() == Some(target_device) {
+                let mut vol = vol_info.clone();
+                vol.parent_path = parent_device;
+                vol.children.clear(); // Flatten
+                return Some(vol);
             }
             
             // Search children
-            for child in &node.children {
-                if let Some(found) = find_volume(child, target_device, node.device_path.clone()) {
+            for child in &vol_info.children {
+                if let Some(found) = find_volume(child, target_device, vol_info.device_path.clone()) {
                     return Some(found);
                 }
             }
@@ -337,11 +335,11 @@ impl DisksHandler {
         }
         
         // Search all drives
-        for drive in drives {
-            let disk_device = drive.block_path.clone();
+        for (disk_info, volumes) in disk_volumes {
+            let disk_device = disk_info.device.clone();
             
-            for volume_node in &drive.volumes {
-                if let Some(vol_info) = find_volume(volume_node, &device, Some(disk_device.clone())) {
+            for volume_info in &volumes {
+                if let Some(vol_info) = find_volume(volume_info, &device, Some(disk_device.clone())) {
                     let json = serde_json::to_string(&vol_info)
                         .map_err(|e| {
                             tracing::error!("Failed to serialize volume info: {e}");
@@ -378,53 +376,20 @@ impl DisksHandler {
         
         tracing::debug!("Getting SMART status for device: {device}");
         
-        // Get all drives (DriveModel instances, not DiskInfo)
-        let drives = disks_dbus::disk::get_disks_with_volumes()
-            .await
-            .map_err(|e| {
-                tracing::error!("Failed to get drives: {e}");
-                zbus::fdo::Error::Failed(format!("Failed to enumerate drives: {e}"))
-            })?;
+        // Normalize device path (add /dev/ if missing)
+        let device_path = if device.starts_with("/dev/") {
+            device.clone()
+        } else {
+            format!("/dev/{}", device)
+        };
         
-        // Extract device name from input (strip "/dev/" prefix if present)
-        let device_name = device.strip_prefix("/dev/").unwrap_or(&device);
-        
-        // Find the matching drive
-        let drive_model = drives
-            .into_iter()
-            .find(|d| {
-                let disk_info: storage_models::DiskInfo = d.clone().into();
-                // Match on device field
-                if disk_info.device == device {
-                    return true;
-                }
-                // Extract the device name from the UDisks2 path
-                if let Some(disk_name) = disk_info.device.rsplit('/').next() {
-                    if disk_name == device_name {
-                        return true;
-                    }
-                }
-                // Also check if id matches
-                if disk_info.id == device || disk_info.id == device_name {
-                    return true;
-                }
-                false
-            })
-            .ok_or_else(|| {
-                tracing::warn!("Device not found: {device}");
-                zbus::fdo::Error::Failed(format!("Device not found: {device}"))
-            })?;
-        
-        // Get SMART info from the drive
-        let smart_info = disks_dbus::get_drive_smart_info(
-                drive_model.path.clone().try_into()
-                    .map_err(|e| zbus::fdo::Error::Failed(format!("Invalid drive path: {e}")))?
-            )
+        // Get SMART info using the device path
+        let smart_info = disks_dbus::get_smart_info_by_device(&device_path)
             .await
             .map_err(|e| {
                 let err_str = e.to_string().to_lowercase();
-                if err_str.contains("not supported") {
-                    tracing::debug!("SMART not supported for {device}");
+                if err_str.contains("not supported") || err_str.contains("device not found") {
+                    tracing::debug!("SMART not supported or device not found for {device}");
                     zbus::fdo::Error::NotSupported(format!("SMART not supported for this device"))
                 } else {
                     tracing::error!("Failed to get SMART info: {e}");
@@ -478,45 +443,15 @@ impl DisksHandler {
         
         tracing::debug!("Getting SMART attributes for device: {device}");
         
-        // Get all drives (DriveModel instances, not DiskInfo)
-        let drives = disks_dbus::disk::get_disks_with_volumes()
-            .await
-            .map_err(|e| {
-                tracing::error!("Failed to get drives: {e}");
-                zbus::fdo::Error::Failed(format!("Failed to enumerate drives: {e}"))
-            })?;
+        // Normalize device path
+        let device_path = if device.starts_with("/dev/") {
+            device.clone()
+        } else {
+            format!("/dev/{}", device)
+        };
         
-        // Extract device name from input (strip "/dev/" prefix if present)
-        let device_name = device.strip_prefix("/dev/").unwrap_or(&device);
-        
-        // Find the matching drive
-        let drive_model = drives
-            .into_iter()
-            .find(|d| {
-                let disk_info: storage_models::DiskInfo = d.clone().into();
-                if disk_info.device == device {
-                    return true;
-                }
-                if let Some(disk_name) = disk_info.device.rsplit('/').next() {
-                    if disk_name == device_name {
-                        return true;
-                    }
-                }
-                if disk_info.id == device || disk_info.id == device_name {
-                    return true;
-                }
-                false
-            })
-            .ok_or_else(|| {
-                tracing::warn!("Device not found: {device}");
-                zbus::fdo::Error::Failed(format!("Device not found: {device}"))
-            })?;
-        
-        // Get SMART info from the drive
-        let smart_info = disks_dbus::get_drive_smart_info(
-                drive_model.path.clone().try_into()
-                    .map_err(|e| zbus::fdo::Error::Failed(format!("Invalid drive path: {e}")))?
-            )
+        // Get SMART info by device
+        let smart_info = disks_dbus::get_smart_info_by_device(&device_path)
             .await
             .map_err(|e| {
                 let err_str = e.to_string().to_lowercase();
@@ -574,46 +509,34 @@ impl DisksHandler {
         
         tracing::debug!("Ejecting device: {device}");
         
-        // Get all drives (DriveModel instances)
-        let drives = disks_dbus::disk::get_disks_with_volumes()
+        let device_path = if device.starts_with("/dev/") {
+            device.clone()
+        } else {
+            format!("/dev/{}", device)
+        };
+        
+        let disk_volumes = disks_dbus::disk::get_disks_with_volumes()
             .await
             .map_err(|e| {
                 tracing::error!("Failed to get drives: {e}");
                 zbus::fdo::Error::Failed(format!("Failed to enumerate drives: {e}"))
             })?;
         
-        // Extract device name from input
-        let device_name = device.strip_prefix("/dev/").unwrap_or(&device);
-        
-        // Find the matching drive
-        let drive_model = drives
+        let device_name = device_path.strip_prefix("/dev/").unwrap_or(&device_path);
+        let (disk_info, _) = disk_volumes
             .into_iter()
-            .find(|d| {
-                let disk_info: storage_models::DiskInfo = d.clone().into();
-                if disk_info.device == device {
-                    return true;
-                }
-                if let Some(disk_name) = disk_info.device.rsplit('/').next() {
-                    if disk_name == device_name {
-                        return true;
-                    }
-                }
-                if disk_info.id == device || disk_info.id == device_name {
-                    return true;
-                }
-                false
+            .find(|(d, _)| {
+                d.device == device_path
+                    || d.device.rsplit('/').next() == Some(device_name)
+                    || d.id == device_path
+                    || d.id == device_name
             })
             .ok_or_else(|| {
                 tracing::warn!("Device not found: {device}");
                 zbus::fdo::Error::Failed(format!("Device not found: {device}"))
             })?;
         
-        // Eject the drive
-        disks_dbus::eject_drive(
-                drive_model.path.clone().try_into()
-                    .map_err(|e| zbus::fdo::Error::Failed(format!("Invalid drive path: {e}")))?,
-                drive_model.ejectable
-            )
+        disks_dbus::eject_drive_by_device(&device_path, disk_info.ejectable)
             .await
             .map_err(|e| {
                 tracing::error!("Failed to eject device: {e}");
@@ -642,28 +565,28 @@ impl DisksHandler {
         
         tracing::debug!("Powering off device: {device}");
         
-        let drives = disks_dbus::disk::get_disks_with_volumes()
+        let device_path = if device.starts_with("/dev/") {
+            device.clone()
+        } else {
+            format!("/dev/{}", device)
+        };
+        
+        let disk_volumes = disks_dbus::disk::get_disks_with_volumes()
             .await
             .map_err(|e| zbus::fdo::Error::Failed(format!("Failed to enumerate drives: {e}")))?;
         
-        let device_name = device.strip_prefix("/dev/").unwrap_or(&device);
-        
-        let drive_model = drives
+        let device_name = device_path.strip_prefix("/dev/").unwrap_or(&device_path);
+        let (disk_info, _) = disk_volumes
             .into_iter()
-            .find(|d| {
-                let disk_info: storage_models::DiskInfo = d.clone().into();
-                disk_info.device == device
-                    || disk_info.device.rsplit('/').next() == Some(device_name)
-                    || disk_info.id == device
-                    || disk_info.id == device_name
+            .find(|(d, _)| {
+                d.device == device_path
+                    || d.device.rsplit('/').next() == Some(device_name)
+                    || d.id == device_path
+                    || d.id == device_name
             })
             .ok_or_else(|| zbus::fdo::Error::Failed(format!("Device not found: {device}")))?;
         
-        disks_dbus::power_off_drive(
-                drive_model.path.clone().try_into()
-                    .map_err(|e| zbus::fdo::Error::Failed(format!("Invalid drive path: {e}")))?,
-                drive_model.can_power_off
-            )
+        disks_dbus::power_off_drive_by_device(&device_path, disk_info.can_power_off)
             .await
             .map_err(|e| {
                 tracing::error!("Failed to power off device: {e}");
@@ -692,27 +615,28 @@ impl DisksHandler {
         
         tracing::debug!("Putting device in standby: {device}");
         
-        let drives = disks_dbus::disk::get_disks_with_volumes()
+        let device_path = if device.starts_with("/dev/") {
+            device.clone()
+        } else {
+            format!("/dev/{}", device)
+        };
+        
+        let disk_volumes = disks_dbus::disk::get_disks_with_volumes()
             .await
             .map_err(|e| zbus::fdo::Error::Failed(format!("Failed to enumerate drives: {e}")))?;
         
-        let device_name = device.strip_prefix("/dev/").unwrap_or(&device);
-        
-        let drive_model = drives
+        let device_name = device_path.strip_prefix("/dev/").unwrap_or(&device_path);
+        let _disk = disk_volumes
             .into_iter()
-            .find(|d| {
-                let disk_info: storage_models::DiskInfo = d.clone().into();
-                disk_info.device == device
-                    || disk_info.device.rsplit('/').next() == Some(device_name)
-                    || disk_info.id == device
-                    || disk_info.id == device_name
+            .find(|(d, _)| {
+                d.device == device_path
+                    || d.device.rsplit('/').next() == Some(device_name)
+                    || d.id == device_path
+                    || d.id == device_name
             })
             .ok_or_else(|| zbus::fdo::Error::Failed(format!("Device not found: {device}")))?;
         
-        disks_dbus::standby_drive(
-                drive_model.path.clone().try_into()
-                    .map_err(|e| zbus::fdo::Error::Failed(format!("Invalid drive path: {e}")))?
-            )
+        disks_dbus::standby_drive_by_device(&device_path)
             .await
             .map_err(|e| {
                 tracing::error!("Failed to put device in standby: {e}");
@@ -741,27 +665,28 @@ impl DisksHandler {
         
         tracing::debug!("Waking up device: {device}");
         
-        let drives = disks_dbus::disk::get_disks_with_volumes()
+        let device_path = if device.starts_with("/dev/") {
+            device.clone()
+        } else {
+            format!("/dev/{}", device)
+        };
+        
+        let disk_volumes = disks_dbus::disk::get_disks_with_volumes()
             .await
             .map_err(|e| zbus::fdo::Error::Failed(format!("Failed to enumerate drives: {e}")))?;
         
-        let device_name = device.strip_prefix("/dev/").unwrap_or(&device);
-        
-        let drive_model = drives
+        let device_name = device_path.strip_prefix("/dev/").unwrap_or(&device_path);
+        let _disk = disk_volumes
             .into_iter()
-            .find(|d| {
-                let disk_info: storage_models::DiskInfo = d.clone().into();
-                disk_info.device == device
-                    || disk_info.device.rsplit('/').next() == Some(device_name)
-                    || disk_info.id == device
-                    || disk_info.id == device_name
+            .find(|(d, _)| {
+                d.device == device_path
+                    || d.device.rsplit('/').next() == Some(device_name)
+                    || d.id == device_path
+                    || d.id == device_name
             })
             .ok_or_else(|| zbus::fdo::Error::Failed(format!("Device not found: {device}")))?;
         
-        disks_dbus::wakeup_drive(
-                drive_model.path.clone().try_into()
-                    .map_err(|e| zbus::fdo::Error::Failed(format!("Invalid drive path: {e}")))?
-            )
+        disks_dbus::wakeup_drive_by_device(&device_path)
             .await
             .map_err(|e| {
                 tracing::error!("Failed to wake up device: {e}");
@@ -790,30 +715,32 @@ impl DisksHandler {
         
         tracing::debug!("Safely removing device: {device}");
         
-        let drives = disks_dbus::disk::get_disks_with_volumes()
+        let device_path = if device.starts_with("/dev/") {
+            device.clone()
+        } else {
+            format!("/dev/{}", device)
+        };
+        
+        let disk_volumes = disks_dbus::disk::get_disks_with_volumes()
             .await
             .map_err(|e| zbus::fdo::Error::Failed(format!("Failed to enumerate drives: {e}")))?;
         
-        let device_name = device.strip_prefix("/dev/").unwrap_or(&device);
-        
-        let drive_model = drives
+        let device_name = device_path.strip_prefix("/dev/").unwrap_or(&device_path);
+        let (disk_info, _) = disk_volumes
             .into_iter()
-            .find(|d| {
-                let disk_info: storage_models::DiskInfo = d.clone().into();
-                disk_info.device == device
-                    || disk_info.device.rsplit('/').next() == Some(device_name)
-                    || disk_info.id == device
-                    || disk_info.id == device_name
+            .find(|(d, _)| {
+                d.device == device_path
+                    || d.device.rsplit('/').next() == Some(device_name)
+                    || d.id == device_path
+                    || d.id == device_name
             })
             .ok_or_else(|| zbus::fdo::Error::Failed(format!("Device not found: {device}")))?;
         
-        disks_dbus::remove_drive(
-            drive_model.path.clone().try_into()
-                .map_err(|e| zbus::fdo::Error::Failed(format!("Invalid drive path: {e}")))?,
-            &drive_model.block_path.to_string(),
-            drive_model.is_loop,
-            drive_model.removable,
-            drive_model.can_power_off,
+        disks_dbus::remove_drive_by_device(
+            &device_path,
+            disk_info.is_loop,
+            disk_info.removable,
+            disk_info.can_power_off,
         )
         .await
         .map_err(|e| {
@@ -857,46 +784,34 @@ impl DisksHandler {
             }
         };
         
-        // Get all drives (DriveModel instances, not DiskInfo)
-        let drives = disks_dbus::disk::get_disks_with_volumes()
+        let device_path = if device.starts_with("/dev/") {
+            device.clone()
+        } else {
+            format!("/dev/{}", device)
+        };
+        
+        let disk_volumes = disks_dbus::disk::get_disks_with_volumes()
             .await
             .map_err(|e| {
                 tracing::error!("Failed to get drives: {e}");
                 zbus::fdo::Error::Failed(format!("Failed to enumerate drives: {e}"))
             })?;
         
-        // Extract device name from input (strip "/dev/" prefix if present)
-        let device_name = device.strip_prefix("/dev/").unwrap_or(&device);
-        
-        // Find the matching drive
-        let drive_model = drives
+        let device_name = device_path.strip_prefix("/dev/").unwrap_or(&device_path);
+        let _disk = disk_volumes
             .into_iter()
-            .find(|d| {
-                let disk_info: storage_models::DiskInfo = d.clone().into();
-                if disk_info.device == device {
-                    return true;
-                }
-                if let Some(disk_name) = disk_info.device.rsplit('/').next() {
-                    if disk_name == device_name {
-                        return true;
-                    }
-                }
-                if disk_info.id == device || disk_info.id == device_name {
-                    return true;
-                }
-                false
+            .find(|(d, _)| {
+                d.device == device_path
+                    || d.device.rsplit('/').next() == Some(device_name)
+                    || d.id == device_path
+                    || d.id == device_name
             })
             .ok_or_else(|| {
                 tracing::warn!("Device not found: {device}");
                 zbus::fdo::Error::Failed(format!("Device not found: {device}"))
             })?;
         
-        // Start the self-test
-        disks_dbus::start_drive_smart_selftest(
-                drive_model.path.clone().try_into()
-                    .map_err(|e| zbus::fdo::Error::Failed(format!("Invalid drive path: {e}")))?,
-                test_kind
-            )
+        disks_dbus::start_drive_smart_selftest_by_device(&device_path, test_kind)
             .await
             .map_err(|e| {
                 let err_str = e.to_string().to_lowercase();
@@ -1049,21 +964,12 @@ pub async fn monitor_hotplug_events(
     Ok(())
 }
 
-/// Helper function to get DiskInfo for a specific UDisks2 object path
+/// Helper function to get DiskInfo for a specific UDisks2 drive object path
 async fn get_disk_info_for_path(
     _connection: &zbus::Connection,
     object_path: &zbus::zvariant::ObjectPath<'_>,
 ) -> Result<storage_models::DiskInfo> {
-    // Get all drives and find the one matching this object path
-    let drives = disks_dbus::disk::get_disks_with_volumes().await?;
-    
-    for drive in drives {
-        // Check if this drive's path matches
-        if drive.path.as_str() == object_path.as_str() {
-            let disk_info: storage_models::DiskInfo = drive.into();
-            return Ok(disk_info);
-        }
-    }
-    
-    Err(anyhow::anyhow!("Drive not found for path: {}", object_path))
+    disks_dbus::get_disk_info_for_drive_path(object_path.as_str())
+        .await
+        .map_err(|e| anyhow::anyhow!("{}", e))
 }

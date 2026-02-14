@@ -124,6 +124,16 @@ pub async fn get_drive_smart_info(drive_path: OwnedObjectPath) -> Result<SmartIn
     }
 }
 
+/// Get SMART information for a drive by device path (e.g., "/dev/sda")
+///
+/// This is a convenience wrapper that looks up the UDisks2 object path for the device.
+pub async fn get_smart_info_by_device(device: &str) -> Result<SmartInfo> {
+    let drive_path = crate::disk::resolve::drive_object_path_for_device(device)
+        .await
+        .map_err(|e| anyhow::anyhow!("{}", e))?;
+    get_drive_smart_info(drive_path).await
+}
+
 async fn get_nvme_smart_info(drive_path: &OwnedObjectPath) -> Result<SmartInfo> {
     let connection = Connection::system().await?;
     let proxy = zbus::Proxy::new(

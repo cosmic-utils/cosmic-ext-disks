@@ -11,7 +11,6 @@ use zbus::connection::Builder as ConnectionBuilder;
 
 mod auth;
 mod btrfs;
-mod conversions;
 mod disks;
 mod error;
 mod filesystems;

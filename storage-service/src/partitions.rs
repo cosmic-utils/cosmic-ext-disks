@@ -94,42 +94,26 @@ impl PartitionsHandler {
         
         tracing::debug!("Listing partitions for disk: {disk}");
         
-        // Get all drives and find the requested one
-        let drives = disks_dbus::disk::get_disks_with_volumes()
+        let disk_volumes = disks_dbus::disk::get_disks_with_partitions()
             .await
             .map_err(|e| {
                 tracing::error!("Failed to get drives: {e}");
                 zbus::fdo::Error::Failed(format!("Failed to enumerate drives: {e}"))
             })?;
         
-        // Extract device name from input (strip "/dev/" prefix if present)
         let device_name = disk.strip_prefix("/dev/").unwrap_or(&disk);
-        
-        // Find the matching drive
-        let drive_model = drives
+        let (_disk_info, partitions) = disk_volumes
             .into_iter()
-            .find(|d| {
-                let disk_info: storage_models::DiskInfo = d.clone().into();
-                if disk_info.device == disk {
-                    return true;
-                }
-                if let Some(disk_name) = disk_info.device.rsplit('/').next() {
-                    if disk_name == device_name {
-                        return true;
-                    }
-                }
-                if disk_info.id == disk || disk_info.id == device_name {
-                    return true;
-                }
-                false
+            .find(|(d, _)| {
+                d.device == disk
+                    || d.device.rsplit('/').next() == Some(device_name)
+                    || d.id == disk
+                    || d.id == device_name
             })
             .ok_or_else(|| {
                 tracing::warn!("Device not found: {disk}");
                 zbus::fdo::Error::Failed(format!("Device not found: {disk}"))
             })?;
-        
-        // Get partitions for this drive
-        let partitions = drive_model.get_partitions();
         
         tracing::debug!("Found {} partitions for {}", partitions.len(), disk);
         
@@ -176,42 +160,20 @@ impl PartitionsHandler {
             }
         };
         
-        // Get all drives and find the requested one
-        let drives = disks_dbus::disk::get_disks_with_volumes()
+        let disk_device = if disk.starts_with("/dev/") {
+            disk.clone()
+        } else {
+            format!("/dev/{}", disk)
+        };
+        
+        let block_path = disks_dbus::block_object_path_for_device(&disk_device)
             .await
             .map_err(|e| {
-                tracing::error!("Failed to get drives: {e}");
-                zbus::fdo::Error::Failed(format!("Failed to enumerate drives: {e}"))
+                tracing::error!("Failed to resolve device: {e}");
+                zbus::fdo::Error::Failed(format!("Device not found: {e}"))
             })?;
         
-        // Extract device name from input (strip "/dev/" prefix if present)
-        let device_name = disk.strip_prefix("/dev/").unwrap_or(&disk);
-        
-        // Find the matching drive
-        let drive_model = drives
-            .into_iter()
-            .find(|d| {
-                let disk_info: storage_models::DiskInfo = d.clone().into();
-                if disk_info.device == disk {
-                    return true;
-                }
-                if let Some(disk_name) = disk_info.device.rsplit('/').next() {
-                    if disk_name == device_name {
-                        return true;
-                    }
-                }
-                if disk_info.id == disk || disk_info.id == device_name {
-                    return true;
-                }
-                false
-            })
-            .ok_or_else(|| {
-                tracing::warn!("Device not found: {disk}");
-                zbus::fdo::Error::Failed(format!("Device not found: {disk}"))
-            })?;
-        
-        // Create partition table on drive (format_disk creates GPT/DOS partition table)
-        disks_dbus::format_disk(drive_model.block_path.to_string(), normalized_type, false)
+        disks_dbus::create_partition_table(block_path.as_str(), normalized_type)
             .await
             .map_err(|e| {
                 tracing::error!("Failed to create partition table: {e}");
@@ -219,7 +181,7 @@ impl PartitionsHandler {
             })?;
         
         tracing::info!("Successfully created {} partition table on {}", normalized_type, disk);
-        let _ = Self::partition_table_created(&signal_ctx, &disk, normalized_type).await;
+        let _ = Self::partition_table_created(&signal_ctx, &disk_device, normalized_type).await;
         Ok(())
     }
     
@@ -250,41 +212,21 @@ impl PartitionsHandler {
         
         tracing::info!("Creating partition on {}: offset={}, size={}, type={}", disk, offset, size, type_id);
         
-        // Find drive and get its block path
-        let drives = disks_dbus::disk::get_disks_with_volumes()
+        let disk_device = if disk.starts_with("/dev/") {
+            disk.clone()
+        } else {
+            format!("/dev/{}", disk)
+        };
+        
+        let block_path = disks_dbus::block_object_path_for_device(&disk_device)
             .await
             .map_err(|e| {
-                tracing::error!("Failed to get drives: {e}");
-                zbus::fdo::Error::Failed(format!("Failed to enumerate drives: {e}"))
+                tracing::error!("Failed to resolve device: {e}");
+                zbus::fdo::Error::Failed(format!("Device not found: {e}"))
             })?;
         
-        let device_name = disk.strip_prefix("/dev/").unwrap_or(&disk);
-        
-        let drive_model = drives
-            .into_iter()
-            .find(|d| {
-                let disk_info: storage_models::DiskInfo = d.clone().into();
-                if disk_info.device == disk {
-                    return true;
-                }
-                if let Some(disk_name) = disk_info.device.rsplit('/').next() {
-                    if disk_name == device_name {
-                        return true;
-                    }
-                }
-                if disk_info.id == disk || disk_info.id == device_name {
-                    return true;
-                }
-                false
-            })
-            .ok_or_else(|| {
-                tracing::warn!("Device not found: {disk}");
-                zbus::fdo::Error::Failed(format!("Device not found: {disk}"))
-            })?;
-        
-        // Delegate to disks-dbus operation wrapper
         let device_path = disks_dbus::create_partition(
-            &drive_model.block_path,
+            block_path.as_str(),
             offset,
             size,
             &type_id,
@@ -521,35 +463,16 @@ impl PartitionsHandler {
         &self,
         partition: &str,
     ) -> zbus::fdo::Result<OwnedObjectPath> {
-        // Get all drives and search their partitions
-        let drives = disks_dbus::disk::get_disks_with_volumes()
+        let device = if partition.starts_with("/dev/") {
+            partition.to_string()
+        } else {
+            format!("/dev/{}", partition)
+        };
+        disks_dbus::block_object_path_for_device(&device)
             .await
             .map_err(|e| {
-                tracing::error!("Failed to get drives: {e}");
-                zbus::fdo::Error::Failed(format!("Failed to enumerate drives: {e}"))
-            })?;
-        
-        let partition_clean = partition.strip_prefix("/dev/").unwrap_or(partition);
-        
-        for drive in drives {
-            let partitions = drive.get_partitions();
-            for part_info in partitions {
-                // Check if device matches
-                let part_device = part_info.device.strip_prefix("/dev/").unwrap_or(&part_info.device);
-                if part_device == partition_clean || part_info.device == partition {
-                    // Found it - need to get UDisks2 path
-                    // The path is typically /org/freedesktop/UDisks2/block_devices/sdXN
-                    let path = format!("/org/freedesktop/UDisks2/block_devices/{}", part_device);
-                    return path.try_into()
-                        .map_err(|e| {
-                            tracing::error!("Invalid partition path: {e}");
-                            zbus::fdo::Error::Failed(format!("Invalid partition path: {e}"))
-                        });
-                }
-            }
-        }
-        
-        tracing::warn!("Partition not found: {}", partition);
-        Err(zbus::fdo::Error::Failed(format!("Partition not found: {}", partition)))
+                tracing::warn!("Partition not found: {} - {}", partition, e);
+                zbus::fdo::Error::Failed(format!("Partition not found: {}", partition))
+            })
     }
 }

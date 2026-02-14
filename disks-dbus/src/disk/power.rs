@@ -21,6 +21,14 @@ fn is_anyhow_device_busy(e: &anyhow::Error) -> bool {
     msg.contains("DeviceBusy") || msg.contains("Device or resource busy")
 }
 
+/// Eject a drive by device path (e.g. "/dev/sda")
+pub async fn eject_drive_by_device(device: &str, ejectable: bool) -> Result<()> {
+    let drive_path = super::resolve::drive_object_path_for_device(device)
+        .await
+        .map_err(anyhow::Error::msg)?;
+    eject_drive(drive_path, ejectable).await
+}
+
 /// Eject a drive
 pub async fn eject_drive(drive_path: OwnedObjectPath, ejectable: bool) -> Result<()> {
     if !ejectable {
@@ -45,6 +53,14 @@ pub async fn eject_drive(drive_path: OwnedObjectPath, ejectable: bool) -> Result
     }
 }
 
+/// Power off a drive by device path
+pub async fn power_off_drive_by_device(device: &str, can_power_off: bool) -> Result<()> {
+    let drive_path = super::resolve::drive_object_path_for_device(device)
+        .await
+        .map_err(anyhow::Error::msg)?;
+    power_off_drive(drive_path, can_power_off).await
+}
+
 /// Power off a drive
 pub async fn power_off_drive(drive_path: OwnedObjectPath, can_power_off: bool) -> Result<()> {
     if !can_power_off {
@@ -59,6 +75,14 @@ pub async fn power_off_drive(drive_path: OwnedObjectPath, can_power_off: bool) -
     
     proxy.power_off(HashMap::new()).await?;
     Ok(())
+}
+
+/// Put a drive into standby mode by device path
+pub async fn standby_drive_by_device(device: &str) -> Result<()> {
+    let drive_path = super::resolve::drive_object_path_for_device(device)
+        .await
+        .map_err(anyhow::Error::msg)?;
+    standby_drive(drive_path).await
 }
 
 /// Put a drive into standby mode (spin down)
@@ -87,6 +111,14 @@ pub async fn standby_drive(drive_path: OwnedObjectPath) -> Result<()> {
     }
 }
 
+/// Wake up a drive from standby by device path
+pub async fn wakeup_drive_by_device(device: &str) -> Result<()> {
+    let drive_path = super::resolve::drive_object_path_for_device(device)
+        .await
+        .map_err(anyhow::Error::msg)?;
+    wakeup_drive(drive_path).await
+}
+
 /// Wake up a drive from standby
 pub async fn wakeup_drive(drive_path: OwnedObjectPath) -> Result<()> {
     let connection = Connection::system().await?;
@@ -108,6 +140,26 @@ pub async fn wakeup_drive(drive_path: OwnedObjectPath) -> Result<()> {
         }
         Err(e) => Err(e),
     }
+}
+
+/// Remove a drive by device path (loop device delete or removable drive power off)
+pub async fn remove_drive_by_device(
+    device: &str,
+    is_loop: bool,
+    removable: bool,
+    can_power_off: bool,
+) -> Result<()> {
+    let block_path = super::resolve::block_object_path_for_device(device)
+        .await
+        .map_err(anyhow::Error::msg)?;
+    let drive_path = if is_loop {
+        block_path.clone()
+    } else {
+        super::resolve::drive_object_path_for_device(device)
+            .await
+            .map_err(anyhow::Error::msg)?
+    };
+    remove_drive(drive_path, block_path.as_str(), is_loop, removable, can_power_off).await
 }
 
 /// Remove a drive (loop device delete or removable drive power off)

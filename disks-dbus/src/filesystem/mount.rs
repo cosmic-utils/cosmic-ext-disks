@@ -4,7 +4,7 @@
 
 use std::collections::HashMap;
 use udisks2::filesystem::FilesystemProxy;
-use zbus::{Connection, zvariant::{OwnedObjectPath, Value}};
+use zbus::{Connection, zvariant::Value};
 use crate::error::DiskError;
 use storage_models::MountOptions;
 
@@ -16,33 +16,16 @@ pub async fn mount_filesystem(
 ) -> Result<String, DiskError> {
     let connection = Connection::system().await
         .map_err(|e| DiskError::ConnectionFailed(e.to_string()))?;
-    
-    // Find filesystem object path
-    let drives = crate::disk::model::DriveModel::get_drives().await
-        .map_err(|e| DiskError::OperationFailed(format!("Failed to get drives: {}", e)))?;
-    let mut fs_path: Option<OwnedObjectPath> = None;
-    
-    for drive in drives {
-        for volume in &drive.volumes {
-            if let Some(ref dev_path) = volume.device_path {
-                if dev_path == device_path {
-                    fs_path = Some(volume.object_path.clone());
-                    break;
-                }
-            }
-        }
-    }
-    
-    let fs_path = fs_path.ok_or_else(|| 
-        DiskError::DeviceNotFound(device_path.to_string()))?;
-    
+
+    let fs_path = crate::disk::resolve::block_object_path_for_device(device_path).await?;
+
     let fs_proxy = FilesystemProxy::builder(&connection)
         .path(&fs_path)
         .map_err(|e| DiskError::DBusError(e.to_string()))?
         .build()
         .await
         .map_err(|e| DiskError::DBusError(e.to_string()))?;
-    
+
     // Build mount options
     let mut opts: HashMap<&str, Value<'_>> = HashMap::new();
     let mut options_vec = Vec::new();
@@ -76,40 +59,19 @@ pub async fn mount_filesystem(
 pub async fn unmount_filesystem(device_or_mount: &str, force: bool) -> Result<(), DiskError> {
     let connection = Connection::system().await
         .map_err(|e| DiskError::ConnectionFailed(e.to_string()))?;
-    
-    // Find filesystem object path
-    let drives = crate::disk::model::DriveModel::get_drives().await
-        .map_err(|e| DiskError::OperationFailed(format!("Failed to get drives: {}", e)))?;
-    let mut fs_path: Option<OwnedObjectPath> = None;
-    
-    for drive in drives {
-        for volume in &drive.volumes {
-            if let Some(ref dev_path) = volume.device_path {
-                if dev_path == device_or_mount {
-                    fs_path = Some(volume.object_path.clone());
-                    break;
-                }
-            }
-            // Also check mount points
-            for mp in &volume.mount_points {
-                if mp == device_or_mount {
-                    fs_path = Some(volume.object_path.clone());
-                    break;
-                }
-            }
-        }
-    }
-    
-    let fs_path = fs_path.ok_or_else(|| 
-        DiskError::DeviceNotFound(device_or_mount.to_string()))?;
-    
+
+    let fs_path = match crate::disk::resolve::block_object_path_for_device(device_or_mount).await {
+        Ok(p) => p,
+        Err(_) => crate::disk::resolve::block_object_path_for_mount_point(device_or_mount).await?,
+    };
+
     let fs_proxy = FilesystemProxy::builder(&connection)
         .path(&fs_path)
         .map_err(|e| DiskError::DBusError(e.to_string()))?
         .build()
         .await
         .map_err(|e| DiskError::DBusError(e.to_string()))?;
-    
+
     let mut opts: HashMap<&str, Value<'_>> = HashMap::new();
     if force {
         opts.insert("force", Value::from(true));
@@ -126,32 +88,16 @@ pub async fn get_mount_point(device: &str) -> Result<String, DiskError> {
     let connection = Connection::system()
         .await
         .map_err(|e| DiskError::ConnectionFailed(format!("Failed to connect to system bus: {}", e)))?;
-    
-    let drives = crate::disk::model::DriveModel::get_drives().await
-        .map_err(|e| DiskError::OperationFailed(format!("Failed to get drives: {}", e)))?;
-    let mut fs_path: Option<OwnedObjectPath> = None;
-    
-    for drive in drives {
-        for volume in &drive.volumes {
-            if let Some(ref dev_path) = volume.device_path {
-                if dev_path == device {
-                    fs_path = Some(volume.object_path.clone());
-                    break;
-                }
-            }
-        }
-    }
-    
-    let fs_path = fs_path.ok_or_else(|| 
-        DiskError::DeviceNotFound(device.to_string()))?;
-    
+
+    let fs_path = crate::disk::resolve::block_object_path_for_device(device).await?;
+
     let fs_proxy = FilesystemProxy::builder(&connection)
         .path(&fs_path)
         .map_err(|e| DiskError::InvalidPath(format!("Invalid filesystem path: {}", e)))?
         .build()
         .await
         .map_err(|e| DiskError::DBusError(e.to_string()))?;
-    
+
     let mount_points = fs_proxy.mount_points().await
         .map_err(|e| DiskError::DBusError(e.to_string()))?;
     

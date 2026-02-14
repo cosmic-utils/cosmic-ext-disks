@@ -52,7 +52,7 @@ pub use dbus::bytestring::{
 };
 
 // Re-export key types from new modules
-// DriveModel and VolumeNode are now internal only - operations return storage_models types
+// Discovery and operations return storage_models types only
 pub use manager::{DiskManager, DeviceEvent, DeviceEventStream};
 pub use smart::{SmartInfo, SmartSelfTestKind};
 pub use btrfs::{BtrfsFilesystem, BtrfsSubvolume};
@@ -61,7 +61,7 @@ pub use btrfs::{BtrfsFilesystem, BtrfsSubvolume};
 pub use error::DiskError;
 
 // Re-export configuration types  
-pub use filesystem::config::MountOptionsSettings;
+pub use filesystem::MountOptionsSettings;
 pub use encryption::config::EncryptionOptionsSettings;
 
 // Re-export operations from new domain modules
@@ -82,6 +82,7 @@ pub use filesystem::{
     format_filesystem, mount_filesystem, unmount_filesystem,
     check_filesystem, repair_filesystem, get_filesystem_label,
     set_filesystem_label, take_filesystem_ownership, get_mount_point,
+    get_mount_options, set_mount_options, reset_mount_options,
 };
 
 // Encryption operations (from new encryption module)
@@ -91,12 +92,16 @@ pub use encryption::{
 };
 
 // SMART operations (from new smart module)
-pub use smart::{get_drive_smart_info, start_drive_smart_selftest, abort_drive_smart_selftest};
+pub use smart::{
+    get_drive_smart_info, get_smart_info_by_device, start_drive_smart_selftest,
+    start_drive_smart_selftest_by_device, abort_drive_smart_selftest,
+};
 
 // Disk operations (from new disk module)
 pub use disk::{
-    eject_drive, power_off_drive, standby_drive, wakeup_drive,
-    remove_drive, format_disk,
+    block_object_path_for_device, eject_drive, eject_drive_by_device, get_disk_info_for_drive_path,
+    power_off_drive, power_off_drive_by_device, remove_drive, remove_drive_by_device, standby_drive,
+    standby_drive_by_device, wakeup_drive, wakeup_drive_by_device, format_disk,
 };
 
 // Explicit exports from options module (mount/encryption option parsing)

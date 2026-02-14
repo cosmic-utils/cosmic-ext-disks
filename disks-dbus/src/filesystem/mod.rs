@@ -14,8 +14,8 @@ mod label;
 mod ownership;
 pub mod config;
 
-// Re-export settings type
-pub use config::MountOptionsSettings;
+// Re-export settings type and mount options config
+pub use config::{get_mount_options, set_mount_options, reset_mount_options, MountOptionsSettings};
 
 pub use format::format_filesystem;
 pub use mount::{mount_filesystem, unmount_filesystem, get_mount_point};

@@ -3,8 +3,6 @@
 
 pub mod volume;
 
-pub use volume::{BlockIndex, VolumeNode};
-pub use crate::volume::VolumeModel;
 use thiserror::Error;
 
 // Configuration settings types (still used by storage-models and consumers)

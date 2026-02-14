@@ -4,7 +4,7 @@
 
 use std::collections::HashMap;
 use udisks2::block::BlockProxy;
-use zbus::{Connection, zvariant::{OwnedObjectPath, Value}};
+use zbus::{Connection, zvariant::Value};
 use crate::error::DiskError;
 
 /// Format a device as LUKS encrypted container
@@ -15,29 +15,11 @@ pub async fn format_luks(
 ) -> Result<(), DiskError> {
     let connection = Connection::system().await
         .map_err(|e| DiskError::ConnectionFailed(e.to_string()))?;
-    
-    // Find block device object path  
-    let drives = crate::disk::model::DriveModel:: get_drives().await
-        .map_err(|e| DiskError::OperationFailed(format!("Failed to get drives: {}", e)))?;
-    let mut block_path: Option<OwnedObjectPath> = None;
-    
-    for drive in drives {
-        for volume in &drive.volumes {
-            if let Some(ref dev_path) = volume.device_path {
-                if dev_path == device_path {
-                    block_path = Some(volume.object_path.clone());
-                    break;
-                }
-            }
-        }
-    }
-    
-    let block_path = block_path.ok_or_else(|| 
-        DiskError::DeviceNotFound(device_path.to_string()))?;
-    
+
+    let block_path = crate::disk::resolve::block_object_path_for_device(device_path).await?;
+
     let block_proxy = BlockProxy::builder(&connection)
-        .path(&block_path)
-        .map_err(|e| DiskError::DBusError(e.to_string()))?
+        .path(&block_path)?
         .build()
         .await
         .map_err(|e| DiskError::DBusError(e.to_string()))?;

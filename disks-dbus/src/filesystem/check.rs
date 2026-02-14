@@ -4,7 +4,7 @@
 
 use std::collections::HashMap;
 use udisks2::filesystem::FilesystemProxy;
-use zbus::{Connection, zvariant::{OwnedObjectPath, Value}};
+use zbus::{Connection, zvariant::Value};
 use crate::error::DiskError;
 
 /// Check and repair a filesystem
@@ -13,29 +13,11 @@ use crate::error::DiskError;
 pub async fn check_filesystem(device_path: &str, repair: bool) -> Result<bool, DiskError> {
     let connection = Connection::system().await
         .map_err(|e| DiskError::ConnectionFailed(e.to_string()))?;
-    
-    // Find filesystem object path
-    let drives = crate::disk::model::DriveModel::get_drives().await
-        .map_err(|e| DiskError::OperationFailed(format!("Failed to get drives: {}", e)))?;
-    let mut fs_path: Option<OwnedObjectPath> = None;
-    
-    for drive in drives {
-        for volume in &drive.volumes {
-            if let Some(ref dev_path) = volume.device_path {
-                if dev_path == device_path {
-                    fs_path = Some(volume.object_path.clone());
-                    break;
-                }
-            }
-        }
-    }
-    
-    let fs_path = fs_path.ok_or_else(|| 
-        DiskError::DeviceNotFound(device_path.to_string()))?;
-    
+
+    let fs_path = crate::disk::resolve::block_object_path_for_device(device_path).await?;
+
     let fs_proxy = FilesystemProxy::builder(&connection)
-        .path(&fs_path)
-        .map_err(|e| DiskError::DBusError(e.to_string()))?
+        .path(&fs_path)?
         .build()
         .await
         .map_err(|e| DiskError::DBusError(e.to_string()))?;
@@ -55,29 +37,11 @@ pub async fn check_filesystem(device_path: &str, repair: bool) -> Result<bool, D
 pub async fn repair_filesystem(device_path: &str) -> Result<(), DiskError> {
     let connection = Connection::system().await
         .map_err(|e| DiskError::ConnectionFailed(e.to_string()))?;
-    
-    // Find filesystem object path
-    let drives = crate::disk::model::DriveModel::get_drives().await
-        .map_err(|e| DiskError::OperationFailed(format!("Failed to get drives: {}", e)))?;
-    let mut fs_path: Option<OwnedObjectPath> = None;
-    
-    for drive in drives {
-        for volume in &drive.volumes {
-            if let Some(ref dev_path) = volume.device_path {
-                if dev_path == device_path {
-                    fs_path = Some(volume.object_path.clone());
-                    break;
-                }
-            }
-        }
-    }
-    
-    let fs_path = fs_path.ok_or_else(|| 
-        DiskError::DeviceNotFound(device_path.to_string()))?;
-    
+
+    let fs_path = crate::disk::resolve::block_object_path_for_device(device_path).await?;
+
     let fs_proxy = FilesystemProxy::builder(&connection)
-        .path(&fs_path)
-        .map_err(|e| DiskError::DBusError(e.to_string()))?
+        .path(&fs_path)?
         .build()
         .await
         .map_err(|e| DiskError::DBusError(e.to_string()))?;

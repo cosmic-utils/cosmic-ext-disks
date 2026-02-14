@@ -9,12 +9,18 @@ pub mod discovery;
 pub mod power;
 pub mod format;
 pub mod image;
-pub(crate) mod model;
+pub(crate) mod block_index;
+pub(crate) mod resolve;
 pub(crate) mod volume_tree;
 
 // Re-export key functions and types
-// DriveModel is now internal only
-pub use discovery::{get_disks, get_disks_with_volumes, get_disks_with_partitions};
-pub use power::{eject_drive, power_off_drive, standby_drive, wakeup_drive, remove_drive};
+pub use discovery::{
+    block_object_path_for_device, get_disk_info_for_drive_path, get_disks, get_disks_with_partitions,
+    get_disks_with_volumes,
+};
+pub use power::{
+    eject_drive, eject_drive_by_device, power_off_drive, power_off_drive_by_device, remove_drive,
+    remove_drive_by_device, standby_drive, standby_drive_by_device, wakeup_drive, wakeup_drive_by_device,
+};
 pub use format::format_disk;
 pub use image::{open_for_backup, open_for_restore};

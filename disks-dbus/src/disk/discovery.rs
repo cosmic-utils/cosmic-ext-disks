@@ -1,14 +1,23 @@
+// SPDX-License-Identifier: GPL-3.0-only
+
+//! Disk and volume discovery - builds storage_models::DiskInfo and VolumeInfo directly from UDisks2.
+
 use std::collections::HashMap;
 
 use anyhow::Result;
+use storage_models::{DiskInfo, PartitionInfo, VolumeInfo, VolumeKind};
 use udisks2::{
-    Client, block::BlockProxy, drive::DriveProxy, partition::PartitionProxy,
+    block::BlockProxy,
+    drive::{DriveProxy, RotationRate},
+    encrypted::EncryptedProxy,
     partitiontable::PartitionTableProxy,
 };
-use zbus::{Connection, zvariant::OwnedObjectPath};
+use zbus::zvariant::OwnedObjectPath;
+use zbus::Connection;
 
-use super::model::DriveModel;
-use crate::volume::BlockIndex;
+use super::block_index::BlockIndex;
+use super::volume_tree;
+use crate::dbus::bytestring as bs;
 use crate::gpt::{fallback_gpt_usable_range_bytes, probe_gpt_usable_range_bytes};
 use crate::manager::UDisks2ManagerProxy;
 
@@ -19,477 +28,505 @@ struct DriveBlockPair {
     backing_file: Option<String>,
 }
 
-impl DriveModel {
-    async fn loop_backing_file(
-        connection: &Connection,
-        block_path: &OwnedObjectPath,
-    ) -> Option<String> {
-        let proxy = match zbus::Proxy::new(
-            connection,
-            "org.freedesktop.UDisks2",
-            block_path.as_str(),
-            "org.freedesktop.UDisks2.Loop",
+async fn loop_backing_file(
+    connection: &Connection,
+    block_path: &OwnedObjectPath,
+) -> Option<String> {
+    let proxy = match zbus::Proxy::new(
+        connection,
+        "org.freedesktop.UDisks2",
+        block_path.as_str(),
+        "org.freedesktop.UDisks2.Loop",
+    )
+    .await
+    {
+        Ok(p) => p,
+        Err(_) => return None,
+    };
+
+    if let Ok(bytes) = proxy.get_property::<Vec<u8>>("BackingFile").await {
+        let raw = bytes.split(|b| *b == 0).next().unwrap_or(&bytes);
+        let s = String::from_utf8_lossy(raw).to_string();
+        if !s.trim().is_empty() {
+            return Some(s);
+        }
+    }
+
+    if let Ok(s) = proxy.get_property::<String>("BackingFile").await
+        && !s.trim().is_empty()
+    {
+        return Some(s);
+    }
+
+    None
+}
+
+async fn get_drive_paths(connection: &Connection) -> Result<Vec<DriveBlockPair>> {
+    let manager_proxy = UDisks2ManagerProxy::new(connection).await?;
+    let block_paths = manager_proxy.get_block_devices(HashMap::new()).await?;
+
+    let mut drive_paths: Vec<DriveBlockPair> = vec![];
+
+    for path in block_paths {
+        let block_device = match BlockProxy::builder(connection).path(&path)?.build().await {
+            Ok(d) => d,
+            Err(e) => {
+                tracing::info!("Could not get block device: {}", e);
+                continue;
+            }
+        };
+
+        if let Ok(partition_proxy) = udisks2::partition::PartitionProxy::builder(connection)
+            .path(&path)?
+            .build()
+            .await
+        {
+            if partition_proxy.table().await.is_ok() {
+                continue;
+            }
+        }
+
+        match block_device.drive().await {
+            Ok(dp) if dp.as_str() != "/" => drive_paths.push(DriveBlockPair {
+                block_path: path,
+                drive_path: Some(dp),
+                backing_file: None,
+            }),
+            _ => {
+                let backing = loop_backing_file(connection, &path).await;
+                if backing.is_some() {
+                    drive_paths.push(DriveBlockPair {
+                        block_path: path,
+                        drive_path: None,
+                        backing_file: backing,
+                    });
+                }
+            }
+        }
+    }
+
+    Ok(drive_paths)
+}
+
+fn infer_connection_bus(
+    block_path: &str,
+    model: &str,
+    vendor: &str,
+    is_loop: bool,
+    optical: bool,
+) -> String {
+    if is_loop {
+        return "loop".to_string();
+    }
+
+    let path_lower = block_path.to_lowercase();
+    let model_lower = model.to_lowercase();
+    let vendor_lower = vendor.to_lowercase();
+
+    if path_lower.contains("nvme") {
+        return "nvme".to_string();
+    }
+    if path_lower.contains("mmc") || path_lower.contains("mmcblk") {
+        return "mmc".to_string();
+    }
+    if path_lower.contains("sr") || optical {
+        return "optical".to_string();
+    }
+    if model_lower.contains("usb") || vendor_lower.contains("usb") {
+        return "usb".to_string();
+    }
+
+    "ata".to_string()
+}
+
+async fn block_device_path(connection: &Connection, block_path: &OwnedObjectPath) -> Result<String> {
+    let block_proxy = BlockProxy::builder(connection)
+        .path(block_path)?
+        .build()
+        .await?;
+    let preferred = bs::decode_c_string_bytes(
+        &block_proxy.preferred_device().await.map_err(anyhow::Error::msg)?,
+    );
+    let device = if preferred.is_empty() {
+        bs::decode_c_string_bytes(&block_proxy.device().await.map_err(anyhow::Error::msg)?)
+    } else {
+        preferred
+    };
+    Ok(if device.is_empty() {
+        block_path.to_string()
+    } else {
+        device
+    })
+}
+
+async fn build_disk_info(
+    connection: &Connection,
+    drive_path: Option<&OwnedObjectPath>,
+    block_path: &OwnedObjectPath,
+    backing_file: Option<String>,
+) -> Result<DiskInfo> {
+    let is_loop = backing_file.is_some();
+    let device_path = block_device_path(connection, block_path).await?;
+
+    let (id, model, serial, vendor, revision, size, can_power_off, ejectable, media_available,
+        media_removable, optical, optical_blank, removable, rotation_rate) = if let Some(drive_path) = drive_path {
+        let drive_proxy = DriveProxy::builder(connection)
+            .path(drive_path)?
+            .build()
+            .await?;
+
+        let mut size = drive_proxy.size().await?;
+        if size == 0 {
+            let block_proxy = BlockProxy::builder(connection)
+                .path(block_path)?
+                .build()
+                .await?;
+            size = block_proxy.size().await?;
+        }
+
+        let rot = match drive_proxy.rotation_rate().await {
+            Ok(rate) => match rate {
+                RotationRate::Rotating(rpm) => rpm,
+                RotationRate::NonRotating => 0,
+                RotationRate::Unknown => -1,
+            },
+            Err(_) => 0,
+        };
+
+        (
+            drive_proxy.id().await?,
+            drive_proxy.model().await?,
+            drive_proxy.serial().await?,
+            drive_proxy.vendor().await?,
+            drive_proxy.revision().await?,
+            size,
+            drive_proxy.can_power_off().await?,
+            drive_proxy.ejectable().await?,
+            drive_proxy.media_available().await?,
+            drive_proxy.media_removable().await?,
+            drive_proxy.optical().await?,
+            drive_proxy.optical_blank().await?,
+            drive_proxy.removable().await?,
+            rot,
+        )
+    } else {
+        let block_proxy = BlockProxy::builder(connection)
+            .path(block_path)?
+            .build()
+            .await?;
+        let size = block_proxy.size().await?;
+        (
+            String::new(),
+            String::new(),
+            String::new(),
+            String::new(),
+            String::new(),
+            size,
+            false,
+            false,
+            true,
+            false,
+            false,
+            false,
+            false,
+            0,
+        )
+    };
+
+    let connection_bus = infer_connection_bus(
+        &device_path,
+        &model,
+        &vendor,
+        is_loop,
+        optical,
+    );
+
+    let rotation_rate = if rotation_rate > 0 {
+        Some(rotation_rate as u16)
+    } else {
+        None
+    };
+
+    Ok(DiskInfo {
+        device: device_path,
+        id,
+        model,
+        serial,
+        vendor,
+        revision,
+        size,
+        connection_bus,
+        rotation_rate,
+        removable,
+        ejectable,
+        media_removable,
+        media_available,
+        optical,
+        optical_blank,
+        can_power_off,
+        is_loop,
+        backing_file,
+        partition_table_type: None,
+        gpt_usable_range: None,
+    })
+}
+
+async fn build_volumes_for_block(
+    connection: &Connection,
+    block_path: &OwnedObjectPath,
+    block_index: &BlockIndex,
+    disk_device_path: &str,
+) -> Result<Vec<VolumeInfo>> {
+    let mut volumes = Vec::new();
+
+    let partition_table_proxy = match PartitionTableProxy::builder(connection)
+        .path(block_path)?
+        .build()
+        .await
+    {
+        Ok(p) => p,
+        Err(_) => {
+            let label = block_path.as_str().split('/').last().unwrap_or("Block").replace('_', " ");
+            let info = volume_tree::from_block_object(
+                connection,
+                block_path.clone(),
+                label,
+                VolumeKind::Block,
+                None,
+                Some(block_index),
+            )
+            .await?;
+            if info.has_filesystem {
+                let mut fs_info = info;
+                fs_info.kind = VolumeKind::Filesystem;
+                if fs_info.label.trim().is_empty() {
+                    fs_info.label = "Filesystem".to_string();
+                }
+                volumes.push(fs_info);
+            } else {
+                volumes.push(info);
+            }
+            return Ok(volumes);
+        }
+    };
+
+    let partition_paths = match partition_table_proxy.partitions().await {
+        Ok(p) => p,
+        Err(_) => return Ok(volumes),
+    };
+
+    for (idx, part_path) in partition_paths.into_iter().enumerate() {
+        let label = format!("Partition {}", idx + 1);
+
+        let is_luks = EncryptedProxy::builder(connection)
+            .path(&part_path)?
+            .build()
+            .await
+            .is_ok();
+
+        let info = if is_luks {
+            volume_tree::crypto_container_for_partition(
+                connection,
+                part_path,
+                label,
+                Some(disk_device_path.to_string()),
+                block_index,
+            )
+            .await?
+        } else {
+            volume_tree::from_block_object(
+                connection,
+                part_path,
+                label,
+                VolumeKind::Partition,
+                Some(disk_device_path.to_string()),
+                Some(block_index),
+            )
+            .await?
+        };
+
+        volumes.push(info);
+    }
+
+    Ok(volumes)
+}
+
+fn flatten_volumes_to_partitions(volumes: &[VolumeInfo], parent_device: &str) -> Vec<PartitionInfo> {
+    let mut out = Vec::new();
+    for vol in volumes {
+        if let Some(ref dev) = vol.device_path {
+            out.push(PartitionInfo {
+                device: dev.clone(),
+                number: 0,
+                parent_path: parent_device.to_string(),
+                size: vol.size,
+                offset: 0,
+                type_id: vol.id_type.clone(),
+                type_name: String::new(),
+                flags: 0,
+                name: vol.label.clone(),
+                uuid: String::new(),
+                table_type: String::new(),
+                has_filesystem: vol.has_filesystem,
+                filesystem_type: if vol.has_filesystem {
+                    Some(vol.id_type.clone())
+                } else {
+                    None
+                },
+                mount_points: vol.mount_points.clone(),
+                usage: vol.usage.clone(),
+            });
+        }
+        out.extend(flatten_volumes_to_partitions(
+            &vol.children,
+            vol.device_path.as_deref().unwrap_or(parent_device),
+        ));
+    }
+    out
+}
+
+async fn get_disks_with_volumes_inner() -> Result<Vec<(DiskInfo, Vec<VolumeInfo>)>> {
+    let connection = Connection::system().await?;
+    let drive_paths = get_drive_paths(&connection).await?;
+
+    let manager_proxy = UDisks2ManagerProxy::new(&connection).await?;
+    let all_block_objects = manager_proxy.get_block_devices(HashMap::new()).await?;
+    let block_index = BlockIndex::build(&connection, &all_block_objects).await?;
+
+    let mut result: Vec<(DiskInfo, Vec<VolumeInfo>)> = Vec::new();
+
+    for pair in drive_paths {
+        let disk_info = match build_disk_info(
+            &connection,
+            pair.drive_path.as_ref(),
+            &pair.block_path,
+            pair.backing_file.clone(),
         )
         .await
         {
-            Ok(p) => p,
-            Err(_) => return None,
+            Ok(d) => d,
+            Err(e) => {
+                tracing::warn!("Could not get disk info: {}", e);
+                continue;
+            }
         };
 
-        // UDisks2 commonly exposes BackingFile as ay (C-string bytes). Be tolerant.
-        if let Ok(bytes) = proxy.get_property::<Vec<u8>>("BackingFile").await {
-            let raw = bytes.split(|b| *b == 0).next().unwrap_or(&bytes);
-            let s = String::from_utf8_lossy(raw).to_string();
-            if !s.trim().is_empty() {
-                return Some(s);
-            }
-        }
+        let block_path_str = pair.block_path.to_string();
 
-        if let Ok(s) = proxy.get_property::<String>("BackingFile").await
-            && !s.trim().is_empty()
+        let partition_table_type = match PartitionTableProxy::builder(&connection)
+            .path(&pair.block_path)?
+            .build()
+            .await
         {
-            return Some(s);
-        }
+            Ok(pt) => pt.type_().await.ok(),
+            Err(_) => None,
+        };
 
-        None
-    }
+        let mut disk_info = disk_info;
+        disk_info.partition_table_type = partition_table_type.clone();
 
-    async fn get_drive_paths(connection: &Connection) -> Result<Vec<DriveBlockPair>> {
-        let manager_proxy = UDisks2ManagerProxy::new(connection).await?;
-        let block_paths = manager_proxy.get_block_devices(HashMap::new()).await?;
-
-        let mut drive_paths: Vec<DriveBlockPair> = vec![];
-
-        for path in block_paths {
-            let block_device = match BlockProxy::builder(connection).path(&path)?.build().await {
-                Ok(d) => d,
-                Err(e) => {
-                    tracing::info!("Could not get block device: {}", e);
-                    continue;
-                }
-            };
-
-            // Drive nodes don't have a .Partition interface assigned.
-            // If we can build a Partition proxy AND it has a table, it's a partition.
-            if let Ok(partition_proxy) = PartitionProxy::builder(connection)
-                .path(&path)?
-                .build()
-                .await
-            {
-                if partition_proxy.table().await.is_ok() {
-                    continue;
-                }
-                // Otherwise, we've found a drive.
-            } else {
-                // If we can't build the proxy, treat it as a drive.
-            }
-
-            match block_device.drive().await {
-                Ok(dp) if dp.as_str() != "/" => drive_paths.push(DriveBlockPair {
-                    block_path: path,
-                    drive_path: Some(dp),
-                    backing_file: None,
-                }),
-                _ => {
-                    // Loop devices have no associated Drive object; include them if they implement
-                    // org.freedesktop.UDisks2.Loop.
-                    let backing = Self::loop_backing_file(connection, &path).await;
-                    if backing.is_some() {
-                        drive_paths.push(DriveBlockPair {
-                            block_path: path,
-                            drive_path: None,
-                            backing_file: backing,
-                        });
-                    }
-                }
-            }
-        }
-
-        Ok(drive_paths)
-    }
-
-    pub async fn get_drives() -> Result<Vec<DriveModel>> {
-        let connection = Connection::system().await?;
-        let client = Client::new_for_connection(connection.clone()).await?;
-        let drive_paths = Self::get_drive_paths(&connection).await?;
-
-        // Build a device-node → object-path lookup for nested volumes (LUKS cleartext, LVM LVs).
-        let manager_proxy = UDisks2ManagerProxy::new(&connection).await?;
-        let all_block_objects = manager_proxy.get_block_devices(HashMap::new()).await?;
-        let block_index = BlockIndex::build(&connection, &all_block_objects).await?;
-
-        async fn partitions_by_table(
-            _connection: &Connection,
-            _client: &Client,
-            _all_block_objects: &[OwnedObjectPath],
-            _table_path: OwnedObjectPath,
-            _drive_path_for_partition: String,
-        ) -> Result<Vec<()>> {
-            // TODO(GAP-001.b Phase 9): Rewrite discovery to build VolumeNode tree directly
-            // from UDisks2 without intermediate flat list
-            Ok(vec![])
-        }
-
-        let mut drives: HashMap<String, DriveModel> = HashMap::new();
-
-        for pair in drive_paths {
-            let mut drive = if let Some(drive_path) = &pair.drive_path {
-                let drive_proxy = DriveProxy::builder(&connection)
-                    .path(drive_path)?
-                    .build()
-                    .await?;
-
-                match DriveModel::from_proxy(drive_path, &pair.block_path, &drive_proxy).await {
-                    Ok(d) => d,
-                    Err(e) => {
-                        tracing::warn!("Could not get drive: {}", e);
-                        continue;
-                    }
-                }
-            } else {
-                let block_proxy = BlockProxy::builder(&connection)
-                    .path(&pair.block_path)?
-                    .build()
-                    .await?;
-
-                match DriveModel::from_block_only(
-                    &pair.block_path,
-                    &block_proxy,
-                    pair.backing_file.clone(),
-                )
-                .await
-                {
-                    Ok(d) => d,
-                    Err(e) => {
-                        tracing::warn!("Could not get loop device: {}", e);
-                        continue;
-                    }
-                }
-            };
-
-            let drive_path_for_partition = pair
-                .drive_path
-                .as_ref()
-                .map(|p| p.to_string())
-                .unwrap_or_else(|| pair.block_path.to_string());
-
-            let partition_table_proxy = match PartitionTableProxy::builder(&connection)
+        if partition_table_type.as_deref() == Some("gpt") {
+            if let Ok(block_proxy) = BlockProxy::builder(&connection)
                 .path(&pair.block_path)?
                 .build()
                 .await
             {
-                Ok(p) => p,
-                Err(e) => {
-                    // Not all devices (notably loop-backed images) have a partition table.
-                    // Treat this as "no partition table" instead of failing enumeration.
-                    tracing::warn!("No partition table proxy for {}: {}", pair.block_path, e);
-
-                    if drive.is_loop
-                        && let Ok(_parts) = partitions_by_table(
-                            &connection,
-                            &client,
-                            &all_block_objects,
-                            pair.block_path.clone(),
-                            drive_path_for_partition.clone(),
-                        )
-                        .await
-                    {
-                        // TODO(GAP-001.b Phase 9): Populate volumes from partitions
-                        // drive.volumes_flat = parts;
-                        // if drive.partition_table_type.is_none() {
-                        //     drive.partition_table_type = drive
-                        //         .volumes_flat
-                        //         .iter()
-                        //         .find(|p| !p.table_type.is_empty())
-                        //         .map(|p| p.table_type.clone());
-                        // }
-                    }
-
-                    // TODO(GAP-001.b Phase 9): Detect filesystem on drive block
-                    // if drive.volumes_flat.is_empty() {
-                    //     let drive_block_proxy = BlockProxy::builder(&connection)
-                    //         .path(&pair.block_path)?
-                    //         .build()
-                    //         .await?;
-                    //     if let Ok(v) = VolumeModel::filesystem_from_block(
-                    //         &connection,
-                    //         drive_path_for_partition.clone(),
-                    //         pair.block_path.clone(),
-                    //         &drive_block_proxy,
-                    //     )
-                    //     .await
-                    //         && v.has_filesystem
-                    //     {
-                    //         drive.volumes_flat.push(v);
-                    //     }
-                    // }
-
-                    drive
-                        .build_volume_nodes_for_drive(&connection, &block_index)
-                        .await?;
-
-                    drives.insert(drive.name.clone(), drive);
-                    continue;
-                }
-            };
-
-            drive.partition_table_type = match partition_table_proxy.type_().await {
-                Ok(t) => Some(t),
-                Err(e) => {
-                    tracing::warn!(
-                        "No partition table interface for {}: {}",
-                        pair.block_path,
-                        e
-                    );
-
-                    if drive.is_loop
-                        && let Ok(_parts) = partitions_by_table(
-                            &connection,
-                            &client,
-                            &all_block_objects,
-                            pair.block_path.clone(),
-                            drive_path_for_partition.clone(),
-                        )
-                        .await
-                    {
-                        // TODO(GAP-001.b Phase 9): Populate volumes from partitions
-                        // drive.volumes_flat = parts;
-                        // if drive.partition_table_type.is_none() {
-                        //     drive.partition_table_type = drive
-                        //         .volumes_flat
-                        //         .iter()
-                        //         .find(|p| !p.table_type.is_empty())
-                        //         .map(|p| p.table_type.clone());
-                        // }
-                    }
-
-                    // TODO(GAP-001.b Phase 9): Detect filesystem on drive block  
-                    // if drive.volumes_flat.is_empty() {
-                    //     let drive_block_proxy = BlockProxy::builder(&connection)
-                    //         .path(&pair.block_path)?
-                    //         .build()
-                    //         .await?;
-                    //     if let Ok(v) = VolumeModel::filesystem_from_block(
-                    //         &connection,
-                    //         drive_path_for_partition.clone(),
-                    //         pair.block_path.clone(),
-                    //         &drive_block_proxy,
-                    //     )
-                    //     .await
-                    //         && v.has_filesystem
-                    //     {
-                    //         drive.volumes_flat.push(v);
-                    //     }
-                    // }
-
-                    drive
-                        .build_volume_nodes_for_drive(&connection, &block_index)
-                        .await?;
-
-                    drives.insert(drive.name.clone(), drive);
-                    continue;
-                }
-            };
-
-            if drive.partition_table_type.as_deref() == Some("gpt") {
-                let drive_block_proxy = BlockProxy::builder(&connection)
-                    .path(&pair.block_path)?
-                    .build()
-                    .await?;
-
-                match probe_gpt_usable_range_bytes(&drive_block_proxy, drive.size).await {
-                    Ok(Some(range)) => {
-                        drive.gpt_usable_range = Some(range);
-                    }
+                match probe_gpt_usable_range_bytes(&block_proxy, disk_info.size).await {
+                    Ok(Some(range)) => disk_info.gpt_usable_range = Some(range),
                     Ok(None) => {
-                        tracing::warn!(
-                            "Could not parse GPT usable range for {}; falling back to conservative 1MiB bands",
-                            pair.block_path
-                        );
-                        drive.gpt_usable_range = fallback_gpt_usable_range_bytes(drive.size);
+                        disk_info.gpt_usable_range = fallback_gpt_usable_range_bytes(disk_info.size);
                     }
                     Err(e) => {
-                        tracing::warn!(
-                            "Error probing GPT usable range for {}: {}; falling back to conservative 1MiB bands",
-                            pair.block_path,
-                            e
-                        );
-                        drive.gpt_usable_range = fallback_gpt_usable_range_bytes(drive.size);
+                        tracing::warn!("GPT probe failed: {}; using fallback", e);
+                        disk_info.gpt_usable_range = fallback_gpt_usable_range_bytes(disk_info.size);
                     }
                 }
             }
-
-            let partition_paths = match partition_table_proxy.partitions().await {
-                Ok(p) => p,
-                Err(e) => {
-                    tracing::warn!("No partitions for {}: {}", pair.block_path, e);
-                    drives.insert(drive.name.clone(), drive);
-                    continue;
-                }
-            };
-
-            for partition_path in partition_paths {
-                // TODO(GAP-001.b Phase 9): Build VolumeNode directly instead of VolumeModel
-                // let partition_proxy = match PartitionProxy::builder(&connection)
-                //     .path(&partition_path)?
-                //     .build()
-                //     .await
-                // {
-                //     Ok(p) => p,
-                //     Err(e) => {
-                //         tracing::error!("Error getting partition info: {}", e);
-                //         continue;
-                //     }
-                // };
-                //
-                // let block_proxy = match BlockProxy::builder(&connection)
-                //     .path(&partition_path)?
-                //     .build()
-                //     .await
-                // {
-                //     Ok(p) => p,
-                //     Err(e) => {
-                //         tracing::warn!(
-                //             "Error getting partition block proxy for {}: {}",
-                //             partition_path,
-                //             e
-                //         );
-                //         continue;
-                //     }
-                // };
-                //
-                // let drive_path_for_partition = pair
-                //     .drive_path
-                //     .as_ref()
-                //     .map(|p| p.to_string())
-                //     .unwrap_or_else(|| pair.block_path.to_string());
-                //
-                // match VolumeModel::from_proxy(
-                //     &client,
-                //     drive_path_for_partition,
-                //     partition_path.clone(),
-                //     &partition_proxy,
-                //     &block_proxy,
-                // )
-                // .await
-                // {
-                //     Ok(p) => drive.volumes_flat.push(p),
-                //     Err(e) => {
-                //         tracing::warn!(
-                //             "Error building partition model for {}: {}",
-                //             partition_path,
-                //             e
-                //         );
-                //         continue;
-                //     }
-                // }
-
-                let _ = partition_path; // Suppress unused warning
-            }
-
-            // TODO(GAP-001.b Phase 9): Detect filesystem on drive block
-            // if drive.volumes_flat.is_empty() {
-            //     let drive_block_proxy = BlockProxy::builder(&connection)
-            //         .path(&pair.block_path)?
-            //         .build()
-            //         .await?;
-            //     if let Ok(v) = VolumeModel::filesystem_from_block(
-            //         &connection,
-            //         drive_path_for_partition.clone(),
-            //         pair.block_path.clone(),
-            //         &drive_block_proxy,
-            //     )
-            //     .await
-            //         && v.has_filesystem
-            //     {
-            //         drive.volumes_flat.push(v);
-            //     }
-            // }
-
-            drive
-                .build_volume_nodes_for_drive(&connection, &block_index)
-                .await?;
-
-            drives.insert(drive.name.clone(), drive);
         }
 
-        let mut drives: Vec<DriveModel> = drives.into_values().collect();
-        drives.sort_by(|d1, d2| {
-            d1.removable
-                .cmp(&d2.removable)
-                .then_with(|| d2.block_path.cmp(&d1.block_path))
+        let volumes = build_volumes_for_block(
+            &connection,
+            &pair.block_path,
+            &block_index,
+            &disk_info.device,
+        )
+        .await
+        .unwrap_or_else(|e| {
+            tracing::warn!("Could not build volumes for {}: {}", block_path_str, e);
+            Vec::new()
         });
 
-        Ok(drives)
+        result.push((disk_info, volumes));
     }
 
-    /// Get disk information as canonical storage-models types (public API).
-    /// 
-    /// This is the recommended method for clients to retrieve disk information.
-    /// Returns storage_models::DiskInfo with all domain data, excluding internal
-    /// connection handles.
-    pub async fn get_disks() -> Result<Vec<storage_models::DiskInfo>> {
-        let drives = Self::get_drives().await?;
-        Ok(drives.into_iter().map(Into::into).collect())
-    }
+    result.sort_by(|a, b| {
+        a.0.removable
+            .cmp(&b.0.removable)
+            .then_with(|| b.0.device.cmp(&a.0.device))
+    });
 
-    /// Get disks with their volume hierarchies as canonical storage-models types.
-    /// 
-    /// Returns DiskInfo along with VolumeInfo trees for each disk.
-    /// This is the complete public API for retrieving full disk topology.
-    pub async fn get_disks_with_volumes() -> Result<Vec<(storage_models::DiskInfo, Vec<storage_models::VolumeInfo>)>> {
-        let drives = Self::get_drives().await?;
-        Ok(drives
-            .into_iter()
-            .map(|drive| {
-                let volumes = drive.get_volumes();
-                let disk_info = drive.into();
-                (disk_info, volumes)
-            })
-            .collect())
-    }
-
-    /// Get disks with flat partition lists as canonical storage-models types.
-    /// 
-    /// Returns DiskInfo along with PartitionInfo for each partition on the disk.
-    /// Useful for partition-focused operations without needing the full tree structure.
-    pub async fn get_disks_with_partitions() -> Result<Vec<(storage_models::DiskInfo, Vec<storage_models::PartitionInfo>)>> {
-        let drives = Self::get_drives().await?;
-        Ok(drives
-            .into_iter()
-            .map(|drive| {
-                let partitions = drive.get_partitions();
-                let disk_info = drive.into();
-                (disk_info, partitions)
-            })
-            .collect())
-    }
+    Ok(result)
 }
 
-// Re-export public discovery functions so they can be accessed without DriveModel
-// These are the recommended public API functions
+/// Resolve a device path (e.g. "/dev/sda1") to the UDisks2 block object path.
+pub async fn block_object_path_for_device(
+    device: &str,
+) -> Result<OwnedObjectPath, crate::error::DiskError> {
+    super::resolve::block_object_path_for_device(device).await
+}
 
 /// Get disk information as canonical storage-models types (public API).
-/// 
-/// This is the recommended method for clients to retrieve disk information.
-/// Returns storage_models::DiskInfo with all domain data, excluding internal
-/// connection handles.
-pub async fn get_disks() -> Result<Vec<storage_models::DiskInfo>> {
-    DriveModel::get_disks().await
+pub async fn get_disks() -> Result<Vec<DiskInfo>> {
+    let pairs = get_disks_with_volumes_inner().await?;
+    Ok(pairs.into_iter().map(|(d, _)| d).collect())
 }
 
 /// Get disks with their volume hierarchies as canonical storage-models types.
-/// 
-/// Returns DiskInfo along with VolumeInfo trees for each disk.
-/// This is the complete public API for retrieving full disk topology.
-pub async fn get_disks_with_volumes() -> Result<Vec<(storage_models::DiskInfo, Vec<storage_models::VolumeInfo>)>> {
-    DriveModel::get_disks_with_volumes().await
+pub async fn get_disks_with_volumes() -> Result<Vec<(DiskInfo, Vec<VolumeInfo>)>> {
+    get_disks_with_volumes_inner().await
 }
 
 /// Get disks with flat partition lists as canonical storage-models types.
-/// 
-/// Returns DiskInfo along with PartitionInfo for each partition on the disk.
-/// Useful for partition-focused operations without needing the full tree structure.
-pub async fn get_disks_with_partitions() -> Result<Vec<(storage_models::DiskInfo, Vec<storage_models::PartitionInfo>)>> {
-    DriveModel::get_disks_with_partitions().await
+pub async fn get_disks_with_partitions() -> Result<Vec<(DiskInfo, Vec<PartitionInfo>)>> {
+    let pairs = get_disks_with_volumes_inner().await?;
+    Ok(pairs
+        .into_iter()
+        .map(|(d, vols)| {
+            let device = d.device.clone();
+            (d, flatten_volumes_to_partitions(&vols, &device))
+        })
+        .collect())
+}
+
+/// Get DiskInfo for a drive given its UDisks2 drive object path (e.g. from InterfacesAdded).
+pub async fn get_disk_info_for_drive_path(drive_path: &str) -> Result<DiskInfo> {
+    let connection = Connection::system().await?;
+    let manager_proxy = UDisks2ManagerProxy::new(&connection).await?;
+    let block_paths = manager_proxy.get_block_devices(HashMap::new()).await?;
+    for block_path in block_paths {
+        let is_partition = match udisks2::partition::PartitionProxy::builder(&connection)
+            .path(&block_path)?
+            .build()
+            .await
+        {
+            Ok(p) => p.table().await.is_ok(),
+            Err(_) => false,
+        };
+        if is_partition {
+            continue;
+        }
+        let block_proxy = BlockProxy::builder(&connection)
+            .path(&block_path)?
+            .build()
+            .await?;
+        if let Ok(d) = block_proxy.drive().await {
+            if d.as_str() == drive_path {
+                return build_disk_info(&connection, Some(&d), &block_path, None).await;
+            }
+        }
+    }
+    Err(anyhow::anyhow!(
+        "No block device found for drive: {}",
+        drive_path
+    ))
 }

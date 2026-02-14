@@ -75,41 +75,14 @@ impl ImageHandler {
 
     /// Find block device object path from device identifier (drive or partition)
     async fn find_block_object_path(device: &str) -> Result<OwnedObjectPath, String> {
-        let drives = disks_dbus::disk::get_disks_with_volumes()
+        let device_path = if device.starts_with("/dev/") {
+            device.to_string()
+        } else {
+            format!("/dev/{}", device)
+        };
+        disks_dbus::block_object_path_for_device(&device_path)
             .await
-            .map_err(|e| format!("Failed to enumerate drives: {e}"))?;
-
-        let device_name = device.strip_prefix("/dev/").unwrap_or(device);
-
-        // Try whole-disk match first
-        for drive in &drives {
-            let disk_info: storage_models::DiskInfo = drive.clone().into();
-            if disk_info.device == device
-                || disk_info.device.rsplit('/').next() == Some(device_name)
-                || disk_info.id == device
-                || disk_info.id == device_name
-            {
-                return drive.block_path.as_str().try_into()
-                    .map_err(|e| format!("Invalid block path: {e}"));
-            }
-        }
-
-        // Try partition/volume match (e.g. /dev/sda1)
-        for drive in &drives {
-            for volume in &drive.volumes {
-                let matches = volume.device_path.as_deref() == Some(device)
-                    || volume
-                        .device_path
-                        .as_deref()
-                        .map(|p| p.strip_prefix("/dev/").unwrap_or(p))
-                        == Some(device_name);
-                if matches {
-                    return Ok(volume.object_path.clone());
-                }
-            }
-        }
-
-        Err(format!("Device not found: {device}"))
+            .map_err(|e| format!("Device not found: {e}"))
     }
 
     /// Background task for backup operation

@@ -105,31 +105,35 @@ impl FilesystemsHandler {
             })?;
         
         let mut filesystems = Vec::new();
-        
-        for drive in drives {
-            // Access volumes_flat directly from DriveModel
-            for volume in &drive.volumes {
-                // Only include volumes that have actual filesystems (not empty id_type, not LUKS)
+
+        fn collect_volumes(volumes: &[storage_models::VolumeInfo], out: &mut Vec<FilesystemInfo>) {
+            for volume in volumes {
                 if volume.has_filesystem && volume.id_type != "crypto_LUKS" {
-                    let device = volume.device_path.clone().unwrap_or_default();
-                    
-                    // Get filesystem label via disks-dbus operation
-                    let label = disks_dbus::get_filesystem_label(&device)
-                        .await
-                        .unwrap_or_default();
-
-                    let available = volume.usage.as_ref().map(|u| u.available_bytes()).unwrap_or(0);
-
-                    filesystems.push(FilesystemInfo {
-                        device,
-                        fs_type: volume.id_type.clone(),
-                        label,
-                        uuid: String::new(), // TODO(GAP-001.b): Query UUID from block proxy
-                        mount_points: volume.mount_points.clone(),
-                        size: volume.size,
-                        available,
-                    });
+                    if let Some(ref device) = volume.device_path {
+                        let available = volume.usage.as_ref().map(|u| u.available_bytes()).unwrap_or(0);
+                        out.push(FilesystemInfo {
+                            device: device.clone(),
+                            fs_type: volume.id_type.clone(),
+                            label: String::new(), // filled below
+                            uuid: String::new(),
+                            mount_points: volume.mount_points.clone(),
+                            size: volume.size,
+                            available,
+                        });
+                    }
                 }
+                collect_volumes(&volume.children, out);
+            }
+        }
+
+        for (_disk_info, volumes) in &drives {
+            let mut batch = Vec::new();
+            collect_volumes(volumes, &mut batch);
+            for mut fs in batch {
+                fs.label = disks_dbus::get_filesystem_label(&fs.device)
+                    .await
+                    .unwrap_or_default();
+                filesystems.push(fs);
             }
         }
         
@@ -639,43 +643,29 @@ impl FilesystemsHandler {
             .await
             .map_err(|e| zbus::fdo::Error::Failed(format!("Authorization failed: {e}")))?;
 
-        let drives = disks_dbus::disk::get_disks_with_volumes()
-            .await
-            .map_err(|e| {
-                tracing::error!("Failed to get drives: {e}");
-                zbus::fdo::Error::Failed(format!("Failed to enumerate drives: {e}"))
-            })?;
-
-        for drive in drives {
-            for vol in &drive.volumes {
-                if vol.device_path.as_deref() == Some(device.as_str()) {
-                    match vol.get_mount_options_settings().await {
-                        Ok(Some(s)) => {
-                            let out = MountOptionsSettings {
-                                identify_as: s.identify_as,
-                                mount_point: s.mount_point,
-                                filesystem_type: s.filesystem_type,
-                                mount_at_startup: s.mount_at_startup,
-                                require_auth: s.require_auth,
-                                show_in_ui: s.show_in_ui,
-                                other_options: s.other_options,
-                                display_name: s.display_name,
-                                icon_name: s.icon_name,
-                                symbolic_icon_name: s.symbolic_icon_name,
-                            };
-                            return serde_json::to_string(&Some(out))
-                                .map_err(|e| zbus::fdo::Error::Failed(format!("Serialize: {e}")));
-                        }
-                        Ok(None) => return Ok("null".to_string()),
-                        Err(e) => {
-                            tracing::warn!("get_mount_options_settings failed: {e}");
-                            return Ok("null".to_string());
-                        }
-                    }
-                }
+        match disks_dbus::get_mount_options(&device).await {
+            Ok(Some(s)) => {
+                let out = MountOptionsSettings {
+                    identify_as: s.identify_as,
+                    mount_point: s.mount_point,
+                    filesystem_type: s.filesystem_type,
+                    mount_at_startup: s.mount_at_startup,
+                    require_auth: s.require_auth,
+                    show_in_ui: s.show_in_ui,
+                    other_options: s.other_options,
+                    display_name: s.display_name,
+                    icon_name: s.icon_name,
+                    symbolic_icon_name: s.symbolic_icon_name,
+                };
+                serde_json::to_string(&Some(out))
+                    .map_err(|e| zbus::fdo::Error::Failed(format!("Serialize: {e}")))
+            }
+            Ok(None) => Ok("null".to_string()),
+            Err(e) => {
+                tracing::warn!("get_mount_options failed: {e}");
+                Ok("null".to_string())
             }
         }
-        Ok("null".to_string())
     }
 
     /// Clear persistent mount options (remove fstab entry) for a device
@@ -690,24 +680,10 @@ impl FilesystemsHandler {
             .await
             .map_err(|e| zbus::fdo::Error::Failed(format!("Authorization failed: {e}")))?;
 
-        let drives = disks_dbus::disk::get_disks_with_volumes()
-            .await
-            .map_err(|e| {
-                tracing::error!("Failed to get drives: {e}");
-                zbus::fdo::Error::Failed(format!("Failed to enumerate drives: {e}"))
-            })?;
-
-        for drive in drives {
-            for vol in &drive.volumes {
-                if vol.device_path.as_deref() == Some(device.as_str()) {
-                    return vol.default_mount_options().await.map_err(|e| {
-                        tracing::error!("default_mount_options failed: {e}");
-                        zbus::fdo::Error::Failed(format!("Failed to clear mount options: {e}"))
-                    });
-                }
-            }
-        }
-        Err(zbus::fdo::Error::Failed(format!("Device not found: {}", device)))
+        disks_dbus::reset_mount_options(&device).await.map_err(|e| {
+            tracing::error!("reset_mount_options failed: {e}");
+            zbus::fdo::Error::Failed(format!("Failed to clear mount options: {e}"))
+        })
     }
 
     /// Set persistent mount options (fstab configuration) for a device
@@ -732,13 +708,6 @@ impl FilesystemsHandler {
             .await
             .map_err(|e| zbus::fdo::Error::Failed(format!("Authorization failed: {e}")))?;
 
-        let drives = disks_dbus::disk::get_disks_with_volumes()
-            .await
-            .map_err(|e| {
-                tracing::error!("Failed to get drives: {e}");
-                zbus::fdo::Error::Failed(format!("Failed to enumerate drives: {e}"))
-            })?;
-
         let display_opt = if display_name.trim().is_empty() {
             None
         } else {
@@ -755,31 +724,24 @@ impl FilesystemsHandler {
             Some(symbolic_icon_name)
         };
 
-        for drive in drives {
-            for vol in &drive.volumes {
-                if vol.device_path.as_deref() == Some(device.as_str()) {
-                    return vol
-                        .edit_mount_options(
-                            mount_at_startup,
-                            show_in_ui,
-                            require_auth,
-                            display_opt,
-                            icon_opt,
-                            symbolic_icon_opt,
-                            other_options,
-                            mount_point,
-                            identify_as,
-                            filesystem_type,
-                        )
-                        .await
-                        .map_err(|e| {
-                            tracing::error!("edit_mount_options failed: {e}");
-                            zbus::fdo::Error::Failed(format!("Failed to set mount options: {e}"))
-                        });
-                }
-            }
-        }
-        Err(zbus::fdo::Error::Failed(format!("Device not found: {}", device)))
+        disks_dbus::set_mount_options(
+            &device,
+            mount_at_startup,
+            show_in_ui,
+            require_auth,
+            display_opt,
+            icon_opt,
+            symbolic_icon_opt,
+            other_options,
+            mount_point,
+            identify_as,
+            filesystem_type,
+        )
+        .await
+        .map_err(|e| {
+            tracing::error!("set_mount_options failed: {e}");
+            zbus::fdo::Error::Failed(format!("Failed to set mount options: {e}"))
+        })
     }
 
     /// Take ownership of a mounted filesystem (e.g. for fstab/crypttab)

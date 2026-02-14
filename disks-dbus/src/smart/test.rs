@@ -15,6 +15,17 @@ fn is_anyhow_not_supported(e: &anyhow::Error) -> bool {
         || msg.contains("No such interface")
 }
 
+/// Start a SMART self-test on a drive by device path (e.g. "/dev/sda")
+pub async fn start_drive_smart_selftest_by_device(
+    device: &str,
+    kind: SmartSelfTestKind,
+) -> Result<()> {
+    let drive_path = crate::disk::resolve::drive_object_path_for_device(device)
+        .await
+        .map_err(|e| anyhow::anyhow!("{}", e))?;
+    start_drive_smart_selftest(drive_path, kind).await
+}
+
 /// Start a SMART self-test on a drive
 ///
 /// Tries NVMe interface first, falls back to ATA if not supported.

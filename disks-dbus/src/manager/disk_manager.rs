@@ -11,7 +11,8 @@ use zbus::{
 };
 use zbus_macros::proxy;
 
-use crate::disk::model::DriveModel;
+use crate::disk::discovery;
+use storage_models::{DiskInfo, VolumeInfo};
 
 #[proxy(
     default_service = "org.freedesktop.UDisks2",
@@ -146,33 +147,22 @@ impl DiskManager {
     }
 
     pub async fn apply_change(
-        drives: &mut Vec<DriveModel>,
+        drives: &mut Vec<(DiskInfo, Vec<VolumeInfo>)>,
         added: Option<String>,
         removed: Option<String>,
     ) -> Result<()> {
         if let Some(removed_str) = removed {
-            // Check for direct match on drive path or block path FIRST
             if let Some(index) = drives
                 .iter()
-                .position(|d| d.path == removed_str || d.block_path == removed_str)
+                .position(|(d, _)| d.device == removed_str)
             {
                 drives.remove(index);
-                return Ok(()); // Early return after removing a drive
+                return Ok(());
             }
-
-            // If no direct match, check partitions in volumes tree
-            // TODO: Rewrite to traverse volumes tree instead of volumes_flat
-            // For now, skip partition removal
         }
 
         if added.is_some() {
-            let mut new_drives = DriveModel::get_drives().await?;
-            drives.retain(|drive| {
-                !new_drives
-                    .iter()
-                    .any(|new_drive| new_drive.path == drive.path)
-            });
-            drives.append(&mut new_drives);
+            *drives = discovery::get_disks_with_volumes().await?;
         }
 
         Ok(())

@@ -25,13 +25,6 @@ impl LuksHandler {
         Self
     }
     
-    /// Convert device path to UDisks2 path
-    fn device_to_path(device: &str) -> OwnedObjectPath {
-        let name = device.trim_start_matches("/dev/");
-        let encoded = name.replace('/', "_").replace('-', "_");
-        OwnedObjectPath::try_from(format!("/org/freedesktop/UDisks2/block_devices/{}", encoded))
-            .unwrap_or_else(|_| OwnedObjectPath::try_from("/org/freedesktop/UDisks2/block_devices/sda1").unwrap())
-    }
 }
 
 #[interface(name = "org.cosmic.ext.StorageService.Luks")]
@@ -249,19 +242,29 @@ impl LuksHandler {
             .await
             .map_err(|e| zbus::fdo::Error::Failed(format!("Authorization failed: {e}")))?;
 
-        let drives = disks_dbus::disk::get_disks_with_volumes()
+        let disk_volumes = disks_dbus::disk::get_disks_with_volumes()
             .await
             .map_err(|e| {
                 tracing::error!("Failed to get drives: {e}");
                 zbus::fdo::Error::Failed(format!("Failed to enumerate drives: {e}"))
             })?;
 
-        for drive in drives {
-            for vol in &drive.volumes {
-                if vol.device_path.as_deref() == Some(device.as_str()) {
-                    // TODO(GAP-001.b): VolumeNode doesn't have get_encryption_options_settings
-                    // Need to query BlockConfiguration directly or add method to VolumeNode
-                    // For now, return null (no saved settings)
+        fn find_volume_by_device(vol: &storage_models::VolumeInfo, device: &str) -> bool {
+            if vol.device_path.as_deref() == Some(device) {
+                return true;
+            }
+            for child in &vol.children {
+                if find_volume_by_device(child, device) {
+                    return true;
+                }
+            }
+            false
+        }
+
+        for (_disk_info, volumes) in &disk_volumes {
+            for vol in volumes {
+                if find_volume_by_device(vol, &device) {
+                    // No saved encryption options in storage_models; return null
                     return Ok("null".to_string());
                 }
             }
@@ -293,7 +296,9 @@ impl LuksHandler {
             return Err(zbus::fdo::Error::InvalidArgs("Name must not be empty".to_string()));
         }
 
-        let block_path = Self::device_to_path(&device);
+        let block_path = disks_dbus::block_object_path_for_device(&device)
+            .await
+            .map_err(|e| zbus::fdo::Error::Failed(format!("Device not found: {e}")))?;
         let block_proxy = BlockProxy::builder(connection)
             .path(&block_path)
             .map_err(|e| zbus::fdo::Error::Failed(format!("Failed to create block proxy: {e}")))?
@@ -381,7 +386,9 @@ impl LuksHandler {
             .await
             .map_err(|e| zbus::fdo::Error::Failed(format!("Authorization failed: {e}")))?;
 
-        let block_path = Self::device_to_path(&device);
+        let block_path = disks_dbus::block_object_path_for_device(&device)
+            .await
+            .map_err(|e| zbus::fdo::Error::Failed(format!("Device not found: {e}")))?;
         let config_proxy = UDisks2BlockConfigurationProxy::builder(connection)
             .path(&block_path)
             .map_err(|e| zbus::fdo::Error::Failed(format!("Failed to create config proxy: {e}")))?
