@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 
 use zbus::{proxy, Connection};
-use storage_models::{FilesystemInfo, FilesystemUsage, ProcessInfo, UnmountResult};
+use storage_models::{FilesystemInfo, FilesystemUsage, MountOptionsSettings, ProcessInfo, UnmountResult};
 use crate::client::error::ClientError;
 
 /// D-Bus proxy interface for filesystem operations
@@ -53,6 +53,28 @@ trait FilesystemsInterface {
     
     /// Get filesystem usage statistics
     async fn get_usage(&self, mount_point: &str) -> zbus::Result<String>;
+    
+    /// Get persistent mount options (fstab) for a device
+    async fn get_mount_options(&self, device: &str) -> zbus::Result<String>;
+    
+    /// Clear persistent mount options for a device
+    async fn default_mount_options(&self, device: &str) -> zbus::Result<()>;
+    
+    /// Set persistent mount options for a device
+    async fn edit_mount_options(
+        &self,
+        device: &str,
+        mount_at_startup: bool,
+        show_in_ui: bool,
+        require_auth: bool,
+        display_name: &str,
+        icon_name: &str,
+        symbolic_icon_name: &str,
+        other_options: &str,
+        mount_point: &str,
+        identify_as: &str,
+        filesystem_type: &str,
+    ) -> zbus::Result<()>;
     
     /// Signal emitted during format operation with progress
     #[zbus(signal)]
@@ -172,6 +194,49 @@ impl FilesystemsClient {
         let usage: FilesystemUsage = serde_json::from_str(&json)
             .map_err(|e| ClientError::ParseError(format!("Failed to parse usage stats: {}", e)))?;
         Ok(usage)
+    }
+
+    /// Get persistent mount options (fstab) for a device
+    pub async fn get_mount_options(&self, device: &str) -> Result<Option<MountOptionsSettings>, ClientError> {
+        let json = self.proxy.get_mount_options(device).await?;
+        let opt: Option<MountOptionsSettings> = serde_json::from_str(&json)
+            .map_err(|e| ClientError::ParseError(format!("Failed to parse mount options: {}", e)))?;
+        Ok(opt)
+    }
+
+    /// Clear persistent mount options for a device
+    pub async fn default_mount_options(&self, device: &str) -> Result<(), ClientError> {
+        Ok(self.proxy.default_mount_options(device).await?)
+    }
+
+    /// Set persistent mount options for a device
+    pub async fn edit_mount_options(
+        &self,
+        device: &str,
+        mount_at_startup: bool,
+        show_in_ui: bool,
+        require_auth: bool,
+        display_name: Option<&str>,
+        icon_name: Option<&str>,
+        symbolic_icon_name: Option<&str>,
+        other_options: &str,
+        mount_point: &str,
+        identify_as: &str,
+        filesystem_type: &str,
+    ) -> Result<(), ClientError> {
+        Ok(self.proxy.edit_mount_options(
+            device,
+            mount_at_startup,
+            show_in_ui,
+            require_auth,
+            display_name.unwrap_or(""),
+            icon_name.unwrap_or(""),
+            symbolic_icon_name.unwrap_or(""),
+            other_options,
+            mount_point,
+            identify_as,
+            filesystem_type,
+        ).await?)
     }
     
     /// Get the underlying proxy for signal subscriptions

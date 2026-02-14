@@ -10,7 +10,7 @@ use std::path::Path;
 use udisks2::{block::BlockProxy, filesystem::FilesystemProxy};
 use zbus::{interface, Connection};
 use zbus::zvariant::{OwnedObjectPath, Value};
-use storage_models::{FilesystemInfo, FormatOptions, MountOptions, CheckResult, UnmountResult};
+use storage_models::{FilesystemInfo, FormatOptions, MountOptions, MountOptionsSettings, CheckResult, UnmountResult};
 
 use crate::auth::check_polkit_auth;
 
@@ -766,6 +766,163 @@ impl FilesystemsHandler {
             })?;
         
         Ok(json)
+    }
+
+    /// Get persistent mount options (fstab configuration) for a device
+    ///
+    /// Returns: JSON Option<MountOptionsSettings> ("null" if none)
+    ///
+    /// Authorization: org.cosmic.ext.storage-service.filesystem-read (allow_active)
+    async fn get_mount_options(
+        &self,
+        #[zbus(connection)] connection: &Connection,
+        device: String,
+    ) -> zbus::fdo::Result<String> {
+        check_polkit_auth(connection, "org.cosmic.ext.storage-service.filesystem-read")
+            .await
+            .map_err(|e| zbus::fdo::Error::Failed(format!("Authorization failed: {e}")))?;
+
+        let drives = disks_dbus::DriveModel::get_drives()
+            .await
+            .map_err(|e| {
+                tracing::error!("Failed to get drives: {e}");
+                zbus::fdo::Error::Failed(format!("Failed to enumerate drives: {e}"))
+            })?;
+
+        for drive in drives {
+            for vol in &drive.volumes_flat {
+                if vol.device_path.as_deref() == Some(device.as_str()) {
+                    match vol.get_mount_options_settings().await {
+                        Ok(Some(s)) => {
+                            let out = MountOptionsSettings {
+                                identify_as: s.identify_as,
+                                mount_point: s.mount_point,
+                                filesystem_type: s.filesystem_type,
+                                mount_at_startup: s.mount_at_startup,
+                                require_auth: s.require_auth,
+                                show_in_ui: s.show_in_ui,
+                                other_options: s.other_options,
+                                display_name: s.display_name,
+                                icon_name: s.icon_name,
+                                symbolic_icon_name: s.symbolic_icon_name,
+                            };
+                            return serde_json::to_string(&Some(out))
+                                .map_err(|e| zbus::fdo::Error::Failed(format!("Serialize: {e}")));
+                        }
+                        Ok(None) => return Ok("null".to_string()),
+                        Err(e) => {
+                            tracing::warn!("get_mount_options_settings failed: {e}");
+                            return Ok("null".to_string());
+                        }
+                    }
+                }
+            }
+        }
+        Ok("null".to_string())
+    }
+
+    /// Clear persistent mount options (remove fstab entry) for a device
+    ///
+    /// Authorization: org.cosmic.ext.storage-service.filesystem-mount (allow_active)
+    async fn default_mount_options(
+        &self,
+        #[zbus(connection)] connection: &Connection,
+        device: String,
+    ) -> zbus::fdo::Result<()> {
+        check_polkit_auth(connection, "org.cosmic.ext.storage-service.filesystem-mount")
+            .await
+            .map_err(|e| zbus::fdo::Error::Failed(format!("Authorization failed: {e}")))?;
+
+        let drives = disks_dbus::DriveModel::get_drives()
+            .await
+            .map_err(|e| {
+                tracing::error!("Failed to get drives: {e}");
+                zbus::fdo::Error::Failed(format!("Failed to enumerate drives: {e}"))
+            })?;
+
+        for drive in drives {
+            for vol in &drive.volumes_flat {
+                if vol.device_path.as_deref() == Some(device.as_str()) {
+                    return vol.default_mount_options().await.map_err(|e| {
+                        tracing::error!("default_mount_options failed: {e}");
+                        zbus::fdo::Error::Failed(format!("Failed to clear mount options: {e}"))
+                    });
+                }
+            }
+        }
+        Err(zbus::fdo::Error::Failed(format!("Device not found: {}", device)))
+    }
+
+    /// Set persistent mount options (fstab configuration) for a device
+    ///
+    /// Authorization: org.cosmic.ext.storage-service.filesystem-mount (allow_active)
+    async fn edit_mount_options(
+        &self,
+        #[zbus(connection)] connection: &Connection,
+        device: String,
+        mount_at_startup: bool,
+        show_in_ui: bool,
+        require_auth: bool,
+        display_name: String,
+        icon_name: String,
+        symbolic_icon_name: String,
+        other_options: String,
+        mount_point: String,
+        identify_as: String,
+        filesystem_type: String,
+    ) -> zbus::fdo::Result<()> {
+        check_polkit_auth(connection, "org.cosmic.ext.storage-service.filesystem-mount")
+            .await
+            .map_err(|e| zbus::fdo::Error::Failed(format!("Authorization failed: {e}")))?;
+
+        let drives = disks_dbus::DriveModel::get_drives()
+            .await
+            .map_err(|e| {
+                tracing::error!("Failed to get drives: {e}");
+                zbus::fdo::Error::Failed(format!("Failed to enumerate drives: {e}"))
+            })?;
+
+        let display_opt = if display_name.trim().is_empty() {
+            None
+        } else {
+            Some(display_name)
+        };
+        let icon_opt = if icon_name.trim().is_empty() {
+            None
+        } else {
+            Some(icon_name)
+        };
+        let symbolic_icon_opt = if symbolic_icon_name.trim().is_empty() {
+            None
+        } else {
+            Some(symbolic_icon_name)
+        };
+
+        for drive in drives {
+            for vol in &drive.volumes_flat {
+                if vol.device_path.as_deref() == Some(device.as_str()) {
+                    return vol
+                        .edit_mount_options(
+                            mount_at_startup,
+                            show_in_ui,
+                            require_auth,
+                            display_opt,
+                            icon_opt,
+                            symbolic_icon_opt,
+                            other_options,
+                            mount_point,
+                            identify_as,
+                            filesystem_type,
+                        )
+                        .await
+                        .map_err(|e| {
+                            tracing::error!("edit_mount_options failed: {e}");
+                            zbus::fdo::Error::Failed(format!("Failed to set mount options: {e}"))
+                        });
+                }
+            }
+        }
+        Err(zbus::fdo::Error::Failed(format!("Device not found: {}", device)))
     }
 }
 

@@ -137,6 +137,7 @@ unlock-missing-partition = Could not find { $name } in the current device list.
 mount = Mount
 unmount = Unmount
 edit-mount-options = Edit Mount Options…
+edit-mount-options-failed = Edit mount options failed
 edit-encryption-options = Edit Encryption Options…
 edit-partition = Edit Partition
 edit = Edit

@@ -1,5 +1,7 @@
+use crate::client::FilesystemsClient;
 use crate::models::load_all_drives;
 use cosmic::Task;
+use storage_models::MountOptionsSettings;
 
 use crate::app::Message;
 use crate::fl;
@@ -41,10 +43,10 @@ pub(super) fn open_edit_mount_options(
                 .device_path
                 .clone()
                 .unwrap_or_else(|| "/dev/unknown".to_string());
-            let name = if v.name().trim().is_empty() {
-                v.partition_type.clone()
+            let name = if v.label.trim().is_empty() {
+                "Filesystem".to_string()
             } else {
-                v.name()
+                v.label.clone()
             };
             let fstype = if v.id_type.trim().is_empty() {
                 "auto".to_string()
@@ -58,23 +60,22 @@ pub(super) fn open_edit_mount_options(
             (device, name, fstype, mountpoint)
         }
         FilesystemTarget::Node(n) => {
-            let device = n.device_path.clone().unwrap_or_else(|| {
-                format!(
-                    "/dev/{}",
-                    n.object_path().as_deref().unwrap_or("").split('/').next_back().unwrap_or("")
-                )
-            });
-            let name = if n.label.trim().is_empty() {
+            let device = n
+                .volume
+                .device_path
+                .clone()
+                .unwrap_or_else(|| "/dev/unknown".to_string());
+            let name = if n.volume.label.trim().is_empty() {
                 "Filesystem".to_string()
             } else {
-                n.label.clone()
+                n.volume.label.clone()
             };
-            let fstype = if n.id_type.trim().is_empty() {
+            let fstype = if n.volume.id_type.trim().is_empty() {
                 "auto".to_string()
             } else {
-                n.id_type.clone()
+                n.volume.id_type.clone()
             };
-            let mountpoint = n.mount_points.first().cloned().unwrap_or_else(|| {
+            let mountpoint = n.volume.mount_points.first().cloned().unwrap_or_else(|| {
                 let slug = name.replace(' ', "-");
                 format!("/mnt/{slug}")
             });
@@ -82,46 +83,27 @@ pub(super) fn open_edit_mount_options(
         }
     };
 
-    let mut identify_as_options = vec![device_path];
-    // Provide a UUID= option when we have one (VolumeModel only).
-    if let FilesystemTarget::Volume(v) = &target
-        && !v.uuid.trim().is_empty()
-    {
-        identify_as_options.push(format!("UUID={}", v.uuid.trim()));
-    }
+    let identify_as_options = vec![device_path.clone()];
 
     Task::perform(
         async move {
-            let loaded = match &target {
-                FilesystemTarget::Volume(v) => v.get_mount_options_settings().await,
-                FilesystemTarget::Node(n) => n.get_mount_options_settings().await,
-            };
-
             let mut error: Option<String> = None;
-            let settings = match loaded {
-                Ok(v) => v,
-                Err(e) => {
-                    match &target {
-                        FilesystemTarget::Volume(v) => {
-                            tracing::error!(
-                                ?e,
-                                operation = "get_mount_options_settings",
-                                object_path = %v.device_path.as_deref().unwrap_or(""),
-                                device = ?v.device_path,
-                                drive_path = %v.drive_path,
-                                "error surfaced in UI"
-                            );
-                        }
-                        FilesystemTarget::Node(n) => {
-                            tracing::error!(
-                                ?e,
-                                operation = "get_mount_options_settings",
-                                object_path = %n.device_path.as_deref().unwrap_or(""),
-                                device = ?n.device_path,
-                                "error surfaced in UI"
-                            );
-                        }
+            let settings: Option<MountOptionsSettings> = match FilesystemsClient::new().await {
+                Ok(client) => match client.get_mount_options(&device_path).await {
+                    Ok(opt) => opt,
+                    Err(e) => {
+                        tracing::error!(
+                            ?e,
+                            operation = "get_mount_options",
+                            device = %device_path,
+                            "error surfaced in UI"
+                        );
+                        error = Some(format!("{e:#}"));
+                        None
                     }
+                },
+                Err(e) => {
+                    tracing::error!(?e, "Failed to create filesystems client");
                     error = Some(format!("{e:#}"));
                     None
                 }
@@ -289,7 +271,17 @@ pub(super) fn edit_mount_options_message(
             }
             state.running = true;
 
-            let target = state.target.clone();
+            let device_path = match &state.target {
+                FilesystemTarget::Volume(v) => v
+                    .device_path
+                    .clone()
+                    .unwrap_or_else(|| "/dev/unknown".to_string()),
+                FilesystemTarget::Node(n) => n
+                    .volume
+                    .device_path
+                    .clone()
+                    .unwrap_or_else(|| "/dev/unknown".to_string()),
+            };
             let use_defaults = state.use_defaults;
             let mount_at_startup = state.mount_at_startup;
             let require_auth = state.require_auth;
@@ -308,69 +300,37 @@ pub(super) fn edit_mount_options_message(
 
             Task::perform(
                 async move {
-                    match target {
-                        FilesystemTarget::Volume(v) => {
-                            if use_defaults {
-                                v.default_mount_options().await?;
-                            } else {
-                                v.edit_mount_options(
-                                    mount_at_startup,
-                                    show_in_ui,
-                                    require_auth,
-                                    if display_name.trim().is_empty() {
-                                        None
-                                    } else {
-                                        Some(display_name)
-                                    },
-                                    if icon_name.trim().is_empty() {
-                                        None
-                                    } else {
-                                        Some(icon_name)
-                                    },
-                                    if symbolic_icon_name.trim().is_empty() {
-                                        None
-                                    } else {
-                                        Some(symbolic_icon_name)
-                                    },
-                                    other_options,
-                                    mount_point,
-                                    identify_as,
-                                    filesystem_type,
-                                )
-                                .await?;
-                            }
-                        }
-                        FilesystemTarget::Node(n) => {
-                            if use_defaults {
-                                n.default_mount_options().await?;
-                            } else {
-                                n.edit_mount_options(
-                                    mount_at_startup,
-                                    show_in_ui,
-                                    require_auth,
-                                    if display_name.trim().is_empty() {
-                                        None
-                                    } else {
-                                        Some(display_name)
-                                    },
-                                    if icon_name.trim().is_empty() {
-                                        None
-                                    } else {
-                                        Some(icon_name)
-                                    },
-                                    if symbolic_icon_name.trim().is_empty() {
-                                        None
-                                    } else {
-                                        Some(symbolic_icon_name)
-                                    },
-                                    other_options,
-                                    mount_point,
-                                    identify_as,
-                                    filesystem_type,
-                                )
-                                .await?;
-                            }
-                        }
+                    let client = FilesystemsClient::new().await?;
+                    if use_defaults {
+                        client.default_mount_options(&device_path).await?;
+                    } else {
+                        client
+                            .edit_mount_options(
+                                &device_path,
+                                mount_at_startup,
+                                show_in_ui,
+                                require_auth,
+                                if display_name.trim().is_empty() {
+                                    None
+                                } else {
+                                    Some(display_name.as_str())
+                                },
+                                if icon_name.trim().is_empty() {
+                                    None
+                                } else {
+                                    Some(icon_name.as_str())
+                                },
+                                if symbolic_icon_name.trim().is_empty() {
+                                    None
+                                } else {
+                                    Some(symbolic_icon_name.as_str())
+                                },
+                                &other_options,
+                                &mount_point,
+                                &identify_as,
+                                &filesystem_type,
+                            )
+                            .await?;
                     }
                     load_all_drives().await
                 },
@@ -378,7 +338,7 @@ pub(super) fn edit_mount_options_message(
                     Ok(drives) => Message::UpdateNav(drives, None).into(),
                     Err(e) => {
                         let ctx = UiErrorContext::new("edit_mount_options");
-                        log_error_and_show_dialog(fl!("edit-mount-options"), e.into(), ctx).into()
+                        log_error_and_show_dialog(fl!("edit-mount-options-failed"), e.into(), ctx).into()
                     }
                 },
             )

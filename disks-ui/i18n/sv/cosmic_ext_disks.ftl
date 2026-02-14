@@ -123,6 +123,7 @@ unlock-missing-partition = Kunde inte hitta { $name } i den aktuella enhetslista
 
 # Volume commands
 edit-mount-options = Redigera monteringsalternativ…
+edit-mount-options-failed = Redigering av monteringsalternativ misslyckades
 edit-encryption-options = Redigera krypteringsalternativ…
 edit-partition = Redigera partition
 edit-partition-no-types = Inga partitionstyper är tillgängliga för denna partitionstabell.

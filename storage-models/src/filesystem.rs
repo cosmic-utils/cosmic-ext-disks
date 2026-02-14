@@ -69,6 +69,31 @@ pub struct MountOptions {
     pub other: Vec<String>,
 }
 
+/// Persistent mount options (fstab-style configuration)
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct MountOptionsSettings {
+    /// How to identify the device (e.g. device path or UUID=...)
+    pub identify_as: String,
+    /// Mount point path
+    pub mount_point: String,
+    /// Filesystem type (e.g. ext4, auto)
+    pub filesystem_type: String,
+    /// Mount at startup
+    pub mount_at_startup: bool,
+    /// Require authentication to mount
+    pub require_auth: bool,
+    /// Show in file manager / UI
+    pub show_in_ui: bool,
+    /// Other fstab options string
+    pub other_options: String,
+    /// Display name (x-gvfs-name)
+    pub display_name: String,
+    /// Icon name (x-gvfs-icon)
+    pub icon_name: String,
+    /// Symbolic icon name (x-gvfs-symbolic-icon)
+    pub symbolic_icon_name: String,
+}
+
 /// Result of filesystem check (fsck)
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CheckResult {
