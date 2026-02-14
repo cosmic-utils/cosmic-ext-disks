@@ -50,20 +50,52 @@ pub use dbus::bytestring::{
     owned_value_to_bytestring,
 };
 
-// Explicit exports from disks module
+// Re-export key types from new modules
+pub use disk::model::DriveModel;
+pub use manager::{DiskManager, DeviceEvent, DeviceEventStream};
+pub use smart::{SmartInfo, SmartSelfTestKind};
+pub use btrfs::{BtrfsFilesystem, BtrfsSubvolume};
+
+// Re-export disks module types for backwards compatibility
 pub use disks::{
-    BtrfsFilesystem, BtrfsSubvolume, DeviceEvent, DeviceEventStream,
-    DiskError, DiskManager, DriveModel, EncryptionOptionsSettings,
-    MountOptionsSettings, SmartInfo, SmartSelfTestKind,
-    VolumeModel, VolumeNode, fallback_gpt_usable_range_bytes,
-    find_processes_using_mount, kill_processes, list_lvs_for_pv,
-    probe_gpt_usable_range_bytes,
+    DiskError, EncryptionOptionsSettings, MountOptionsSettings,
+    VolumeModel, VolumeNode,
 };
 
-// Explicit exports from disks::image submodule
-pub use disks::image::{loop_setup, mount_filesystem, open_for_backup, open_for_restore};
+// Re-export operations from new domain modules
+pub use gpt::{fallback_gpt_usable_range_bytes, probe_gpt_usable_range_bytes};
+pub use lvm::list_lvs_for_pv;
+pub use util::{find_processes_using_mount, kill_processes};
+pub use image::{loop_setup, open_for_backup, open_for_restore};
 
-// NOTE: format utilities moved to storage-models (already re-exported above)
+// Partition operations (from new partition module)
+pub use partition::{
+    create_partition_table, create_partition, delete_partition,
+    resize_partition, set_partition_type, set_partition_flags,
+    set_partition_name, edit_partition,
+};
+
+// Filesystem operations (from new filesystem module)
+pub use filesystem::{
+    format_filesystem, mount_filesystem, unmount_filesystem,
+    check_filesystem, repair_filesystem, get_filesystem_label,
+    set_filesystem_label, take_filesystem_ownership, get_mount_point,
+};
+
+// Encryption operations (from new encryption module)
+pub use encryption::{
+    unlock_luks, lock_luks, change_luks_passphrase,
+    format_luks, list_luks_devices,
+};
+
+// SMART operations (from new smart module)
+pub use smart::{get_drive_smart_info, start_drive_smart_selftest, abort_drive_smart_selftest};
+
+// Disk operations (from new disk module)
+pub use disk::{
+    eject_drive, power_off_drive, standby_drive, wakeup_drive,
+    remove_drive, format_disk,
+};
 
 // Explicit exports from options module (mount/encryption option parsing)
 pub use options::{
@@ -71,37 +103,15 @@ pub use options::{
     set_prefixed_value, set_token_present, split_options, stable_dedup,
 };
 
-// NOTE: partition type catalog moved to storage-models (already re-exported above)
-
 // Explicit exports from udisks_block_config module (UDisks2 configuration helpers)
 pub use udisks_block_config::{ConfigurationItem, UDisks2BlockConfigurationProxy};
 
 // Explicit exports from usage module (filesystem usage statistics)
 pub use usage::{Usage, usage_for_mount_point};
 
-// Export high-level operation functions
-pub use operations::{
-    // Partition operations
-    create_partition_table,
-    create_partition,
-    delete_partition,
-    resize_partition,
-    set_partition_type,
-    set_partition_flags,
-    set_partition_name,
-    // Filesystem operations
-    format_filesystem,
-    mount_filesystem as mount_filesystem_op,
-    unmount_filesystem,
-    check_filesystem,
-    set_filesystem_label,
-    get_filesystem_label,
-    take_filesystem_ownership,
-    get_mount_point,
-    // LUKS operations
-    unlock_luks,
-    lock_luks,
-    change_luks_passphrase,
-    format_luks,
-    list_luks_devices,
-};
+// Legacy: Re-export old operations module for backwards compatibility
+// (These now delegate to new domain modules)
+#[deprecated(note = "Use operations from domain modules (partition::*, filesystem::*, etc.) instead")]
+pub mod legacy_operations {
+    pub use crate::operations::*;
+}

@@ -19,15 +19,8 @@ pub async fn create_partition_table(
     let connection = Connection::system().await
         .map_err(|e| DiskError::ConnectionFailed(e.to_string()))?;
     
-    // Find the drive by device path
-    let drives = crate::DriveModel::get_drives().await
-        .map_err(|e| DiskError::OperationFailed(format!("Failed to get drives: {}", e)))?;
-    let drive = drives.into_iter()
-        .find(|d| d.block_path == disk_path)
-        .ok_or_else(|| DiskError::DeviceNotFound(disk_path.to_string()))?;
-    
-    // Use the drive's format_disk method
-    drive.format_disk(table_type, false).await
+    // Use the new flat format_disk function from disk module
+    crate::disk::format::format_disk(disk_path.to_string(), table_type, false).await
         .map_err(|e| DiskError::OperationFailed(format!("Format disk failed: {}", e)))?;
     
     Ok(())
