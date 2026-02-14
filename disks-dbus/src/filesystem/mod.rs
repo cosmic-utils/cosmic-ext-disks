@@ -7,3 +7,16 @@
 //! - Label management
 //! - Ownership management
 
+mod format;
+mod mount;
+mod check;
+mod label;
+mod ownership;
+pub mod config;
+
+pub use format::format_filesystem;
+pub use mount::{mount_filesystem, unmount_filesystem, get_mount_point};
+pub use check::{check_filesystem, repair_filesystem};
+pub use label::{get_filesystem_label, set_filesystem_label};
+pub use ownership::take_filesystem_ownership;
+
