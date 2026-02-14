@@ -113,6 +113,57 @@
     </defaults>
   </action>
 
+  <!-- LUKS Encryption Operations -->
+  <action id="org.cosmic.ext.storage-service.luks-read">
+    <description>Read LUKS encryption information</description>
+    <message>Authentication is required to read LUKS encryption information</message>
+    <defaults>
+      <allow_any>no</allow_any>
+      <allow_inactive>no</allow_inactive>
+      <allow_active>yes</allow_active>
+    </defaults>
+  </action>
+
+  <action id="org.cosmic.ext.storage-service.luks-unlock">
+    <description>Unlock LUKS encrypted devices</description>
+    <message>Authentication is required to unlock encrypted devices</message>
+    <defaults>
+      <allow_any>no</allow_any>
+      <allow_inactive>no</allow_inactive>
+      <allow_active>yes</allow_active>
+    </defaults>
+  </action>
+
+  <action id="org.cosmic.ext.storage-service.luks-lock">
+    <description>Lock LUKS encrypted devices</description>
+    <message>Authentication is required to lock encrypted devices</message>
+    <defaults>
+      <allow_any>no</allow_any>
+      <allow_inactive>no</allow_inactive>
+      <allow_active>yes</allow_active>
+    </defaults>
+  </action>
+
+  <action id="org.cosmic.ext.storage-service.luks-modify">
+    <description>Modify LUKS encryption keys</description>
+    <message>Authentication is required to modify encryption keys</message>
+    <defaults>
+      <allow_any>auth_admin</allow_any>
+      <allow_inactive>auth_admin</allow_inactive>
+      <allow_active>auth_admin_keep</allow_active>
+    </defaults>
+  </action>
+
+  <action id="org.cosmic.ext.storage-service.luks-format">
+    <description>Create LUKS encrypted containers</description>
+    <message>Authentication is required to create encrypted containers</message>
+    <defaults>
+      <allow_any>auth_admin</allow_any>
+      <allow_inactive>auth_admin</allow_inactive>
+      <allow_active>auth_admin</allow_active>
+    </defaults>
+  </action>
+
   <!-- Filesystem Read Operations -->
   <action id="org.cosmic.ext.storage-service.filesystem-read">
     <description>Read filesystem information</description>
