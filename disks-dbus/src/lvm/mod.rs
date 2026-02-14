@@ -4,3 +4,7 @@
 //! - Listing logical volumes
 //! - (Future: creating/deleting volumes)
 
+pub mod list;
+
+pub use list::*;
+

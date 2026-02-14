@@ -4,3 +4,7 @@
 //! - Probing usable GPT ranges
 //! - GPT alignment helpers
 
+pub mod probe;
+
+pub use probe::*;
+

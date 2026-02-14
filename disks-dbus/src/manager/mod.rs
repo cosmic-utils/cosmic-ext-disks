@@ -4,3 +4,7 @@
 //! - DiskManager for monitoring device changes
 //! - Device event streams
 
+pub mod disk_manager;
+
+pub use disk_manager::*;
+

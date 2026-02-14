@@ -12,7 +12,8 @@ pub mod image;
 pub mod model;
 pub mod volume_tree;
 
-// Re-export key functions
+// Re-export key functions and types
+pub use model::DriveModel;
 pub use power::{eject_drive, power_off_drive, standby_drive, wakeup_drive, remove_drive};
 pub use format::format_disk;
 pub use image::{open_for_backup, open_for_restore};
