@@ -5,7 +5,7 @@
 //! This module provides D-Bus methods for managing LUKS encrypted volumes.
 
 use std::collections::HashMap;
-use udisks2::{block::BlockProxy, encrypted::EncryptedProxy};
+use udisks2::block::BlockProxy;
 use zbus::{interface, Connection};
 use zbus::zvariant::{OwnedObjectPath, OwnedValue, Value};
 use storage_models::{EncryptionOptionsSettings, LuksInfo, LuksVersion};
@@ -23,24 +23,6 @@ impl LuksHandler {
     /// Create a new LuksHandler
     pub fn new() -> Self {
         Self
-    }
-    
-    /// Convert UDisks2 path to device path
-    async fn path_to_device(connection: &Connection, path: &OwnedObjectPath) -> Result<String, zbus::fdo::Error> {
-        let block_proxy = BlockProxy::builder(connection)
-            .path(path)?
-            .build()
-            .await
-            .map_err(|e| zbus::fdo::Error::Failed(format!("Failed to get block device: {e}")))?;
-        
-        let device_bytes = block_proxy.device().await
-            .map_err(|e| zbus::fdo::Error::Failed(format!("Failed to get device path: {e}")))?;
-        
-        // Convert bytestring to String
-        let device = String::from_utf8(device_bytes.into_iter().filter(|&b| b != 0).collect())
-            .unwrap_or_default();
-        
-        Ok(device)
     }
     
     /// Convert device path to UDisks2 path
@@ -91,74 +73,13 @@ impl LuksHandler {
         
         tracing::debug!("Listing encrypted devices");
         
-        // Get all drives and look for LUKS partitions
-        let drives = disks_dbus::DriveModel::get_drives()
+        // Delegate to disks-dbus operation
+        let luks_devices = disks_dbus::list_luks_devices()
             .await
             .map_err(|e| {
-                tracing::error!("Failed to get drives: {e}");
-                zbus::fdo::Error::Failed(format!("Failed to enumerate drives: {e}"))
+                tracing::error!("Failed to list encrypted devices: {e}");
+                zbus::fdo::Error::Failed(format!("Failed to list encrypted devices: {e}"))
             })?;
-        
-        let mut luks_devices = Vec::new();
-        
-        for drive in drives {
-            for volume in &drive.volumes_flat {
-                // Check if this is a LUKS volume
-                if volume.id_type == "crypto_LUKS" {
-                    let device = volume.device_path.clone().unwrap_or_default();
-                    
-                    // Try to get encryption details
-                    if let Ok(encrypted_proxy) = EncryptedProxy::builder(connection)
-                        .path(&volume.path)?
-                        .build()
-                        .await
-                    {
-                        // Check if unlocked
-                        let cleartext = encrypted_proxy.cleartext_device().await.ok();
-                        let unlocked = cleartext.is_some() && !cleartext.as_ref().unwrap().as_str().is_empty();
-                        
-                        let cleartext_device = if unlocked {
-                            cleartext.and_then(|p| {
-                                // Convert path to device
-                                let name = p.as_str().trim_start_matches("/org/freedesktop/UDisks2/block_devices/");
-                                Some(format!("/dev/{}", name.replace('_', "/")))
-                            })
-                        } else {
-                            None
-                        };
-                        
-                        // Get LUKS version and cipher info from block proxy
-                        if let Ok(block_proxy) = BlockProxy::builder(connection)
-                            .path(&volume.path)?
-                            .build()
-                            .await
-                        {
-                            let id_version = block_proxy.id_version().await.unwrap_or_default();
-                            let version = if id_version.contains('2') {
-                                LuksVersion::Luks2
-                            } else {
-                                LuksVersion::Luks1
-                            };
-                            
-                            // Get crypto properties
-                            let cipher = String::from("aes-xts-plain64"); // Default, UDisks2 doesn't expose this easily
-                            let key_size = 256; // Default
-                            let keyslot_count = 8; // LUKS default
-                            
-                            luks_devices.push(LuksInfo {
-                                device,
-                                version,
-                                cipher,
-                                key_size,
-                                unlocked,
-                                cleartext_device,
-                                keyslot_count,
-                            });
-                        }
-                    }
-                }
-            }
-        }
         
         tracing::debug!("Found {} encrypted devices", luks_devices.len());
         
@@ -201,23 +122,8 @@ impl LuksHandler {
             ));
         };
         
-        let path = Self::device_to_path(&device);
-        
-        // Get block proxy
-        let block_proxy = BlockProxy::builder(connection)
-            .path(&path)?
-            .build()
-            .await
-            .map_err(|e| {
-                tracing::error!("Failed to get block device: {e}");
-                zbus::fdo::Error::Failed(format!("Failed to get block device: {e}"))
-            })?;
-        
-        // Format as LUKS
-        let mut options: HashMap<&str, Value<'_>> = HashMap::new();
-        options.insert("encrypt.passphrase", Value::new(passphrase));
-        
-        block_proxy.format(luks_version, options)
+        // Delegate to disks-dbus operation
+        disks_dbus::format_luks(&device, &passphrase, luks_version)
             .await
             .map_err(|e| {
                 tracing::error!("LUKS format failed: {e}");
@@ -251,29 +157,13 @@ impl LuksHandler {
         
         tracing::info!("Unlocking LUKS device '{}'", device);
         
-        let path = Self::device_to_path(&device);
-        
-        // Get encrypted proxy
-        let encrypted_proxy = EncryptedProxy::builder(connection)
-            .path(&path)?
-            .build()
-            .await
-            .map_err(|e| {
-                tracing::error!("Failed to get encrypted device: {e}");
-                zbus::fdo::Error::Failed(format!("Failed to get encrypted device: {e}"))
-            })?;
-        
-        // Unlock
-        let options: HashMap<&str, Value<'_>> = HashMap::new();
-        let cleartext_path = encrypted_proxy.unlock(&passphrase, options)
+        // Delegate to disks-dbus operation
+        let cleartext_device = disks_dbus::unlock_luks(&device, &passphrase)
             .await
             .map_err(|e| {
                 tracing::error!("Unlock failed: {e}");
                 zbus::fdo::Error::Failed(format!("Unlock failed: {e}"))
             })?;
-        
-        // Convert cleartext path to device path
-        let cleartext_device = Self::path_to_device(connection, &cleartext_path).await?;
         
         tracing::info!("LUKS device '{}' unlocked to '{}'", device, cleartext_device);
         let _ = Self::container_unlocked(&signal_ctx, &device, &cleartext_device).await;
@@ -298,21 +188,8 @@ impl LuksHandler {
         
         tracing::info!("Locking LUKS device '{}'", device);
         
-        let path = Self::device_to_path(&device);
-        
-        // Get encrypted proxy
-        let encrypted_proxy = EncryptedProxy::builder(connection)
-            .path(&path)?
-            .build()
-            .await
-            .map_err(|e| {
-                tracing::error!("Failed to get encrypted device: {e}");
-                zbus::fdo::Error::Failed(format!("Failed to get encrypted device: {e}"))
-            })?;
-        
-        // Lock
-        let options: HashMap<&str, Value<'_>> = HashMap::new();
-        encrypted_proxy.lock(options)
+        // Delegate to disks-dbus operation
+        disks_dbus::lock_luks(&device)
             .await
             .map_err(|e| {
                 tracing::error!("Lock failed: {e}");
@@ -345,21 +222,8 @@ impl LuksHandler {
         
         tracing::info!("Changing passphrase for LUKS device '{}'", device);
         
-        let path = Self::device_to_path(&device);
-        
-        // Get encrypted proxy
-        let encrypted_proxy = EncryptedProxy::builder(connection)
-            .path(&path)?
-            .build()
-            .await
-            .map_err(|e| {
-                tracing::error!("Failed to get encrypted device: {e}");
-                zbus::fdo::Error::Failed(format!("Failed to get encrypted device: {e}"))
-            })?;
-        
-        // Change passphrase
-        let options: HashMap<&str, Value<'_>> = HashMap::new();
-        encrypted_proxy.change_passphrase(&current_passphrase, &new_passphrase, options)
+        // Delegate to disks-dbus operation
+        disks_dbus::change_luks_passphrase(&device, &current_passphrase, &new_passphrase)
             .await
             .map_err(|e| {
                 tracing::error!("Change passphrase failed: {e}");

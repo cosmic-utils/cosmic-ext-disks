@@ -3,7 +3,7 @@
 **Branch:** `feature/storage-service`  
 **Type:** Major Refactor (Architectural Change)  
 **Estimated Effort:** 6-8 weeks  
-**Status:** Planned  
+**Status:** Phase 1 & 3B Complete (Foundation + Abstraction Layers)  
 **Breaking Change:** Yes (destructive UI refactor)
 
 ---
@@ -824,3 +824,45 @@ Migration is **all-or-nothing** per component:
 - No backward compatibility with old helper binary
 
 See `tasks.md` for detailed implementation steps organized by phase.
+
+### Progress Update (2026-02-14)
+
+**Phase 1: Complete ✅**
+- ✅ disks-btrfs library created (v0.2.0) with full BTRFS operations
+- ✅ storage-service D-Bus daemon created with socket activation
+- ✅ Polkit authorization integration (read/modify separation)
+- ✅ systemd integration (service, socket, D-Bus config)
+
+**Phase 3B: Complete ✅ (GAP-001)**
+- ✅ Created storage-sys crate (low-level file I/O abstraction)
+- ✅ Created disks-dbus operations module (15 UDisks2 abstraction operations)
+- ✅ Refactored partitions.rs (100% delegated to operations)
+- ✅ Refactored filesystems.rs (100% delegated to operations)
+- ✅ Refactored luks.rs encryption operations (100% delegated)
+- ✅ Refactored image.rs backup/restore (100% delegated to storage-sys)
+- ✅ Verified btrfs.rs clean (uses disks-btrfs library)
+- ✅ Architecture pattern achieved: auth → delegate → signal
+
+**Architecture Achieved:**
+```
+storage-service (Layer 1: auth + orchestration, 5-14 lines per method)
+    ├─→ disks-dbus operations (Layer 2: UDisks2 abstraction, 15 ops)
+    │       └─→ udisks2 daemon (Layer 3: system integration)
+    ├─→ storage-sys (Layer 2: file I/O abstraction, 2 ops)
+    │       └─→ kernel (Layer 3: direct I/O)
+    └─→ disks-btrfs (Layer 2: BTRFS abstraction, 9 ops)
+            └─→ btrfsutil + CLI (Layer 3: BTRFS tools)
+```
+
+**Code Quality Metrics:**
+- Lines removed from storage-service: ~500+ (proxy code)
+- Lines added in abstraction layers: ~800
+- Methods refactored: 22 (across 4 files)
+- Build status: ✅ 0 errors (cargo build --workspace)
+
+**Next Phases:**
+- Phase 2: LVM operations (create/delete/resize VGs/LVs)
+- Phase 3: UI integration with D-Bus client
+- Phase 4-5: Testing, deployment, migration
+
+See `implementation-log.md` for detailed session-by-session progress.

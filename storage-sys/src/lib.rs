@@ -1,0 +1,18 @@
+// SPDX-License-Identifier: GPL-3.0-only
+
+//! Low-level system operations for storage management
+//! 
+//! This crate provides direct system call interfaces for operations that
+//! don't go through D-Bus, such as:
+//! - File descriptor management
+//! - Direct file I/O for disk imaging
+//! - Process management utilities
+//! 
+//! These operations require elevated privileges and should only be called
+//! from privileged services (like storage-service).
+
+pub mod error;
+pub mod image;
+
+pub use error::{SysError, Result};
+pub use image::{open_for_backup, open_for_restore, copy_image_to_file, copy_file_to_image};

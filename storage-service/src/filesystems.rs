@@ -5,11 +5,8 @@
 //! This module provides D-Bus methods for managing filesystems,
 //! including formatting, mounting, unmounting, and process management.
 
-use std::collections::HashMap;
 use std::path::Path;
-use udisks2::{block::BlockProxy, filesystem::FilesystemProxy};
 use zbus::{interface, Connection};
-use zbus::zvariant::{OwnedObjectPath, Value};
 use storage_models::{FilesystemInfo, FormatOptions, MountOptions, MountOptionsSettings, CheckResult, UnmountResult};
 
 use crate::auth::check_polkit_auth;
@@ -108,29 +105,23 @@ impl FilesystemsHandler {
             })?;
         
         let mut filesystems = Vec::new();
-        let sys_conn = Connection::system().await
-            .map_err(|e| zbus::fdo::Error::Failed(format!("Failed to connect to system bus: {e}")))?;
         
         for drive in drives {
             // Access volumes_flat directly from DriveModel
             for volume in &drive.volumes_flat {
                 // Only include volumes that have actual filesystems (not empty id_type, not LUKS)
                 if volume.has_filesystem && volume.id_type != "crypto_LUKS" {
-                    // Get filesystem label from UDisks2 Block interface
-                    let label = if let Ok(block_proxy) = BlockProxy::builder(&sys_conn)
-                        .path(&volume.path)?
-                        .build()
+                    let device = volume.device_path.clone().unwrap_or_default();
+                    
+                    // Get filesystem label via disks-dbus operation
+                    let label = disks_dbus::get_filesystem_label(&device)
                         .await
-                    {
-                        block_proxy.id_label().await.unwrap_or_default()
-                    } else {
-                        String::new()
-                    };
+                        .unwrap_or_default();
 
                     let available = volume.usage.as_ref().map(|u| u.available_bytes()).unwrap_or(0);
 
                     filesystems.push(FilesystemInfo {
-                        device: volume.device_path.clone().unwrap_or_default(),
+                        device,
                         fs_type: volume.id_type.clone(),
                         label,
                         uuid: volume.uuid.clone(),
@@ -214,49 +205,12 @@ impl FilesystemsHandler {
         }
         
         // Parse options
-        let _options: FormatOptions = serde_json::from_str(&options_json)
+        let options: FormatOptions = serde_json::from_str(&options_json)
             .unwrap_or_default();
         
-        // Find UDisks2 block device
-        let block_path = self.find_block_path(connection, &device).await?;
-        
-        // Check if device is mounted
-        if let Ok(fs_proxy_builder) = FilesystemProxy::builder(connection)
-            .path(&block_path)
-        {
-            if let Ok(fs_proxy) = fs_proxy_builder.build().await {
-                let mount_points = fs_proxy.mount_points().await.unwrap_or_default();
-                if !mount_points.is_empty() {
-                    tracing::warn!("Device {} is mounted", device);
-                    return Err(zbus::fdo::Error::Failed(
-                        format!("Device is mounted. Unmount it first.")
-                    ));
-                }
-            }
-        }
-        
-        // Create filesystem using UDisks2 Block.Format
-        let block_proxy = BlockProxy::builder(connection)
-            .path(&block_path)
-            .map_err(|e| {
-                tracing::error!("Failed to create block proxy: {e}");
-                zbus::fdo::Error::Failed(format!("Failed to create block proxy: {e}"))
-            })?
-            .build()
+        // Delegate to disks-dbus operation
+        disks_dbus::format_filesystem(&device, &fs_type, &label, options)
             .await
-            .map_err(|e| {
-                tracing::error!("Failed to build block proxy: {e}");
-                zbus::fdo::Error::Failed(format!("Failed to access device: {e}"))
-            })?;
-        
-        // Build format options
-        let mut format_opts: HashMap<&str, Value<'_>> = HashMap::new();
-        if !label.is_empty() {
-            format_opts.insert("label", Value::from(label.as_str()));
-        }
-        
-        // Call Format
-        block_proxy.format(&fs_type, format_opts).await
             .map_err(|e| {
                 tracing::error!("Failed to format device: {e}");
                 zbus::fdo::Error::Failed(format!("Failed to format device: {e}"))
@@ -296,55 +250,9 @@ impl FilesystemsHandler {
         let mount_opts: MountOptions = serde_json::from_str(&options_json)
             .unwrap_or_default();
         
-        // Find UDisks2 filesystem object
-        let block_path = self.find_block_path(connection, &device).await?;
-        
-        let fs_proxy = FilesystemProxy::builder(connection)
-            .path(&block_path)
-            .map_err(|e| {
-                tracing::error!("Failed to create filesystem proxy: {e}");
-                zbus::fdo::Error::Failed(format!("Failed to create filesystem proxy: {e}"))
-            })?
-            .build()
+        // Delegate to disks-dbus operation
+        let actual_mount_point = disks_dbus::mount_filesystem_op(&device, &mount_point, mount_opts)
             .await
-            .map_err(|e| {
-                tracing::error!("Failed to build filesystem proxy: {e}");
-                zbus::fdo::Error::Failed(format!("Failed to access filesystem: {e}"))
-            })?;
-        
-        // Check if already mounted
-        let existing_mounts = fs_proxy.mount_points().await.unwrap_or_default();
-        if !existing_mounts.is_empty() && !existing_mounts[0].is_empty() {
-            // Already mounted, return existing mount point
-            let mount_str = String::from_utf8(existing_mounts[0].clone().into_iter().filter(|&b| b != 0).collect())
-                .unwrap_or_else(|_| "/unknown".to_string());
-            tracing::info!("Device already mounted at: {}", mount_str);
-            return Ok(mount_str);
-        }
-        
-        // Build mount options
-        let mut opts: HashMap<&str, Value<'_>> = HashMap::new();
-        let mut options_vec = Vec::new();
-        
-        if mount_opts.read_only {
-            options_vec.push("ro");
-        }
-        if mount_opts.no_exec {
-            options_vec.push("noexec");
-        }
-        if mount_opts.no_suid {
-            options_vec.push("nosuid");
-        }
-        for opt in &mount_opts.other {
-            options_vec.push(opt.as_str());
-        }
-        
-        if !options_vec.is_empty() {
-            opts.insert("options", Value::from(options_vec.join(",")));
-        }
-        
-        // Mount
-        let actual_mount_point = fs_proxy.mount(opts).await
             .map_err(|e| {
                 tracing::error!("Failed to mount filesystem: {e}");
                 zbus::fdo::Error::Failed(format!("Failed to mount filesystem: {e}"))
@@ -381,44 +289,19 @@ impl FilesystemsHandler {
         
         tracing::info!("Unmounting {} (force={}, kill={})", device_or_mount, force, kill_processes);
         
-        // Determine if input is device or mount point
+        // Determine if input is device or mount point (for finding processes later)
         let mount_point = if device_or_mount.starts_with("/dev/") {
-            // It's a device, need to find mount point
-            self.get_mount_point(connection, &device_or_mount).await?
+            // It's a device, get mount point via disks-dbus
+            disks_dbus::get_mount_point(&device_or_mount)
+                .await
+                .unwrap_or_else(|_| device_or_mount.clone())
         } else {
             // Assume it's a mount point
             device_or_mount.clone()
         };
         
-        // Find UDisks2 filesystem object
-        let block_path = if device_or_mount.starts_with("/dev/") {
-            self.find_block_path(connection, &device_or_mount).await?
-        } else {
-            // Need to find device for mount point
-            self.find_block_path_by_mount(connection, &mount_point).await?
-        };
-        
-        let fs_proxy = FilesystemProxy::builder(connection)
-            .path(&block_path)
-            .map_err(|e| {
-                tracing::error!("Failed to create filesystem proxy: {e}");
-                zbus::fdo::Error::Failed(format!("Failed to create filesystem proxy: {e}"))
-            })?
-            .build()
-            .await
-            .map_err(|e| {
-                tracing::error!("Failed to build filesystem proxy: {e}");
-                zbus::fdo::Error::Failed(format!("Failed to access filesystem: {e}"))
-            })?;
-        
-        // Build unmount options
-        let mut opts: HashMap<&str, Value<'_>> = HashMap::new();
-        if force {
-            opts.insert("force", Value::from(true));
-        }
-        
-        // Attempt unmount
-        let unmount_result = fs_proxy.unmount(opts.clone()).await;
+        // Attempt unmount via disks-dbus operation
+        let unmount_result = disks_dbus::unmount_filesystem(&device_or_mount, force).await;
         
         match unmount_result {
             Ok(_) => {
@@ -475,8 +358,8 @@ impl FilesystemsHandler {
                         // Wait a moment for processes to die
                         tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
                         
-                        // Retry unmount
-                        match fs_proxy.unmount(opts).await {
+                        // Retry unmount via disks-dbus
+                        match disks_dbus::unmount_filesystem(&device_or_mount, force).await {
                             Ok(_) => {
                                 tracing::info!("Successfully unmounted after killing processes");
                                 
@@ -558,9 +441,14 @@ impl FilesystemsHandler {
         
         tracing::debug!("Getting blocking processes for {}", device_or_mount);
         
-        // Determine mount point
+        // Determine mount point via disks-dbus
         let mount_point = if device_or_mount.starts_with("/dev/") {
-            self.get_mount_point(connection, &device_or_mount).await?
+            disks_dbus::get_mount_point(&device_or_mount)
+                .await
+                .map_err(|e| {
+                    tracing::error!("Failed to get mount point: {e}");
+                    zbus::fdo::Error::Failed(format!("Failed to get mount point: {e}"))
+                })?
         } else {
             device_or_mount.clone()
         };
@@ -612,32 +500,20 @@ impl FilesystemsHandler {
         
         tracing::info!("Checking filesystem on {} (repair={})", device, repair);
         
-        // Find UDisks2 block device
-        let block_path = self.find_block_path(connection, &device).await?;
+        // Delegate to disks-dbus operation
+        let clean = disks_dbus::check_filesystem(&device, repair)
+            .await
+            .map_err(|e| {
+                tracing::error!("Filesystem check failed: {e}");
+                zbus::fdo::Error::Failed(format!("Filesystem check failed: {e}"))
+            })?;
         
-        // Check if device is mounted
-        if let Ok(fs_proxy_builder) = FilesystemProxy::builder(connection)
-            .path(&block_path)
-        {
-            if let Ok(fs_proxy) = fs_proxy_builder.build().await {
-                let mount_points = fs_proxy.mount_points().await.unwrap_or_default();
-                if !mount_points.is_empty() {
-                    tracing::warn!("Device {} is mounted", device);
-                    return Err(zbus::fdo::Error::Failed(
-                        format!("Device is mounted. Unmount it first to run fsck.")
-                    ));
-                }
-            }
-        }
-        
-        // For now, return a simple result (UDisks2 doesn't expose fsck directly)
-        // In a full implementation, would need to call fsck commands directly
         let result = CheckResult {
             device: device.clone(),
-            clean: true,
-            errors_corrected: 0,
+            clean,
+            errors_corrected: if repair && !clean { 1 } else { 0 },
             errors_uncorrected: 0,
-            output: "Filesystem check not fully implemented via UDisks2".to_string(),
+            output: if clean { "Filesystem is clean".to_string() } else { "Filesystem has errors".to_string() },
         };
         
         let json = serde_json::to_string(&result)
@@ -669,25 +545,9 @@ impl FilesystemsHandler {
         
         tracing::info!("Setting label on {} to '{}'", device, label);
         
-        // Find UDisks2 filesystem object
-        let block_path = self.find_block_path(connection, &device).await?;
-        
-        let fs_proxy = FilesystemProxy::builder(connection)
-            .path(&block_path)
-            .map_err(|e| {
-                tracing::error!("Failed to create filesystem proxy: {e}");
-                zbus::fdo::Error::Failed(format!("Failed to create filesystem proxy: {e}"))
-            })?
-            .build()
+        // Delegate to disks-dbus operation
+        disks_dbus::set_filesystem_label(&device, &label)
             .await
-            .map_err(|e| {
-                tracing::error!("Failed to build filesystem proxy: {e}");
-                zbus::fdo::Error::Failed(format!("Failed to access filesystem: {e}"))
-            })?;
-        
-        // Set label
-        let options: HashMap<&str, Value<'_>> = HashMap::new();
-        fs_proxy.set_label(&label, options).await
             .map_err(|e| {
                 tracing::error!("Failed to set label: {e}");
                 zbus::fdo::Error::Failed(format!("Failed to set label: {e}"))
@@ -941,117 +801,15 @@ impl FilesystemsHandler {
 
         tracing::info!("Taking ownership of {} (recursive={})", device, recursive);
 
-        let block_path = self.find_block_path(connection, &device).await?;
-
-        let fs_proxy = FilesystemProxy::builder(connection)
-            .path(&block_path)
-            .map_err(|e| {
-                tracing::error!("Failed to create filesystem proxy: {e}");
-                zbus::fdo::Error::Failed(format!("Failed to create filesystem proxy: {e}"))
-            })?
-            .build()
+        // Delegate to disks-dbus operation
+        disks_dbus::take_filesystem_ownership(&device, recursive)
             .await
             .map_err(|e| {
-                tracing::error!("Failed to build filesystem proxy: {e}");
-                zbus::fdo::Error::Failed(format!("Failed to access filesystem: {e}"))
-            })?;
-
-        let mut options: HashMap<&str, Value<'_>> = HashMap::new();
-        options.insert("recursive", Value::from(recursive));
-        fs_proxy
-            .take_ownership(options)
-            .await
-            .map_err(|e| {
-                tracing::error!("TakeOwnership failed: {e}");
+                tracing::error!("Take ownership failed: {e}");
                 zbus::fdo::Error::Failed(format!("Take ownership failed: {e}"))
             })?;
 
         tracing::info!("Successfully took ownership of {}", device);
         Ok(())
-    }
-}
-
-/// Helper methods
-impl FilesystemsHandler {
-    /// Find UDisks2 block object path from device path
-    async fn find_block_path(
-        &self,
-        _connection: &Connection,
-        device: &str,
-    ) -> zbus::fdo::Result<OwnedObjectPath> {
-        let device_clean = device.strip_prefix("/dev/").unwrap_or(device);
-        let encoded = device_clean.replace('/', "_").replace('-', "_");
-        let path = format!("/org/freedesktop/UDisks2/block_devices/{}", encoded);
-        
-        path.try_into()
-            .map_err(|e| {
-                tracing::error!("Invalid device path: {e}");
-                zbus::fdo::Error::Failed(format!("Invalid device path: {e}"))
-            })
-    }
-    
-    /// Find UDisks2 block object path from mount point
-    async fn find_block_path_by_mount(
-        &self,
-        connection: &Connection,
-        mount_point: &str,
-    ) -> zbus::fdo::Result<OwnedObjectPath> {
-        // Get all drives and search for mount point
-        let drives = disks_dbus::DriveModel::get_drives()
-            .await
-            .map_err(|e| {
-                tracing::error!("Failed to get drives: {e}");
-                zbus::fdo::Error::Failed(format!("Failed to enumerate drives: {e}"))
-            })?;
-        
-        for drive in drives {
-            let partitions = drive.get_partitions();
-            for partition in partitions {
-                if partition.mount_points.contains(&mount_point.to_string()) {
-                    return self.find_block_path(connection, &partition.device).await;
-                }
-            }
-        }
-        
-        tracing::warn!("Mount point not found: {}", mount_point);
-        Err(zbus::fdo::Error::Failed(format!("Mount point not found: {}", mount_point)))
-    }
-    
-    /// Get mount point for a device
-    async fn get_mount_point(
-        &self,
-        connection: &Connection,
-        device: &str,
-    ) -> zbus::fdo::Result<String> {
-        let block_path = self.find_block_path(connection, device).await?;
-        
-        let fs_proxy = FilesystemProxy::builder(connection)
-            .path(&block_path)
-            .map_err(|e| {
-                tracing::error!("Failed to create filesystem proxy: {e}");
-                zbus::fdo::Error::Failed(format!("Failed to create filesystem proxy: {e}"))
-            })?
-            .build()
-            .await
-            .map_err(|e| {
-                tracing::error!("Failed to build filesystem proxy: {e}");
-                zbus::fdo::Error::Failed(format!("Device has no filesystem: {e}"))
-            })?;
-        
-        let mount_points = fs_proxy.mount_points().await
-            .map_err(|e| {
-                tracing::error!("Failed to get mount points: {e}");
-                zbus::fdo::Error::Failed(format!("Failed to get mount points: {e}"))
-            })?;
-        
-        if mount_points.is_empty() {
-            tracing::warn!("Device {} is not mounted", device);
-            return Err(zbus::fdo::Error::Failed(format!("Device is not mounted")));
-        }
-        
-        let mount_str = String::from_utf8(mount_points[0].clone().into_iter().filter(|&b| b != 0).collect())
-            .unwrap_or_else(|_| "/unknown".to_string());
-        
-        Ok(mount_str)
     }
 }

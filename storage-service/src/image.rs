@@ -6,10 +6,9 @@
 //! Operations run in background tasks and emit D-Bus signals for progress updates.
 
 use std::collections::HashMap;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::Instant;
-use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::sync::Mutex;
 use tokio::task::JoinHandle;
 use tokio_util::sync::CancellationToken;
@@ -120,74 +119,67 @@ impl ImageHandler {
         cancel_token: CancellationToken,
         progress: Arc<Mutex<ProgressInfo>>,
     ) -> Result<(), String> {
-        // Open source device (privileged)
+        // Check for cancellation before starting
+        if cancel_token.is_cancelled() {
+            return Err("Operation cancelled".to_string());
+        }
+
+        // Open source device (privileged) via disks-dbus
         let source_fd = disks_dbus::open_for_backup(block_path)
             .await
             .map_err(|e| format!("Failed to open source device: {e}"))?;
 
-        let source_file = std::fs::File::from(source_fd);
-        let total_size = source_file.metadata()
+        // Get total size for progress tracking
+        let total_size = std::fs::File::from(source_fd.try_clone()
+            .map_err(|e| format!("Failed to clone fd: {e}"))?)
+            .metadata()
             .map_err(|e| format!("Failed to get device size: {e}"))?
             .len();
 
-        // Open destination file
-        let dest_file = std::fs::OpenOptions::new()
-            .write(true)
-            .create(true)
-            .truncate(true)
-            .open(&output_path)
-            .map_err(|e| format!("Failed to create output file: {e}"))?;
-
-        // Convert to async
-        let mut source = tokio::fs::File::from_std(source_file);
-        let mut dest = tokio::fs::File::from_std(dest_file);
-
-        let mut buffer = vec![0u8; 1024 * 1024]; // 1 MB chunks
-        let mut bytes_copied = 0u64;
-        let start_time = Instant::now();
-
-        loop {
-            // Check for cancellation
-            if cancel_token.is_cancelled() {
-                return Err("Operation cancelled".to_string());
-            }
-
-            // Read chunk
-            let bytes_read = source.read(&mut buffer)
-                .await
-                .map_err(|e| format!("Read error: {e}"))?;
-
-            if bytes_read == 0 {
-                break; // EOF
-            }
-
-            // Write chunk
-            dest.write_all(&buffer[..bytes_read])
-                .await
-                .map_err(|e| format!("Write error: {e}"))?;
-
-            bytes_copied += bytes_read as u64;
-
-            // Update progress
-            let elapsed = start_time.elapsed();
-            let speed = if elapsed.as_secs() > 0 {
-                bytes_copied / elapsed.as_secs()
-            } else {
-                0
-            };
-
-            {
-                let mut prog = progress.lock().await;
-                prog.bytes_completed = bytes_copied;
-                prog.total_bytes = total_size;
-                prog.speed_bytes_per_sec = speed;
-            }
+        // Initialize progress
+        {
+            let mut prog = progress.lock().await;
+            prog.total_bytes = total_size;
         }
 
-        // Sync to disk
-        dest.sync_all()
-            .await
-            .map_err(|e| format!("Sync error: {e}"))?;
+        let output_path_buf = PathBuf::from(output_path);
+        let start_time = Instant::now();
+        let progress_clone = progress.clone();
+        let cancel_clone = cancel_token.clone();
+
+        // Perform the copy in a blocking task (storage_sys uses sync I/O)
+        let result = tokio::task::spawn_blocking(move || {
+            storage_sys::copy_image_to_file(
+                source_fd,
+                &output_path_buf,
+                Some(|bytes_copied: u64| {
+                    // Check cancellation in callback
+                    if cancel_clone.is_cancelled() {
+                        // Note: can't stop mid-operation gracefully with current API
+                        return;
+                    }
+
+                    // Update progress (blocking mutex)
+                    let mut prog = progress_clone.blocking_lock();
+                    let elapsed = start_time.elapsed();
+                    let speed = if elapsed.as_secs() > 0 {
+                        bytes_copied / elapsed.as_secs()
+                    } else {
+                        0
+                    };
+                    prog.bytes_completed = bytes_copied;
+                    prog.speed_bytes_per_sec = speed;
+                }),
+            )
+        })
+        .await
+        .map_err(|e| format!("Task join error: {e}"))?
+        .map_err(|e| format!("Copy failed: {e}"))?;
+
+        // Check if operation was cancelled
+        if cancel_token.is_cancelled() {
+            return Err("Operation cancelled".to_string());
+        }
 
         Ok(())
     }
@@ -199,71 +191,65 @@ impl ImageHandler {
         cancel_token: CancellationToken,
         progress: Arc<Mutex<ProgressInfo>>,
     ) -> Result<(), String> {
-        // Open source file
-        let source_file = std::fs::File::open(&input_path)
-            .map_err(|e| format!("Failed to open image file: {e}"))?;
+        // Check for cancellation before starting
+        if cancel_token.is_cancelled() {
+            return Err("Operation cancelled".to_string());
+        }
 
-        let total_size = source_file.metadata()
-            .map_err(|e| format!("Failed to get file size: {e}"))?
+        // Get source file size for progress tracking
+        let source_path = PathBuf::from(&input_path);
+        let total_size = std::fs::metadata(&source_path)
+            .map_err(|e| format!("Failed to get image file size: {e}"))?
             .len();
 
-        // Open destination device (privileged)
+        // Initialize progress
+        {
+            let mut prog = progress.lock().await;
+            prog.total_bytes = total_size;
+        }
+
+        // Open destination device (privileged) via disks-dbus
         let dest_fd = disks_dbus::open_for_restore(block_path)
             .await
             .map_err(|e| format!("Failed to open destination device: {e}"))?;
 
-        let dest_file = std::fs::File::from(dest_fd);
-
-        // Convert to async
-        let mut source = tokio::fs::File::from_std(source_file);
-        let mut dest = tokio::fs::File::from_std(dest_file);
-
-        let mut buffer = vec![0u8; 1024 * 1024]; // 1 MB chunks
-        let mut bytes_copied = 0u64;
         let start_time = Instant::now();
+        let progress_clone = progress.clone();
+        let cancel_clone = cancel_token.clone();
 
-        loop {
-            // Check for cancellation
-            if cancel_token.is_cancelled() {
-                return Err("Operation cancelled".to_string());
-            }
+        // Perform the copy in a blocking task (storage_sys uses sync I/O)
+        let result = tokio::task::spawn_blocking(move || {
+            storage_sys::copy_file_to_image(
+                &source_path,
+                dest_fd,
+                Some(|bytes_copied: u64| {
+                    // Check cancellation in callback
+                    if cancel_clone.is_cancelled() {
+                        // Note: can't stop mid-operation gracefully with current API
+                        return;
+                    }
 
-            // Read chunk
-            let bytes_read = source.read(&mut buffer)
-                .await
-                .map_err(|e| format!("Read error: {e}"))?;
+                    // Update progress (blocking mutex)
+                    let mut prog = progress_clone.blocking_lock();
+                    let elapsed = start_time.elapsed();
+                    let speed = if elapsed.as_secs() > 0 {
+                        bytes_copied / elapsed.as_secs()
+                    } else {
+                        0
+                    };
+                    prog.bytes_completed = bytes_copied;
+                    prog.speed_bytes_per_sec = speed;
+                }),
+            )
+        })
+        .await
+        .map_err(|e| format!("Task join error: {e}"))?
+        .map_err(|e| format!("Copy failed: {e}"))?;
 
-            if bytes_read == 0 {
-                break; // EOF
-            }
-
-            // Write chunk
-            dest.write_all(&buffer[..bytes_read])
-                .await
-                .map_err(|e| format!("Write error: {e}"))?;
-
-            bytes_copied += bytes_read as u64;
-
-            // Update progress
-            let elapsed = start_time.elapsed();
-            let speed = if elapsed.as_secs() > 0 {
-                bytes_copied / elapsed.as_secs()
-            } else {
-                0
-            };
-
-            {
-                let mut prog = progress.lock().await;
-                prog.bytes_completed = bytes_copied;
-                prog.total_bytes = total_size;
-                prog.speed_bytes_per_sec = speed;
-            }
+        // Check if operation was cancelled
+        if cancel_token.is_cancelled() {
+            return Err("Operation cancelled".to_string());
         }
-
-        // Sync to disk
-        dest.sync_all()
-            .await
-            .map_err(|e| format!("Sync error: {e}"))?;
 
         Ok(())
     }

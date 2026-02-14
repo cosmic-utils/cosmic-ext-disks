@@ -5,10 +5,8 @@
 //! This module provides D-Bus methods for managing disk partitions,
 //! including creating/deleting partitions and partition tables.
 
-use std::collections::HashMap;
-use udisks2::{partition::PartitionProxy, partitiontable::PartitionTableProxy, block::BlockProxy};
 use zbus::{interface, Connection};
-use zbus::zvariant::{OwnedObjectPath, Value};
+use zbus::zvariant::OwnedObjectPath;
 
 use crate::auth::check_polkit_auth;
 
@@ -285,60 +283,18 @@ impl PartitionsHandler {
                 zbus::fdo::Error::Failed(format!("Device not found: {disk}"))
             })?;
         
-        // Get block path from drive
-        let block_path: OwnedObjectPath = drive_model.block_path.as_str().try_into()
-            .map_err(|e| {
-                tracing::error!("Invalid block path: {e}");
-                zbus::fdo::Error::Failed(format!("Invalid block path: {e}"))
-            })?;
-        
-        // Create partition using UDisks2 PartitionTable.CreatePartition
-        let table_proxy = PartitionTableProxy::builder(connection)
-            .path(&block_path)
-            .map_err(|e| {
-                tracing::error!("Failed to create proxy: {e}");
-                zbus::fdo::Error::Failed(format!("Failed to create proxy: {e}"))
-            })?
-            .build()
-            .await
-            .map_err(|e| {
-                tracing::error!("Failed to build partition table proxy: {e}");
-                zbus::fdo::Error::Failed(format!("Failed to access partition table: {e}"))
-            })?;
-        
-        // Call CreatePartition
-        let options: HashMap<&str, Value<'_>> = HashMap::new();
-        let partition_path = table_proxy
-            .create_partition(offset, size, &type_id, "", options)
-            .await
-            .map_err(|e| {
-                tracing::error!("Failed to create partition: {e}");
-                zbus::fdo::Error::Failed(format!("Failed to create partition: {e}"))
-            })?;
-        
-        // Get device path of created partition
-        let block_proxy = BlockProxy::builder(connection)
-            .path(&partition_path)
-            .map_err(|e| {
-                tracing::error!("Failed to create block proxy: {e}");
-                zbus::fdo::Error::Failed(format!("Failed to create block proxy: {e}"))
-            })?
-            .build()
-            .await
-            .map_err(|e| {
-                tracing::error!("Failed to build block proxy: {e}");
-                zbus::fdo::Error::Failed(format!("Failed to access created partition: {e}"))
-            })?;
-        
-        let device_bytes = block_proxy.preferred_device().await
-            .map_err(|e| {
-                tracing::error!("Failed to get device path: {e}");
-                zbus::fdo::Error::Failed(format!("Failed to get device path: {e}"))
-            })?;
-        
-        // Decode device path from bytestring
-        let device_path = String::from_utf8(device_bytes.into_iter().filter(|&b| b != 0).collect())
-            .unwrap_or_else(|_| format!("/dev/{}", partition_path.as_str().rsplit('/').next().unwrap_or("unknown")));
+        // Delegate to disks-dbus operation wrapper
+        let device_path = disks_dbus::create_partition(
+            &drive_model.block_path,
+            offset,
+            size,
+            &type_id,
+        )
+        .await
+        .map_err(|e| {
+            tracing::error!("Failed to create partition: {e}");
+            zbus::fdo::Error::Failed(format!("Failed to create partition: {e}"))
+        })?;
         
         tracing::info!("Successfully created partition: {}", device_path);
         let partition_info_json = serde_json::to_string(&storage_models::PartitionInfo {
@@ -384,37 +340,9 @@ impl PartitionsHandler {
         // Find partition path from device
         let partition_path = self.find_partition_path(&partition).await?;
         
-        // Check mount points
-        if let Ok(fs_proxy_builder) = udisks2::filesystem::FilesystemProxy::builder(connection)
-            .path(&partition_path)
-        {
-            if let Ok(fs_proxy) = fs_proxy_builder.build().await {
-                let mount_points = fs_proxy.mount_points().await.unwrap_or_default();
-                if !mount_points.is_empty() {
-                    tracing::warn!("Partition {} is mounted", partition);
-                    return Err(zbus::fdo::Error::Failed(
-                        format!("Partition is mounted. Unmount it first.")
-                    ));
-                }
-            }
-        }
-        
-        // Delete partition
-        let partition_proxy = PartitionProxy::builder(connection)
-            .path(&partition_path)
-            .map_err(|e| {
-                tracing::error!("Failed to create partition proxy: {e}");
-                zbus::fdo::Error::Failed(format!("Failed to create partition proxy: {e}"))
-            })?
-            .build()
+        // Delegate to disks-dbus operation
+        disks_dbus::delete_partition(&partition_path.to_string())
             .await
-            .map_err(|e| {
-                tracing::error!("Failed to build partition proxy: {e}");
-                zbus::fdo::Error::Failed(format!("Failed to access partition: {e}"))
-            })?;
-        
-        let options: HashMap<&str, Value<'_>> = HashMap::new();
-        partition_proxy.delete(options).await
             .map_err(|e| {
                 tracing::error!("Failed to delete partition: {e}");
                 zbus::fdo::Error::Failed(format!("Failed to delete partition: {e}"))
@@ -450,22 +378,9 @@ impl PartitionsHandler {
         // Find partition path
         let partition_path = self.find_partition_path(&partition).await?;
         
-        // Resize partition
-        let partition_proxy = PartitionProxy::builder(connection)
-            .path(&partition_path)
-            .map_err(|e| {
-                tracing::error!("Failed to create partition proxy: {e}");
-                zbus::fdo::Error::Failed(format!("Failed to create partition proxy: {e}"))
-            })?
-            .build()
+        // Delegate to disks-dbus operation
+        disks_dbus::resize_partition(&partition_path.to_string(), new_size)
             .await
-            .map_err(|e| {
-                tracing::error!("Failed to build partition proxy: {e}");
-                zbus::fdo::Error::Failed(format!("Failed to access partition: {e}"))
-            })?;
-        
-        let options: HashMap<&str, Value<'_>> = HashMap::new();
-        partition_proxy.resize(new_size, options).await
             .map_err(|e| {
                 tracing::error!("Failed to resize partition: {e}");
                 zbus::fdo::Error::Failed(format!("Failed to resize partition: {e}"))
@@ -501,22 +416,9 @@ impl PartitionsHandler {
         // Find partition path
         let partition_path = self.find_partition_path(&partition).await?;
         
-        // Set partition type
-        let partition_proxy = PartitionProxy::builder(connection)
-            .path(&partition_path)
-            .map_err(|e| {
-                tracing::error!("Failed to create partition proxy: {e}");
-                zbus::fdo::Error::Failed(format!("Failed to create partition proxy: {e}"))
-            })?
-            .build()
+        // Delegate to disks-dbus operation
+        disks_dbus::set_partition_type(&partition_path.to_string(), &type_id)
             .await
-            .map_err(|e| {
-                tracing::error!("Failed to build partition proxy: {e}");
-                zbus::fdo::Error::Failed(format!("Failed to access partition: {e}"))
-            })?;
-        
-        let options: HashMap<&str, Value<'_>> = HashMap::new();
-        partition_proxy.set_type(&type_id, options).await
             .map_err(|e| {
                 tracing::error!("Failed to set partition type: {e}");
                 zbus::fdo::Error::Failed(format!("Failed to set partition type: {e}"))
@@ -552,23 +454,9 @@ impl PartitionsHandler {
         // Find partition path
         let partition_path = self.find_partition_path(&partition).await?;
         
-        // Set partition flags
-        let partition_proxy = PartitionProxy::builder(connection)
-            .path(&partition_path)
-            .map_err(|e| {
-                tracing::error!("Failed to create partition proxy: {e}");
-                zbus::fdo::Error::Failed(format!("Failed to create partition proxy: {e}"))
-            })?
-            .build()
+        // Delegate to disks-dbus operation
+        disks_dbus::set_partition_flags(&partition_path.to_string(), flags)
             .await
-            .map_err(|e| {
-                tracing::error!("Failed to build partition proxy: {e}");
-                zbus::fdo::Error::Failed(format!("Failed to access partition: {e}"))
-            })?;
-        
-        let options: HashMap<&str, Value<'_>> = HashMap::new();
-        let flags_bitfield = enumflags2::BitFlags::from_bits_truncate(flags);
-        partition_proxy.set_flags(flags_bitfield, options).await
             .map_err(|e| {
                 tracing::error!("Failed to set partition flags: {e}");
                 zbus::fdo::Error::Failed(format!("Failed to set partition flags: {e}"))
@@ -612,22 +500,9 @@ impl PartitionsHandler {
         // Find partition path
         let partition_path = self.find_partition_path(&partition).await?;
         
-        // Set partition name
-        let partition_proxy = PartitionProxy::builder(connection)
-            .path(&partition_path)
-            .map_err(|e| {
-                tracing::error!("Failed to create partition proxy: {e}");
-                zbus::fdo::Error::Failed(format!("Failed to create partition proxy: {e}"))
-            })?
-            .build()
+        // Delegate to disks-dbus operation
+        disks_dbus::set_partition_name(&partition_path.to_string(), &name)
             .await
-            .map_err(|e| {
-                tracing::error!("Failed to build partition proxy: {e}");
-                zbus::fdo::Error::Failed(format!("Failed to access partition: {e}"))
-            })?;
-        
-        let options: HashMap<&str, Value<'_>> = HashMap::new();
-        partition_proxy.set_name(&name, options).await
             .map_err(|e| {
                 tracing::error!("Failed to set partition name: {e}");
                 zbus::fdo::Error::Failed(format!("Failed to set partition name: {e}"))

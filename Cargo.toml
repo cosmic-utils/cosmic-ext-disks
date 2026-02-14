@@ -5,6 +5,7 @@ members = [
     "disks-btrfs",         # New library
     "storage-service",     # New D-Bus service
     "storage-models",      # Shared data models
+    "storage-sys",         # Low-level system operations
 ]
 default-members = ["disks-ui"]
 resolver = "2"

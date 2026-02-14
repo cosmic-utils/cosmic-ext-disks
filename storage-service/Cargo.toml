@@ -47,3 +47,4 @@ enumflags2.workspace = true
 disks-btrfs = { path = "../disks-btrfs" }
 disks-dbus.workspace = true
 storage-models.workspace = true
+storage-sys = { path = "../storage-sys", package = "cosmic-ext-disks-storage-sys" }

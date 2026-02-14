@@ -1,5 +1,6 @@
 mod dbus;
 mod disks;
+mod operations;
 mod options;
 mod udisks_block_config;
 mod usage;
@@ -63,3 +64,30 @@ pub use udisks_block_config::{ConfigurationItem, UDisks2BlockConfigurationProxy}
 
 // Explicit exports from usage module (filesystem usage statistics)
 pub use usage::{Usage, usage_for_mount_point};
+
+// Export high-level operation functions
+pub use operations::{
+    // Partition operations
+    create_partition_table,
+    create_partition,
+    delete_partition,
+    resize_partition,
+    set_partition_type,
+    set_partition_flags,
+    set_partition_name,
+    // Filesystem operations
+    format_filesystem,
+    mount_filesystem as mount_filesystem_op,
+    unmount_filesystem,
+    check_filesystem,
+    set_filesystem_label,
+    get_filesystem_label,
+    take_filesystem_ownership,
+    get_mount_point,
+    // LUKS operations
+    unlock_luks,
+    lock_luks,
+    change_luks_passphrase,
+    format_luks,
+    list_luks_devices,
+};
