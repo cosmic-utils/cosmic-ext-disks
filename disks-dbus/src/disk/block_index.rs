@@ -7,8 +7,8 @@ use std::collections::HashMap;
 
 use anyhow::Result;
 use udisks2::block::BlockProxy;
-use zbus::zvariant::OwnedObjectPath;
 use zbus::Connection;
+use zbus::zvariant::OwnedObjectPath;
 
 use crate::dbus::bytestring as bs;
 

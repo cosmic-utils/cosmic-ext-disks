@@ -1,4 +1,5 @@
 use crate::config::Config;
+use crate::models::UiDrive;
 use crate::ui::app::state::ContextPage;
 use crate::ui::dialogs::message::{
     AttachDiskImageDialogMessage, FormatDiskMessage, ImageOperationDialogMessage,
@@ -6,7 +7,6 @@ use crate::ui::dialogs::message::{
 };
 use crate::ui::dialogs::state::ShowDialog;
 use crate::ui::volumes::VolumesControlMessage;
-use crate::models::UiDrive;
 
 /// Messages emitted by the application and its widgets.
 #[derive(Debug, Clone)]

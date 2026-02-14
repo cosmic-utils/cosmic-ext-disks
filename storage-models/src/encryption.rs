@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 pub enum LuksVersion {
     /// LUKS version 1
     Luks1,
-    
+
     /// LUKS version 2
     Luks2,
 }
@@ -22,7 +22,7 @@ impl LuksVersion {
             Self::Luks2 => "luks2",
         }
     }
-    
+
     /// Parse from string
     pub fn from_str(s: &str) -> Option<Self> {
         match s.to_lowercase().as_str() {
@@ -38,22 +38,22 @@ impl LuksVersion {
 pub struct LuksInfo {
     /// Device path of encrypted container (e.g., "/dev/sda1")
     pub device: String,
-    
+
     /// LUKS version
     pub version: LuksVersion,
-    
+
     /// Cipher algorithm (e.g., "aes-xts-plain64")
     pub cipher: String,
-    
+
     /// Key size in bits
     pub key_size: u32,
-    
+
     /// Whether the container is currently unlocked
     pub unlocked: bool,
-    
+
     /// Cleartext device path (e.g., "/dev/mapper/luks-xxx") if unlocked
     pub cleartext_device: Option<String>,
-    
+
     /// Number of keyslots
     pub keyslot_count: u8,
 }
@@ -63,7 +63,7 @@ impl LuksInfo {
     pub fn can_unlock(&self) -> bool {
         !self.unlocked
     }
-    
+
     /// Check if this LUKS container can be locked
     pub fn can_lock(&self) -> bool {
         self.unlocked

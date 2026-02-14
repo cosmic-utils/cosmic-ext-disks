@@ -2,10 +2,10 @@
 
 //! LUKS encryption / formatting operations
 
+use crate::error::DiskError;
 use std::collections::HashMap;
 use udisks2::block::BlockProxy;
 use zbus::{Connection, zvariant::Value};
-use crate::error::DiskError;
 
 /// Format a device as LUKS encrypted container
 pub async fn format_luks(
@@ -13,7 +13,8 @@ pub async fn format_luks(
     passphrase: &str,
     version: &str,
 ) -> Result<(), DiskError> {
-    let connection = Connection::system().await
+    let connection = Connection::system()
+        .await
         .map_err(|e| DiskError::ConnectionFailed(e.to_string()))?;
 
     let block_path = crate::disk::resolve::block_object_path_for_device(device_path).await?;
@@ -23,19 +24,21 @@ pub async fn format_luks(
         .build()
         .await
         .map_err(|e| DiskError::DBusError(e.to_string()))?;
-    
+
     // Validate and use LUKS version
     let luks_type = if version == "luks1" {
         "luks1"
     } else {
         "luks2" // Default to luks2
     };
-    
+
     let mut options: HashMap<&str, Value<'_>> = HashMap::new();
     options.insert("encrypt.passphrase", Value::from(passphrase));
-    
-    block_proxy.format(luks_type, options).await
+
+    block_proxy
+        .format(luks_type, options)
+        .await
         .map_err(|e| DiskError::OperationFailed(format!("Format failed: {}", e)))?;
-    
+
     Ok(())
 }

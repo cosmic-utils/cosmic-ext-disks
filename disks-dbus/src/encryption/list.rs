@@ -2,8 +2,8 @@
 
 //! LUKS device listing
 
-use storage_models::LuksInfo;
 use crate::error::DiskError;
+use storage_models::LuksInfo;
 
 /// List all LUKS encrypted devices
 pub async fn list_luks_devices() -> Result<Vec<LuksInfo>, DiskError> {

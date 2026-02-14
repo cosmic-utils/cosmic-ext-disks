@@ -2,9 +2,9 @@
 
 //! Backup and restore operations
 
+use anyhow::Result;
 use std::collections::HashMap;
 use std::os::fd::OwnedFd;
-use anyhow::Result;
 use zbus::zvariant::{OwnedFd as ZOwnedFd, OwnedObjectPath, Value};
 
 use crate::image::udisks_call::call_udisks_raw;

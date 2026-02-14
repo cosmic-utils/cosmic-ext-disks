@@ -46,11 +46,14 @@ pub(super) fn mount(control: &mut VolumesControl) -> Task<cosmic::Action<Message
         return Task::none();
     };
 
-    let device = volume.device_path.clone().unwrap_or_else(|| volume.label.clone());
+    let device = volume
+        .device_path
+        .clone()
+        .unwrap_or_else(|| volume.label.clone());
     let device_path_for_selection = device.clone();
-    
+
     perform_volume_operation(
-        || async move { 
+        || async move {
             let client = FilesystemsClient::new().await?;
             client.mount(&device, "", None).await?;
             Ok(())
@@ -87,7 +90,10 @@ pub(super) fn unmount(control: &mut VolumesControl) -> Task<cosmic::Action<Messa
         .clone()
         .unwrap_or_else(|| volume.label.clone());
     let mount_point = volume.mount_points.first().cloned();
-    let device_path = volume.device_path.clone().unwrap_or_else(|| volume.label.clone());
+    let device_path = volume
+        .device_path
+        .clone()
+        .unwrap_or_else(|| volume.label.clone());
     let device_path_for_retry = device_path.clone();
 
     Task::perform(
@@ -99,7 +105,7 @@ pub(super) fn unmount(control: &mut VolumesControl) -> Task<cosmic::Action<Messa
                     return UnmountResult::GenericError;
                 }
             };
-            
+
             let unmount_result = match client.unmount(&device, false, false).await {
                 Ok(r) => r,
                 Err(e) => {
@@ -107,7 +113,7 @@ pub(super) fn unmount(control: &mut VolumesControl) -> Task<cosmic::Action<Messa
                     return UnmountResult::GenericError;
                 }
             };
-            
+
             if unmount_result.success {
                 // Success - reload drives
                 match load_all_drives().await {
@@ -172,14 +178,21 @@ pub(super) fn child_mount(
         return Task::none();
     };
 
-    let device = node.volume.device_path.clone().unwrap_or_else(|| device_path.clone());
+    let device = node
+        .volume
+        .device_path
+        .clone()
+        .unwrap_or_else(|| device_path.clone());
     let device_path_for_selection = device_path.clone();
-    
+
     perform_volume_operation(
         || async move {
-            let client = FilesystemsClient::new().await
+            let client = FilesystemsClient::new()
+                .await
                 .map_err(|e| anyhow::anyhow!("Failed to create client: {}", e))?;
-            let _mount_point = client.mount(&device, "", None).await
+            let _mount_point = client
+                .mount(&device, "", None)
+                .await
                 .map_err(|e| anyhow::anyhow!("Failed to mount: {}", e))?;
             Ok(())
         },
@@ -215,7 +228,7 @@ pub(super) fn child_unmount(
                     return UnmountResult::GenericError;
                 }
             };
-            
+
             let unmount_result = match client.unmount(&device, false, false).await {
                 Ok(r) => r,
                 Err(e) => {
@@ -223,7 +236,7 @@ pub(super) fn child_unmount(
                     return UnmountResult::GenericError;
                 }
             };
-            
+
             if unmount_result.success {
                 // Success - reload drives
                 match load_all_drives().await {

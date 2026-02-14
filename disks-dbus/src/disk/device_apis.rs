@@ -8,8 +8,8 @@
 
 use crate::disk::resolve;
 use crate::image::{open_for_backup, open_for_restore};
-use std::os::fd::OwnedFd;
 use anyhow::Result;
+use std::os::fd::OwnedFd;
 
 /// Open a block device for backup (read-only access) by device path
 ///
@@ -36,15 +36,10 @@ pub async fn open_for_restore_by_device(device: &str) -> Result<OwnedFd> {
 /// The service can then return the device path string directly to clients
 /// without parsing object paths.
 pub async fn loop_setup_device_path(image_path: &str) -> Result<String> {
-    
     let object_path = crate::image::loop_setup(image_path).await?;
-    
+
     // Extract device name from object path: /org/freedesktop/UDisks2/block_devices/loop0 -> loop0
-    let device_name = object_path
-        .as_str()
-        .rsplit('/')
-        .next()
-        .unwrap_or("unknown");
-    
+    let device_name = object_path.as_str().rsplit('/').next().unwrap_or("unknown");
+
     Ok(format!("/dev/{}", device_name))
 }

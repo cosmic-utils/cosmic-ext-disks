@@ -14,7 +14,7 @@ use cosmic::iced::Length;
 use cosmic::iced::alignment::{Alignment, Horizontal, Vertical};
 use cosmic::widget::{self, Space, icon};
 use cosmic::{Apply, Element, iced_widget};
-use storage_models::{bytes_to_pretty, VolumeKind, VolumeInfo};
+use storage_models::{VolumeInfo, VolumeKind, bytes_to_pretty};
 
 /// Custom button style for header tabs with accent color background.
 fn tab_button_class(active: bool) -> cosmic::theme::Button {
@@ -26,15 +26,17 @@ fn tab_button_class(active: bool) -> cosmic::theme::Button {
     }
 }
 
-fn tab_button_style(
-    active: bool,
-    theme: &cosmic::theme::Theme,
-) -> cosmic::widget::button::Style {
+fn tab_button_style(active: bool, theme: &cosmic::theme::Theme) -> cosmic::widget::button::Style {
     let cosmic = theme.cosmic();
-    
+
     let (background, text_color) = if active {
         // Active tab: accent background with white text
-        (Some(cosmic::iced::Background::Color(cosmic.accent_color().into())), cosmic.on_accent_color().into())
+        (
+            Some(cosmic::iced::Background::Color(
+                cosmic.accent_color().into(),
+            )),
+            cosmic.on_accent_color().into(),
+        )
     } else {
         // Inactive tab: transparent with accent color text
         (None, cosmic.accent_color().into())
@@ -66,59 +68,61 @@ pub(crate) fn header_start(_app: &AppModel) -> Vec<Element<'_, Message>> {
 /// Elements to pack at the center of the header bar.
 pub(crate) fn header_center(app: &AppModel) -> Vec<Element<'_, Message>> {
     let mut elements = vec![];
-    
+
     // Add BTRFS tabs if applicable
     if let Some(volumes_control) = app.nav.active_data::<VolumesControl>()
         && let Some(segment) = volumes_control
             .segments
             .get(volumes_control.selected_segment)
             .or_else(|| volumes_control.segments.first())
-        {
-            // Determine if this segment contains BTRFS
-            let selected_volume_node = segment.volume.as_ref().and_then(|p| {
-                helpers::find_volume_for_partition(&volumes_control.volumes, p)
-            });
+    {
+        // Determine if this segment contains BTRFS
+        let selected_volume_node = segment
+            .volume
+            .as_ref()
+            .and_then(|p| helpers::find_volume_for_partition(&volumes_control.volumes, p));
 
-            let selected_volume = segment.volume.as_ref().and_then(|p| {
-                helpers::find_volume_for_partition(&volumes_control.volumes, p)
-            });
+        let selected_volume = segment
+            .volume
+            .as_ref()
+            .and_then(|p| helpers::find_volume_for_partition(&volumes_control.volumes, p));
 
-            let has_btrfs = if let Some(v) = selected_volume_node {
-                helpers::detect_btrfs_in_node(v).is_some()
-            } else if let Some(v) = selected_volume {
-                helpers::detect_btrfs_in_node(v).is_some()
-            } else {
-                false
-            };
+        let has_btrfs = if let Some(v) = selected_volume_node {
+            helpers::detect_btrfs_in_node(v).is_some()
+        } else if let Some(v) = selected_volume {
+            helpers::detect_btrfs_in_node(v).is_some()
+        } else {
+            false
+        };
 
-            if has_btrfs {
-                let active_tab = volumes_control.detail_tab;
+        if has_btrfs {
+            let active_tab = volumes_control.detail_tab;
 
-                // Volume tab
-                let is_active = active_tab == DetailTab::VolumeInfo;
-                let mut volume_tab = widget::button::text(fl!("volume"))
-                    .class(tab_button_class(is_active));
-                if !is_active {
-                    volume_tab = volume_tab.on_press(Message::VolumesMessage(
-                        VolumesControlMessage::SelectDetailTab(DetailTab::VolumeInfo),
-                    ));
-                }
-
-                // BTRFS tab  
-                let is_active = active_tab == DetailTab::BtrfsManagement;
-                let mut btrfs_tab = widget::button::text(fl!("btrfs"))
-                    .class(tab_button_class(is_active));
-                if !is_active {
-                    btrfs_tab = btrfs_tab.on_press(Message::VolumesMessage(
-                        VolumesControlMessage::SelectDetailTab(DetailTab::BtrfsManagement),
-                    ));
-                }
-
-                elements.push(volume_tab.into());
-                elements.push(btrfs_tab.into());
+            // Volume tab
+            let is_active = active_tab == DetailTab::VolumeInfo;
+            let mut volume_tab =
+                widget::button::text(fl!("volume")).class(tab_button_class(is_active));
+            if !is_active {
+                volume_tab = volume_tab.on_press(Message::VolumesMessage(
+                    VolumesControlMessage::SelectDetailTab(DetailTab::VolumeInfo),
+                ));
             }
+
+            // BTRFS tab
+            let is_active = active_tab == DetailTab::BtrfsManagement;
+            let mut btrfs_tab =
+                widget::button::text(fl!("btrfs")).class(tab_button_class(is_active));
+            if !is_active {
+                btrfs_tab = btrfs_tab.on_press(Message::VolumesMessage(
+                    VolumesControlMessage::SelectDetailTab(DetailTab::BtrfsManagement),
+                ));
+            }
+
+            elements.push(volume_tab.into());
+            elements.push(btrfs_tab.into());
         }
-    
+    }
+
     elements
 }
 
@@ -317,7 +321,7 @@ pub(crate) fn view(app: &AppModel) -> Element<'_, Message> {
                     // Look up the corresponding UiVolume to check if it's a LUKS container
                     if let Some(volume_node) =
                         crate::ui::volumes::helpers::find_volume_for_partition(
-                    &volumes_control.volumes,
+                            &volumes_control.volumes,
                             volume_model,
                         )
                     {
@@ -370,7 +374,7 @@ pub(crate) fn view(app: &AppModel) -> Element<'_, Message> {
                         .width(Length::Fill),
                 ]
                 .spacing(0)
-                .width(Length::Fill)
+                .width(Length::Fill),
             )
             .width(Length::Fill)
             .height(Length::Fill)
@@ -393,10 +397,7 @@ fn volume_detail_view<'a>(
 
     let selected_volume_node = volumes_control.selected_volume_node();
     let selected_volume = segment.volume.as_ref().and_then(|p| {
-        crate::ui::volumes::helpers::find_volume_for_partition(
-            &volumes_control.volumes,
-            p,
-        )
+        crate::ui::volumes::helpers::find_volume_for_partition(&volumes_control.volumes, p)
     });
 
     // Determine if this segment contains a BTRFS filesystem (directly or inside LUKS)
@@ -698,9 +699,13 @@ fn build_partition_info<'a>(
     use crate::ui::volumes::usage_pie;
 
     // Look up the corresponding PartitionInfo using device_path from segment
-    let partition_info = segment.device_path.as_ref()
-        .and_then(|device| volumes_control.partitions.iter().find(|p| &p.device == device));
-    
+    let partition_info = segment.device_path.as_ref().and_then(|device| {
+        volumes_control
+            .partitions
+            .iter()
+            .find(|p| &p.device == device)
+    });
+
     let Some(p) = partition_info else {
         return widget::text("No partition information available").into();
     };
@@ -910,28 +915,28 @@ fn build_partition_info<'a>(
     );
 
     // Resize (check if there's space)
-        let right_free_bytes = volumes_control
-            .segments
-            .get(volumes_control.selected_segment.saturating_add(1))
-            .filter(|s| s.kind == DiskSegmentKind::FreeSpace)
-            .map(|s| s.size)
-            .unwrap_or(0);
-        let max_size = p.size.saturating_add(right_free_bytes);
-        let min_size = p.usage.as_ref().map(|u| u.used).unwrap_or(0).min(max_size);
-        let resize_enabled = max_size.saturating_sub(min_size) >= 1024;
+    let right_free_bytes = volumes_control
+        .segments
+        .get(volumes_control.selected_segment.saturating_add(1))
+        .filter(|s| s.kind == DiskSegmentKind::FreeSpace)
+        .map(|s| s.size)
+        .unwrap_or(0);
+    let max_size = p.size.saturating_add(right_free_bytes);
+    let min_size = p.usage.as_ref().map(|u| u.used).unwrap_or(0).min(max_size);
+    let resize_enabled = max_size.saturating_sub(min_size) >= 1024;
 
-        if resize_enabled {
-            action_buttons.push(
-                widget::tooltip(
-                    widget::button::icon(icon::from_name("view-fullscreen-symbolic")).on_press(
-                        Message::VolumesMessage(VolumesControlMessage::OpenResizePartition),
-                    ),
-                    widget::text(fl!("resize")),
-                    widget::tooltip::Position::Bottom,
-                )
-                .into(),
-            );
-        }
+    if resize_enabled {
+        action_buttons.push(
+            widget::tooltip(
+                widget::button::icon(icon::from_name("view-fullscreen-symbolic")).on_press(
+                    Message::VolumesMessage(VolumesControlMessage::OpenResizePartition),
+                ),
+                widget::text(fl!("resize")),
+                widget::tooltip::Position::Bottom,
+            )
+            .into(),
+        );
+    }
 
     // Label
     action_buttons.push(

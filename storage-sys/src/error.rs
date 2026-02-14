@@ -7,13 +7,13 @@ use thiserror::Error;
 pub enum SysError {
     #[error("I/O error: {0}")]
     Io(#[from] std::io::Error),
-    
+
     #[error("Permission denied: {0}")]
     PermissionDenied(String),
-    
+
     #[error("Device not found: {0}")]
     DeviceNotFound(String),
-    
+
     #[error("Operation failed: {0}")]
     OperationFailed(String),
 }

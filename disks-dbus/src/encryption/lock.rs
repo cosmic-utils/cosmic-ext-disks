@@ -2,14 +2,15 @@
 
 //! LUKS locking operations
 
+use crate::error::DiskError;
 use std::collections::HashMap;
 use udisks2::encrypted::EncryptedProxy;
 use zbus::{Connection, zvariant::Value};
-use crate::error::DiskError;
 
 /// Lock a LUKS container
 pub async fn lock_luks(device_path: &str) -> Result<(), DiskError> {
-    let connection = Connection::system().await
+    let connection = Connection::system()
+        .await
         .map_err(|e| DiskError::ConnectionFailed(e.to_string()))?;
 
     let encrypted_path = crate::disk::resolve::block_object_path_for_device(device_path).await?;
@@ -19,10 +20,12 @@ pub async fn lock_luks(device_path: &str) -> Result<(), DiskError> {
         .build()
         .await
         .map_err(|e| DiskError::DBusError(e.to_string()))?;
-    
+
     let opts: HashMap<&str, Value<'_>> = HashMap::new();
-    encrypted_proxy.lock(opts).await
+    encrypted_proxy
+        .lock(opts)
+        .await
         .map_err(|e| DiskError::OperationFailed(format!("Lock failed: {}", e)))?;
-    
+
     Ok(())
 }

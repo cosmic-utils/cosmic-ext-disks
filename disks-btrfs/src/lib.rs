@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 
 //! BTRFS operations library for COSMIC Disks
-//! 
+//!
 //! This library provides a safe Rust interface for BTRFS subvolume management
 //! operations including creation, deletion, snapshots, and metadata queries.
 

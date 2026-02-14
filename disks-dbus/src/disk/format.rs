@@ -2,8 +2,8 @@
 
 //! Disk formatting operations
 
-use std::collections::HashMap;
 use anyhow::Result;
+use std::collections::HashMap;
 use udisks2::block::BlockProxy;
 use zbus::{Connection, zvariant::Value};
 
@@ -15,11 +15,7 @@ use zbus::{Connection, zvariant::Value};
 /// If `erase` is true, request a zero-fill erase (slow) via the `erase=zero` option.
 ///
 /// Note: Caller should ensure no mounted filesystems exist before calling this.
-pub async fn format_disk(
-    block_path: String,
-    format_type: &str,
-    erase: bool,
-) -> Result<()> {
+pub async fn format_disk(block_path: String, format_type: &str, erase: bool) -> Result<()> {
     let connection = Connection::system().await?;
     let block_proxy = BlockProxy::builder(&connection)
         .path(block_path)?

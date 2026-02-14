@@ -9,11 +9,11 @@ use cosmic::{
     },
 };
 
-use crate::{app::Message, models::UiVolume};
 use crate::fl;
 use crate::ui::volumes::helpers;
 use crate::utils::DiskSegmentKind;
-use storage_models::{bytes_to_pretty, VolumeKind};
+use crate::{app::Message, models::UiVolume};
+use storage_models::{VolumeKind, bytes_to_pretty};
 
 use super::{Segment, ToggleState, VolumesControl, VolumesControlMessage};
 

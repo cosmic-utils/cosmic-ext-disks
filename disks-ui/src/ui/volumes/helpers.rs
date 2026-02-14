@@ -1,5 +1,5 @@
-use storage_models::{PartitionTypeInfo, VolumeKind, VolumeInfo};
 use crate::models::UiVolume;
+use storage_models::{PartitionTypeInfo, VolumeInfo, VolumeKind};
 
 pub(crate) fn common_partition_filesystem_type(table_type: &str, index: usize) -> Option<String> {
     match table_type {
@@ -31,16 +31,18 @@ pub(crate) fn common_partition_type_index_for(table_type: &str, id_type: Option<
 
 pub(crate) fn collect_mounted_descendants_leaf_first(node: &UiVolume) -> Vec<String> {
     let mut out = Vec::new();
-    
+
     fn visit(node: &UiVolume, out: &mut Vec<String>) {
         for child in &node.children {
             visit(child, out);
         }
 
-        if node.volume.can_mount() && node.volume.is_mounted()
-            && let Some(device) = &node.volume.device_path {
-                out.push(device.clone());
-            }
+        if node.volume.can_mount()
+            && node.volume.is_mounted()
+            && let Some(device) = &node.volume.device_path
+        {
+            out.push(device.clone());
+        }
     }
 
     visit(node, &mut out);
@@ -104,13 +106,14 @@ pub(crate) fn detect_btrfs_for_volume(
     }
 
     if let Some(node) = find_volume_for_partition(volumes, volume)
-        && let Some(mp) = detect_btrfs_in_node(node) {
-            // Find the BTRFS block device path by looking for the BTRFS child
-            if let Some(btrfs_child) = find_btrfs_child(node) {
-                let device_path = btrfs_child.device()?.to_string();
-                return Some((mp, device_path));
-            }
+        && let Some(mp) = detect_btrfs_in_node(node)
+    {
+        // Find the BTRFS block device path by looking for the BTRFS child
+        if let Some(btrfs_child) = find_btrfs_child(node) {
+            let device_path = btrfs_child.device()?.to_string();
+            return Some((mp, device_path));
         }
+    }
 
     None
 }

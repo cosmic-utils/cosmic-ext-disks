@@ -9,19 +9,19 @@ use serde::{Deserialize, Serialize};
 pub struct VolumeGroupInfo {
     /// Volume group name
     pub name: String,
-    
+
     /// Volume group UUID
     pub uuid: String,
-    
+
     /// Total size in bytes
     pub size: u64,
-    
+
     /// Free space in bytes
     pub free: u64,
-    
+
     /// Number of physical volumes
     pub pv_count: u32,
-    
+
     /// Number of logical volumes
     pub lv_count: u32,
 }
@@ -31,7 +31,7 @@ impl VolumeGroupInfo {
     pub fn used(&self) -> u64 {
         self.size.saturating_sub(self.free)
     }
-    
+
     /// Get usage percentage (0-100)
     pub fn usage_percent(&self) -> u32 {
         if self.size == 0 {
@@ -47,19 +47,19 @@ impl VolumeGroupInfo {
 pub struct LogicalVolumeInfo {
     /// Logical volume name
     pub name: String,
-    
+
     /// Parent volume group name
     pub vg_name: String,
-    
+
     /// Logical volume UUID
     pub uuid: String,
-    
+
     /// Size in bytes
     pub size: u64,
-    
+
     /// Device path (e.g., "/dev/vg0/lv0" or "/dev/mapper/vg0-lv0")
     pub device_path: String,
-    
+
     /// Whether the logical volume is active
     pub active: bool,
 }
@@ -83,13 +83,13 @@ impl LogicalVolumeInfo {
 pub struct PhysicalVolumeInfo {
     /// Device path (e.g., "/dev/sda1")
     pub device: String,
-    
+
     /// Volume group name (None if not assigned)
     pub vg_name: Option<String>,
-    
+
     /// Total size in bytes
     pub size: u64,
-    
+
     /// Free space in bytes
     pub free: u64,
 }
@@ -99,7 +99,7 @@ impl PhysicalVolumeInfo {
     pub fn is_assigned(&self) -> bool {
         self.vg_name.is_some()
     }
-    
+
     /// Get used space in bytes
     pub fn used(&self) -> u64 {
         self.size.saturating_sub(self.free)

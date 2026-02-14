@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: GPL-3.0-only
 
 //! COSMIC Storage Service - D-Bus service for privileged disk operations
-//! 
+//!
 //! This service provides a D-Bus interface for managing storage devices,
 //! with Polkit-based authorization and socket activation support.
 
 use anyhow::Result;
-use tracing_subscriber::{fmt, EnvFilter};
+use tracing_subscriber::{EnvFilter, fmt};
 use zbus::connection::Builder as ConnectionBuilder;
 
 mod auth;
@@ -35,19 +35,22 @@ async fn main() -> Result<()> {
     fmt()
         .with_env_filter(
             EnvFilter::try_from_default_env()
-                .unwrap_or_else(|_| EnvFilter::new("storage_service=info,warn"))
+                .unwrap_or_else(|_| EnvFilter::new("storage_service=info,warn")),
         )
         .with_writer(std::io::stderr)
         .init();
-    
-    tracing::info!("Starting COSMIC Storage Service v{}", env!("CARGO_PKG_VERSION"));
-    
+
+    tracing::info!(
+        "Starting COSMIC Storage Service v{}",
+        env!("CARGO_PKG_VERSION")
+    );
+
     // Check if running as root
     if unsafe { libc::geteuid() } != 0 {
         tracing::error!("Storage service must run as root");
         anyhow::bail!("Service must run with root privileges");
     }
-    
+
     // Build D-Bus connection with socket activation support
     let connection = ConnectionBuilder::system()?
         .name("org.cosmic.ext.StorageService")?
@@ -65,21 +68,12 @@ async fn main() -> Result<()> {
             "/org/cosmic/ext/StorageService/filesystems",
             FilesystemsHandler::new(),
         )?
-        .serve_at(
-            "/org/cosmic/ext/StorageService/lvm",
-            LVMHandler::new(),
-        )?
-        .serve_at(
-            "/org/cosmic/ext/StorageService/luks",
-            LuksHandler::new(),
-        )?
-        .serve_at(
-            "/org/cosmic/ext/StorageService/image",
-            ImageHandler::new(),
-        )?
+        .serve_at("/org/cosmic/ext/StorageService/lvm", LVMHandler::new())?
+        .serve_at("/org/cosmic/ext/StorageService/luks", LuksHandler::new())?
+        .serve_at("/org/cosmic/ext/StorageService/image", ImageHandler::new())?
         .build()
         .await?;
-    
+
     tracing::info!("Service registered on D-Bus system bus");
     tracing::info!("Filesystems interface at /org/cosmic/ext/StorageService/filesystems");
     tracing::info!("  - org.cosmic.ext.StorageService at /org/cosmic/ext/StorageService");
@@ -89,20 +83,17 @@ async fn main() -> Result<()> {
     tracing::info!("  - LVM interface at /org/cosmic/ext/StorageService/lvm");
     tracing::info!("  - LUKS interface at /org/cosmic/ext/StorageService/luks");
     tracing::info!("  - Image interface at /org/cosmic/ext/StorageService/image");
-    
+
     // Start disk hotplug monitoring
-    disks::monitor_hotplug_events(
-        connection.clone(),
-        "/org/cosmic/ext/StorageService/disks",
-    )
-    .await?;
+    disks::monitor_hotplug_events(connection.clone(), "/org/cosmic/ext/StorageService/disks")
+        .await?;
     tracing::info!("Disk hotplug monitoring enabled");
-    
+
     // Keep service running until shutdown signal
     tracing::info!("Service ready, waiting for requests...");
     tokio::signal::ctrl_c().await?;
     tracing::info!("Received shutdown signal");
-    
+
     tracing::info!("COSMIC Storage Service shutting down");
     Ok(())
 }

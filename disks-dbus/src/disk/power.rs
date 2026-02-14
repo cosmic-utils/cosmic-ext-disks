@@ -2,10 +2,13 @@
 
 //! Disk power management operations
 
-use std::collections::HashMap;
 use anyhow::Result;
+use std::collections::HashMap;
 use udisks2::drive::DriveProxy;
-use zbus::{Connection, zvariant::{OwnedObjectPath, Value}};
+use zbus::{
+    Connection,
+    zvariant::{OwnedObjectPath, Value},
+};
 
 /// Helper to check if error indicates "not supported"
 fn is_anyhow_not_supported(e: &anyhow::Error) -> bool {
@@ -72,7 +75,7 @@ pub async fn power_off_drive(drive_path: OwnedObjectPath, can_power_off: bool) -
         .path(drive_path)?
         .build()
         .await?;
-    
+
     proxy.power_off(HashMap::new()).await?;
     Ok(())
 }
@@ -101,7 +104,7 @@ pub async fn standby_drive(drive_path: OwnedObjectPath) -> Result<()> {
         .call("StandbyNow", &(options))
         .await
         .map_err(Into::into);
-    
+
     match res {
         Ok(()) => Ok(()),
         Err(e) if is_anyhow_not_supported(&e) => {
@@ -132,7 +135,7 @@ pub async fn wakeup_drive(drive_path: OwnedObjectPath) -> Result<()> {
 
     let options: HashMap<&str, Value<'_>> = HashMap::new();
     let res: Result<()> = proxy.call("Wakeup", &(options)).await.map_err(Into::into);
-    
+
     match res {
         Ok(()) => Ok(()),
         Err(e) if is_anyhow_not_supported(&e) => {
@@ -159,7 +162,14 @@ pub async fn remove_drive_by_device(
             .await
             .map_err(anyhow::Error::msg)?
     };
-    remove_drive(drive_path, block_path.as_str(), is_loop, removable, can_power_off).await
+    remove_drive(
+        drive_path,
+        block_path.as_str(),
+        is_loop,
+        removable,
+        can_power_off,
+    )
+    .await
 }
 
 /// Remove a drive (loop device delete or removable drive power off)
@@ -183,7 +193,7 @@ pub async fn remove_drive(
 
         let options: HashMap<&str, Value<'_>> = HashMap::new();
         let res: Result<()> = proxy.call("Delete", &(options)).await.map_err(Into::into);
-        
+
         match res {
             Ok(()) => Ok(()),
             Err(e) if is_anyhow_not_supported(&e) => Err(anyhow::anyhow!(

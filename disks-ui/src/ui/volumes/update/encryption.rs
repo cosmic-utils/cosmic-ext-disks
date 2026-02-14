@@ -1,5 +1,5 @@
-use crate::models::load_all_drives;
 use crate::models::UiDrive;
+use crate::models::load_all_drives;
 use cosmic::Task;
 
 use crate::app::Message;
@@ -70,9 +70,8 @@ pub(super) fn open_change_passphrase(
         return Task::none();
     };
 
-    let is_crypto_container =
-        helpers::find_volume_for_partition(&control.volumes, &volume)
-            .is_some_and(|n| n.volume.kind == VolumeKind::CryptoContainer);
+    let is_crypto_container = helpers::find_volume_for_partition(&control.volumes, &volume)
+        .is_some_and(|n| n.volume.kind == VolumeKind::CryptoContainer);
     if !is_crypto_container {
         return Task::none();
     }
@@ -104,9 +103,8 @@ pub(super) fn open_edit_encryption_options(
         return Task::none();
     };
 
-    let is_crypto_container =
-        helpers::find_volume_for_partition(&control.volumes, &volume)
-            .is_some_and(|n| n.volume.kind == VolumeKind::CryptoContainer);
+    let is_crypto_container = helpers::find_volume_for_partition(&control.volumes, &volume)
+        .is_some_and(|n| n.volume.kind == VolumeKind::CryptoContainer);
     if !is_crypto_container {
         return Task::none();
     }
@@ -125,14 +123,15 @@ pub(super) fn open_edit_encryption_options(
     let device_path = volume.device_path.clone();
     Task::perform(
         async move {
-            let settings: Option<storage_models::EncryptionOptionsSettings> = if let Some(ref device) = device_path {
-                match LuksClient::new().await {
-                    Ok(client) => client.get_encryption_options(device).await.ok().flatten(),
-                    Err(_) => None,
-                }
-            } else {
-                None
-            };
+            let settings: Option<storage_models::EncryptionOptionsSettings> =
+                if let Some(ref device) = device_path {
+                    match LuksClient::new().await {
+                        Ok(client) => client.get_encryption_options(device).await.ok().flatten(),
+                        Err(_) => None,
+                    }
+                } else {
+                    None
+                };
             let error: Option<String> = None;
 
             let (use_defaults, unlock_at_startup, require_auth, other_options, name) =
@@ -239,10 +238,13 @@ pub(super) fn unlock_message(
             let device_path_for_selection = partition_path.clone();
             Task::perform(
                 async move {
-                    let luks_client = LuksClient::new().await
+                    let luks_client = LuksClient::new()
+                        .await
                         .map_err(|e| anyhow::anyhow!("Failed to create LUKS client: {}", e))?;
                     let device = &p.device;
-                    luks_client.unlock(device, &passphrase_for_task).await
+                    luks_client
+                        .unlock(device, &passphrase_for_task)
+                        .await
                         .map_err(|e| anyhow::anyhow!("Failed to unlock: {}", e))?;
                     load_all_drives().await.map_err(|e| e.into())
                 },
@@ -315,9 +317,12 @@ pub(super) fn take_ownership_message(
 
             Task::perform(
                 async move {
-                    let client = FilesystemsClient::new().await
-                        .map_err(|e| anyhow::anyhow!("Failed to create filesystems client: {}", e))?;
-                    client.take_ownership(&device_path, recursive).await
+                    let client = FilesystemsClient::new().await.map_err(|e| {
+                        anyhow::anyhow!("Failed to create filesystems client: {}", e)
+                    })?;
+                    client
+                        .take_ownership(&device_path, recursive)
+                        .await
                         .map_err(|e| anyhow::anyhow!("Take ownership failed: {}", e))?;
                     load_all_drives().await.map_err(|e| e.into())
                 },
@@ -377,11 +382,16 @@ pub(super) fn change_passphrase_message(
 
             Task::perform(
                 async move {
-                    let luks_client = LuksClient::new().await
+                    let luks_client = LuksClient::new()
+                        .await
                         .map_err(|e| anyhow::anyhow!("Failed to create LUKS client: {}", e))?;
-                    let device = volume.device_path.as_ref()
+                    let device = volume
+                        .device_path
+                        .as_ref()
                         .ok_or_else(|| anyhow::anyhow!("Volume has no device path"))?;
-                    luks_client.change_passphrase(device, &current, &new).await
+                    luks_client
+                        .change_passphrase(device, &current, &new)
+                        .await
                         .map_err(|e| anyhow::anyhow!("Failed to change passphrase: {}", e))?;
                     load_all_drives().await.map_err(|e| e.into())
                 },
@@ -462,21 +472,34 @@ pub(super) fn edit_encryption_options_message(
 
             Task::perform(
                 async move {
-                    let luks_client = LuksClient::new().await
+                    let luks_client = LuksClient::new()
+                        .await
                         .map_err(|e| anyhow::anyhow!("Failed to create LUKS client: {}", e))?;
                     if use_defaults {
-                        luks_client.default_encryption_options(&device_path).await
-                            .map_err(|e| anyhow::anyhow!("Failed to clear encryption options: {}", e))?;
+                        luks_client
+                            .default_encryption_options(&device_path)
+                            .await
+                            .map_err(|e| {
+                                anyhow::anyhow!("Failed to clear encryption options: {}", e)
+                            })?;
                     } else {
                         let settings = storage_models::EncryptionOptionsSettings {
                             name,
                             unlock_at_startup,
                             require_auth,
                             other_options,
-                            passphrase: if passphrase.is_empty() { None } else { Some(passphrase) },
+                            passphrase: if passphrase.is_empty() {
+                                None
+                            } else {
+                                Some(passphrase)
+                            },
                         };
-                        luks_client.set_encryption_options(&device_path, &settings).await
-                            .map_err(|e| anyhow::anyhow!("Failed to set encryption options: {}", e))?;
+                        luks_client
+                            .set_encryption_options(&device_path, &settings)
+                            .await
+                            .map_err(|e| {
+                                anyhow::anyhow!("Failed to set encryption options: {}", e)
+                            })?;
                     }
                     load_all_drives().await.map_err(|e| e.into())
                 },
@@ -505,21 +528,29 @@ pub(super) fn lock_container(control: &mut VolumesControl) -> Task<cosmic::Actio
         let device_path_for_selection = p.device_path.clone().unwrap_or_else(|| p.label.clone());
         return Task::perform(
             async move {
-                let fs_client = FilesystemsClient::new().await
+                let fs_client = FilesystemsClient::new()
+                    .await
                     .map_err(|e| anyhow::anyhow!("Failed to create filesystems client: {}", e))?;
-                let luks_client = LuksClient::new().await
+                let luks_client = LuksClient::new()
+                    .await
                     .map_err(|e| anyhow::anyhow!("Failed to create LUKS client: {}", e))?;
-                
+
                 for device in &mounted_children {
-                    fs_client.unmount(device, false, false).await
+                    fs_client
+                        .unmount(device, false, false)
+                        .await
                         .map_err(|e| anyhow::anyhow!("Failed to unmount {}: {}", device, e))?;
                 }
-                
-                let cleartext_device = p.device_path.as_ref()
+
+                let cleartext_device = p
+                    .device_path
+                    .as_ref()
                     .ok_or_else(|| anyhow::anyhow!("Partition has no device path"))?;
-                luks_client.lock(cleartext_device).await
+                luks_client
+                    .lock(cleartext_device)
+                    .await
                     .map_err(|e| anyhow::anyhow!("Failed to lock: {}", e))?;
-                
+
                 load_all_drives().await.map_err(|e| e.into())
             },
             move |result: Result<Vec<UiDrive>, anyhow::Error>| match result {

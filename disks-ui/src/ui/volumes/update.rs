@@ -29,30 +29,28 @@ impl VolumesControl {
                 // If switching to BTRFS tab, ensure data is loaded
                 if tab == super::state::DetailTab::BtrfsManagement
                     && let Some(btrfs_state) = &self.btrfs_state
-                        && let Some(mp) = &btrfs_state.mount_point
-                            && let Some(bp) = &btrfs_state.block_path
-                        {
-                            let mut tasks = Vec::new();
-                            if btrfs_state.subvolumes.is_none() && !btrfs_state.loading {
-                                tasks.push(Task::done(cosmic::Action::App(
-                                    Message::BtrfsLoadSubvolumes {
-                                        block_path: bp.clone(),
-                                        mount_point: mp.clone(),
-                                    },
-                                )));
-                            }
-                            if btrfs_state.used_space.is_none() && !btrfs_state.loading_usage {
-                                tasks.push(Task::done(cosmic::Action::App(
-                                    Message::BtrfsLoadUsage {
-                                        block_path: bp.clone(),
-                                        mount_point: mp.clone(),
-                                    },
-                                )));
-                            }
-                            if !tasks.is_empty() {
-                                return Task::batch(tasks);
-                            }
-                        }
+                    && let Some(mp) = &btrfs_state.mount_point
+                    && let Some(bp) = &btrfs_state.block_path
+                {
+                    let mut tasks = Vec::new();
+                    if btrfs_state.subvolumes.is_none() && !btrfs_state.loading {
+                        tasks.push(Task::done(cosmic::Action::App(
+                            Message::BtrfsLoadSubvolumes {
+                                block_path: bp.clone(),
+                                mount_point: mp.clone(),
+                            },
+                        )));
+                    }
+                    if btrfs_state.used_space.is_none() && !btrfs_state.loading_usage {
+                        tasks.push(Task::done(cosmic::Action::App(Message::BtrfsLoadUsage {
+                            block_path: bp.clone(),
+                            mount_point: mp.clone(),
+                        })));
+                    }
+                    if !tasks.is_empty() {
+                        return Task::batch(tasks);
+                    }
+                }
                 Task::none()
             }
             VolumesControlMessage::SelectVolume {

@@ -1,10 +1,10 @@
+use crate::models::{UiDrive, UiVolume};
 use crate::{
     fl,
     ui::btrfs::BtrfsState,
     utils::{DiskSegmentKind, PartitionExtent, SegmentAnomaly, compute_disk_segments},
 };
-use storage_models::{CreatePartitionInfo, PartitionInfo, ByteRange, VolumeInfo};
-use crate::models::{UiVolume, UiDrive};
+use storage_models::{ByteRange, CreatePartitionInfo, PartitionInfo, VolumeInfo};
 
 /// Which detail tab is active below the drive header
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -48,7 +48,7 @@ pub struct Segment {
     pub kind: DiskSegmentKind,
     pub width: u16,
     pub volume: Option<VolumeInfo>,
-    pub device_path: Option<String>,  // Device path to look up PartitionInfo
+    pub device_path: Option<String>, // Device path to look up PartitionInfo
     pub table_type: String,
 }
 
@@ -126,7 +126,8 @@ impl Segment {
             name = fl!("filesystem");
         }
 
-        let mut type_str = volume_info.as_ref()
+        let mut type_str = volume_info
+            .as_ref()
             .map(|v| v.id_type.to_uppercase())
             .unwrap_or_default();
         type_str = format!("{} - {}", type_str, partition.type_name);
@@ -243,7 +244,8 @@ impl Segment {
                     };
 
                     // Find corresponding volume info by device path
-                    let volume_info = all_volumes.iter()
+                    let volume_info = all_volumes
+                        .iter()
                         .find(|v| v.device_path.as_ref() == Some(&p.device))
                         .cloned();
 
@@ -340,12 +342,12 @@ impl VolumesControl {
                 flatten_volumes(child, out);
             }
         }
-        
+
         let mut all_volumes = Vec::new();
         for root in &drive.volumes {
             flatten_volumes(root, &mut all_volumes);
         }
-        
+
         let mut segments: Vec<Segment> = Segment::get_segments(
             drive.disk.size,
             &drive.disk.partition_table_type,
@@ -376,7 +378,7 @@ impl VolumesControl {
 
     pub fn selected_volume_node(&self) -> Option<&UiVolume> {
         let device_path = self.selected_volume.as_deref()?;
-        
+
         // Recursively search for volume by device path
         fn find_in_tree<'a>(volumes: &'a [UiVolume], device: &str) -> Option<&'a UiVolume> {
             for vol in volumes {
@@ -389,7 +391,7 @@ impl VolumesControl {
             }
             None
         }
-        
+
         find_in_tree(&self.volumes, device_path)
     }
 
@@ -399,7 +401,7 @@ impl VolumesControl {
         }
 
         self.show_reserved = show_reserved;
-        
+
         // Flatten volumes again
         fn flatten_volumes(node: &UiVolume, out: &mut Vec<VolumeInfo>) {
             out.push(node.volume.clone());
@@ -407,12 +409,12 @@ impl VolumesControl {
                 flatten_volumes(child, out);
             }
         }
-        
+
         let mut all_volumes = Vec::new();
         for root in &self.volumes {
             flatten_volumes(root, &mut all_volumes);
         }
-        
+
         self.segments = Segment::get_segments(
             self.size,
             &self.partition_table_type,

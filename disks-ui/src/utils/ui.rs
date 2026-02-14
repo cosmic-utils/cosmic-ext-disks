@@ -1,5 +1,5 @@
-use storage_models::pretty_to_bytes;
 use std::borrow::Cow;
+use storage_models::pretty_to_bytes;
 
 use cosmic::{
     Element, Theme,

@@ -22,7 +22,7 @@ impl StorageService {
     async fn version(&self) -> &str {
         &self.version
     }
-    
+
     /// Get list of supported features
     #[zbus(property)]
     async fn supported_features(&self) -> Vec<String> {

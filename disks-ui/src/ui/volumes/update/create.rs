@@ -94,14 +94,17 @@ pub(super) fn create_message(
                 let device = control.device.clone();
                 return Task::perform(
                     async move {
-                        let partitions_client = PartitionsClient::new().await
-                            .map_err(|e| anyhow::anyhow!("Failed to create partitions client: {}", e))?;
-                        partitions_client.create_partition(
-                            &device,
-                            create_partition_info.offset,
-                            create_partition_info.size,
-                            &create_partition_info.selected_type
-                        ).await
+                        let partitions_client = PartitionsClient::new().await.map_err(|e| {
+                            anyhow::anyhow!("Failed to create partitions client: {}", e)
+                        })?;
+                        partitions_client
+                            .create_partition(
+                                &device,
+                                create_partition_info.offset,
+                                create_partition_info.size,
+                                &create_partition_info.selected_type,
+                            )
+                            .await
                             .map_err(|e| anyhow::anyhow!("Failed to create partition: {}", e))?;
                         load_all_drives().await.map_err(|e| e.into())
                     },
@@ -141,21 +144,21 @@ pub(super) fn create_message(
                         )
                         .ok_or_else(|| anyhow::anyhow!("Invalid filesystem selection"))?;
 
-                        let filesystems_client = FilesystemsClient::new().await
-                            .map_err(|e| anyhow::anyhow!("Failed to create filesystems client: {}", e))?;
+                        let filesystems_client = FilesystemsClient::new().await.map_err(|e| {
+                            anyhow::anyhow!("Failed to create filesystems client: {}", e)
+                        })?;
                         let options = if info.erase {
                             Some("{\"erase\": true}")
                         } else {
                             None
                         };
-                        let device = volume.device_path.as_ref()
+                        let device = volume
+                            .device_path
+                            .as_ref()
                             .ok_or_else(|| anyhow::anyhow!("Volume has no device path"))?;
-                        filesystems_client.format(
-                            device,
-                            &fs_type,
-                            &info.name,
-                            options
-                        ).await
+                        filesystems_client
+                            .format(device, &fs_type, &info.name, options)
+                            .await
                             .map_err(|e| anyhow::anyhow!("Failed to format: {}", e))?;
                         load_all_drives().await.map_err(|e| e.into())
                     },

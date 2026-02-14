@@ -232,7 +232,8 @@ fn drive_row(
             widget::button::custom(icon::from_name("media-eject-symbolic").size(16)).padding(4);
         eject_btn = eject_btn.class(transparent_button_class(selected));
         if controls_enabled {
-            eject_btn = eject_btn.on_press(Message::SidebarDriveEject(drive.block_path().to_string()));
+            eject_btn =
+                eject_btn.on_press(Message::SidebarDriveEject(drive.block_path().to_string()));
         }
         actions.push(eject_btn.into());
     }
@@ -289,7 +290,9 @@ fn volume_row(
 
     let mut select_button = widget::button::custom(
         widget::Row::with_children(vec![
-            icon::from_name(volume_icon(&node.volume.kind)).size(16).into(),
+            icon::from_name(volume_icon(&node.volume.kind))
+                .size(16)
+                .into(),
             widget::text::body(title_text)
                 .font(cosmic::font::semibold())
                 .into(),
@@ -369,7 +372,12 @@ fn push_volume_tree(
     if expanded {
         // Sort children by device_path to maintain disk offset order
         let mut sorted_children: Vec<&UiVolume> = node.children.iter().collect();
-        sorted_children.sort_by(|a, b| a.device_path().as_deref().unwrap_or("").cmp(b.device_path().as_deref().unwrap_or("")));
+        sorted_children.sort_by(|a, b| {
+            a.device_path()
+                .as_deref()
+                .unwrap_or("")
+                .cmp(b.device_path().as_deref().unwrap_or(""))
+        });
 
         for child in sorted_children {
             push_volume_tree(
@@ -425,17 +433,22 @@ pub(crate) fn sidebar(
                 let drive_key = SidebarNodeKey::Drive(drive.block_path().to_string());
                 if sidebar.is_expanded(&drive_key) {
                     // Sort volumes by offset to maintain disk order
-                    let mut sorted_volumes: Vec<&UiVolume> =
-                        drive.volumes.iter().collect();
+                    let mut sorted_volumes: Vec<&UiVolume> = drive.volumes.iter().collect();
 
                     // To get offset, we need to look up the corresponding PartitionInfo by matching device_path with device
                     sorted_volumes.sort_by(|a, b| {
                         // Find offset for each volume by matching device_path with partitions
-                        let offset_a = a.volume.device_path.as_ref()
+                        let offset_a = a
+                            .volume
+                            .device_path
+                            .as_ref()
                             .and_then(|dev| drive.partitions.iter().find(|p| &p.device == dev))
                             .map(|p| p.offset)
                             .unwrap_or(0);
-                        let offset_b = b.volume.device_path.as_ref()
+                        let offset_b = b
+                            .volume
+                            .device_path
+                            .as_ref()
                             .and_then(|dev| drive.partitions.iter().find(|p| &p.device == dev))
                             .map(|p| p.offset)
                             .unwrap_or(0);

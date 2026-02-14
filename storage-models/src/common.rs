@@ -12,7 +12,7 @@ pub const GPT_ALIGNMENT_BYTES: u64 = 1024 * 1024;
 pub struct ByteRange {
     /// Start byte (inclusive)
     pub start: u64,
-    
+
     /// End byte (exclusive)
     pub end: u64,
 }
@@ -29,7 +29,7 @@ impl ByteRange {
         let end = self.end.min(disk_size);
         Self { start, end }
     }
-    
+
     /// Get the size of this range in bytes
     pub fn size(&self) -> u64 {
         self.end.saturating_sub(self.start)
@@ -41,19 +41,19 @@ impl ByteRange {
 pub struct Usage {
     /// Filesystem type (e.g., "ext4", "btrfs", "xfs")
     pub filesystem: String,
-    
+
     /// Total blocks
     pub blocks: u64,
-    
+
     /// Used blocks
     pub used: u64,
-    
+
     /// Available blocks
     pub available: u64,
-    
+
     /// Usage percentage (0-100)
     pub percent: u32,
-    
+
     /// Mount point where this filesystem is mounted
     pub mount_point: String,
 }
@@ -63,12 +63,12 @@ impl Usage {
     pub fn total_bytes(&self) -> u64 {
         self.blocks * 4096
     }
-    
+
     /// Get used size in bytes (assuming standard 4K block size)
     pub fn used_bytes(&self) -> u64 {
         self.used * 4096
     }
-    
+
     /// Get available size in bytes (assuming standard 4K block size)
     pub fn available_bytes(&self) -> u64 {
         self.available * 4096

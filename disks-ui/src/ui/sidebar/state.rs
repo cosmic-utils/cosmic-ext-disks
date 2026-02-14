@@ -1,5 +1,5 @@
-use cosmic::widget::nav_bar;
 use crate::models::UiDrive;
+use cosmic::widget::nav_bar;
 use std::collections::{HashMap, HashSet};
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
@@ -49,8 +49,6 @@ impl SidebarState {
     }
 
     pub fn find_drive(&self, device: &str) -> Option<&UiDrive> {
-        self.drives
-            .iter()
-            .find(|d| d.device() == device)
+        self.drives.iter().find(|d| d.device() == device)
     }
 }

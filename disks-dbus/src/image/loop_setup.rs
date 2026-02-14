@@ -2,11 +2,11 @@
 
 //! Loop device setup operations
 
+use anyhow::{Context, Result};
 use std::collections::HashMap;
 use std::os::fd::OwnedFd;
-use std::path::PathBuf;
 use std::os::unix::fs::FileTypeExt;
-use anyhow::{Context, Result};
+use std::path::PathBuf;
 use zbus::zvariant::{OwnedFd as ZOwnedFd, OwnedObjectPath, Value};
 
 use crate::image::udisks_call::call_udisks_raw;

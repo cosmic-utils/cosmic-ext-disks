@@ -1,6 +1,6 @@
+use crate::client::BtrfsClient;
 use crate::models::load_all_drives;
 use cosmic::Task;
-use crate::client::BtrfsClient;
 
 use crate::app::Message;
 use crate::fl;
@@ -104,8 +104,12 @@ pub(super) fn btrfs_create_subvolume_message(
                     }
                     Err(e) => {
                         let ctx = UiErrorContext::new("create_subvolume");
-                        log_error_and_show_dialog(fl!("btrfs-create-subvolume-failed"), e.into(), ctx)
-                            .into()
+                        log_error_and_show_dialog(
+                            fl!("btrfs-create-subvolume-failed"),
+                            e.into(),
+                            ctx,
+                        )
+                        .into()
                     }
                 },
             );
@@ -213,14 +217,16 @@ pub(super) fn btrfs_create_snapshot_message(
             // Get source subvolume path
             let source_subvol = &state.subvolumes[state.selected_source_index];
             let source = source_subvol.path.clone();
-            let dest = name.to_string();  // dest is a string, not std::path::PathBuf
+            let dest = name.to_string(); // dest is a string, not std::path::PathBuf
             let read_only = state.read_only;
             let mount_point = state.mount_point.clone();
 
             return Task::perform(
                 async move {
                     let btrfs_client = BtrfsClient::new().await?;
-                    btrfs_client.create_snapshot(&mount_point, &source, &dest, read_only).await?;
+                    btrfs_client
+                        .create_snapshot(&mount_point, &source, &dest, read_only)
+                        .await?;
                     load_all_drives().await
                 },
                 |result| match result {
@@ -230,7 +236,11 @@ pub(super) fn btrfs_create_snapshot_message(
                     }
                     Err(e) => {
                         let ctx = UiErrorContext::new("create_snapshot");
-                        let msg =log_error_and_show_dialog(fl!("btrfs-create-snapshot-failed"), e.into(), ctx);
+                        let msg = log_error_and_show_dialog(
+                            fl!("btrfs-create-snapshot-failed"),
+                            e.into(),
+                            ctx,
+                        );
                         msg.into()
                     }
                 },

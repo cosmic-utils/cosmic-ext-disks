@@ -2,13 +2,13 @@
 
 //! Helper functions for loading UiDrive instances from storage-service
 
-use crate::client::{DisksClient, error::ClientError};
 use super::UiDrive;
+use crate::client::{DisksClient, error::ClientError};
 
 /// Load all drives from storage-service as UiDrive instances
-/// 
+///
 /// Each UiDrive is created with its own client and initial data load.
-/// 
+///
 /// # Example
 /// ```no_run
 /// let drives = load_all_drives().await?;
@@ -19,7 +19,7 @@ use super::UiDrive;
 pub async fn load_all_drives() -> Result<Vec<UiDrive>, ClientError> {
     let client = DisksClient::new().await?;
     let disks = client.list_disks().await?;
-    
+
     let mut drives = Vec::new();
     for disk in disks {
         match UiDrive::new(disk).await {
@@ -30,6 +30,6 @@ pub async fn load_all_drives() -> Result<Vec<UiDrive>, ClientError> {
             }
         }
     }
-    
+
     Ok(drives)
 }

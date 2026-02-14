@@ -4,7 +4,7 @@ use crate::config::Config;
 use crate::ui::dialogs::message::ImageOperationDialogMessage;
 use cosmic::Application;
 use cosmic::iced::Subscription;
-use cosmic::iced::futures::{StreamExt, SinkExt};
+use cosmic::iced::futures::{SinkExt, StreamExt};
 use std::time::Duration;
 
 use super::state::AppModel;
@@ -63,14 +63,35 @@ pub(crate) fn subscription(app: &AppModel) -> Subscription<Message> {
         Subscription::run_with_id(
             std::any::TypeId::of::<StorageEventsSubscription>(),
             cosmic::iced::stream::channel(4, move |mut output| async move {
-                let Ok(fs_client) = FilesystemsClient::new().await else { return };
-                let Ok(luks_client) = LuksClient::new().await else { return };
-                let Ok(mut formatted) = fs_client.proxy().receive_formatted().await else { return };
-                let Ok(mut mounted) = fs_client.proxy().receive_mounted().await else { return };
-                let Ok(mut unmounted) = fs_client.proxy().receive_unmounted().await else { return };
-                let Ok(mut container_created) = luks_client.proxy().receive_container_created().await else { return };
-                let Ok(mut container_unlocked) = luks_client.proxy().receive_container_unlocked().await else { return };
-                let Ok(mut container_locked) = luks_client.proxy().receive_container_locked().await else { return };
+                let Ok(fs_client) = FilesystemsClient::new().await else {
+                    return;
+                };
+                let Ok(luks_client) = LuksClient::new().await else {
+                    return;
+                };
+                let Ok(mut formatted) = fs_client.proxy().receive_formatted().await else {
+                    return;
+                };
+                let Ok(mut mounted) = fs_client.proxy().receive_mounted().await else {
+                    return;
+                };
+                let Ok(mut unmounted) = fs_client.proxy().receive_unmounted().await else {
+                    return;
+                };
+                let Ok(mut container_created) =
+                    luks_client.proxy().receive_container_created().await
+                else {
+                    return;
+                };
+                let Ok(mut container_unlocked) =
+                    luks_client.proxy().receive_container_unlocked().await
+                else {
+                    return;
+                };
+                let Ok(mut container_locked) = luks_client.proxy().receive_container_locked().await
+                else {
+                    return;
+                };
                 loop {
                     tokio::select! {
                         _ = formatted.next() => { _ = output.send(Message::DriveAdded(String::new())).await; }

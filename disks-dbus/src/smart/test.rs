@@ -2,10 +2,13 @@
 
 //! SMART self-test operations
 
-use std::collections::HashMap;
-use anyhow::Result;
-use zbus::{Connection, zvariant::{OwnedObjectPath, Value}};
 use crate::SmartSelfTestKind;
+use anyhow::Result;
+use std::collections::HashMap;
+use zbus::{
+    Connection,
+    zvariant::{OwnedObjectPath, Value},
+};
 
 /// Helper to check if error indicates "not supported"
 fn is_anyhow_not_supported(e: &anyhow::Error) -> bool {
@@ -35,13 +38,15 @@ pub async fn start_drive_smart_selftest(
 ) -> Result<()> {
     match start_nvme_selftest(&drive_path, kind).await {
         Ok(()) => Ok(()),
-        Err(e) if is_anyhow_not_supported(&e) => match start_ata_selftest(&drive_path, kind).await {
-            Ok(()) => Ok(()),
-            Err(e2) if is_anyhow_not_supported(&e2) => {
-                Err(anyhow::anyhow!("Not supported by this drive"))
+        Err(e) if is_anyhow_not_supported(&e) => {
+            match start_ata_selftest(&drive_path, kind).await {
+                Ok(()) => Ok(()),
+                Err(e2) if is_anyhow_not_supported(&e2) => {
+                    Err(anyhow::anyhow!("Not supported by this drive"))
+                }
+                Err(e2) => Err(e2),
             }
-            Err(e2) => Err(e2),
-        },
+        }
         Err(e) => Err(e),
     }
 }

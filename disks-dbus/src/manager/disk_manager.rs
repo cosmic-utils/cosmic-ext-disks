@@ -24,7 +24,7 @@ pub trait UDisks2Manager {
         &self,
         options: HashMap<String, Value<'_>>,
     ) -> zbus::Result<Vec<zvariant::OwnedObjectPath>>;
-    
+
     fn enable_modules(&self, enable: bool) -> zbus::Result<()>;
 }
 
@@ -152,13 +152,11 @@ impl DiskManager {
         removed: Option<String>,
     ) -> Result<()> {
         if let Some(removed_str) = removed
-            && let Some(index) = drives
-                .iter()
-                .position(|(d, _)| d.device == removed_str)
-            {
-                drives.remove(index);
-                return Ok(());
-            }
+            && let Some(index) = drives.iter().position(|(d, _)| d.device == removed_str)
+        {
+            drives.remove(index);
+            return Ok(());
+        }
 
         if added.is_some() {
             *drives = discovery::get_disks_with_volumes().await?;

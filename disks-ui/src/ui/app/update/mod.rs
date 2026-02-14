@@ -49,7 +49,11 @@ fn find_segment_for_volume(
         };
 
         // Direct match (partition itself)
-        if segment_vol.device_path.as_ref().is_some_and(|p| p == device_path) {
+        if segment_vol
+            .device_path
+            .as_ref()
+            .is_some_and(|p| p == device_path)
+        {
             return Some((segment_idx, false));
         }
 
@@ -57,11 +61,13 @@ fn find_segment_for_volume(
         let Some(segment_device) = &segment_vol.device_path else {
             continue;
         };
-        
+
         // Search for the segment volume in the tree
-        let segment_node = volumes_control.volumes.iter()
+        let segment_node = volumes_control
+            .volumes
+            .iter()
             .find(|v| v.device() == Some(segment_device.as_str()));
-        
+
         let Some(segment_node) = segment_node else {
             continue;
         };
@@ -350,7 +356,9 @@ pub(crate) fn update(app: &mut AppModel, message: Message) -> Task<Message> {
                 .sidebar
                 .drives
                 .iter()
-                .find(|d| volumes_helpers::find_volume_in_ui_tree(&d.volumes, &device_path).is_some())
+                .find(|d| {
+                    volumes_helpers::find_volume_in_ui_tree(&d.volumes, &device_path).is_some()
+                })
                 .cloned();
 
             // If the volume belongs to a different drive, switch to that drive first
@@ -429,11 +437,15 @@ pub(crate) fn update(app: &mut AppModel, message: Message) -> Task<Message> {
 
             return Task::perform(
                 async move {
-                    let fs_client = FilesystemsClient::new().await
-                        .map_err(|e| anyhow::anyhow!("Failed to create filesystems client: {}", e))?;
-                    fs_client.unmount(&device_to_unmount, false, false).await
+                    let fs_client = FilesystemsClient::new().await.map_err(|e| {
+                        anyhow::anyhow!("Failed to create filesystems client: {}", e)
+                    })?;
+                    fs_client
+                        .unmount(&device_to_unmount, false, false)
+                        .await
                         .map_err(|e| anyhow::anyhow!("Failed to unmount: {}", e))?;
-                    load_all_drives().await
+                    load_all_drives()
+                        .await
                         .map_err(|e| anyhow::anyhow!("Failed to reload drives: {}", e))
                 },
                 move |res| match res {
@@ -541,18 +553,22 @@ pub(crate) fn update(app: &mut AppModel, message: Message) -> Task<Message> {
                                     }
                                 };
                                 // Unmount with kill_processes=true so the service kills blocking processes
-                                let unmount_result = match fs_client.unmount(&device, false, true).await {
-                                    Ok(r) => r,
-                                    Err(e) => {
-                                        tracing::error!(?e, "Failed to unmount with kill");
-                                        return Err(None);
-                                    }
-                                };
+                                let unmount_result =
+                                    match fs_client.unmount(&device, false, true).await {
+                                        Ok(r) => r,
+                                        Err(e) => {
+                                            tracing::error!(?e, "Failed to unmount with kill");
+                                            return Err(None);
+                                        }
+                                    };
                                 if unmount_result.success {
                                     match load_all_drives().await {
                                         Ok(drives) => Ok(drives),
                                         Err(e) => {
-                                            tracing::error!(?e, "Failed to reload drives after unmount");
+                                            tracing::error!(
+                                                ?e,
+                                                "Failed to reload drives after unmount"
+                                            );
                                             Err(None)
                                         }
                                     }
@@ -654,7 +670,7 @@ fn retry_unmount(volumes: &VolumesControl, device_path: String) -> Task<Message>
                         return Err(None);
                     }
                 };
-                
+
                 let unmount_result = match fs_client.unmount(&device, false, false).await {
                     Ok(r) => r,
                     Err(e) => {
@@ -662,7 +678,7 @@ fn retry_unmount(volumes: &VolumesControl, device_path: String) -> Task<Message>
                         return Err(None);
                     }
                 };
-                
+
                 if unmount_result.success {
                     // Success - reload drives
                     match load_all_drives().await {

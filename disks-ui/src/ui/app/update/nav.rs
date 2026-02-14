@@ -1,3 +1,4 @@
+use crate::models::UiDrive;
 use crate::ui::app::message::Message;
 use crate::ui::app::state::AppModel;
 use crate::ui::btrfs::BtrfsState;
@@ -5,7 +6,6 @@ use crate::ui::dialogs::state::ShowDialog;
 use crate::ui::volumes::{VolumesControl, helpers};
 use cosmic::app::Task;
 use cosmic::widget::icon;
-use crate::models::UiDrive;
 use std::collections::HashMap;
 
 pub(super) fn update_nav(
@@ -76,11 +76,21 @@ pub(super) fn update_nav(
             && let Some(volume) = &segment.volume
         {
             let btrfs_info = helpers::detect_btrfs_for_volume(&drive.volumes, volume);
-            tracing::info!("update_nav: drive={}, segment={}, btrfs_detected={}, has_filesystem={}, mount_points={:?}",
-                drive.name(), selected_idx, btrfs_info.is_some(), volume.has_filesystem, volume.mount_points);
+            tracing::info!(
+                "update_nav: drive={}, segment={}, btrfs_detected={}, has_filesystem={}, mount_points={:?}",
+                drive.name(),
+                selected_idx,
+                btrfs_info.is_some(),
+                volume.has_filesystem,
+                volume.mount_points
+            );
 
             if let Some((mount_point, block_path)) = btrfs_info {
-                tracing::info!("update_nav: Initializing BTRFS state with mount_point={:?}, block_path={}", mount_point, block_path);
+                tracing::info!(
+                    "update_nav: Initializing BTRFS state with mount_point={:?}, block_path={}",
+                    mount_point,
+                    block_path
+                );
                 volumes_control.btrfs_state = Some(BtrfsState::new(mount_point, Some(block_path)));
             }
         }

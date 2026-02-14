@@ -12,7 +12,7 @@ use crate::Usage;
 pub enum PartitionTableType {
     /// GPT (GUID Partition Table)
     Gpt,
-    
+
     /// MBR/DOS (Master Boot Record)
     Mbr,
 }
@@ -25,7 +25,7 @@ impl PartitionTableType {
             Self::Mbr => "dos",
         }
     }
-    
+
     /// Parse from UDisks2 string format
     pub fn from_str(s: &str) -> Option<Self> {
         match s {
@@ -61,46 +61,46 @@ pub struct CreatePartitionInfo {
 pub struct PartitionInfo {
     /// Device path (e.g., "/dev/sda1")
     pub device: String,
-    
+
     /// Partition number (1-based)
     pub number: u32,
-    
+
     /// Parent disk device path (e.g., "/dev/sda")
     pub parent_path: String,
-    
+
     /// Size in bytes
     pub size: u64,
-    
+
     /// Offset from start of disk in bytes
     pub offset: u64,
-    
+
     /// Partition type identifier (GPT GUID or MBR type code)
     pub type_id: String,
-    
+
     /// Human-readable partition type name
     pub type_name: String,
-    
+
     /// Partition flags (bitfield)
     pub flags: u64,
-    
+
     /// Partition name (GPT only, empty for MBR)
     pub name: String,
-    
+
     /// Partition UUID
     pub uuid: String,
-    
+
     /// Partition table type
     pub table_type: String,
-    
+
     /// Whether this partition has a filesystem
     pub has_filesystem: bool,
-    
+
     /// Filesystem type (if has_filesystem is true)
     pub filesystem_type: Option<String>,
-    
+
     /// Current mount points (empty if not mounted)
     pub mount_points: Vec<String>,
-    
+
     /// Filesystem usage (if mounted)
     pub usage: Option<Usage>,
 }
@@ -140,7 +140,7 @@ impl PartitionInfo {
     pub fn can_mount(&self) -> bool {
         self.has_filesystem && !self.is_mounted()
     }
-    
+
     /// Get a display name for this partition
     pub fn display_name(&self) -> String {
         if !self.name.is_empty() {
@@ -151,12 +151,12 @@ impl PartitionInfo {
             "Filesystem".to_string()
         }
     }
-    
+
     /// Check if this is a GPT partition
     pub fn is_gpt(&self) -> bool {
         self.table_type == "gpt"
     }
-    
+
     /// Check if this is an MBR partition
     pub fn is_mbr(&self) -> bool {
         self.table_type == "dos" || self.table_type == "mbr"
@@ -183,10 +183,10 @@ impl PartitionInfo {
 pub struct PartitionTableInfo {
     /// Device path of the disk (e.g., "/dev/sda")
     pub device: String,
-    
+
     /// Table type (GPT or MBR)
     pub table_type: PartitionTableType,
-    
+
     /// Maximum number of partitions supported
     pub max_partitions: u32,
 }

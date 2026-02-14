@@ -10,8 +10,8 @@ use crate::error::DiskError;
 use crate::manager::UDisks2ManagerProxy;
 use udisks2::block::BlockProxy;
 use udisks2::filesystem::FilesystemProxy;
-use zbus::zvariant::OwnedObjectPath;
 use zbus::Connection;
+use zbus::zvariant::OwnedObjectPath;
 
 fn canonicalize_best_effort(p: &str) -> Option<String> {
     std::fs::canonicalize(p)
@@ -21,7 +21,9 @@ fn canonicalize_best_effort(p: &str) -> Option<String> {
 
 /// Resolve a device path (e.g. "/dev/sda1") to the UDisks2 block object path.
 /// Uses preferred_device or device from Block proxy; matches exact path or canonical path.
-pub(crate) async fn block_object_path_for_device(device: &str) -> Result<OwnedObjectPath, DiskError> {
+pub(crate) async fn block_object_path_for_device(
+    device: &str,
+) -> Result<OwnedObjectPath, DiskError> {
     let connection = Connection::system()
         .await
         .map_err(|e| DiskError::ConnectionFailed(e.to_string()))?;
@@ -44,11 +46,17 @@ pub(crate) async fn block_object_path_for_device(device: &str) -> Result<OwnedOb
         };
 
         let preferred_device = bs::decode_c_string_bytes(
-            &proxy.preferred_device().await.map_err(|e| DiskError::DBusError(e.to_string()))?,
+            &proxy
+                .preferred_device()
+                .await
+                .map_err(|e| DiskError::DBusError(e.to_string()))?,
         );
         let block_device = if preferred_device.is_empty() {
             bs::decode_c_string_bytes(
-                &proxy.device().await.map_err(|e| DiskError::DBusError(e.to_string()))?,
+                &proxy
+                    .device()
+                    .await
+                    .map_err(|e| DiskError::DBusError(e.to_string()))?,
             )
         } else {
             preferred_device
@@ -63,9 +71,10 @@ pub(crate) async fn block_object_path_for_device(device: &str) -> Result<OwnedOb
         }
         if let Some(ref canon) = device_canon
             && let Some(block_canon) = canonicalize_best_effort(&block_device)
-                && block_canon == *canon {
-                    return Ok(obj.clone());
-                }
+            && block_canon == *canon
+        {
+            return Ok(obj.clone());
+        }
     }
 
     Err(DiskError::DeviceNotFound(device.to_string()))
@@ -73,7 +82,9 @@ pub(crate) async fn block_object_path_for_device(device: &str) -> Result<OwnedOb
 
 /// Resolve a mount point path (e.g. "/run/media/user/DISK") to the UDisks2 block object path.
 /// Used when unmounting by mount point.
-pub(crate) async fn block_object_path_for_mount_point(mount_point: &str) -> Result<OwnedObjectPath, DiskError> {
+pub(crate) async fn block_object_path_for_mount_point(
+    mount_point: &str,
+) -> Result<OwnedObjectPath, DiskError> {
     let connection = Connection::system()
         .await
         .map_err(|e| DiskError::ConnectionFailed(e.to_string()))?;
@@ -88,7 +99,11 @@ pub(crate) async fn block_object_path_for_mount_point(mount_point: &str) -> Resu
         .map_err(|e| DiskError::DBusError(e.to_string()))?;
 
     for obj in &block_paths {
-        let fs_proxy = match FilesystemProxy::builder(&connection).path(obj)?.build().await {
+        let fs_proxy = match FilesystemProxy::builder(&connection)
+            .path(obj)?
+            .build()
+            .await
+        {
             Ok(p) => p,
             Err(_) => continue,
         };
@@ -109,7 +124,9 @@ pub(crate) async fn block_object_path_for_mount_point(mount_point: &str) -> Resu
 
 /// Resolve a block device path (e.g. "/dev/sda") to the UDisks2 drive object path.
 /// Used for SMART and other drive-level operations.
-pub(crate) async fn drive_object_path_for_device(device: &str) -> Result<OwnedObjectPath, DiskError> {
+pub(crate) async fn drive_object_path_for_device(
+    device: &str,
+) -> Result<OwnedObjectPath, DiskError> {
     let connection = Connection::system()
         .await
         .map_err(|e| DiskError::ConnectionFailed(e.to_string()))?;

@@ -2,13 +2,13 @@ use crate::models::{UiDrive, load_all_drives};
 use cosmic::Task;
 
 use crate::app::Message;
+use crate::client::filesystems::FilesystemsClient;
 use crate::fl;
 use crate::ui::dialogs::message::EditFilesystemLabelMessage;
 use crate::ui::dialogs::state::{
     ConfirmActionDialog, EditFilesystemLabelDialog, FilesystemTarget, ShowDialog,
 };
 use crate::ui::error::{UiErrorContext, log_error_and_show_dialog};
-use crate::client::filesystems::FilesystemsClient;
 
 use crate::ui::volumes::{VolumesControl, VolumesControlMessage};
 
@@ -75,15 +75,22 @@ pub(super) fn edit_filesystem_label_message(
 
             return Task::perform(
                 async move {
-                    let fs_client = FilesystemsClient::new().await
-                        .map_err(|e| anyhow::anyhow!("Failed to create filesystems client: {}", e))?;
+                    let fs_client = FilesystemsClient::new().await.map_err(|e| {
+                        anyhow::anyhow!("Failed to create filesystems client: {}", e)
+                    })?;
                     let device = match &target {
-                        FilesystemTarget::Volume(v) => v.device_path.as_ref()
+                        FilesystemTarget::Volume(v) => v
+                            .device_path
+                            .as_ref()
                             .ok_or_else(|| anyhow::anyhow!("Volume has no device path"))?,
-                        FilesystemTarget::Node(n) => n.device_path.as_ref()
+                        FilesystemTarget::Node(n) => n
+                            .device_path
+                            .as_ref()
                             .ok_or_else(|| anyhow::anyhow!("Volume has no device path"))?,
                     };
-                    fs_client.set_label(device, &label).await
+                    fs_client
+                        .set_label(device, &label)
+                        .await
                         .map_err(|e| anyhow::anyhow!("Failed to set label: {}", e))?;
                     load_all_drives().await.map_err(|e| e.into())
                 },
@@ -154,15 +161,22 @@ pub(super) fn check_filesystem_confirm(
     let target = state.target.clone();
     Task::perform(
         async move {
-            let fs_client = FilesystemsClient::new().await
+            let fs_client = FilesystemsClient::new()
+                .await
                 .map_err(|e| anyhow::anyhow!("Failed to create filesystems client: {}", e))?;
             let device = match &target {
-                FilesystemTarget::Volume(v) => v.device_path.as_ref()
+                FilesystemTarget::Volume(v) => v
+                    .device_path
+                    .as_ref()
                     .ok_or_else(|| anyhow::anyhow!("Volume has no device path"))?,
-                FilesystemTarget::Node(n) => n.device_path.as_ref()
+                FilesystemTarget::Node(n) => n
+                    .device_path
+                    .as_ref()
                     .ok_or_else(|| anyhow::anyhow!("Volume has no device path"))?,
             };
-            let _output = fs_client.check(device, false).await
+            let _output = fs_client
+                .check(device, false)
+                .await
                 .map_err(|e| anyhow::anyhow!("Filesystem check failed: {}", e))?;
             load_all_drives().await.map_err(|e| e.into())
         },
@@ -231,15 +245,22 @@ pub(super) fn repair_filesystem_confirm(
     let target = state.target.clone();
     Task::perform(
         async move {
-            let fs_client = FilesystemsClient::new().await
+            let fs_client = FilesystemsClient::new()
+                .await
                 .map_err(|e| anyhow::anyhow!("Failed to create filesystems client: {}", e))?;
             let device = match &target {
-                FilesystemTarget::Volume(v) => v.device_path.as_ref()
+                FilesystemTarget::Volume(v) => v
+                    .device_path
+                    .as_ref()
                     .ok_or_else(|| anyhow::anyhow!("Volume has no device path"))?,
-                FilesystemTarget::Node(n) => n.device_path.as_ref()
+                FilesystemTarget::Node(n) => n
+                    .device_path
+                    .as_ref()
                     .ok_or_else(|| anyhow::anyhow!("Volume has no device path"))?,
             };
-            let _output = fs_client.check(device, true).await
+            let _output = fs_client
+                .check(device, true)
+                .await
                 .map_err(|e| anyhow::anyhow!("Filesystem repair failed: {}", e))?;
             load_all_drives().await.map_err(|e| e.into())
         },

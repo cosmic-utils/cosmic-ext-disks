@@ -8,13 +8,11 @@ use std::path::Path;
 use anyhow::Result;
 use storage_models::VolumeKind;
 use udisks2::{
-    block::BlockProxy,
-    encrypted::EncryptedProxy,
-    filesystem::FilesystemProxy,
+    block::BlockProxy, encrypted::EncryptedProxy, filesystem::FilesystemProxy,
     partitiontable::PartitionTableProxy,
 };
-use zbus::zvariant::OwnedObjectPath;
 use zbus::Connection;
+use zbus::zvariant::OwnedObjectPath;
 
 use super::block_index::BlockIndex;
 use crate::dbus::bytestring as bs;
@@ -33,7 +31,10 @@ pub(crate) async fn probe_basic_block(
         .await?;
 
     let preferred_device = bs::decode_c_string_bytes(
-        &block_proxy.preferred_device().await.map_err(anyhow::Error::msg)?,
+        &block_proxy
+            .preferred_device()
+            .await
+            .map_err(anyhow::Error::msg)?,
     );
     let device = if preferred_device.is_empty() {
         bs::decode_c_string_bytes(&block_proxy.device().await.map_err(anyhow::Error::msg)?)
@@ -47,7 +48,10 @@ pub(crate) async fn probe_basic_block(
         Some(device)
     };
     if device_path.is_none() {
-        let proposed = format!("/dev/{}", object_path.as_str().split('/').next_back().unwrap_or(""));
+        let proposed = format!(
+            "/dev/{}",
+            object_path.as_str().split('/').next_back().unwrap_or("")
+        );
         if Path::new(&proposed).exists() {
             device_path = Some(proposed);
         }
@@ -66,9 +70,7 @@ pub(crate) async fn probe_basic_block(
     };
 
     let usage = match mount_points.first() {
-        Some(mount_point) => {
-            crate::usage_for_mount_point(mount_point, device_path.as_deref()).ok()
-        }
+        Some(mount_point) => crate::usage_for_mount_point(mount_point, device_path.as_deref()).ok(),
         None => None,
     };
 
@@ -105,25 +107,26 @@ pub(crate) async fn from_block_object(
     if info.kind == VolumeKind::LvmPhysicalVolume || info.id_type == "LVM2_member" {
         info.kind = VolumeKind::LvmPhysicalVolume;
         if let (Some(pv_device), Some(index)) = (info.device_path.as_deref(), block_index)
-            && let Ok(lvs) = lvm::list_lvs_for_pv(pv_device) {
-                let mut children = Vec::new();
-                for lv in lvs {
-                    let lv_obj_path = match index.object_path_for_device(&lv.device_path) {
-                        Some(p) => p,
-                        None => continue,
-                    };
-                    let mut child = probe_basic_block(
-                        connection,
-                        lv_obj_path,
-                        lv.display_name(),
-                        VolumeKind::LvmLogicalVolume,
-                    )
-                    .await?;
-                    child.parent_path = info.device_path.clone();
-                    children.push(child);
-                }
-                info.children = children;
+            && let Ok(lvs) = lvm::list_lvs_for_pv(pv_device)
+        {
+            let mut children = Vec::new();
+            for lv in lvs {
+                let lv_obj_path = match index.object_path_for_device(&lv.device_path) {
+                    Some(p) => p,
+                    None => continue,
+                };
+                let mut child = probe_basic_block(
+                    connection,
+                    lv_obj_path,
+                    lv.display_name(),
+                    VolumeKind::LvmLogicalVolume,
+                )
+                .await?;
+                child.parent_path = info.device_path.clone();
+                children.push(child);
             }
+            info.children = children;
+        }
     }
 
     Ok(info)
@@ -182,28 +185,29 @@ pub(crate) async fn crypto_container_for_partition(
                 .path(&cleartext)?
                 .build()
                 .await
-                && let Ok(parts) = pt.partitions().await {
-                    for part_path in parts {
-                        let part_label = part_path
-                            .as_str()
-                            .split('/')
-                            .next_back()
-                            .unwrap_or("Partition")
-                            .replace('_', " ");
-                        if let Ok(child) = from_block_object(
-                            connection,
-                            part_path.clone(),
-                            part_label,
-                            VolumeKind::Partition,
-                            cleartext_info.device_path.clone(),
-                            Some(block_index),
-                        )
-                        .await
-                        {
-                            cleartext_info.children.push(child);
-                        }
+                && let Ok(parts) = pt.partitions().await
+            {
+                for part_path in parts {
+                    let part_label = part_path
+                        .as_str()
+                        .split('/')
+                        .next_back()
+                        .unwrap_or("Partition")
+                        .replace('_', " ");
+                    if let Ok(child) = from_block_object(
+                        connection,
+                        part_path.clone(),
+                        part_label,
+                        VolumeKind::Partition,
+                        cleartext_info.device_path.clone(),
+                        Some(block_index),
+                    )
+                    .await
+                    {
+                        cleartext_info.children.push(child);
                     }
                 }
+            }
         }
 
         info.children.push(cleartext_info);

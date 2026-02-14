@@ -2,16 +2,17 @@
 
 //! Filesystem check and repair operations
 
+use crate::error::DiskError;
 use std::collections::HashMap;
 use udisks2::filesystem::FilesystemProxy;
 use zbus::{Connection, zvariant::Value};
-use crate::error::DiskError;
 
 /// Check and repair a filesystem
 ///
 /// Returns true if filesystem is clean, false if errors were found (and repaired if repair=true)
 pub async fn check_filesystem(device_path: &str, repair: bool) -> Result<bool, DiskError> {
-    let connection = Connection::system().await
+    let connection = Connection::system()
+        .await
         .map_err(|e| DiskError::ConnectionFailed(e.to_string()))?;
 
     let fs_path = crate::disk::resolve::block_object_path_for_device(device_path).await?;
@@ -21,13 +22,15 @@ pub async fn check_filesystem(device_path: &str, repair: bool) -> Result<bool, D
         .build()
         .await
         .map_err(|e| DiskError::DBusError(e.to_string()))?;
-    
+
     let mut opts: HashMap<&str, Value<'_>> = HashMap::new();
     opts.insert("repair", Value::from(repair));
-    
-    let result = fs_proxy.check(opts).await
+
+    let result = fs_proxy
+        .check(opts)
+        .await
         .map_err(|e| DiskError::OperationFailed(format!("Filesystem check failed: {}", e)))?;
-    
+
     Ok(result)
 }
 
@@ -35,7 +38,8 @@ pub async fn check_filesystem(device_path: &str, repair: bool) -> Result<bool, D
 ///
 /// This is a convenience wrapper around check_filesystem with repair=true
 pub async fn repair_filesystem(device_path: &str) -> Result<(), DiskError> {
-    let connection = Connection::system().await
+    let connection = Connection::system()
+        .await
         .map_err(|e| DiskError::ConnectionFailed(e.to_string()))?;
 
     let fs_path = crate::disk::resolve::block_object_path_for_device(device_path).await?;
@@ -45,16 +49,18 @@ pub async fn repair_filesystem(device_path: &str) -> Result<(), DiskError> {
         .build()
         .await
         .map_err(|e| DiskError::DBusError(e.to_string()))?;
-    
+
     let opts: HashMap<&str, Value<'_>> = HashMap::new();
-    let ok = fs_proxy.repair(opts).await
+    let ok = fs_proxy
+        .repair(opts)
+        .await
         .map_err(|e| DiskError::OperationFailed(format!("Filesystem repair failed: {}", e)))?;
-    
+
     if ok {
         Ok(())
     } else {
         Err(DiskError::OperationFailed(
-            "Filesystem repair completed but reported failure".to_string()
+            "Filesystem repair completed but reported failure".to_string(),
         ))
     }
 }

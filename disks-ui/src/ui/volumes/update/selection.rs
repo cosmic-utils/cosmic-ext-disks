@@ -37,15 +37,31 @@ pub(super) fn segment_selected(
             && let Some(volume) = &segment.volume
         {
             let btrfs_info = helpers::detect_btrfs_for_volume(&control.volumes, volume);
-            tracing::info!("segment_selected: index={}, btrfs_detected={}, id_type={}, has_filesystem={}, mount_points={:?}",
-                index, btrfs_info.is_some(), volume.id_type, volume.has_filesystem, volume.mount_points);
+            tracing::info!(
+                "segment_selected: index={}, btrfs_detected={}, id_type={}, has_filesystem={}, mount_points={:?}",
+                index,
+                btrfs_info.is_some(),
+                volume.id_type,
+                volume.has_filesystem,
+                volume.mount_points
+            );
             if let Some((mount_point, block_path)) = btrfs_info {
-                tracing::info!("segment_selected: Initializing BTRFS state with mount_point={:?}, block_path={}", mount_point, block_path);
-                control.btrfs_state = Some(BtrfsState::new(mount_point.clone(), Some(block_path.clone())));
+                tracing::info!(
+                    "segment_selected: Initializing BTRFS state with mount_point={:?}, block_path={}",
+                    mount_point,
+                    block_path
+                );
+                control.btrfs_state = Some(BtrfsState::new(
+                    mount_point.clone(),
+                    Some(block_path.clone()),
+                ));
 
                 // If mounted, trigger data loading
                 if let Some(mp) = mount_point {
-                    let device_path = volume.device_path.clone().unwrap_or_else(|| volume.label.clone());
+                    let device_path = volume
+                        .device_path
+                        .clone()
+                        .unwrap_or_else(|| volume.label.clone());
                     let mut tasks = vec![Task::done(cosmic::Action::App(
                         Message::SidebarSelectChild {
                             device_path: device_path.clone(),
@@ -61,12 +77,10 @@ pub(super) fn segment_selected(
                     )));
 
                     // Load usage info
-                    tasks.push(Task::done(cosmic::Action::App(
-                        Message::BtrfsLoadUsage {
-                            block_path,
-                            mount_point: mp,
-                        }
-                    )));
+                    tasks.push(Task::done(cosmic::Action::App(Message::BtrfsLoadUsage {
+                        block_path,
+                        mount_point: mp,
+                    })));
 
                     return Task::batch(tasks);
                 }
@@ -82,9 +96,7 @@ pub(super) fn segment_selected(
         {
             let device_path = vol.device_path.clone().unwrap_or_else(|| vol.label.clone());
             return Task::batch(vec![Task::done(cosmic::Action::App(
-                Message::SidebarSelectChild {
-                    device_path,
-                },
+                Message::SidebarSelectChild { device_path },
             ))]);
         }
 
@@ -125,11 +137,24 @@ pub(super) fn select_volume(
             && let Some(volume) = &segment.volume
         {
             let btrfs_info = helpers::detect_btrfs_for_volume(&control.volumes, volume);
-            tracing::info!("select_volume: segment_index={}, btrfs_detected={}, id_type={}, has_filesystem={}, mount_points={:?}",
-                segment_index, btrfs_info.is_some(), volume.id_type, volume.has_filesystem, volume.mount_points);
+            tracing::info!(
+                "select_volume: segment_index={}, btrfs_detected={}, id_type={}, has_filesystem={}, mount_points={:?}",
+                segment_index,
+                btrfs_info.is_some(),
+                volume.id_type,
+                volume.has_filesystem,
+                volume.mount_points
+            );
             if let Some((mount_point, block_path)) = btrfs_info {
-                tracing::info!("select_volume: Initializing BTRFS state with mount_point={:?}, block_path={}", mount_point, block_path);
-                control.btrfs_state = Some(BtrfsState::new(mount_point.clone(), Some(block_path.clone())));
+                tracing::info!(
+                    "select_volume: Initializing BTRFS state with mount_point={:?}, block_path={}",
+                    mount_point,
+                    block_path
+                );
+                control.btrfs_state = Some(BtrfsState::new(
+                    mount_point.clone(),
+                    Some(block_path.clone()),
+                ));
 
                 // If mounted, trigger data loading
                 if let Some(mp) = mount_point {
@@ -148,12 +173,10 @@ pub(super) fn select_volume(
                     )));
 
                     // Load usage info
-                    tasks.push(Task::done(cosmic::Action::App(
-                        Message::BtrfsLoadUsage {
-                            block_path,
-                            mount_point: mp,
-                        }
-                    )));
+                    tasks.push(Task::done(cosmic::Action::App(Message::BtrfsLoadUsage {
+                        block_path,
+                        mount_point: mp,
+                    })));
 
                     return Task::batch(tasks);
                 }

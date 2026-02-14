@@ -8,17 +8,16 @@
 use std::collections::HashMap;
 
 use anyhow::Result;
-use zbus::zvariant::OwnedValue;
 use zbus::Connection;
+use zbus::zvariant::OwnedValue;
 
 use crate::dbus::bytestring as bs;
 use crate::disk::resolve;
+use crate::error::DiskError;
 use crate::options::{
-    join_options, remove_prefixed, remove_token, set_token_present,
-    split_options, stable_dedup,
+    join_options, remove_prefixed, remove_token, set_token_present, split_options, stable_dedup,
 };
 use crate::udisks_block_config::{ConfigurationItem, UDisks2BlockConfigurationProxy};
-use crate::error::DiskError;
 
 // Re-export from storage-models (canonical domain model)
 pub use storage_models::EncryptionOptionsSettings;
@@ -41,7 +40,9 @@ pub async fn get_encryption_options(device: &str) -> Result<Option<EncryptionOpt
         .await
         .map_err(|e| DiskError::DBusError(e.to_string()))?;
 
-    let items = proxy.configuration().await
+    let items = proxy
+        .configuration()
+        .await
         .map_err(|e| DiskError::DBusError(e.to_string()))?;
 
     let Some(crypttab_item) = items.iter().find(|(t, _)| *t == "crypttab") else {
@@ -52,8 +53,12 @@ pub async fn get_encryption_options(device: &str) -> Result<Option<EncryptionOpt
     let (_, dict) = crypttab_item;
     let name_str = dict.get("name").and_then(bs::owned_value_to_bytestring);
     let opts_str = dict.get("options").and_then(bs::owned_value_to_bytestring);
-    let _passphrase_path_str = dict.get("passphrase-path").and_then(bs::owned_value_to_bytestring);
-    let _passphrase_contents_str = dict.get("passphrase-contents").and_then(bs::owned_value_to_bytestring);
+    let _passphrase_path_str = dict
+        .get("passphrase-path")
+        .and_then(bs::owned_value_to_bytestring);
+    let _passphrase_contents_str = dict
+        .get("passphrase-contents")
+        .and_then(bs::owned_value_to_bytestring);
 
     // Build EncryptionOptionsSettings from crypttab entry
     let settings = EncryptionOptionsSettings {
@@ -93,7 +98,10 @@ pub async fn get_encryption_options(device: &str) -> Result<Option<EncryptionOpt
 /// * Creates crypttab entry if one does not exist
 /// * Updates existing entry if crypttab entry already exists
 /// * Validates required fields (name must not be empty)
-pub async fn set_encryption_options(device: &str, settings: &EncryptionOptionsSettings) -> Result<()> {
+pub async fn set_encryption_options(
+    device: &str,
+    settings: &EncryptionOptionsSettings,
+) -> Result<()> {
     if settings.name.trim().is_empty() {
         anyhow::bail!("Name must not be empty");
     }
@@ -119,7 +127,9 @@ pub async fn set_encryption_options(device: &str, settings: &EncryptionOptionsSe
         .await
         .map_err(|e| DiskError::DBusError(e.to_string()))?;
 
-    let id_uuid = block_proxy.id_uuid().await
+    let id_uuid = block_proxy
+        .id_uuid()
+        .await
         .map_err(|e| DiskError::DBusError(e.to_string()))?
         .trim()
         .to_string();
@@ -146,8 +156,14 @@ pub async fn set_encryption_options(device: &str, settings: &EncryptionOptionsSe
 
     // Build crypttab options dictionary
     let mut dict: HashMap<String, OwnedValue> = HashMap::new();
-    dict.insert("device".to_string(), bs::bytestring_owned_value(&device_uuid));
-    dict.insert("name".to_string(), bs::bytestring_owned_value(&settings.name));
+    dict.insert(
+        "device".to_string(),
+        bs::bytestring_owned_value(&device_uuid),
+    );
+    dict.insert(
+        "name".to_string(),
+        bs::bytestring_owned_value(&settings.name),
+    );
     dict.insert("options".to_string(), bs::bytestring_owned_value(&opts));
 
     // Add passphrase fields if provided
@@ -158,13 +174,21 @@ pub async fn set_encryption_options(device: &str, settings: &EncryptionOptionsSe
         // Use existing passphrase path if one was set in options
         let passphrase_path = existing_passphrase_path.unwrap_or(default_passphrase_path);
 
-        dict.insert("passphrase-path".to_string(), bs::bytestring_owned_value(&passphrase_path));
-        dict.insert("passphrase-contents".to_string(), bs::bytestring_owned_value(passphrase));
+        dict.insert(
+            "passphrase-path".to_string(),
+            bs::bytestring_owned_value(&passphrase_path),
+        );
+        dict.insert(
+            "passphrase-contents".to_string(),
+            bs::bytestring_owned_value(passphrase),
+        );
     }
 
     let new_item: ConfigurationItem = ("crypttab".to_string(), dict);
 
-    let items = proxy.configuration().await
+    let items = proxy
+        .configuration()
+        .await
         .map_err(|e| DiskError::DBusError(e.to_string()))?;
 
     if let Some(old_item) = items.iter().find(|(t, _)| *t == "crypttab") {
@@ -200,7 +224,9 @@ pub async fn clear_encryption_options(device: &str) -> Result<()> {
         .await
         .map_err(|e| DiskError::DBusError(e.to_string()))?;
 
-    let items = proxy.configuration().await
+    let items = proxy
+        .configuration()
+        .await
         .map_err(|e| DiskError::DBusError(e.to_string()))?;
 
     if let Some(crypttab_item) = items.iter().find(|(t, _)| *t == "crypttab") {

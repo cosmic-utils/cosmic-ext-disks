@@ -338,7 +338,8 @@ pub(super) fn edit_mount_options_message(
                     Ok(drives) => Message::UpdateNav(drives, None).into(),
                     Err(e) => {
                         let ctx = UiErrorContext::new("edit_mount_options");
-                        log_error_and_show_dialog(fl!("edit-mount-options-failed"), e.into(), ctx).into()
+                        log_error_and_show_dialog(fl!("edit-mount-options-failed"), e.into(), ctx)
+                            .into()
                     }
                 },
             )

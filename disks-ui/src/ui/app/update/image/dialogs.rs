@@ -129,14 +129,18 @@ pub(super) fn attach_disk_image_dialog(
                         anyhow::bail!("Image file path is required");
                     }
 
-                    let image_client = ImageClient::new().await
+                    let image_client = ImageClient::new()
+                        .await
                         .map_err(|e| anyhow::anyhow!("Failed to create image client: {}", e))?;
-                    let device_name = image_client.loop_setup(&path).await
+                    let device_name = image_client
+                        .loop_setup(&path)
+                        .await
                         .map_err(|e| anyhow::anyhow!("Failed to set up loop device: {}", e))?;
                     let device_path = format!("/dev/{}", device_name);
 
-                    let fs_client = FilesystemsClient::new().await
-                        .map_err(|e| anyhow::anyhow!("Failed to create filesystems client: {}", e))?;
+                    let fs_client = FilesystemsClient::new().await.map_err(|e| {
+                        anyhow::anyhow!("Failed to create filesystems client: {}", e)
+                    })?;
                     match fs_client.mount(&device_path, "", Some("{}")).await {
                         Ok(_mount_point) => Ok(AttachDiskResult {
                             mounted: true,
@@ -168,13 +172,12 @@ pub(super) fn attach_disk_image_dialog(
                         body: r.message,
                     });
 
-                    return Task::perform(
-                        async { load_all_drives().await.ok() },
-                        |drives| match drives {
+                    return Task::perform(async { load_all_drives().await.ok() }, |drives| {
+                        match drives {
                             None => Message::None.into(),
                             Some(drives) => Message::UpdateNav(drives, None).into(),
-                        },
-                    );
+                        }
+                    });
                 }
                 Err(e) => {
                     tracing::error!(%e, "attach disk image dialog error");
@@ -234,14 +237,12 @@ pub(super) fn image_operation_dialog(
 
             return Task::perform(
                 async move { start_image_operation(kind, drive, partition, image_path).await },
-                |res: anyhow::Result<String>| {
-                    match res {
-                        Ok(operation_id) => Message::ImageOperationStarted(operation_id).into(),
-                        Err(e) => Message::ImageOperationDialog(
-                            ImageOperationDialogMessage::Complete(Err(e.to_string())),
-                        )
-                        .into(),
-                    }
+                |res: anyhow::Result<String>| match res {
+                    Ok(operation_id) => Message::ImageOperationStarted(operation_id).into(),
+                    Err(e) => Message::ImageOperationDialog(ImageOperationDialogMessage::Complete(
+                        Err(e.to_string()),
+                    ))
+                    .into(),
                 },
             );
         }
@@ -263,13 +264,12 @@ pub(super) fn image_operation_dialog(
                         body: fl!("ok"),
                     });
 
-                    return Task::perform(
-                        async { load_all_drives().await.ok() },
-                        |drives| match drives {
+                    return Task::perform(async { load_all_drives().await.ok() }, |drives| {
+                        match drives {
                             None => Message::None.into(),
                             Some(drives) => Message::UpdateNav(drives, None).into(),
-                        },
-                    );
+                        }
+                    });
                 }
                 Err(e) => {
                     tracing::error!(%e, "image operation dialog error");

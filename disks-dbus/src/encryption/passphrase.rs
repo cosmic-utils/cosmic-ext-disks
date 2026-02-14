@@ -2,10 +2,10 @@
 
 //! LUKS passphrase management
 
+use crate::error::DiskError;
 use std::collections::HashMap;
 use udisks2::encrypted::EncryptedProxy;
 use zbus::{Connection, zvariant::Value};
-use crate::error::DiskError;
 
 /// Change LUKS passphrase
 pub async fn change_luks_passphrase(
@@ -13,7 +13,8 @@ pub async fn change_luks_passphrase(
     old_passphrase: &str,
     new_passphrase: &str,
 ) -> Result<(), DiskError> {
-    let connection = Connection::system().await
+    let connection = Connection::system()
+        .await
         .map_err(|e| DiskError::ConnectionFailed(e.to_string()))?;
 
     let encrypted_path = crate::disk::resolve::block_object_path_for_device(device_path).await?;
@@ -23,10 +24,12 @@ pub async fn change_luks_passphrase(
         .build()
         .await
         .map_err(|e| DiskError::DBusError(e.to_string()))?;
-    
+
     let opts: HashMap<&str, Value<'_>> = HashMap::new();
-    encrypted_proxy.change_passphrase(old_passphrase, new_passphrase, opts).await
+    encrypted_proxy
+        .change_passphrase(old_passphrase, new_passphrase, opts)
+        .await
         .map_err(|e| DiskError::OperationFailed(format!("Change passphrase failed: {}", e)))?;
-    
+
     Ok(())
 }

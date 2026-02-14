@@ -8,16 +8,16 @@ pub mod error;
 
 // Domain-based modules (GAP-001.b)
 pub mod disk;
-pub mod partition;
-pub mod filesystem;
 pub mod encryption;
-pub mod image;
-pub mod smart;
-pub mod lvm;
+pub mod filesystem;
 pub mod gpt;
+pub mod image;
+pub mod lvm;
 pub mod manager;
-pub mod volume;
+pub mod partition;
+pub mod smart;
 pub mod util;
+pub mod volume;
 
 // Re-export storage-models types (canonical domain models)
 pub use storage_models;
@@ -52,62 +52,60 @@ pub use dbus::bytestring::{
 
 // Re-export key types from new modules
 // Discovery and operations return storage_models types only
-pub use manager::{DiskManager, DeviceEvent, DeviceEventStream};
+pub use manager::{DeviceEvent, DeviceEventStream, DiskManager};
 pub use smart::{SmartInfo, SmartSelfTestKind};
 
 // Re-export error types
 pub use error::DiskError;
 
-// Re-export configuration types  
-pub use filesystem::MountOptionsSettings;
+// Re-export configuration types
 pub use encryption::config::EncryptionOptionsSettings;
+pub use filesystem::MountOptionsSettings;
 
 // Re-export operations from new domain modules
-pub use gpt::{fallback_gpt_usable_range_bytes, probe_gpt_usable_range_bytes};
-pub use lvm::list_lvs_for_pv;
-pub use util::{find_processes_using_mount, kill_processes};
 pub use disk::{
+    device_apis::{loop_setup_device_path, open_for_backup_by_device, open_for_restore_by_device},
     discovery::{
         block_object_path_for_device, get_disk_info_for_drive_path, get_disks,
         get_disks_with_partitions, get_disks_with_volumes,
     },
-    power::{
-        eject_drive, eject_drive_by_device, power_off_drive, power_off_drive_by_device, remove_drive,
-        remove_drive_by_device, standby_drive, standby_drive_by_device, wakeup_drive, wakeup_drive_by_device,
-    },
     format::format_disk,
     image::{open_for_backup, open_for_restore},
-    device_apis::{open_for_backup_by_device, open_for_restore_by_device, loop_setup_device_path},
+    power::{
+        eject_drive, eject_drive_by_device, power_off_drive, power_off_drive_by_device,
+        remove_drive, remove_drive_by_device, standby_drive, standby_drive_by_device, wakeup_drive,
+        wakeup_drive_by_device,
+    },
 };
+pub use gpt::{fallback_gpt_usable_range_bytes, probe_gpt_usable_range_bytes};
+pub use lvm::list_lvs_for_pv;
+pub use util::{find_processes_using_mount, kill_processes};
 
 // Partition operations (from new partition module)
 pub use partition::{
-    create_partition_table, create_partition, delete_partition,
-    resize_partition, set_partition_type, set_partition_flags,
-    set_partition_name, edit_partition,
+    create_partition, create_partition_table, delete_partition, edit_partition, resize_partition,
+    set_partition_flags, set_partition_name, set_partition_type,
 };
 
 // Filesystem operations (from new filesystem module)
 pub use filesystem::{
-    format_filesystem, mount_filesystem, unmount_filesystem,
-    check_filesystem, repair_filesystem, get_filesystem_label,
-    set_filesystem_label, take_filesystem_ownership, get_mount_point,
-    get_mount_options, set_mount_options, reset_mount_options,
+    check_filesystem, format_filesystem, get_filesystem_label, get_mount_options, get_mount_point,
+    mount_filesystem, repair_filesystem, reset_mount_options, set_filesystem_label,
+    set_mount_options, take_filesystem_ownership, unmount_filesystem,
 };
 
 // Encryption operations (from new encryption module)
-pub use encryption::{
-    unlock_luks, lock_luks, change_luks_passphrase,
-    format_luks, list_luks_devices,
-};
 pub use encryption::config::{
-    get_encryption_options, set_encryption_options, clear_encryption_options,
+    clear_encryption_options, get_encryption_options, set_encryption_options,
+};
+pub use encryption::{
+    change_luks_passphrase, format_luks, list_luks_devices, lock_luks, unlock_luks,
 };
 
 // SMART operations (from new smart module)
 pub use smart::{
-    get_drive_smart_info, get_smart_info_by_device, start_drive_smart_selftest,
-    start_drive_smart_selftest_by_device, abort_drive_smart_selftest,
+    abort_drive_smart_selftest, get_drive_smart_info, get_smart_info_by_device,
+    start_drive_smart_selftest, start_drive_smart_selftest_by_device,
 };
 
 // Explicit exports from options module (mount/encryption option parsing)

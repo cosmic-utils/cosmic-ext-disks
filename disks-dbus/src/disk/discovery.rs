@@ -12,8 +12,8 @@ use udisks2::{
     encrypted::EncryptedProxy,
     partitiontable::PartitionTableProxy,
 };
-use zbus::zvariant::OwnedObjectPath;
 use zbus::Connection;
+use zbus::zvariant::OwnedObjectPath;
 
 use super::block_index::BlockIndex;
 use super::volume_tree;
@@ -80,9 +80,10 @@ async fn get_drive_paths(connection: &Connection) -> Result<Vec<DriveBlockPair>>
             .path(&path)?
             .build()
             .await
-            && partition_proxy.table().await.is_ok() {
-                continue;
-            }
+            && partition_proxy.table().await.is_ok()
+        {
+            continue;
+        }
 
         match block_device.drive().await {
             Ok(dp) if dp.as_str() != "/" => drive_paths.push(DriveBlockPair {
@@ -137,13 +138,19 @@ fn infer_connection_bus(
     "ata".to_string()
 }
 
-async fn block_device_path(connection: &Connection, block_path: &OwnedObjectPath) -> Result<String> {
+async fn block_device_path(
+    connection: &Connection,
+    block_path: &OwnedObjectPath,
+) -> Result<String> {
     let block_proxy = BlockProxy::builder(connection)
         .path(block_path)?
         .build()
         .await?;
     let preferred = bs::decode_c_string_bytes(
-        &block_proxy.preferred_device().await.map_err(anyhow::Error::msg)?,
+        &block_proxy
+            .preferred_device()
+            .await
+            .map_err(anyhow::Error::msg)?,
     );
     let device = if preferred.is_empty() {
         bs::decode_c_string_bytes(&block_proxy.device().await.map_err(anyhow::Error::msg)?)
@@ -166,8 +173,22 @@ async fn build_disk_info(
     let is_loop = backing_file.is_some();
     let device_path = block_device_path(connection, block_path).await?;
 
-    let (id, model, serial, vendor, revision, size, can_power_off, ejectable, media_available,
-        media_removable, optical, optical_blank, removable, rotation_rate) = if let Some(drive_path) = drive_path {
+    let (
+        id,
+        model,
+        serial,
+        vendor,
+        revision,
+        size,
+        can_power_off,
+        ejectable,
+        media_available,
+        media_removable,
+        optical,
+        optical_blank,
+        removable,
+        rotation_rate,
+    ) = if let Some(drive_path) = drive_path {
         let drive_proxy = DriveProxy::builder(connection)
             .path(drive_path)?
             .build()
@@ -231,13 +252,7 @@ async fn build_disk_info(
         )
     };
 
-    let connection_bus = infer_connection_bus(
-        &device_path,
-        &model,
-        &vendor,
-        is_loop,
-        optical,
-    );
+    let connection_bus = infer_connection_bus(&device_path, &model, &vendor, is_loop, optical);
 
     let rotation_rate = if rotation_rate > 0 {
         Some(rotation_rate as u16)
@@ -284,7 +299,12 @@ async fn build_volumes_for_block(
     {
         Ok(p) => p,
         Err(_) => {
-            let label = block_path.as_str().split('/').next_back().unwrap_or("Block").replace('_', " ");
+            let label = block_path
+                .as_str()
+                .split('/')
+                .next_back()
+                .unwrap_or("Block")
+                .replace('_', " ");
             let info = volume_tree::from_block_object(
                 connection,
                 block_path.clone(),
@@ -349,7 +369,10 @@ async fn build_volumes_for_block(
     Ok(volumes)
 }
 
-fn flatten_volumes_to_partitions(volumes: &[VolumeInfo], parent_device: &str) -> Vec<PartitionInfo> {
+fn flatten_volumes_to_partitions(
+    volumes: &[VolumeInfo],
+    parent_device: &str,
+) -> Vec<PartitionInfo> {
     let mut out = Vec::new();
     for vol in volumes {
         if let Some(ref dev) = vol.device_path {
@@ -428,18 +451,18 @@ async fn get_disks_with_volumes_inner() -> Result<Vec<(DiskInfo, Vec<VolumeInfo>
                 .path(&pair.block_path)?
                 .build()
                 .await
-            {
-                match probe_gpt_usable_range_bytes(&block_proxy, disk_info.size).await {
-                    Ok(Some(range)) => disk_info.gpt_usable_range = Some(range),
-                    Ok(None) => {
-                        disk_info.gpt_usable_range = fallback_gpt_usable_range_bytes(disk_info.size);
-                    }
-                    Err(e) => {
-                        tracing::warn!("GPT probe failed: {}; using fallback", e);
-                        disk_info.gpt_usable_range = fallback_gpt_usable_range_bytes(disk_info.size);
-                    }
+        {
+            match probe_gpt_usable_range_bytes(&block_proxy, disk_info.size).await {
+                Ok(Some(range)) => disk_info.gpt_usable_range = Some(range),
+                Ok(None) => {
+                    disk_info.gpt_usable_range = fallback_gpt_usable_range_bytes(disk_info.size);
+                }
+                Err(e) => {
+                    tracing::warn!("GPT probe failed: {}; using fallback", e);
+                    disk_info.gpt_usable_range = fallback_gpt_usable_range_bytes(disk_info.size);
                 }
             }
+        }
 
         let volumes = build_volumes_for_block(
             &connection,
@@ -517,9 +540,10 @@ pub async fn get_disk_info_for_drive_path(drive_path: &str) -> Result<DiskInfo> 
             .build()
             .await?;
         if let Ok(d) = block_proxy.drive().await
-            && d.as_str() == drive_path {
-                return build_disk_info(&connection, Some(&d), &block_path, None).await;
-            }
+            && d.as_str() == drive_path
+        {
+            return build_disk_info(&connection, Some(&d), &block_path, None).await;
+        }
     }
     Err(anyhow::anyhow!(
         "No block device found for drive: {}",

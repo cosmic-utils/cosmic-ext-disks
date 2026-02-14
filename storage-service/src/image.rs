@@ -12,8 +12,8 @@ use std::time::Instant;
 use tokio::sync::Mutex;
 use tokio::task::JoinHandle;
 use tokio_util::sync::CancellationToken;
-use zbus::{interface, Connection};
 use zbus::object_server::SignalEmitter;
+use zbus::{Connection, interface};
 
 /// Operation type for tracking
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -90,11 +90,14 @@ impl ImageHandler {
             .map_err(|e| format!("Failed to open source device: {e}"))?;
 
         // Get total size for progress tracking
-        let total_size = std::fs::File::from(source_fd.try_clone()
-            .map_err(|e| format!("Failed to clone fd: {e}"))?)
-            .metadata()
-            .map_err(|e| format!("Failed to get device size: {e}"))?
-            .len();
+        let total_size = std::fs::File::from(
+            source_fd
+                .try_clone()
+                .map_err(|e| format!("Failed to clone fd: {e}"))?,
+        )
+        .metadata()
+        .map_err(|e| format!("Failed to get device size: {e}"))?
+        .len();
 
         // Initialize progress
         {
@@ -243,11 +246,13 @@ impl ImageHandler {
         // Validate output path
         let output_path_obj = Path::new(&output_path);
         if let Some(parent) = output_path_obj.parent()
-            && !parent.exists() {
-                return Err(zbus::fdo::Error::Failed(
-                    format!("Output directory does not exist: {}", parent.display())
-                ));
-            }
+            && !parent.exists()
+        {
+            return Err(zbus::fdo::Error::Failed(format!(
+                "Output directory does not exist: {}",
+                parent.display()
+            )));
+        }
 
         // Normalize device path
         let device_path = if device.starts_with("/dev/") {
@@ -303,8 +308,14 @@ impl ImageHandler {
             .insert(operation_id.clone(), op_state);
 
         // Emit started signal
-        Self::operation_started(&signal_ctx, &operation_id, "backup_drive", &device, &output_path)
-            .await?;
+        Self::operation_started(
+            &signal_ctx,
+            &operation_id,
+            "backup_drive",
+            &device,
+            &output_path,
+        )
+        .await?;
 
         Ok(operation_id)
     }
@@ -326,20 +337,25 @@ impl ImageHandler {
         output_path: String,
     ) -> zbus::fdo::Result<String> {
         // Check authorization
-        crate::auth::check_polkit_auth(connection, "org.cosmic.ext.storage-service.partition-backup")
-            .await
-            .map_err(|e| zbus::fdo::Error::Failed(format!("Authorization failed: {e}")))?;
+        crate::auth::check_polkit_auth(
+            connection,
+            "org.cosmic.ext.storage-service.partition-backup",
+        )
+        .await
+        .map_err(|e| zbus::fdo::Error::Failed(format!("Authorization failed: {e}")))?;
 
         tracing::info!("Starting partition backup: {device} → {output_path}");
 
         // Validate output path
         let output_path_obj = Path::new(&output_path);
         if let Some(parent) = output_path_obj.parent()
-            && !parent.exists() {
-                return Err(zbus::fdo::Error::Failed(
-                    format!("Output directory does not exist: {}", parent.display())
-                ));
-            }
+            && !parent.exists()
+        {
+            return Err(zbus::fdo::Error::Failed(format!(
+                "Output directory does not exist: {}",
+                parent.display()
+            )));
+        }
 
         // Normalize device path
         let device_path = if device.starts_with("/dev/") {
@@ -389,8 +405,14 @@ impl ImageHandler {
             .await
             .insert(operation_id.clone(), op_state);
 
-        Self::operation_started(&signal_ctx, &operation_id, "backup_partition", &device, &output_path)
-            .await?;
+        Self::operation_started(
+            &signal_ctx,
+            &operation_id,
+            "backup_partition",
+            &device,
+            &output_path,
+        )
+        .await?;
 
         Ok(operation_id)
     }
@@ -420,9 +442,9 @@ impl ImageHandler {
 
         // Validate image file exists
         if !Path::new(&image_path).exists() {
-            return Err(zbus::fdo::Error::Failed(
-                format!("Image file does not exist: {image_path}")
-            ));
+            return Err(zbus::fdo::Error::Failed(format!(
+                "Image file does not exist: {image_path}"
+            )));
         }
 
         // Normalize device path
@@ -473,8 +495,14 @@ impl ImageHandler {
             .await
             .insert(operation_id.clone(), op_state);
 
-        Self::operation_started(&signal_ctx, &operation_id, "restore_drive", &image_path, &device)
-            .await?;
+        Self::operation_started(
+            &signal_ctx,
+            &operation_id,
+            "restore_drive",
+            &image_path,
+            &device,
+        )
+        .await?;
 
         Ok(operation_id)
     }
@@ -496,17 +524,20 @@ impl ImageHandler {
         image_path: String,
     ) -> zbus::fdo::Result<String> {
         // Check authorization (auth_admin - always prompts)
-        crate::auth::check_polkit_auth(connection, "org.cosmic.ext.storage-service.partition-restore")
-            .await
-            .map_err(|e| zbus::fdo::Error::Failed(format!("Authorization failed: {e}")))?;
+        crate::auth::check_polkit_auth(
+            connection,
+            "org.cosmic.ext.storage-service.partition-restore",
+        )
+        .await
+        .map_err(|e| zbus::fdo::Error::Failed(format!("Authorization failed: {e}")))?;
 
         tracing::warn!("Starting DESTRUCTIVE partition restore: {image_path} → {device}");
 
         // Validate image file
         if !Path::new(&image_path).exists() {
-            return Err(zbus::fdo::Error::Failed(
-                format!("Image file does not exist: {image_path}")
-            ));
+            return Err(zbus::fdo::Error::Failed(format!(
+                "Image file does not exist: {image_path}"
+            )));
         }
 
         // Normalize device path
@@ -557,8 +588,14 @@ impl ImageHandler {
             .await
             .insert(operation_id.clone(), op_state);
 
-        Self::operation_started(&signal_ctx, &operation_id, "restore_partition", &image_path, &device)
-            .await?;
+        Self::operation_started(
+            &signal_ctx,
+            &operation_id,
+            "restore_partition",
+            &image_path,
+            &device,
+        )
+        .await?;
 
         Ok(operation_id)
     }
@@ -577,17 +614,20 @@ impl ImageHandler {
         image_path: String,
     ) -> zbus::fdo::Result<String> {
         // Check authorization
-        crate::auth::check_polkit_auth(connection, "org.cosmic.ext.storage-service.disk-loop-setup")
-            .await
-            .map_err(|e| zbus::fdo::Error::Failed(format!("Authorization failed: {e}")))?;
+        crate::auth::check_polkit_auth(
+            connection,
+            "org.cosmic.ext.storage-service.disk-loop-setup",
+        )
+        .await
+        .map_err(|e| zbus::fdo::Error::Failed(format!("Authorization failed: {e}")))?;
 
         tracing::info!("Setting up loop device for: {image_path}");
 
         // Validate image file
         if !Path::new(&image_path).exists() {
-            return Err(zbus::fdo::Error::Failed(
-                format!("Image file does not exist: {image_path}")
-            ));
+            return Err(zbus::fdo::Error::Failed(format!(
+                "Image file does not exist: {image_path}"
+            )));
         }
 
         // Call disks-dbus loop_setup_device_path (returns device path directly)
@@ -599,10 +639,7 @@ impl ImageHandler {
             })?;
 
         // Extract device name from path (e.g., "/dev/loop0" -> "loop0")
-        let device_name = device_path
-            .rsplit('/')
-            .next()
-            .unwrap_or("unknown");
+        let device_name = device_path.rsplit('/').next().unwrap_or("unknown");
 
         tracing::info!("Loop device created: {device_name}");
         Ok(device_name.to_string())

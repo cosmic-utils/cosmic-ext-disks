@@ -8,8 +8,8 @@
 use std::collections::HashMap;
 
 use anyhow::Result;
-use zbus::zvariant::OwnedValue;
 use zbus::Connection;
+use zbus::zvariant::OwnedValue;
 
 use crate::dbus::bytestring as bs;
 use crate::disk::resolve;
@@ -29,10 +29,7 @@ fn extract_prefixed_value(tokens: &[String], prefix: &str) -> String {
         .unwrap_or_default()
 }
 
-fn find_configuration_item(
-    items: &[ConfigurationItem],
-    kind: &str,
-) -> Option<ConfigurationItem> {
+fn find_configuration_item(items: &[ConfigurationItem], kind: &str) -> Option<ConfigurationItem> {
     items.iter().find(|(t, _)| t == kind).cloned()
 }
 

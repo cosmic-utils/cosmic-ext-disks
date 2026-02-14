@@ -2,10 +2,10 @@
 
 //! UI model for a volume with hierarchical children and shared client
 
-use storage_models::VolumeInfo;
 use crate::client::{FilesystemsClient, error::ClientError};
 use std::ops::Deref;
 use std::sync::Arc;
+use storage_models::VolumeInfo;
 
 /// UI model wrapping VolumeInfo with shared client and hierarchical children
 ///
@@ -53,9 +53,9 @@ impl UiVolume {
             client,
         })
     }
-    
+
     /// Find a volume by device path (recursive search)
-    /// 
+    ///
     /// # Example
     /// ```no_run
     /// if let Some(volume) = drive.volumes[0].find_by_device("/dev/sda1") {
@@ -64,42 +64,52 @@ impl UiVolume {
     /// ```
     pub fn find_by_device(&self, device: &str) -> Option<&UiVolume> {
         // Check self
-        if self.volume.device_path.as_ref().is_some_and(|d| d == device) {
+        if self
+            .volume
+            .device_path
+            .as_ref()
+            .is_some_and(|d| d == device)
+        {
             return Some(self);
         }
-        
+
         // Search children recursively
         for child in &self.children {
             if let Some(found) = child.find_by_device(device) {
                 return Some(found);
             }
         }
-        
+
         None
     }
-    
+
     /// Find a volume by device path (mutable, recursive search)
     pub fn find_by_device_mut(&mut self, device: &str) -> Option<&mut UiVolume> {
         // Check self
-        if self.volume.device_path.as_ref().is_some_and(|d| d == device) {
+        if self
+            .volume
+            .device_path
+            .as_ref()
+            .is_some_and(|d| d == device)
+        {
             return Some(self);
         }
-        
+
         // Search children recursively
         for child in &mut self.children {
             if let Some(found) = child.find_by_device_mut(device) {
                 return Some(found);
             }
         }
-        
+
         None
     }
-    
+
     /// Collect all mounted descendants (recursive)
-    /// 
+    ///
     /// Used for operations that need to unmount a volume tree
     /// (e.g., before deleting a partition).
-    /// 
+    ///
     /// # Example
     /// ```no_run
     /// let mounted = volume.collect_mounted_descendants();
@@ -109,25 +119,26 @@ impl UiVolume {
     /// ```
     pub fn collect_mounted_descendants(&self) -> Vec<String> {
         let mut result = Vec::new();
-        
+
         // Check self
         if !self.volume.mount_points.is_empty()
-            && let Some(device) = &self.volume.device_path {
-                result.push(device.clone());
-            }
-        
+            && let Some(device) = &self.volume.device_path
+        {
+            result.push(device.clone());
+        }
+
         // Collect from children recursively
         for child in &self.children {
             result.extend(child.collect_mounted_descendants());
         }
-        
+
         result
     }
-    
+
     /// Update this volume or a child with new VolumeInfo (atomic update)
-    /// 
+    ///
     /// Returns true if the volume was found and updated.
-    /// 
+    ///
     /// # Example
     /// ```no_run
     /// // After mounting /dev/sda1
@@ -137,26 +148,31 @@ impl UiVolume {
     /// ```
     pub fn update_volume(&mut self, device: &str, updated_info: &VolumeInfo) -> bool {
         // Check if this is the target volume
-        if self.volume.device_path.as_ref().is_some_and(|d| d == device) {
+        if self
+            .volume
+            .device_path
+            .as_ref()
+            .is_some_and(|d| d == device)
+        {
             // Update volume info, preserving children
             let old_children = std::mem::take(&mut self.volume.children);
             self.volume = updated_info.clone();
             self.volume.children = old_children;
             return true;
         }
-        
+
         // Search children
         for child in &mut self.children {
             if child.update_volume(device, updated_info) {
                 return true;
             }
         }
-        
+
         false
     }
-    
+
     /// Add a child volume (used for atomic tree mutations)
-    /// 
+    ///
     /// # Example
     /// ```no_run
     /// // After unlocking a LUKS container
@@ -165,49 +181,51 @@ impl UiVolume {
     pub fn add_child(&mut self, child: UiVolume) {
         self.children.push(child);
     }
-    
+
     /// Remove a child volume by device path
-    /// 
+    ///
     /// Returns true if the child was found and removed.
     pub fn remove_child(&mut self, device: &str) -> bool {
         // Try to remove direct child
-        if let Some(idx) = self.children.iter().position(|c| {
-            c.volume.device_path.as_ref().is_some_and(|d| d == device)
-        }) {
+        if let Some(idx) = self
+            .children
+            .iter()
+            .position(|c| c.volume.device_path.as_ref().is_some_and(|d| d == device))
+        {
             self.children.remove(idx);
             return true;
         }
-        
+
         // Try to remove from nested children
         for child in &mut self.children {
             if child.remove_child(device) {
                 return true;
             }
         }
-        
+
         false
     }
-    
+
     /// Get device path if available
     pub fn device(&self) -> Option<&str> {
         self.volume.device_path.as_deref()
     }
-    
+
     /// Get filesystem client for operations
     pub fn filesystem_client(&self) -> &FilesystemsClient {
         self.client.as_ref()
     }
-    
+
     /// Check if this volume can be mounted
     pub fn can_mount(&self) -> bool {
         self.volume.can_mount()
     }
-    
+
     /// Check if this volume is mounted
     pub fn is_mounted(&self) -> bool {
         self.volume.is_mounted()
     }
-    
+
     /// Get device path for this volume (e.g. /dev/sda1, /dev/mapper/luks-xxx)
     pub fn device_path(&self) -> Option<String> {
         self.volume.device_path.clone()
@@ -217,7 +235,7 @@ impl UiVolume {
 /// Deref to VolumeInfo to expose all volume fields directly
 impl Deref for UiVolume {
     type Target = VolumeInfo;
-    
+
     fn deref(&self) -> &Self::Target {
         &self.volume
     }

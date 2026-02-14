@@ -2,15 +2,13 @@
 
 //! SMART information retrieval
 
-use std::collections::HashMap;
-use anyhow::Result;
-use zbus::{Connection, zvariant::OwnedObjectPath};
 use crate::SmartInfo;
+use anyhow::Result;
+use std::collections::HashMap;
+use zbus::{Connection, zvariant::OwnedObjectPath};
 
 /// Helper function to extract a readable value from OwnedValue
 fn extract_owned_value(v: &zbus::zvariant::OwnedValue) -> String {
-    
-    
     // Try to convert to common types directly
     if let Ok(s) = <&str>::try_from(v) {
         return s.to_string();
@@ -159,7 +157,10 @@ async fn get_nvme_smart_info(drive_path: &OwnedObjectPath) -> Result<SmartInfo> 
         .ok();
 
     let attrs: HashMap<String, zbus::zvariant::OwnedValue> = proxy
-        .call("SmartGetAttributes", &(HashMap::<&str, zbus::zvariant::Value<'_>>::new()))
+        .call(
+            "SmartGetAttributes",
+            &(HashMap::<&str, zbus::zvariant::Value<'_>>::new()),
+        )
         .await?;
 
     let mut attributes = std::collections::BTreeMap::new();
@@ -196,15 +197,17 @@ async fn get_ata_smart_info(drive_path: &OwnedObjectPath) -> Result<SmartInfo> {
 
     let updated_at: Option<u64> = proxy.get_property::<u64>("SmartUpdated").await.ok();
     let temperature: Option<u64> = proxy.get_property::<u64>("SmartTemperature").await.ok();
-    let power_on_seconds: Option<u64> =
-        proxy.get_property::<u64>("SmartPowerOnSeconds").await.ok();
+    let power_on_seconds: Option<u64> = proxy.get_property::<u64>("SmartPowerOnSeconds").await.ok();
     let selftest_status: Option<String> = proxy
         .get_property::<String>("SmartSelftestStatus")
         .await
         .ok();
 
     let attrs: HashMap<String, zbus::zvariant::OwnedValue> = proxy
-        .call("SmartGetAttributes", &(HashMap::<&str, zbus::zvariant::Value<'_>>::new()))
+        .call(
+            "SmartGetAttributes",
+            &(HashMap::<&str, zbus::zvariant::Value<'_>>::new()),
+        )
         .await?;
 
     let mut attributes = std::collections::BTreeMap::new();

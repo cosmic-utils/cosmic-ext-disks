@@ -1,8 +1,7 @@
-use storage_models::{
-    CreatePartitionInfo, PartitionTypeInfo, ProcessInfo, SmartAttribute, SmartStatus,
-    VolumeInfo,
-};
 use crate::models::{UiDrive, UiVolume};
+use storage_models::{
+    CreatePartitionInfo, PartitionTypeInfo, ProcessInfo, SmartAttribute, SmartStatus, VolumeInfo,
+};
 
 #[derive(Debug, Clone)]
 pub enum ShowDialog {
@@ -26,10 +25,7 @@ pub enum ShowDialog {
     UnmountBusy(UnmountBusyDialog),
     BtrfsCreateSubvolume(BtrfsCreateSubvolumeDialog),
     BtrfsCreateSnapshot(BtrfsCreateSnapshotDialog),
-    Info {
-        title: String,
-        body: String,
-    },
+    Info { title: String, body: String },
 }
 
 #[derive(Debug, Clone)]

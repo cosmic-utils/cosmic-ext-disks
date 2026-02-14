@@ -10,22 +10,22 @@ use std::collections::HashMap;
 pub struct FilesystemInfo {
     /// Device path
     pub device: String,
-    
+
     /// Filesystem type (e.g., "ext4", "xfs", "btrfs", "vfat")
     pub fs_type: String,
-    
+
     /// Filesystem label
     pub label: String,
-    
+
     /// Filesystem UUID
     pub uuid: String,
-    
+
     /// Current mount points (empty if not mounted)
     pub mount_points: Vec<String>,
-    
+
     /// Total size in bytes
     pub size: u64,
-    
+
     /// Available space in bytes (if mounted)
     pub available: u64,
 }
@@ -42,13 +42,13 @@ impl FilesystemInfo {
 pub struct FormatOptions {
     /// Filesystem label
     pub label: String,
-    
+
     /// Force formatting even if filesystem appears to exist
     pub force: bool,
-    
+
     /// Enable discard/TRIM support
     pub discard: bool,
-    
+
     /// Filesystem-specific options (key-value pairs)
     pub fs_specific: HashMap<String, String>,
 }
@@ -58,13 +58,13 @@ pub struct FormatOptions {
 pub struct MountOptions {
     /// Mount read-only
     pub read_only: bool,
-    
+
     /// Disallow execution of binaries
     pub no_exec: bool,
-    
+
     /// Disallow setuid/setgid
     pub no_suid: bool,
-    
+
     /// Other mount options as strings
     pub other: Vec<String>,
 }
@@ -99,16 +99,16 @@ pub struct MountOptionsSettings {
 pub struct CheckResult {
     /// Device that was checked
     pub device: String,
-    
+
     /// Whether the filesystem is clean
     pub clean: bool,
-    
+
     /// Number of errors corrected
     pub errors_corrected: u32,
-    
+
     /// Number of errors that could not be corrected
     pub errors_uncorrected: u32,
-    
+
     /// Full output from fsck command
     pub output: String,
 }
@@ -118,10 +118,10 @@ pub struct CheckResult {
 pub struct UnmountResult {
     /// Whether unmount succeeded
     pub success: bool,
-    
+
     /// Error message (if failed)
     pub error: Option<String>,
-    
+
     /// Processes blocking the unmount
     pub blocking_processes: Vec<ProcessInfo>,
 }
@@ -131,13 +131,13 @@ pub struct UnmountResult {
 pub struct ProcessInfo {
     /// Process ID
     pub pid: i32,
-    
+
     /// Command/executable name
     pub command: String,
-    
+
     /// User ID
     pub uid: u32,
-    
+
     /// Username
     pub username: String,
 }
@@ -147,10 +147,10 @@ pub struct ProcessInfo {
 pub struct KillResult {
     /// Process ID that was targeted
     pub pid: i32,
-    
+
     /// Whether the kill succeeded
     pub success: bool,
-    
+
     /// Error message (if failed)
     pub error: Option<String>,
 }
@@ -160,22 +160,22 @@ pub struct KillResult {
 pub enum FilesystemType {
     /// ext4 filesystem
     Ext4,
-    
+
     /// XFS filesystem
     Xfs,
-    
+
     /// Btrfs filesystem
     Btrfs,
-    
+
     /// FAT32 filesystem
     Fat32,
-    
+
     /// NTFS filesystem
     Ntfs,
-    
+
     /// exFAT filesystem
     Exfat,
-    
+
     /// Other/unknown filesystem
     Other,
 }
@@ -193,7 +193,7 @@ impl FilesystemType {
             Self::Other => "",
         }
     }
-    
+
     /// Parse from filesystem type string
     pub fn from_str(s: &str) -> Self {
         match s.to_lowercase().as_str() {

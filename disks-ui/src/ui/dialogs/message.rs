@@ -105,7 +105,15 @@ pub enum SmartDialogMessage {
     SelfTestExtended,
     AbortSelfTest,
     Close,
-    Loaded(Result<(storage_models::SmartStatus, Vec<storage_models::SmartAttribute>), String>),
+    Loaded(
+        Result<
+            (
+                storage_models::SmartStatus,
+                Vec<storage_models::SmartAttribute>,
+            ),
+            String,
+        >,
+    ),
     ActionComplete(Result<(), String>),
 }
 

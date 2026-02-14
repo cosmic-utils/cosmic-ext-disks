@@ -16,10 +16,10 @@ pub struct BtrfsSubvolume {
     pub otransid: u64,
     pub stransid: Option<u64>,
     pub rtransid: Option<u64>,
-    pub ctime: i64,  // Unix timestamp
-    pub otime: i64,  // Unix timestamp
-    pub stime: Option<i64>,  // Unix timestamp
-    pub rtime: Option<i64>,  // Unix timestamp
+    pub ctime: i64,         // Unix timestamp
+    pub otime: i64,         // Unix timestamp
+    pub stime: Option<i64>, // Unix timestamp
+    pub rtime: Option<i64>, // Unix timestamp
     pub flags: u64,
 }
 

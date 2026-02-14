@@ -4,7 +4,7 @@
 
 use anyhow::Result;
 use clap::{Parser, Subcommand};
-use disks_btrfs::{SubvolumeManager, SubvolumeList, get_filesystem_usage};
+use disks_btrfs::{SubvolumeList, SubvolumeManager, get_filesystem_usage};
 use std::path::PathBuf;
 
 /// Privileged helper for BTRFS subvolume operations
@@ -94,7 +94,7 @@ fn main() -> Result<()> {
         .with_writer(std::io::stderr)
         .with_env_filter(
             tracing_subscriber::EnvFilter::try_from_default_env()
-                .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("info"))
+                .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("info")),
         )
         .init();
 
@@ -105,12 +105,12 @@ fn main() -> Result<()> {
             let manager = SubvolumeManager::new(&mount_point)?;
             let subvolumes = manager.list_all()?;
             let default_id = manager.get_default().unwrap_or(5);
-            
+
             let output = SubvolumeList {
                 subvolumes,
                 default_id,
             };
-            
+
             let json = serde_json::to_string(&output)?;
             println!("{}", json);
         }

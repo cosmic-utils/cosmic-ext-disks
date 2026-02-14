@@ -1,5 +1,5 @@
-use crate::models::load_all_drives;
 use crate::models::UiDrive;
+use crate::models::load_all_drives;
 use cosmic::Task;
 
 use crate::app::Message;
@@ -64,30 +64,43 @@ pub(super) fn delete(
     Task::perform(
         async move {
             if is_unlocked_crypto {
-                let fs_client = FilesystemsClient::new().await
+                let fs_client = FilesystemsClient::new()
+                    .await
                     .map_err(|e| anyhow::anyhow!("Failed to create filesystems client: {}", e))?;
-                let luks_client = LuksClient::new().await
+                let luks_client = LuksClient::new()
+                    .await
                     .map_err(|e| anyhow::anyhow!("Failed to create LUKS client: {}", e))?;
-                
+
                 for v in mounted_children {
                     let device = &v;
-                    fs_client.unmount(device, false, false).await
+                    fs_client
+                        .unmount(device, false, false)
+                        .await
                         .map_err(|e| anyhow::anyhow!("Failed to unmount {}: {}", device, e))?;
                 }
-                
-                let cleartext_device = p.device_path.as_ref()
+
+                let cleartext_device = p
+                    .device_path
+                    .as_ref()
                     .ok_or_else(|| anyhow::anyhow!("Partition has no device path"))?;
-                luks_client.lock(cleartext_device).await
+                luks_client
+                    .lock(cleartext_device)
+                    .await
                     .map_err(|e| anyhow::anyhow!("Failed to lock LUKS device: {}", e))?;
             }
 
-            let partitions_client = PartitionsClient::new().await
+            let partitions_client = PartitionsClient::new()
+                .await
                 .map_err(|e| anyhow::anyhow!("Failed to create partitions client: {}", e))?;
-            let device = p.device_path.as_ref()
+            let device = p
+                .device_path
+                .as_ref()
                 .ok_or_else(|| anyhow::anyhow!("Partition has no device path"))?;
-            partitions_client.delete_partition(device).await
+            partitions_client
+                .delete_partition(device)
+                .await
                 .map_err(|e| anyhow::anyhow!("Failed to delete partition: {}", e))?;
-            
+
             load_all_drives().await.map_err(|e| e.into())
         },
         |result: Result<Vec<UiDrive>, anyhow::Error>| match result {
@@ -185,15 +198,21 @@ pub(super) fn open_edit_partition(
     }
 
     // Find corresponding PartitionInfo to get partition-specific data
-    let partition_info = control.partitions.iter()
+    let partition_info = control
+        .partitions
+        .iter()
         .find(|p| Some(&p.device) == volume.device_path.as_ref());
 
     let selected_type_index = partition_info
         .and_then(|p| partition_types.iter().position(|t| t.ty == p.type_id))
         .unwrap_or(0);
 
-    let legacy_bios_bootable = partition_info.map(|p| p.is_legacy_bios_bootable()).unwrap_or(false);
-    let system_partition = partition_info.map(|p| p.is_system_partition()).unwrap_or(false);
+    let legacy_bios_bootable = partition_info
+        .map(|p| p.is_legacy_bios_bootable())
+        .unwrap_or(false);
+    let system_partition = partition_info
+        .map(|p| p.is_system_partition())
+        .unwrap_or(false);
     let hidden = partition_info.map(|p| p.is_hidden()).unwrap_or(false);
     let name = volume.label.clone();
 
@@ -304,18 +323,27 @@ pub(super) fn edit_partition_message(
                 async move {
                     let flags = storage_models::make_partition_flags_bits(legacy, system, hidden);
 
-                    let partitions_client = PartitionsClient::new().await
-                        .map_err(|e| anyhow::anyhow!("Failed to create partitions client: {}", e))?;
-                    let device = volume.device_path.as_ref()
+                    let partitions_client = PartitionsClient::new().await.map_err(|e| {
+                        anyhow::anyhow!("Failed to create partitions client: {}", e)
+                    })?;
+                    let device = volume
+                        .device_path
+                        .as_ref()
                         .ok_or_else(|| anyhow::anyhow!("Partition has no device path"))?;
-                    
-                    partitions_client.set_partition_type(device, &partition_type).await
+
+                    partitions_client
+                        .set_partition_type(device, &partition_type)
+                        .await
                         .map_err(|e| anyhow::anyhow!("Failed to set partition type: {}", e))?;
-                    partitions_client.set_partition_name(device, &name).await
+                    partitions_client
+                        .set_partition_name(device, &name)
+                        .await
                         .map_err(|e| anyhow::anyhow!("Failed to set partition name: {}", e))?;
-                    partitions_client.set_partition_flags(device, flags).await
+                    partitions_client
+                        .set_partition_flags(device, flags)
+                        .await
                         .map_err(|e| anyhow::anyhow!("Failed to set partition flags: {}", e))?;
-                    
+
                     load_all_drives().await.map_err(|e| e.into())
                 },
                 |result: Result<Vec<UiDrive>, anyhow::Error>| match result {
@@ -364,11 +392,16 @@ pub(super) fn resize_partition_message(
 
             return Task::perform(
                 async move {
-                    let partitions_client = PartitionsClient::new().await
-                        .map_err(|e| anyhow::anyhow!("Failed to create partitions client: {}", e))?;
-                    let device = volume.device_path.as_ref()
+                    let partitions_client = PartitionsClient::new().await.map_err(|e| {
+                        anyhow::anyhow!("Failed to create partitions client: {}", e)
+                    })?;
+                    let device = volume
+                        .device_path
+                        .as_ref()
                         .ok_or_else(|| anyhow::anyhow!("Volume has no device path"))?;
-                    partitions_client.resize_partition(device, new_size).await
+                    partitions_client
+                        .resize_partition(device, new_size)
+                        .await
                         .map_err(|e| anyhow::anyhow!("Failed to resize partition: {}", e))?;
                     load_all_drives().await.map_err(|e| e.into())
                 },

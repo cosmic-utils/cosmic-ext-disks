@@ -163,8 +163,7 @@ pub fn disk_header<'a>(
         .map(|s| {
             let used = if let Some(ref volume_model) = s.volume {
                 // Look up the corresponding UiVolume to check if it's a LUKS container
-                if let Some(volume_node) =
-                    helpers::find_volume_for_partition(volumes, volume_model)
+                if let Some(volume_node) = helpers::find_volume_for_partition(volumes, volume_model)
                 {
                     if volume_node.volume.kind == storage_models::VolumeKind::CryptoContainer
                         && !volume_node.children.is_empty()

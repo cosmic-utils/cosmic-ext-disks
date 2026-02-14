@@ -2,31 +2,31 @@
 
 //! Helper functions for building volume hierarchies from flat lists
 
+use super::UiVolume;
+use crate::client::{FilesystemsClient, error::ClientError};
 use std::collections::HashMap;
 use std::sync::Arc;
 use storage_models::VolumeInfo;
-use crate::client::{FilesystemsClient, error::ClientError};
-use super::UiVolume;
 
 /// Build a hierarchical volume tree from a flat list with parent_path references
-/// 
+///
 /// This function:
 /// 1. Filters volumes that belong to the specified disk
 /// 2. Groups volumes by their parent_path
 /// 3. Recursively attaches children to build the tree
-/// 
+///
 /// # Arguments
 /// * `disk` - Device path of the disk (e.g., "/dev/sda")
 /// * `all_volumes` - Flat list of all volumes from list_volumes()
-/// 
+///
 /// # Returns
 /// Vector of root volumes (direct children of the disk) with nested children
-/// 
+///
 /// # Example
 /// ```no_run
 /// let all_volumes = disks_client.list_volumes().await?;
 /// let tree = build_volume_tree("/dev/sda", all_volumes, fs_client)?;
-/// 
+///
 /// // tree now contains roots like [sda1, sda2, sda3]
 /// // each with their children (unlocked LUKS, etc.)
 /// ```

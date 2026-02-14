@@ -63,11 +63,7 @@ pub fn smart_data<'a>(state: SmartDataDialog) -> Element<'a, Message> {
     if let Some((status, attributes)) = state.info.as_ref() {
         content = content
             .push(caption_heading(fl!("smart-data-self-tests")))
-            .push(caption(format!(
-                "{}: {}",
-                fl!("smart-type"),
-                status.device
-            )))
+            .push(caption(format!("{}: {}", fl!("smart-type"), status.device)))
             .push(caption(format!(
                 "{}: {}",
                 fl!("smart-updated"),
@@ -94,7 +90,11 @@ pub fn smart_data<'a>(state: SmartDataDialog) -> Element<'a, Message> {
         } else {
             "Idle".to_string()
         };
-        content = content.push(caption(format!("{}: {}", fl!("smart-selftest"), selftest_str)));
+        content = content.push(caption(format!(
+            "{}: {}",
+            fl!("smart-selftest"),
+            selftest_str
+        )));
 
         if !attributes.is_empty() {
             content = content.push(caption_heading(fl!("details")));

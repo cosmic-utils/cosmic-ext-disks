@@ -13,65 +13,65 @@ pub struct DiskInfo {
     // === Identity ===
     /// Device path (e.g., "/dev/sda")
     pub device: String,
-    
+
     /// UDisks2 drive identifier
     pub id: String,
-    
+
     /// Disk model name
     pub model: String,
-    
+
     /// Serial number
     pub serial: String,
-    
+
     /// Vendor/manufacturer name
     pub vendor: String,
-    
+
     /// Firmware revision
     pub revision: String,
-    
+
     // === Physical Properties ===
     /// Total size in bytes
     pub size: u64,
-    
+
     /// Connection bus type (e.g., "usb", "ata", "nvme", "scsi", "loop")
     pub connection_bus: String,
-    
+
     /// Rotation rate in RPM (None for SSDs or unknown)
     pub rotation_rate: Option<u16>,
-    
+
     // === Media Properties ===
     /// Whether the disk is removable
     pub removable: bool,
-    
+
     /// Whether the disk can be ejected
     pub ejectable: bool,
-    
+
     /// Whether the media is removable (vs. the entire drive)
     pub media_removable: bool,
-    
+
     /// Whether media is currently present
     pub media_available: bool,
-    
+
     /// Whether this is an optical drive
     pub optical: bool,
-    
+
     /// Whether optical media is blank
     pub optical_blank: bool,
-    
+
     /// Whether the drive can be powered off
     pub can_power_off: bool,
-    
+
     // === Loop Device Specific ===
     /// Whether this is a loop device
     pub is_loop: bool,
-    
+
     /// Backing file for loop device
     pub backing_file: Option<String>,
-    
+
     // === Partitioning ===
     /// Partition table type ("gpt", "dos", or None)
     pub partition_table_type: Option<String>,
-    
+
     /// GPT usable byte range (if GPT)
     pub gpt_usable_range: Option<ByteRange>,
 }
@@ -111,22 +111,22 @@ impl DiskInfo {
 pub struct SmartStatus {
     /// Device path
     pub device: String,
-    
+
     /// Overall health status (true = healthy)
     pub healthy: bool,
-    
+
     /// Current temperature in Celsius
     pub temperature_celsius: Option<i16>,
-    
+
     /// Total power-on hours
     pub power_on_hours: Option<u64>,
-    
+
     /// Number of power cycles
     pub power_cycle_count: Option<u64>,
-    
+
     /// Whether a self-test is currently running
     pub test_running: bool,
-    
+
     /// Self-test completion percentage (0-100)
     pub test_percent_remaining: Option<u8>,
 }
@@ -136,22 +136,22 @@ pub struct SmartStatus {
 pub struct SmartAttribute {
     /// Attribute ID (1-255)
     pub id: u8,
-    
+
     /// Attribute name (e.g., "Reallocated_Sector_Ct")
     pub name: String,
-    
+
     /// Current normalized value (1-255, 100 is ideal)
     pub current: u8,
-    
+
     /// Worst value seen (1-255)
     pub worst: u8,
-    
+
     /// Failure threshold (when current <= threshold, attribute is failing)
     pub threshold: u8,
-    
+
     /// Raw value (interpretation depends on attribute)
     pub raw_value: u64,
-    
+
     /// Whether this attribute is currently failing
     pub failing: bool,
 }
@@ -161,10 +161,10 @@ pub struct SmartAttribute {
 pub enum DiskEvent {
     /// A disk was added to the system
     Added,
-    
+
     /// A disk was removed from the system
     Removed,
-    
+
     /// Disk properties changed
     Changed,
 }
@@ -172,7 +172,7 @@ pub enum DiskEvent {
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[test]
     fn test_disk_info_serialization() {
         let disk = DiskInfo {
@@ -197,13 +197,13 @@ mod tests {
             partition_table_type: Some("gpt".to_string()),
             gpt_usable_range: None,
         };
-        
+
         let json = serde_json::to_string(&disk).unwrap();
         let deserialized: DiskInfo = serde_json::from_str(&json).unwrap();
-        
+
         assert_eq!(disk, deserialized);
     }
-    
+
     #[test]
     fn test_smart_status_serialization() {
         let status = SmartStatus {
@@ -215,13 +215,13 @@ mod tests {
             test_running: false,
             test_percent_remaining: None,
         };
-        
+
         let json = serde_json::to_string(&status).unwrap();
         let deserialized: SmartStatus = serde_json::from_str(&json).unwrap();
-        
+
         assert_eq!(status, deserialized);
     }
-    
+
     #[test]
     fn test_smart_attribute_serialization() {
         let attr = SmartAttribute {
@@ -233,10 +233,10 @@ mod tests {
             raw_value: 0,
             failing: false,
         };
-        
+
         let json = serde_json::to_string(&attr).unwrap();
         let deserialized: SmartAttribute = serde_json::from_str(&json).unwrap();
-        
+
         assert_eq!(attr, deserialized);
     }
 }

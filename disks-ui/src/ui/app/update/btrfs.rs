@@ -1,8 +1,8 @@
-use crate::models::load_all_drives;
 use super::super::state::AppModel;
 use super::Message;
 use crate::client::BtrfsClient;
 use crate::fl;
+use crate::models::load_all_drives;
 use crate::ui::dialogs::state::{ConfirmActionDialog, FilesystemTarget, ShowDialog};
 use crate::ui::error::{UiErrorContext, log_error_and_show_dialog};
 use crate::ui::volumes::VolumesControl;
@@ -114,7 +114,9 @@ pub(super) fn handle_btrfs_message(app: &mut AppModel, message: Message) -> Task
             Task::perform(
                 async move {
                     let btrfs_client = BtrfsClient::new().await?;
-                    btrfs_client.delete_subvolume(&mount_point, &path, false).await?;
+                    btrfs_client
+                        .delete_subvolume(&mount_point, &path, false)
+                        .await?;
                     load_all_drives().await
                 },
                 |result| match result {
@@ -124,8 +126,12 @@ pub(super) fn handle_btrfs_message(app: &mut AppModel, message: Message) -> Task
                     }
                     Err(e) => {
                         let ctx = UiErrorContext::new("delete_subvolume");
-                        log_error_and_show_dialog(fl!("btrfs-delete-subvolume-failed"), e.into(), ctx)
-                            .into()
+                        log_error_and_show_dialog(
+                            fl!("btrfs-delete-subvolume-failed"),
+                            e.into(),
+                            ctx,
+                        )
+                        .into()
                     }
                 },
             )
@@ -137,9 +143,10 @@ pub(super) fn handle_btrfs_message(app: &mut AppModel, message: Message) -> Task
         } => {
             // Mark as loading in state
             if let Some(volumes_control) = app.nav.active_data_mut::<VolumesControl>()
-                && let Some(btrfs_state) = &mut volumes_control.btrfs_state {
-                    btrfs_state.loading_usage = true;
-                }
+                && let Some(btrfs_state) = &mut volumes_control.btrfs_state
+            {
+                btrfs_state.loading_usage = true;
+            }
 
             // Load usage in background task
             Task::perform(
@@ -149,14 +156,19 @@ pub(super) fn handle_btrfs_message(app: &mut AppModel, message: Message) -> Task
                         Err(e) => {
                             return Message::BtrfsUsageLoaded {
                                 mount_point,
-                                used_space: Err(format!("Failed to initialize BTRFS client: {}", e)),
+                                used_space: Err(format!(
+                                    "Failed to initialize BTRFS client: {}",
+                                    e
+                                )),
                             };
                         }
                     };
-                    let result = btrfs_client.get_usage(&mount_point).await
+                    let result = btrfs_client
+                        .get_usage(&mount_point)
+                        .await
                         .map(|usage| usage.used_bytes)
                         .map_err(|e| format!("Failed to get usage: {}", e));
-                    
+
                     Message::BtrfsUsageLoaded {
                         mount_point,
                         used_space: result,
@@ -171,10 +183,11 @@ pub(super) fn handle_btrfs_message(app: &mut AppModel, message: Message) -> Task
             used_space,
         } => {
             if let Some(volumes_control) = app.nav.active_data_mut::<VolumesControl>()
-                && let Some(btrfs_state) = &mut volumes_control.btrfs_state {
-                    btrfs_state.loading_usage = false;
-                    btrfs_state.used_space = Some(used_space);
-                }
+                && let Some(btrfs_state) = &mut volumes_control.btrfs_state
+            {
+                btrfs_state.loading_usage = false;
+                btrfs_state.used_space = Some(used_space);
+            }
             Task::none()
         }
 
@@ -204,7 +217,9 @@ pub(super) fn handle_btrfs_message(app: &mut AppModel, message: Message) -> Task
                     let default_id = btrfs_client.get_default(&mount_point).await?;
                     // Need to fetch default subvolume info from the list
                     let subvol_list = btrfs_client.list_subvolumes(&mount_point).await?;
-                    let default_subvol = subvol_list.subvolumes.into_iter()
+                    let default_subvol = subvol_list
+                        .subvolumes
+                        .into_iter()
                         .find(|s| s.id == default_id)
                         .ok_or_else(|| anyhow::anyhow!("Default subvolume not found"))?;
                     Ok(default_subvol)
@@ -278,11 +293,7 @@ pub(super) fn handle_btrfs_message(app: &mut AppModel, message: Message) -> Task
                             }
                             Err(e) => {
                                 let ctx = UiErrorContext::new("set_default_subvolume");
-                                log_error_and_show_dialog(
-                                    fl!("btrfs-set-default-failed"),
-                                    e,
-                                    ctx,
-                                )
+                                log_error_and_show_dialog(fl!("btrfs-set-default-failed"), e, ctx)
                             }
                         }
                         .into()
@@ -298,19 +309,18 @@ pub(super) fn handle_btrfs_message(app: &mut AppModel, message: Message) -> Task
             subvolume_id,
         } => {
             // Find the subvolume by ID
-            let subvol_info =
-                if let Some(volumes_control) = app.nav.active_data::<VolumesControl>()
-                    && let Some(btrfs_state) = &volumes_control.btrfs_state
-                    && let Some(Ok(subvolumes)) = &btrfs_state.subvolumes
-                {
-                    const BTRFS_SUBVOL_RDONLY: u64 = 1 << 1;
-                    subvolumes
-                        .iter()
-                        .find(|s| s.id == subvolume_id)
-                        .map(|s| (s.path.clone(), (s.flags & BTRFS_SUBVOL_RDONLY) != 0))
-                } else {
-                    None
-                };
+            let subvol_info = if let Some(volumes_control) = app.nav.active_data::<VolumesControl>()
+                && let Some(btrfs_state) = &volumes_control.btrfs_state
+                && let Some(Ok(subvolumes)) = &btrfs_state.subvolumes
+            {
+                const BTRFS_SUBVOL_RDONLY: u64 = 1 << 1;
+                subvolumes
+                    .iter()
+                    .find(|s| s.id == subvolume_id)
+                    .map(|s| (s.path.clone(), (s.flags & BTRFS_SUBVOL_RDONLY) != 0))
+            } else {
+                None
+            };
 
             if let Some((path, current_readonly)) = subvol_info {
                 let new_readonly = !current_readonly;
@@ -318,7 +328,9 @@ pub(super) fn handle_btrfs_message(app: &mut AppModel, message: Message) -> Task
                 Task::perform(
                     async move {
                         let btrfs_client = BtrfsClient::new().await?;
-                        btrfs_client.set_readonly(&mount_point, &path, new_readonly).await?;
+                        btrfs_client
+                            .set_readonly(&mount_point, &path, new_readonly)
+                            .await?;
                         Ok(())
                     },
                     move |result: anyhow::Result<()>| {
@@ -352,7 +364,14 @@ pub(super) fn handle_btrfs_message(app: &mut AppModel, message: Message) -> Task
                 }
                 Err(e) => {
                     let ctx = UiErrorContext::new("toggle_readonly");
-                    Task::done(log_error_and_show_dialog(fl!("btrfs-readonly-failed"), anyhow::anyhow!(e), ctx).into())
+                    Task::done(
+                        log_error_and_show_dialog(
+                            fl!("btrfs-readonly-failed"),
+                            anyhow::anyhow!(e),
+                            ctx,
+                        )
+                        .into(),
+                    )
                 }
             }
         }
@@ -431,7 +450,7 @@ pub(super) fn handle_btrfs_message(app: &mut AppModel, message: Message) -> Task
                 && btrfs_state.mount_point.as_deref() == Some(&mount_point)
             {
                 btrfs_state.show_deleted = !btrfs_state.show_deleted;
-                
+
                 // Load deleted subvolumes if we're showing them and haven't loaded yet
                 if btrfs_state.show_deleted && btrfs_state.deleted_subvolumes.is_none() {
                     return handle_btrfs_message(

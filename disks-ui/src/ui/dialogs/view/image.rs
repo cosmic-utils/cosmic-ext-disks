@@ -210,20 +210,13 @@ pub fn image_operation<'a>(state: ImageOperationDialog) -> Element<'a, Message> 
             } else {
                 0.0_f32
             };
-            content = content.push(
-                iced_widget::progress_bar(0.0..=1.0, fraction)
-                    .width(Length::Fill),
-            );
+            content =
+                content.push(iced_widget::progress_bar(0.0..=1.0, fraction).width(Length::Fill));
             if total_bytes > 0 {
                 let done = storage_models::bytes_to_pretty(&bytes_completed, false);
                 let total = storage_models::bytes_to_pretty(&total_bytes, false);
                 let speed = storage_models::bytes_to_pretty(&speed_bytes_per_sec, false);
-                content = content.push(caption(format!(
-                    "{} / {} · {}/s",
-                    done,
-                    total,
-                    speed
-                )));
+                content = content.push(caption(format!("{} / {} · {}/s", done, total, speed)));
             }
         }
     }

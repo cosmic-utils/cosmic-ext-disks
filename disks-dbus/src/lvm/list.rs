@@ -43,18 +43,18 @@ fn parse_lvs(output: &str, vg_name: &str) -> Vec<LogicalVolumeInfo> {
             let device_path = parts.next()?.trim().to_string();
             let size_str = parts.next()?.trim();
             let size: u64 = size_str.parse().ok()?;
-            
+
             if device_path.is_empty() {
                 return None;
             }
-            
+
             // Extract LV name from path: /dev/vg0/lv_name -> lv_name
             let name = device_path
                 .strip_prefix("/dev/")
                 .and_then(|s| s.split('/').nth(1))
                 .unwrap_or("")
                 .to_string();
-            
+
             Some(LogicalVolumeInfo {
                 name,
                 vg_name: vg_name.to_string(),

@@ -1,12 +1,12 @@
-use cosmic::widget;
-use cosmic::iced::Length;
-use cosmic::{Element, iced_widget};
 use crate::app::Message;
 use crate::fl;
 use crate::ui::btrfs::state::BtrfsState;
 use crate::ui::volumes::usage_pie;
-use storage_models::{VolumeInfo, BtrfsSubvolume};
+use cosmic::iced::Length;
+use cosmic::widget;
+use cosmic::{Element, iced_widget};
 use std::collections::HashMap;
+use storage_models::{BtrfsSubvolume, VolumeInfo};
 
 /// Helper to get expander icon name
 fn expander_icon(expanded: bool) -> &'static str {
@@ -33,12 +33,18 @@ pub fn btrfs_management_section<'a>(
 
     // === Usage Breakdown Section ===
     // Try to get mount point from state first, then from volume
-    let mount_point = state.mount_point.as_ref()
+    let mount_point = state
+        .mount_point
+        .as_ref()
         .or_else(|| volume.mount_points.first());
-    
-    tracing::debug!("btrfs_management_section: state.mount_point={:?}, volume.mount_points={:?}, effective_mount_point={:?}",
-        state.mount_point, volume.mount_points, mount_point);
-        
+
+    tracing::debug!(
+        "btrfs_management_section: state.mount_point={:?}, volume.mount_points={:?}, effective_mount_point={:?}",
+        state.mount_point,
+        volume.mount_points,
+        mount_point
+    );
+
     if let Some(_mount_point) = mount_point {
         // Check if we need to load usage
         if state.used_space.is_none() && !state.loading_usage {
@@ -47,10 +53,7 @@ pub fn btrfs_management_section<'a>(
         }
 
         if state.loading_usage {
-            content_items.push(
-                widget::text::caption(fl!("btrfs-loading-usage"))
-                    .into(),
-            );
+            content_items.push(widget::text::caption(fl!("btrfs-loading-usage")).into());
         } else if let Some(used_space_result) = &state.used_space {
             match used_space_result {
                 Ok(used_bytes) => {
@@ -76,8 +79,7 @@ pub fn btrfs_management_section<'a>(
                 }
                 Err(error) => {
                     content_items.push(
-                        widget::text::caption(fl!("btrfs-usage-error", error = error))
-                            .into(),
+                        widget::text::caption(fl!("btrfs-usage-error", error = error)).into(),
                     );
                 }
             }
@@ -91,9 +93,11 @@ pub fn btrfs_management_section<'a>(
     // Check if we need to load subvolumes
     if state.subvolumes.is_none() && !state.loading {
         // Try to get mount point from state first, then from volume
-        let mount_point = state.mount_point.as_ref()
+        let mount_point = state
+            .mount_point
+            .as_ref()
             .or_else(|| volume.mount_points.first());
-            
+
         if let Some(_mp) = mount_point {
             // Note: This will trigger on every render until loaded
             // A better approach would be to trigger once, but this works for now
@@ -105,15 +109,9 @@ pub fn btrfs_management_section<'a>(
             // Neither state nor volume has a mount point
             if volume.has_filesystem {
                 // Filesystem exists but not detected as mounted
-                content_items.push(
-                    widget::text::caption(fl!("btrfs-not-mounted-refresh"))
-                        .into(),
-                );
+                content_items.push(widget::text::caption(fl!("btrfs-not-mounted-refresh")).into());
             } else {
-                content_items.push(
-                    widget::text::caption(fl!("btrfs-not-mounted"))
-                        .into(),
-                );
+                content_items.push(widget::text::caption(fl!("btrfs-not-mounted")).into());
             }
         }
     } else if state.loading {
@@ -145,10 +143,7 @@ pub fn btrfs_management_section<'a>(
                 content_items.push(button_row.into());
 
                 if subvolumes.is_empty() {
-                    content_items.push(
-                        widget::text::caption(fl!("btrfs-no-subvolumes"))
-                            .into(),
-                    );
+                    content_items.push(widget::text::caption(fl!("btrfs-no-subvolumes")).into());
                     content_items.push(
                         widget::text::caption(fl!("btrfs-no-subvolumes-desc"))
                             .size(11)
@@ -169,9 +164,7 @@ pub fn btrfs_management_section<'a>(
     // Spacing at end
     content_items.push(widget::vertical_space().height(8).into());
 
-    iced_widget::column(content_items)
-        .spacing(8)
-        .into()
+    iced_widget::column(content_items).spacing(8).into()
 }
 
 /// Build hierarchical subvolume list with snapshots nested under parents
@@ -182,7 +175,7 @@ fn build_subvolume_hierarchy<'a>(
     // Group snapshots by their source subvolume UUID
     // snapshots_map: source UUID -> list of snapshots
     let mut snapshots_map: HashMap<String, Vec<&BtrfsSubvolume>> = HashMap::new();
-    
+
     for subvol in subvolumes {
         // If this subvolume has a parent_uuid, it's a snapshot
         if let Some(parent_uuid) = &subvol.parent_uuid {
@@ -217,13 +210,21 @@ fn render_subvolume_row<'a>(
     let mount_point = state.mount_point.as_ref();
     let snapshots = snapshots_map.get(&subvol.uuid);
     let has_snapshots = snapshots.is_some_and(|s| !s.is_empty());
-    let is_expanded = state.expanded_subvolumes.get(&subvol.id).copied().unwrap_or(false);
+    let is_expanded = state
+        .expanded_subvolumes
+        .get(&subvol.id)
+        .copied()
+        .unwrap_or(false);
 
     let mut row_items: Vec<Element<'a, Message>> = Vec::new();
 
     // Indentation
     if indent_level > 0 {
-        row_items.push(widget::horizontal_space().width((indent_level * 20) as f32).into());
+        row_items.push(
+            widget::horizontal_space()
+                .width((indent_level * 20) as f32)
+                .into(),
+        );
     }
 
     // Expander (if has snapshots)
@@ -270,8 +271,7 @@ fn render_subvolume_row<'a>(
             })
             .padding(4)
     } else {
-        widget::button::icon(widget::icon::from_name("edit-delete-symbolic"))
-            .padding(4)
+        widget::button::icon(widget::icon::from_name("edit-delete-symbolic")).padding(4)
     };
     row_items.push(delete_button.into());
 
@@ -282,17 +282,19 @@ fn render_subvolume_row<'a>(
     let mut col = iced_widget::column![row].spacing(2);
 
     // If expanded and has snapshots, render them indented
-    if is_expanded && has_snapshots
-        && let Some(snapshot_list) = snapshots {
-            for snapshot in snapshot_list.iter() {
-                col = col.push(render_subvolume_row(
-                    snapshot,
-                    snapshots_map,
-                    state,
-                    indent_level + 1,
-                ));
-            }
+    if is_expanded
+        && has_snapshots
+        && let Some(snapshot_list) = snapshots
+    {
+        for snapshot in snapshot_list.iter() {
+            col = col.push(render_subvolume_row(
+                snapshot,
+                snapshots_map,
+                state,
+                indent_level + 1,
+            ));
         }
+    }
 
     col.into()
 }
