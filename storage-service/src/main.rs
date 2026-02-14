@@ -15,12 +15,14 @@ mod conversions;
 mod disks;
 mod error;
 mod filesystems;
+mod lvm;
 mod partitions;
 mod service;
 
 use btrfs::BtrfsHandler;
 use disks::DisksHandler;
 use filesystems::FilesystemsHandler;
+use lvm::LVMHandler;
 use partitions::PartitionsHandler;
 use service::StorageService;
 
@@ -60,6 +62,10 @@ async fn main() -> Result<()> {
             "/org/cosmic/ext/StorageService/filesystems",
             FilesystemsHandler::new(),
         )?
+        .serve_at(
+            "/org/cosmic/ext/StorageService/lvm",
+            LVMHandler::new(),
+        )?
         .build()
         .await?;
     
@@ -69,6 +75,7 @@ async fn main() -> Result<()> {
     tracing::info!("  - BTRFS interface at /org/cosmic/ext/StorageService/btrfs");
     tracing::info!("  - Disks interface at /org/cosmic/ext/StorageService/disks");
     tracing::info!("  - Partitions interface at /org/cosmic/ext/StorageService/partitions");
+    tracing::info!("  - LVM interface at /org/cosmic/ext/StorageService/lvm");
     
     // Start disk hotplug monitoring
     disks::monitor_hotplug_events(
