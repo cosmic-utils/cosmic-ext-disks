@@ -40,7 +40,7 @@ async fn main() -> Result<()> {
     }
     
     // Build D-Bus connection with socket activation support
-    let _connection = ConnectionBuilder::system()?
+    let connection = ConnectionBuilder::system()?
         .name("org.cosmic.ext.StorageService")?
         .serve_at("/org/cosmic/ext/StorageService", StorageService::new())?
         .serve_at("/org/cosmic/ext/StorageService/btrfs", BtrfsHandler::new())?
@@ -55,6 +55,14 @@ async fn main() -> Result<()> {
     tracing::info!("  - org.cosmic.ext.StorageService at /org/cosmic/ext/StorageService");
     tracing::info!("  - BTRFS interface at /org/cosmic/ext/StorageService/btrfs");
     tracing::info!("  - Disks interface at /org/cosmic/ext/StorageService/disks");
+    
+    // Start disk hotplug monitoring
+    disks::monitor_hotplug_events(
+        connection.clone(),
+        "/org/cosmic/ext/StorageService/disks",
+    )
+    .await?;
+    tracing::info!("Disk hotplug monitoring enabled");
     
     // Keep service running until shutdown signal
     tracing::info!("Service ready, waiting for requests...");

@@ -16,6 +16,7 @@ zbus_polkit = "5.0"
 
 # Async runtime
 tokio.workspace = true
+futures-util = "0.3"
 
 # Logging
 tracing.workspace = true
