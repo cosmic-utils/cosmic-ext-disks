@@ -22,9 +22,9 @@ where
     Task::perform(
         async move {
             operation().await?;
-            load_all_drives().await
+            load_all_drives().await.map_err(|e| e.into())
         },
-        move |result| match result {
+        move |result: Result<Vec<UiDrive>, anyhow::Error>| match result {
             Ok(drives) => {
                 // Pass the selected volume to preserve selection after reload
                 Message::UpdateNavWithChildSelection(drives, preserve_selection.clone()).into()

@@ -517,63 +517,71 @@ pub(crate) fn update(app: &mut AppModel, message: Message) -> Task<Message> {
                     }
                 }
                 UnmountBusyMessage::KillAndRetry => {
-                    let process_count = dialog_data
-                        .as_ref()
-                        .map(|(_, _, pids)| pids.len())
-                        .unwrap_or(0);
-                    tracing::info!(
-                        object_path = dialog_data
-                            .as_ref()
-                            .map(|(op, _, _)| op.as_str())
-                            .unwrap_or("unknown"),
-                        process_count = process_count,
-                        "User requested kill processes and retry unmount"
-                    );
-
-                    if let Some((object_path, mount_point, pids)) = dialog_data {
+                    if let Some((device, mount_point, _pids)) = dialog_data {
                         app.dialog = None;
+                        tracing::info!(
+                            device = %device,
+                            "User requested kill processes and unmount"
+                        );
 
-                        // Kill processes and then retry unmount
+                        let device_path_for_selection = device.clone();
                         return Task::perform(
                             async move {
-                                tracing::debug!(
-                                    mount_point = %mount_point,
-                                    process_count = pids.len(),
-                                    "Killing processes holding mount"
-                                );
-
-                                // Kill the processes
-                                let kill_results = disks_dbus::kill_processes(&pids);
-                                let failed = kill_results.iter().filter(|r| !r.success).count();
-
-                                if failed > 0 {
-                                    tracing::warn!(
-                                        failed_count = failed,
-                                        total_count = pids.len(),
-                                        "Failed to kill some processes"
-                                    );
-                                    for result in kill_results.iter().filter(|r| !r.success) {
-                                        tracing::debug!(
-                                            pid = result.pid,
-                                            error = result.error.as_deref().unwrap_or("unknown"),
-                                            "Process kill failed"
-                                        );
+                                let fs_client = match FilesystemsClient::new().await {
+                                    Ok(c) => c,
+                                    Err(e) => {
+                                        tracing::error!(?e, "Failed to create filesystems client");
+                                        return Err(None);
                                     }
+                                };
+                                // Unmount with kill_processes=true so the service kills blocking processes
+                                let unmount_result = match fs_client.unmount(&device, false, true).await {
+                                    Ok(r) => r,
+                                    Err(e) => {
+                                        tracing::error!(?e, "Failed to unmount with kill");
+                                        return Err(None);
+                                    }
+                                };
+                                if unmount_result.success {
+                                    match load_all_drives().await {
+                                        Ok(drives) => Ok(drives),
+                                        Err(e) => {
+                                            tracing::error!(?e, "Failed to reload drives after unmount");
+                                            Err(None)
+                                        }
+                                    }
+                                } else if !unmount_result.blocking_processes.is_empty() {
+                                    Err(Some((
+                                        device,
+                                        mount_point,
+                                        unmount_result.blocking_processes,
+                                        device.clone(),
+                                    )))
                                 } else {
-                                    tracing::info!(
-                                        total_count = pids.len(),
-                                        "Successfully killed all processes"
-                                    );
+                                    if let Some(err) = unmount_result.error {
+                                        tracing::error!("unmount with kill failed: {}", err);
+                                    }
+                                    Err(None)
                                 }
-
-                                // Small delay to let processes terminate
-                                tokio::time::sleep(std::time::Duration::from_millis(100)).await;
-
-                                (object_path, mount_point)
                             },
-                            move |(object_path, _mount_point)| {
-                                // After killing, retry the unmount
-                                Message::RetryUnmountAfterKill(object_path).into()
+                            move |result| match result {
+                                Ok(drives) => Message::UpdateNavWithChildSelection(
+                                    drives,
+                                    Some(device_path_for_selection),
+                                )
+                                .into(),
+                                Err(Some((device, mount_point, processes, device_path))) => {
+                                    Message::Dialog(Box::new(ShowDialog::UnmountBusy(
+                                        crate::ui::dialogs::state::UnmountBusyDialog {
+                                            device,
+                                            mount_point,
+                                            processes,
+                                            device_path,
+                                        },
+                                    )))
+                                    .into()
+                                }
+                                Err(None) => Message::None.into(),
                             },
                         );
                     } else {

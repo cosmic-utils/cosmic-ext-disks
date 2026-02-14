@@ -103,9 +103,9 @@ pub(super) fn create_message(
                             &create_partition_info.selected_type
                         ).await
                             .map_err(|e| anyhow::anyhow!("Failed to create partition: {}", e))?;
-                        load_all_drives().await
+                        load_all_drives().await.map_err(|e| e.into())
                     },
-                    |result| match result {
+                    |result: Result<Vec<UiDrive>, anyhow::Error>| match result {
                         Ok(drives) => Message::UpdateNav(drives, None).into(),
                         Err(e) => {
                             let ctx = UiErrorContext::new("create_partition");
@@ -157,9 +157,9 @@ pub(super) fn create_message(
                             options
                         ).await
                             .map_err(|e| anyhow::anyhow!("Failed to format: {}", e))?;
-                        load_all_drives().await
+                        load_all_drives().await.map_err(|e| e.into())
                     },
-                    |result| match result {
+                    |result: Result<Vec<UiDrive>, anyhow::Error>| match result {
                         Ok(drives) => Message::UpdateNav(drives, None).into(),
                         Err(e) => {
                             let ctx = UiErrorContext::new("format_partition");

@@ -60,41 +60,49 @@ pub fn smart_data<'a>(state: SmartDataDialog) -> Element<'a, Message> {
         content = content.push(caption(err.clone()));
     }
 
-    if let Some(info) = state.info.as_ref() {
+    if let Some((status, attributes)) = state.info.as_ref() {
         content = content
             .push(caption_heading(fl!("smart-data-self-tests")))
             .push(caption(format!(
                 "{}: {}",
                 fl!("smart-type"),
-                info.device_type
+                status.device
             )))
             .push(caption(format!(
                 "{}: {}",
                 fl!("smart-updated"),
-                info.updated_at
-                    .map(|t| t.to_string())
-                    .unwrap_or_else(|| fl!("unknown").to_string())
+                fl!("unknown")
             )));
 
-        if let Some(temp_c) = info.temperature_c {
+        if let Some(temp_c) = status.temperature_celsius {
             content = content.push(caption(format!(
-                "{}: {temp_c} °C",
-                fl!("smart-temperature")
+                "{}: {} °C",
+                fl!("smart-temperature"),
+                temp_c
             )));
         }
 
-        if let Some(hours) = info.power_on_hours {
+        if let Some(hours) = status.power_on_hours {
             content = content.push(caption(format!("{}: {hours}", fl!("smart-power-on-hours"))));
         }
 
-        if let Some(status) = info.selftest_status.as_ref() {
-            content = content.push(caption(format!("{}: {status}", fl!("smart-selftest"))));
-        }
+        let selftest_str = if status.test_running {
+            status
+                .test_percent_remaining
+                .map(|p| format!("Running ({}% remaining)", p))
+                .unwrap_or_else(|| "Running".to_string())
+        } else {
+            "Idle".to_string()
+        };
+        content = content.push(caption(format!("{}: {}", fl!("smart-selftest"), selftest_str)));
 
-        if !info.attributes.is_empty() {
+        if !attributes.is_empty() {
             content = content.push(caption_heading(fl!("details")));
-            for (k, v) in &info.attributes {
-                content = content.push(caption(format!("{k}: {v}")));
+            for attr in attributes {
+                content = content.push(caption(format!(
+                    "{}: {} (raw: {})",
+                    attr.name, attr.current, attr.raw_value
+                )));
             }
         }
     } else if state.running {

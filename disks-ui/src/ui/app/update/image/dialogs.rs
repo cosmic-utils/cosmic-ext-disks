@@ -13,6 +13,7 @@ use std::sync::{
 use tokio::fs::OpenOptions;
 
 use super::ops::run_image_operation;
+use crate::client::{FilesystemsClient, ImageClient};
 use crate::ui::app::message::Message;
 use crate::ui::app::state::AppModel;
 
@@ -132,10 +133,16 @@ pub(super) fn attach_disk_image_dialog(
                         anyhow::bail!("Image file path is required");
                     }
 
-                    let block_object_path = disks_dbus::loop_setup(&path).await?;
+                    let image_client = ImageClient::new().await
+                        .map_err(|e| anyhow::anyhow!("Failed to create image client: {}", e))?;
+                    let device_name = image_client.loop_setup(&path).await
+                        .map_err(|e| anyhow::anyhow!("Failed to set up loop device: {}", e))?;
+                    let device_path = format!("/dev/{}", device_name);
 
-                    match disks_dbus::mount_filesystem(block_object_path.clone()).await {
-                        Ok(()) => Ok(AttachDiskResult {
+                    let fs_client = FilesystemsClient::new().await
+                        .map_err(|e| anyhow::anyhow!("Failed to create filesystems client: {}", e))?;
+                    match fs_client.mount(&device_path, "", "{}").await {
+                        Ok(_mount_point) => Ok(AttachDiskResult {
                             mounted: true,
                             message: "Attached and mounted image.".to_string(),
                         }),

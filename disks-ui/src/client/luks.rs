@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 
 use zbus::{proxy, Connection};
-use storage_models::LuksInfo;
+use storage_models::{EncryptionOptionsSettings, LuksInfo};
 use crate::client::error::ClientError;
 
 /// D-Bus proxy interface for LUKS encryption operations
@@ -35,6 +35,9 @@ trait LuksInterface {
         old_passphrase: &str,
         new_passphrase: &str,
     ) -> zbus::Result<()>;
+    
+    /// Get encryption options (crypttab settings) for a LUKS device
+    async fn get_encryption_options(&self, device: &str) -> zbus::Result<String>;
     
     /// Signal emitted when a device is formatted with LUKS
     #[zbus(signal)]
@@ -104,6 +107,17 @@ impl LuksClient {
         new_passphrase: &str,
     ) -> Result<(), ClientError> {
         Ok(self.proxy.change_passphrase(device, old_passphrase, new_passphrase).await?)
+    }
+    
+    /// Get encryption options (crypttab settings) for a LUKS device
+    pub async fn get_encryption_options(
+        &self,
+        device: &str,
+    ) -> Result<Option<EncryptionOptionsSettings>, ClientError> {
+        let json = self.proxy.get_encryption_options(device).await?;
+        let opt: Option<EncryptionOptionsSettings> = serde_json::from_str(&json)
+            .map_err(|e| ClientError::ParseError(format!("Failed to parse encryption options: {}", e)))?;
+        Ok(opt)
     }
     
     /// Get the underlying proxy for signal subscriptions

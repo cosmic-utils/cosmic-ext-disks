@@ -9,7 +9,7 @@ use cosmic::{
     },
 };
 
-use crate::app::Message;
+use crate::{app::Message, models::UiVolume};
 use crate::fl;
 use crate::ui::volumes::helpers;
 use crate::utils::DiskSegmentKind;

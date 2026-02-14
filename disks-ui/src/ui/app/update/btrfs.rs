@@ -282,7 +282,7 @@ pub(super) fn handle_btrfs_message(app: &mut AppModel, message: Message) -> Task
                                 let ctx = UiErrorContext::new("set_default_subvolume");
                                 log_error_and_show_dialog(
                                     fl!("btrfs-set-default-failed"),
-                                    e,
+                                    e.into(),
                                     ctx,
                                 )
                             }

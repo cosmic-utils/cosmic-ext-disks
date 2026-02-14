@@ -26,11 +26,6 @@ pub(crate) fn init() {
                     .expect("Invalid log directive: cosmic_ext_disks=info"),
             )
             .add_directive(
-                "cosmic_ext_disks_dbus=info"
-                    .parse()
-                    .expect("Invalid log directive: cosmic_ext_disks_dbus=info"),
-            )
-            .add_directive(
                 "wgpu=warn"
                     .parse()
                     .expect("Invalid log directive: wgpu=warn"),

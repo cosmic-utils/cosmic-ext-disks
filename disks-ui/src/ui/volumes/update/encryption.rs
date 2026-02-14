@@ -1,4 +1,5 @@
 use crate::models::load_all_drives;
+use crate::models::UiDrive;
 use cosmic::Task;
 
 use crate::app::Message;
@@ -121,11 +122,17 @@ pub(super) fn open_edit_encryption_options(
         volume.label.clone()
     };
 
+    let device_path = volume.device_path.clone();
     Task::perform(
         async move {
-            // TODO: Implement get_encryption_options_settings via client
-            // For now, return None to use defaults
-            let settings: Option<disks_dbus::EncryptionOptionsSettings> = None;
+            let settings: Option<storage_models::EncryptionOptionsSettings> = if let Some(ref device) = device_path {
+                match LuksClient::new().await {
+                    Ok(client) => client.get_encryption_options(device).await.ok().flatten(),
+                    Err(_) => None,
+                }
+            } else {
+                None
+            };
             let error: Option<String> = None;
 
             let (use_defaults, unlock_at_startup, require_auth, other_options, name) =
@@ -237,9 +244,9 @@ pub(super) fn unlock_message(
                     let device = &p.device;
                     luks_client.unlock(device, &passphrase_for_task).await
                         .map_err(|e| anyhow::anyhow!("Failed to unlock: {}", e))?;
-                    load_all_drives().await
+                    load_all_drives().await.map_err(|e| e.into())
                 },
-                move |result| match result {
+                move |result: Result<Vec<UiDrive>, anyhow::Error>| match result {
                     Ok(drives) => {
                         // After unlock, select the unlocked volume (which may have new child nodes)
                         Message::UpdateNavWithChildSelection(
@@ -298,13 +305,10 @@ pub(super) fn take_ownership_message(
 
             Task::perform(
                 async move {
-                    match target {
-                        FilesystemTarget::Volume(v) => v.take_ownership(recursive).await?,
-                        FilesystemTarget::Node(n) => n.take_ownership(recursive).await?,
-                    }
-                    load_all_drives().await
+                    // TODO: Implement take_ownership operation in storage-service
+                    Err::<Vec<UiDrive>, anyhow::Error>(anyhow::anyhow!("Take ownership operation not yet implemented"))
                 },
-                |result| match result {
+                |result: Result<Vec<UiDrive>, anyhow::Error>| match result {
                     Ok(drives) => Message::UpdateNav(drives, None).into(),
                     Err(e) => {
                         let ctx = UiErrorContext::new("take_ownership");
@@ -360,10 +364,15 @@ pub(super) fn change_passphrase_message(
 
             Task::perform(
                 async move {
-                    volume.change_passphrase(&current, &new).await?;
-                    load_all_drives().await
+                    let luks_client = LuksClient::new().await
+                        .map_err(|e| anyhow::anyhow!("Failed to create LUKS client: {}", e))?;
+                    let device = volume.device_path.as_ref()
+                        .ok_or_else(|| anyhow::anyhow!("Volume has no device path"))?;
+                    luks_client.change_passphrase(device, &current, &new).await
+                        .map_err(|e| anyhow::anyhow!("Failed to change passphrase: {}", e))?;
+                    load_all_drives().await.map_err(|e| e.into())
                 },
-                |result| match result {
+                |result: Result<Vec<UiDrive>, anyhow::Error>| match result {
                     Ok(drives) => Message::UpdateNav(drives, None).into(),
                     Err(e) => {
                         let ctx = UiErrorContext::new("change_passphrase");
@@ -437,22 +446,10 @@ pub(super) fn edit_encryption_options_message(
 
             Task::perform(
                 async move {
-                    if use_defaults {
-                        volume.default_encryption_options().await?;
-                    } else {
-                        volume
-                            .edit_encryption_options(
-                                unlock_at_startup,
-                                require_auth,
-                                other_options,
-                                name,
-                                passphrase,
-                            )
-                            .await?;
-                    }
-                    load_all_drives().await
+                    // TODO: Implement encryption options management in storage-service
+                    Err::<Vec<UiDrive>, anyhow::Error>(anyhow::anyhow!("Encryption options management not yet implemented"))
                 },
-                move |result| match result {
+                move |result: Result<Vec<UiDrive>, anyhow::Error>| match result {
                     Ok(drives) => Message::UpdateNav(drives, None).into(),
                     Err(e) => {
                         let ctx = UiErrorContext::new("edit_encryption_options");
@@ -494,9 +491,9 @@ pub(super) fn lock_container(control: &mut VolumesControl) -> Task<cosmic::Actio
                 luks_client.lock(cleartext_device).await
                     .map_err(|e| anyhow::anyhow!("Failed to lock: {}", e))?;
                 
-                load_all_drives().await
+                load_all_drives().await.map_err(|e| e.into())
             },
-            move |result| match result {
+            move |result: Result<Vec<UiDrive>, anyhow::Error>| match result {
                 Ok(drives) => {
                     // After lock, stay on the locked container
                     Message::UpdateNavWithChildSelection(

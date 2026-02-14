@@ -105,7 +105,7 @@ pub enum SmartDialogMessage {
     SelfTestExtended,
     AbortSelfTest,
     Close,
-    Loaded(Result<disks_dbus::SmartInfo, String>),
+    Loaded(Result<(storage_models::SmartStatus, Vec<storage_models::SmartAttribute>), String>),
     ActionComplete(Result<(), String>),
 }
 

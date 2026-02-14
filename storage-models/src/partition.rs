@@ -105,6 +105,31 @@ pub struct PartitionInfo {
     pub usage: Option<Usage>,
 }
 
+/// UDisks2 partition flag bit values (must match udisks2::partition::PartitionFlags).
+const PARTITION_FLAG_SYSTEM: u64 = 1;
+const PARTITION_FLAG_LEGACY_BIOS_BOOTABLE: u64 = 4;
+const PARTITION_FLAG_HIDDEN: u64 = 4_611_686_018_427_387_904;
+
+/// Build partition flags bits from booleans for SetFlags.
+/// Values match udisks2::partition::PartitionFlags (SystemPartition, LegacyBIOSBootable, Hidden).
+pub fn make_partition_flags_bits(
+    legacy_bios_bootable: bool,
+    system_partition: bool,
+    hidden: bool,
+) -> u64 {
+    let mut bits: u64 = 0;
+    if system_partition {
+        bits |= PARTITION_FLAG_SYSTEM;
+    }
+    if legacy_bios_bootable {
+        bits |= PARTITION_FLAG_LEGACY_BIOS_BOOTABLE;
+    }
+    if hidden {
+        bits |= PARTITION_FLAG_HIDDEN;
+    }
+    bits
+}
+
 impl PartitionInfo {
     /// Check if this partition is currently mounted
     pub fn is_mounted(&self) -> bool {

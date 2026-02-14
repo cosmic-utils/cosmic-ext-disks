@@ -1,4 +1,7 @@
-use storage_models::{CreatePartitionInfo, PartitionTypeInfo, ProcessInfo, VolumeInfo};
+use storage_models::{
+    CreatePartitionInfo, PartitionTypeInfo, ProcessInfo, SmartAttribute, SmartStatus,
+    VolumeInfo,
+};
 use crate::models::{UiDrive, UiVolume};
 
 #[derive(Debug, Clone)]
@@ -167,7 +170,7 @@ pub struct ImageOperationDialog {
 pub struct SmartDataDialog {
     pub drive: UiDrive,
     pub running: bool,
-    pub info: Option<disks_dbus::SmartInfo>,
+    pub info: Option<(SmartStatus, Vec<SmartAttribute>)>,
     pub error: Option<String>,
 }
 

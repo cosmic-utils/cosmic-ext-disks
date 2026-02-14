@@ -1,4 +1,5 @@
 use crate::models::{load_all_drives, UiDrive};
+use crate::client::{DisksClient, PartitionsClient};
 use crate::fl;
 use crate::ui::dialogs::message::FormatDiskMessage;
 use crate::ui::dialogs::state::{FormatDiskDialog, ShowDialog, SmartDataDialog};
@@ -38,10 +39,13 @@ pub(super) fn format_disk(app: &mut AppModel, msg: FormatDiskMessage) -> Task<Me
 
             return Task::perform(
                 async move {
-                    drive.format_disk(format_type, erase).await?;
-                    load_all_drives().await
+                    let partitions_client = PartitionsClient::new().await
+                        .map_err(|e| anyhow::anyhow!("Failed to create partitions client: {}", e))?;
+                    partitions_client.create_partition_table(&block_path, format_type).await
+                        .map_err(|e| anyhow::anyhow!("Failed to format disk: {}", e))?;
+                    load_all_drives().await.map_err(|e| e.into())
                 },
-                move |res| match res {
+                move |res: Result<Vec<UiDrive>, anyhow::Error>| match res {
                     Ok(drives) => Message::UpdateNav(drives, Some(block_path.clone())).into(),
                     Err(e) => {
                         let ctx = UiErrorContext {
@@ -74,7 +78,12 @@ pub(super) fn eject_drive(drive: UiDrive) -> Task<Message> {
 
     Task::perform(
         async move {
-            let res = drive.remove().await;
+            let disks_client = DisksClient::new().await
+                .map_err(|e| anyhow::anyhow!("Failed to create disks client: {}", e));
+            let res = match disks_client {
+                Ok(client) => client.remove(&block_path).await.map_err(|e| anyhow::anyhow!("Failed to remove: {}", e)),
+                Err(e) => Err(e),
+            };
             let drives = load_all_drives().await.ok();
             (res, drives)
         },
@@ -110,7 +119,12 @@ pub(super) fn power_off_drive(drive: UiDrive) -> Task<Message> {
 
     Task::perform(
         async move {
-            let res = drive.power_off().await;
+            let disks_client = DisksClient::new().await
+                .map_err(|e| anyhow::anyhow!("Failed to create disks client: {}", e));
+            let res = match disks_client {
+                Ok(client) => client.power_off(&block_path).await.map_err(|e| anyhow::anyhow!("Failed to power off: {}", e)),
+                Err(e) => Err(e),
+            };
             let drives = load_all_drives().await.ok();
             (res, drives)
         },
@@ -172,7 +186,15 @@ pub(super) fn smart_data_for(app: &mut AppModel, drive: UiDrive) -> Task<Message
     }));
 
     Task::perform(
-        async move { drive.smart_info().await.map_err(|e| e.to_string()) },
+        async move { 
+            let disks_client = DisksClient::new().await
+                .map_err(|e| format!("Failed to create disks client: {}", e))?;
+            let status = disks_client.get_smart_status(&drive.block_path()).await
+                .map_err(|e| format!("Failed to get SMART status: {}", e))?;
+            let attributes = disks_client.get_smart_attributes(&drive.block_path()).await
+                .map_err(|e| format!("Failed to get SMART attributes: {}", e))?;
+            Ok((status, attributes))
+        },
         |res| {
             Message::SmartDialog(crate::ui::dialogs::message::SmartDialogMessage::Loaded(res))
                 .into()
@@ -193,7 +215,12 @@ pub(super) fn standby_now_drive(drive: UiDrive) -> Task<Message> {
     let device = drive.block_path().to_string();
 
     Task::perform(
-        async move { drive.standby_now().await },
+        async move { 
+            DisksClient::new().await
+                .map_err(|e| anyhow::anyhow!("Failed to create disks client: {}", e))?
+                .standby_now(&device).await
+                .map_err(|e| anyhow::anyhow!("Failed to standby: {}", e))
+        },
         move |res| match res {
             Ok(()) => Message::Dialog(Box::new(ShowDialog::Info {
                 title: fl!("app-title"),
@@ -207,7 +234,7 @@ pub(super) fn standby_now_drive(drive: UiDrive) -> Task<Message> {
                     device: Some(device.as_str()),
                     drive_path: Some(drive_path.as_str()),
                 };
-                log_error_and_show_dialog(fl!("standby-failed"), e, ctx).into()
+                log_error_and_show_dialog(fl!("standby-failed"), e.into(), ctx).into()
             }
         },
     )
@@ -225,7 +252,12 @@ pub(super) fn wakeup_drive(drive: UiDrive) -> Task<Message> {
     let drive_path = drive.device().to_string();
     let device = drive.block_path().to_string();
 
-    Task::perform(async move { drive.wakeup().await }, move |res| match res {
+    Task::perform(async move { 
+        DisksClient::new().await
+            .map_err(|e| anyhow::anyhow!("Failed to create disks client: {}", e))?
+            .wakeup(&device).await
+            .map_err(|e| anyhow::anyhow!("Failed to wakeup: {}", e))
+    }, move |res| match res {
         Ok(()) => Message::Dialog(Box::new(ShowDialog::Info {
             title: fl!("app-title"),
             body: "Wake-up requested.".to_string(),

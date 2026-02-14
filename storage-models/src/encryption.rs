@@ -69,3 +69,16 @@ impl LuksInfo {
         self.unlocked
     }
 }
+
+/// Encryption options (e.g. crypttab) for a LUKS volume
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct EncryptionOptionsSettings {
+    /// Mapper name (e.g. for /dev/mapper/name)
+    pub name: String,
+    /// Unlock at system startup
+    pub unlock_at_startup: bool,
+    /// Require authentication to unlock
+    pub require_auth: bool,
+    /// Other crypttab options (e.g. "nofail")
+    pub other_options: String,
+}

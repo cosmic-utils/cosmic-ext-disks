@@ -1,4 +1,5 @@
 use crate::models::load_all_drives;
+use crate::models::UiDrive;
 use cosmic::Task;
 
 use crate::app::Message;
@@ -11,7 +12,7 @@ use crate::ui::dialogs::state::{
 use crate::ui::error::{UiErrorContext, log_error_and_show_dialog};
 use crate::ui::volumes::helpers;
 use crate::utils::DiskSegmentKind;
-use storage_models::{CreatePartitionInfo, VolumeKind};
+use storage_models::{make_partition_flags_bits, CreatePartitionInfo, VolumeKind};
 use crate::models::UiVolume;
 
 use crate::ui::volumes::VolumesControl;
@@ -88,9 +89,9 @@ pub(super) fn delete(
             partitions_client.delete_partition(device).await
                 .map_err(|e| anyhow::anyhow!("Failed to delete partition: {}", e))?;
             
-            load_all_drives().await
+            load_all_drives().await.map_err(|e| e.into())
         },
-        |result| match result {
+        |result: Result<Vec<UiDrive>, anyhow::Error>| match result {
             Ok(drives) => Message::UpdateNav(drives, None).into(),
             Err(e) => {
                 tracing::error!(?e, "delete failed");
@@ -303,7 +304,7 @@ pub(super) fn edit_partition_message(
 
             return Task::perform(
                 async move {
-                    let flags = disks_dbus::VolumeModel::make_partition_flags_bits(legacy, system, hidden);
+                    let flags = storage_models::make_partition_flags_bits(legacy, system, hidden);
 
                     let partitions_client = PartitionsClient::new().await
                         .map_err(|e| anyhow::anyhow!("Failed to create partitions client: {}", e))?;
@@ -317,9 +318,9 @@ pub(super) fn edit_partition_message(
                     partitions_client.set_partition_flags(device, flags).await
                         .map_err(|e| anyhow::anyhow!("Failed to set partition flags: {}", e))?;
                     
-                    load_all_drives().await
+                    load_all_drives().await.map_err(|e| e.into())
                 },
-                |result| match result {
+                |result: Result<Vec<UiDrive>, anyhow::Error>| match result {
                     Ok(drives) => Message::UpdateNav(drives, None).into(),
                     Err(e) => {
                         let ctx = UiErrorContext::new("edit_partition");
@@ -371,9 +372,9 @@ pub(super) fn resize_partition_message(
                         .ok_or_else(|| anyhow::anyhow!("Volume has no device path"))?;
                     partitions_client.resize_partition(device, new_size).await
                         .map_err(|e| anyhow::anyhow!("Failed to resize partition: {}", e))?;
-                    load_all_drives().await
+                    load_all_drives().await.map_err(|e| e.into())
                 },
-                |result| match result {
+                |result: Result<Vec<UiDrive>, anyhow::Error>| match result {
                     Ok(drives) => Message::UpdateNav(drives, None).into(),
                     Err(e) => {
                         let ctx = UiErrorContext::new("resize_partition");

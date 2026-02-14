@@ -8,7 +8,7 @@ use std::collections::HashMap;
 use udisks2::{block::BlockProxy, encrypted::EncryptedProxy};
 use zbus::{interface, Connection};
 use zbus::zvariant::{OwnedObjectPath, Value};
-use storage_models::{LuksInfo, LuksVersion};
+use storage_models::{EncryptionOptionsSettings, LuksInfo, LuksVersion};
 
 use crate::auth::check_polkit_auth;
 
@@ -370,6 +370,53 @@ impl LuksHandler {
         Ok(())
     }
     
+    /// Get encryption options (crypttab settings) for a LUKS device
+    ///
+    /// Returns: JSON-serialized Option<EncryptionOptionsSettings> ("null" if none)
+    ///
+    /// Authorization: org.cosmic.ext.storage-service.luks-read (allow_active)
+    async fn get_encryption_options(
+        &self,
+        #[zbus(connection)] connection: &Connection,
+        device: String,
+    ) -> zbus::fdo::Result<String> {
+        check_polkit_auth(connection, "org.cosmic.ext.storage-service.luks-read")
+            .await
+            .map_err(|e| zbus::fdo::Error::Failed(format!("Authorization failed: {e}")))?;
+
+        let drives = disks_dbus::DriveModel::get_drives()
+            .await
+            .map_err(|e| {
+                tracing::error!("Failed to get drives: {e}");
+                zbus::fdo::Error::Failed(format!("Failed to enumerate drives: {e}"))
+            })?;
+
+        for drive in drives {
+            for vol in &drive.volumes_flat {
+                if vol.device_path.as_deref() == Some(device.as_str()) {
+                    match vol.get_encryption_options_settings().await {
+                        Ok(Some(s)) => {
+                            let out = EncryptionOptionsSettings {
+                                name: s.name,
+                                unlock_at_startup: s.unlock_at_startup,
+                                require_auth: s.require_auth,
+                                other_options: s.other_options,
+                            };
+                            return serde_json::to_string(&Some(out))
+                                .map_err(|e| zbus::fdo::Error::Failed(format!("Serialize: {e}")));
+                        }
+                        Ok(None) => return Ok("null".to_string()),
+                        Err(e) => {
+                            tracing::warn!("get_encryption_options_settings failed: {e}");
+                            return Ok("null".to_string());
+                        }
+                    }
+                }
+            }
+        }
+        Ok("null".to_string())
+    }
+
     // NOTE: add_key and remove_key are not available in UDisks2 EncryptedProxy
     // These would need to be implemented via direct cryptsetup luksAddKey/luksRemoveKey commands
     // or via raw D-Bus method calls if UDisks2 exposes them under different names.
