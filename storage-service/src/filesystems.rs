@@ -108,8 +108,8 @@ impl FilesystemsHandler {
 
         fn collect_volumes(volumes: &[storage_models::VolumeInfo], out: &mut Vec<FilesystemInfo>) {
             for volume in volumes {
-                if volume.has_filesystem && volume.id_type != "crypto_LUKS" {
-                    if let Some(ref device) = volume.device_path {
+                if volume.has_filesystem && volume.id_type != "crypto_LUKS"
+                    && let Some(ref device) = volume.device_path {
                         let available = volume.usage.as_ref().map(|u| u.available_bytes()).unwrap_or(0);
                         out.push(FilesystemInfo {
                             device: device.clone(),
@@ -121,7 +121,6 @@ impl FilesystemsHandler {
                             available,
                         });
                     }
-                }
                 collect_volumes(&volume.children, out);
             }
         }
@@ -376,7 +375,7 @@ impl FilesystemsHandler {
                                 let json = serde_json::to_string(&result)
                                     .map_err(|e| zbus::fdo::Error::Failed(format!("Failed to serialize: {e}")))?;
                                 
-                                return Ok(json);
+                                Ok(json)
                             }
                             Err(retry_err) => {
                                 tracing::error!("Unmount failed even after killing processes: {}", retry_err);
@@ -390,7 +389,7 @@ impl FilesystemsHandler {
                                 let json = serde_json::to_string(&result)
                                     .map_err(|e| zbus::fdo::Error::Failed(format!("Failed to serialize: {e}")))?;
                                 
-                                return Ok(json);
+                                Ok(json)
                             }
                         }
                     } else {
@@ -404,7 +403,7 @@ impl FilesystemsHandler {
                         let json = serde_json::to_string(&result)
                             .map_err(|e| zbus::fdo::Error::Failed(format!("Failed to serialize: {e}")))?;
                         
-                        return Ok(json);
+                        Ok(json)
                     }
                 } else {
                     // Other error
@@ -419,7 +418,7 @@ impl FilesystemsHandler {
                     let json = serde_json::to_string(&result)
                         .map_err(|e| zbus::fdo::Error::Failed(format!("Failed to serialize: {e}")))?;
                     
-                    return Ok(json);
+                    Ok(json)
                 }
             }
         }

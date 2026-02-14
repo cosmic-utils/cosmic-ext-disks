@@ -7,8 +7,8 @@
 use std::collections::HashMap;
 use udisks2::block::BlockProxy;
 use zbus::{interface, Connection};
-use zbus::zvariant::{OwnedObjectPath, OwnedValue, Value};
-use storage_models::{EncryptionOptionsSettings, LuksInfo, LuksVersion};
+use zbus::zvariant::OwnedValue;
+use storage_models::EncryptionOptionsSettings;
 use disks_dbus::{
     bytestring_owned_value, join_options, set_token_present, split_options, stable_dedup,
     owned_value_to_bytestring, ConfigurationItem, UDisks2BlockConfigurationProxy,

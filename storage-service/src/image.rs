@@ -108,7 +108,7 @@ impl ImageHandler {
         let cancel_clone = cancel_token.clone();
 
         // Perform the copy in a blocking task (storage_sys uses sync I/O)
-        let result = tokio::task::spawn_blocking(move || {
+        let _result = tokio::task::spawn_blocking(move || {
             storage_sys::copy_image_to_file(
                 source_fd,
                 &output_path_buf,
@@ -178,7 +178,7 @@ impl ImageHandler {
         let cancel_clone = cancel_token.clone();
 
         // Perform the copy in a blocking task (storage_sys uses sync I/O)
-        let result = tokio::task::spawn_blocking(move || {
+        let _result = tokio::task::spawn_blocking(move || {
             storage_sys::copy_file_to_image(
                 &source_path,
                 dest_fd,
@@ -242,13 +242,12 @@ impl ImageHandler {
 
         // Validate output path
         let output_path_obj = Path::new(&output_path);
-        if let Some(parent) = output_path_obj.parent() {
-            if !parent.exists() {
+        if let Some(parent) = output_path_obj.parent()
+            && !parent.exists() {
                 return Err(zbus::fdo::Error::Failed(
                     format!("Output directory does not exist: {}", parent.display())
                 ));
             }
-        }
 
         // Normalize device path
         let device_path = if device.starts_with("/dev/") {
@@ -335,13 +334,12 @@ impl ImageHandler {
 
         // Validate output path
         let output_path_obj = Path::new(&output_path);
-        if let Some(parent) = output_path_obj.parent() {
-            if !parent.exists() {
+        if let Some(parent) = output_path_obj.parent()
+            && !parent.exists() {
                 return Err(zbus::fdo::Error::Failed(
                     format!("Output directory does not exist: {}", parent.display())
                 ));
             }
-        }
 
         // Normalize device path
         let device_path = if device.starts_with("/dev/") {

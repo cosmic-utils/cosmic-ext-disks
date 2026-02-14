@@ -5,7 +5,6 @@
 //! This module provides D-Bus methods for managing LVM volume groups,
 //! logical volumes, and physical volumes.
 
-use std::collections::HashMap;
 use std::path::Path;
 use std::process::Command;
 use zbus::{interface, Connection};

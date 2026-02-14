@@ -7,7 +7,6 @@
 
 use anyhow::Result;
 use disks_dbus::DiskManager;
-use serde_json;
 use zbus::{interface, Connection};
 
 use crate::auth::check_polkit_auth;
@@ -73,7 +72,7 @@ impl DisksHandler {
             "org.cosmic.ext.storage-service.disk-read",
         )
         .await
-        .map_err(|e| zbus::fdo::Error::from(e))?;
+        .map_err(zbus::fdo::Error::from)?;
         
         tracing::debug!("ListDisks called");
         
@@ -120,7 +119,7 @@ impl DisksHandler {
             "org.cosmic.ext.storage-service.disk-read",
         )
         .await
-        .map_err(|e| zbus::fdo::Error::from(e))?;
+        .map_err(zbus::fdo::Error::from)?;
         
         tracing::debug!("ListVolumes called");
         
@@ -205,7 +204,7 @@ impl DisksHandler {
             "org.cosmic.ext.storage-service.disk-read",
         )
         .await
-        .map_err(|e| zbus::fdo::Error::from(e))?;
+        .map_err(zbus::fdo::Error::from)?;
         
         tracing::debug!("GetDiskInfo called for device: {device}");
         
@@ -238,11 +237,10 @@ impl DisksHandler {
                 
                 // Extract the device name from the UDisks2 path (last component)
                 // e.g., "/org/freedesktop/UDisks2/block_devices/sda" -> "sda"
-                if let Some(disk_name) = d.device.rsplit('/').next() {
-                    if disk_name == device_name {
+                if let Some(disk_name) = d.device.rsplit('/').next()
+                    && disk_name == device_name {
                         return true;
                     }
-                }
                 
                 // Also check if id matches (for serial/model lookups)
                 if d.id == device || d.id == device_name {
@@ -298,7 +296,7 @@ impl DisksHandler {
             "org.cosmic.ext.storage-service.disk-read",
         )
         .await
-        .map_err(|e| zbus::fdo::Error::from(e))?;
+        .map_err(zbus::fdo::Error::from)?;
         
         tracing::debug!("GetVolumeInfo called for device: {device}");
         
@@ -390,7 +388,7 @@ impl DisksHandler {
                 let err_str = e.to_string().to_lowercase();
                 if err_str.contains("not supported") || err_str.contains("device not found") {
                     tracing::debug!("SMART not supported or device not found for {device}");
-                    zbus::fdo::Error::NotSupported(format!("SMART not supported for this device"))
+                    zbus::fdo::Error::NotSupported("SMART not supported for this device".to_string())
                 } else {
                     tracing::error!("Failed to get SMART info: {e}");
                     zbus::fdo::Error::Failed(format!("Failed to get SMART info: {e}"))
@@ -457,7 +455,7 @@ impl DisksHandler {
                 let err_str = e.to_string().to_lowercase();
                 if err_str.contains("not supported") {
                    tracing::debug!("SMART not supported for {device}");
-                    zbus::fdo::Error::NotSupported(format!("SMART not supported for this device"))
+                    zbus::fdo::Error::NotSupported("SMART not supported for this device".to_string())
                 } else {
                     tracing::error!("Failed to get SMART info: {e}");
                     zbus::fdo::Error::Failed(format!("Failed to get SMART info: {e}"))
@@ -817,7 +815,7 @@ impl DisksHandler {
                 let err_str = e.to_string().to_lowercase();
                 if err_str.contains("not supported") {
                     tracing::debug!("SMART self-test not supported for {device}");
-                    zbus::fdo::Error::NotSupported(format!("SMART self-test not supported for this device"))
+                    zbus::fdo::Error::NotSupported("SMART self-test not supported for this device".to_string())
                 } else {
                     tracing::error!("Failed to start SMART self-test: {e}");
                     zbus::fdo::Error::Failed(format!("Failed to start SMART self-test: {e}"))
