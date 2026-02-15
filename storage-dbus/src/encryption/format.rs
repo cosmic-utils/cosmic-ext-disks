@@ -25,8 +25,9 @@ pub async fn format_luks(
         .await
         .map_err(|e| DiskError::DBusError(e.to_string()))?;
 
-    // Validate and use LUKS version
-    let luks_type = if version == "luks1" {
+    // UDisks2 requires "empty" as the format type with encrypt.passphrase option
+    // The LUKS version is specified via encrypt.type option
+    let luks_version = if version == "luks1" {
         "luks1"
     } else {
         "luks2" // Default to luks2
@@ -34,9 +35,10 @@ pub async fn format_luks(
 
     let mut options: HashMap<&str, Value<'_>> = HashMap::new();
     options.insert("encrypt.passphrase", Value::from(passphrase));
+    options.insert("encrypt.type", Value::from(luks_version));
 
     block_proxy
-        .format(luks_type, options)
+        .format("empty", options)
         .await
         .map_err(|e| DiskError::OperationFailed(format!("Format failed: {}", e)))?;
 

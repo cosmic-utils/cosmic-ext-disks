@@ -18,4 +18,4 @@ pub use format::format_luks;
 pub use list::list_luks_devices;
 pub use lock::lock_luks;
 pub use passphrase::change_luks_passphrase;
-pub use unlock::unlock_luks;
+pub use unlock::{get_cleartext_device, unlock_luks};

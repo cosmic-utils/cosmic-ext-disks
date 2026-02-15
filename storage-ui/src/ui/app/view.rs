@@ -534,7 +534,7 @@ fn build_volume_node_info<'a>(
     let mut action_buttons = Vec::new();
 
     // Mount/Unmount
-    if v.can_mount() {
+    if v.has_filesystem {
         if v.is_mounted() {
             action_buttons.push(
                 widget::tooltip(
@@ -592,7 +592,7 @@ fn build_volume_node_info<'a>(
     }
 
     // Check Filesystem (if mounted)
-    if v.can_mount() && v.is_mounted() {
+    if v.is_mounted() {
         action_buttons.push(
             widget::tooltip(
                 widget::button::icon(icon::from_name("dialog-question-symbolic")).on_press(
@@ -620,7 +620,7 @@ fn build_volume_node_info<'a>(
     }
 
     // Take Ownership (if mounted)
-    if v.can_mount() && v.is_mounted() {
+    if v.is_mounted() {
         action_buttons.push(
             widget::tooltip(
                 widget::button::icon(icon::from_name("system-users-symbolic")).on_press(
@@ -866,7 +866,7 @@ fn build_partition_info<'a>(
     }
 
     // Mount/Unmount
-    if p.can_mount() {
+    if p.has_filesystem {
         if p.is_mounted() {
             action_buttons.push(
                 widget::tooltip(

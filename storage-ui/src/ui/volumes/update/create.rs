@@ -91,6 +91,16 @@ pub(super) fn create_message(
                     create_partition_info.name = fl!("untitled").to_string();
                 }
 
+                // Populate filesystem_type from selected partition type index
+                if create_partition_info.filesystem_type.is_empty() {
+                    create_partition_info.filesystem_type =
+                        helpers::common_partition_filesystem_type(
+                            &create_partition_info.table_type,
+                            create_partition_info.selected_partition_type_index,
+                        )
+                        .unwrap_or_default();
+                }
+
                 let device = control.device.clone();
                 return Task::perform(
                     async move {

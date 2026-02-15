@@ -126,10 +126,20 @@ pub async fn create_partition_with_filesystem(
         // Format as LUKS
         crate::format_luks(&partition_path, &info.password, "luks2").await?;
 
-        tracing::info!("Unlocking LUKS device {}", partition_path);
-
-        // Unlock the LUKS device
-        let cleartext_path = crate::unlock_luks(&partition_path, &info.password).await?;
+        // After formatting with encrypt.passphrase, UDisks2 auto-unlocks the device
+        // Get the cleartext device path from the Encrypted interface
+        let cleartext_path =
+            match crate::encryption::get_cleartext_device(&partition_path).await {
+                Ok(path) if !path.is_empty() && path != "/" => {
+                    tracing::info!("Using auto-unlocked cleartext device: {}", path);
+                    path
+                }
+                _ => {
+                    // Not auto-unlocked, unlock manually
+                    tracing::info!("Unlocking LUKS device {}", partition_path);
+                    crate::unlock_luks(&partition_path, &info.password).await?
+                }
+            };
 
         tracing::info!("Formatting cleartext device {} as {}", cleartext_path, fs_type);
 
@@ -141,11 +151,6 @@ pub async fn create_partition_with_filesystem(
             storage_models::FormatOptions::default(),
         )
         .await?;
-
-        // Lock the device after formatting (optional, but cleaner)
-        if let Err(e) = crate::lock_luks(&partition_path).await {
-            tracing::warn!("Failed to lock LUKS device after formatting: {}", e);
-        }
 
         Ok(partition_path)
     } else {
