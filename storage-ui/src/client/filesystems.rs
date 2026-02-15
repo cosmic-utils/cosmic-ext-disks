@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 
 use crate::client::error::ClientError;
-use storage_models::{
+use storage_common::{
     FilesystemInfo, FilesystemUsage, MountOptionsSettings, ProcessInfo, UnmountResult,
 };
 use zbus::{Connection, proxy};

@@ -1,6 +1,6 @@
 use std::{collections::HashSet, io, path::Path, process::Command};
 
-pub use storage_models::LogicalVolumeInfo;
+pub use storage_common::LogicalVolumeInfo;
 
 fn canonicalize_best_effort(p: &str) -> String {
     match std::fs::canonicalize(p) {

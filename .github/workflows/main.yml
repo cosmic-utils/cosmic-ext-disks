@@ -88,7 +88,7 @@ jobs:
       - name: Wait for index update
         run: sleep 30
 
-      - name: Publish cosmic-ext-disks
+      - name: Publish cosmic-ext-storage
         env:
           CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
         run: |

@@ -7,7 +7,7 @@
 
 use std::path::Path;
 use std::process::Command;
-use storage_models::{LogicalVolumeInfo, PhysicalVolumeInfo, VolumeGroupInfo};
+use storage_common::{LogicalVolumeInfo, PhysicalVolumeInfo, VolumeGroupInfo};
 use zbus::{Connection, interface};
 
 use crate::auth::check_polkit_auth;

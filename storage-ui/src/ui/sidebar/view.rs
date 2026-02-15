@@ -5,7 +5,7 @@ use cosmic::cosmic_theme::palette::WithAlpha;
 use cosmic::iced::Length;
 use cosmic::widget::{self, icon};
 use cosmic::{Apply, Element};
-use storage_models::VolumeKind;
+use storage_common::VolumeKind;
 
 /// Fixed width for expander button (icon 16px + padding 2px * 2)
 const EXPANDER_WIDTH: u16 = 20;

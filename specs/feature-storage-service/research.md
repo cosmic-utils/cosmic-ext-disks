@@ -253,7 +253,7 @@ DialogMessage → VolumesControlMessage → Message
 **Observations**:
 - Clean domain model separation
 - `load.rs` handles async data fetching
-- Models are simple wrappers around storage_models types
+- Models are simple wrappers around storage_common types
 
 **Status**: ✅ No issues - clean architecture
 

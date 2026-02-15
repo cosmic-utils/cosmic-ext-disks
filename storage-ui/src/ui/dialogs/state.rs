@@ -1,5 +1,5 @@
 use crate::models::{UiDrive, UiVolume};
-use storage_models::{
+use storage_common::{
     CreatePartitionInfo, PartitionTypeInfo, ProcessInfo, SmartAttribute, SmartStatus, VolumeInfo,
 };
 
@@ -224,7 +224,7 @@ pub struct BtrfsCreateSubvolumeDialog {
 pub struct BtrfsCreateSnapshotDialog {
     pub mount_point: String,
     pub block_path: String,
-    pub subvolumes: Vec<storage_models::BtrfsSubvolume>,
+    pub subvolumes: Vec<storage_common::BtrfsSubvolume>,
     pub selected_source_index: usize,
     pub snapshot_name: String,
     pub read_only: bool,

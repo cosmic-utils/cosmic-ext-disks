@@ -16,7 +16,7 @@ use cosmic::cosmic_config::{self, CosmicConfigEntry};
 use cosmic::widget::nav_bar;
 use cosmic::{Application, Element};
 
-pub(crate) const APP_ID: &str = "com.cosmos.Disks";
+pub(crate) const APP_ID: &str = "com.cosmic.ext.Storage";
 
 /// Create a COSMIC application from the app model.
 impl Application for AppModel {

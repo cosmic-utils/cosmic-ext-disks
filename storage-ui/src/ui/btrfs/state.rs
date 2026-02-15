@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use storage_models::{BtrfsSubvolume, DeletedSubvolume};
+use storage_common::{BtrfsSubvolume, DeletedSubvolume};
 
 /// State for BTRFS management UI
 #[derive(Debug, Clone, Default)]

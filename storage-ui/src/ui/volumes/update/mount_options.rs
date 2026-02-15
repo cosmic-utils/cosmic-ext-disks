@@ -1,7 +1,7 @@
 use crate::client::FilesystemsClient;
 use crate::models::load_all_drives;
 use cosmic::Task;
-use storage_models::MountOptionsSettings;
+use storage_common::MountOptionsSettings;
 
 use crate::app::Message;
 use crate::fl;

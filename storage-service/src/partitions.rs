@@ -249,7 +249,7 @@ impl PartitionsHandler {
                 })?;
 
         tracing::info!("Successfully created partition: {}", device_path);
-        let partition_info_json = serde_json::to_string(&storage_models::PartitionInfo {
+        let partition_info_json = serde_json::to_string(&storage_common::PartitionInfo {
             device: device_path.clone(),
             number: 0,
             parent_path: disk.clone(),
@@ -297,7 +297,7 @@ impl PartitionsHandler {
         .map_err(|e| zbus::fdo::Error::Failed(format!("Authorization failed: {e}")))?;
 
         // Parse the CreatePartitionInfo
-        let info: storage_models::CreatePartitionInfo =
+        let info: storage_common::CreatePartitionInfo =
             serde_json::from_str(&info_json).map_err(|e| {
                 tracing::error!("Failed to parse CreatePartitionInfo: {e}");
                 zbus::fdo::Error::InvalidArgs(format!("Invalid partition info JSON: {e}"))
@@ -338,7 +338,7 @@ impl PartitionsHandler {
             device_path
         );
 
-        let partition_info_json = serde_json::to_string(&storage_models::PartitionInfo {
+        let partition_info_json = serde_json::to_string(&storage_common::PartitionInfo {
             device: device_path.clone(),
             number: 0,
             parent_path: disk.clone(),

@@ -1,9 +1,10 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE policyconfig PUBLIC "-//freedesktop//DTD PolicyKit Policy Configuration 1.0//EN"
-  "http://www.freedesktop.org/standards/PolicyKit/1/policyconfig.dtd">
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE policyconfig PUBLIC
+    "-//freedesktop//DTD PolicyKit Policy Configuration 1.0//EN"
+    "http://www.freedesktop.org/standards/PolicyKit/1/policyconfig.dtd">
 <policyconfig>
   <vendor>System76</vendor>
-  <vendor_url>https://github.com/cosmic-utils/cosmic-ext-disks</vendor_url>
+  <vendor_url>https://github.com/cosmic-utils/cosmic-ext-storage</vendor_url>
 
   <!-- Disk Discovery and Read Operations -->
   <action id="org.cosmic.ext.storage-service.disk-read">
@@ -19,7 +20,8 @@
   <!-- SMART Operations -->
   <action id="org.cosmic.ext.storage-service.smart-read">
     <description>Read SMART disk health status</description>
-    <message>Authentication is required to read SMART disk health information</message>
+    <message
+        >Authentication is required to read SMART disk health information</message>
     <defaults>
       <allow_any>no</allow_any>
       <allow_inactive>no</allow_inactive>
@@ -33,7 +35,8 @@
     <defaults>
       <allow_any>auth_admin</allow_any>
       <allow_inactive>auth_admin</allow_inactive>
-      <allow_active>auth_admin_keep</allow_active>  <!-- Auth once, remember for session -->
+      <allow_active
+            >auth_admin_keep</allow_active>  <!-- Auth once, remember for session -->
     </defaults>
   </action>
 
@@ -54,7 +57,8 @@
     <defaults>
       <allow_any>auth_admin</allow_any>
       <allow_inactive>auth_admin</allow_inactive>
-      <allow_active>auth_admin_keep</allow_active>  <!-- Auth once, remember for session -->
+      <allow_active
+            >auth_admin_keep</allow_active>  <!-- Auth once, remember for session -->
     </defaults>
   </action>
 
@@ -74,7 +78,8 @@
     <defaults>
       <allow_any>auth_admin</allow_any>
       <allow_inactive>auth_admin</allow_inactive>
-      <allow_active>auth_admin_keep</allow_active>  <!-- Auth once, remember for session -->
+      <allow_active
+            >auth_admin_keep</allow_active>  <!-- Auth once, remember for session -->
     </defaults>
   </action>
 
@@ -85,17 +90,20 @@
     <defaults>
       <allow_any>auth_admin</allow_any>
       <allow_inactive>auth_admin</allow_inactive>
-      <allow_active>auth_admin_keep</allow_active>  <!-- Auth once, remember for session -->
+      <allow_active
+            >auth_admin_keep</allow_active>  <!-- Auth once, remember for session -->
     </defaults>
   </action>
 
   <action id="org.cosmic.ext.storage-service.disk-restore">
     <description>Restore entire disk from image file</description>
-    <message>Authentication is required to restore disk images (DESTRUCTIVE operation)</message>
+    <message
+        >Authentication is required to restore disk images (DESTRUCTIVE operation)</message>
     <defaults>
       <allow_any>auth_admin</allow_any>
       <allow_inactive>auth_admin</allow_inactive>
-      <allow_active>auth_admin</allow_active>  <!-- Always prompt - very destructive -->
+      <allow_active
+            >auth_admin</allow_active>  <!-- Always prompt - very destructive -->
     </defaults>
   </action>
 
@@ -105,17 +113,20 @@
     <defaults>
       <allow_any>auth_admin</allow_any>
       <allow_inactive>auth_admin</allow_inactive>
-      <allow_active>auth_admin_keep</allow_active>  <!-- Auth once, remember for session -->
+      <allow_active
+            >auth_admin_keep</allow_active>  <!-- Auth once, remember for session -->
     </defaults>
   </action>
 
   <action id="org.cosmic.ext.storage-service.partition-restore">
     <description>Restore partition from image file</description>
-    <message>Authentication is required to restore partition images (DESTRUCTIVE operation)</message>
+    <message
+        >Authentication is required to restore partition images (DESTRUCTIVE operation)</message>
     <defaults>
       <allow_any>auth_admin</allow_any>
       <allow_inactive>auth_admin</allow_inactive>
-      <allow_active>auth_admin</allow_active>  <!-- Always prompt - very destructive -->
+      <allow_active
+            >auth_admin</allow_active>  <!-- Always prompt - very destructive -->
     </defaults>
   </action>
 
@@ -125,14 +136,16 @@
     <defaults>
       <allow_any>no</allow_any>
       <allow_inactive>no</allow_inactive>
-      <allow_active>yes</allow_active>  <!-- No auth for mounting images read-only -->
+      <allow_active
+            >yes</allow_active>  <!-- No auth for mounting images read-only -->
     </defaults>
   </action>
 
   <!-- BTRFS Read Operations -->
   <action id="org.cosmic.ext.storage-service.btrfs-read">
     <description>Read BTRFS filesystem information</description>
-    <message>Authentication is required to read BTRFS filesystem information</message>
+    <message
+        >Authentication is required to read BTRFS filesystem information</message>
     <defaults>
       <allow_any>no</allow_any>
       <allow_inactive>no</allow_inactive>
@@ -147,7 +160,8 @@
     <defaults>
       <allow_any>auth_admin</allow_any>
       <allow_inactive>auth_admin</allow_inactive>
-      <allow_active>auth_admin_keep</allow_active>  <!-- Auth once, remember for session -->
+      <allow_active
+            >auth_admin_keep</allow_active>  <!-- Auth once, remember for session -->
     </defaults>
   </action>
 
@@ -208,7 +222,8 @@
   <!-- LUKS Encryption Operations -->
   <action id="org.cosmic.ext.storage-service.luks-read">
     <description>Read LUKS encryption information</description>
-    <message>Authentication is required to read LUKS encryption information</message>
+    <message
+        >Authentication is required to read LUKS encryption information</message>
     <defaults>
       <allow_any>no</allow_any>
       <allow_inactive>no</allow_inactive>
@@ -270,7 +285,8 @@
   <!-- Filesystem Mount/Unmount -->
   <action id="org.cosmic.ext.storage-service.filesystem-mount">
     <description>Mount and unmount filesystems</description>
-    <message>Authentication is required to mount or unmount filesystems</message>
+    <message
+        >Authentication is required to mount or unmount filesystems</message>
     <defaults>
       <allow_any>no</allow_any>
       <allow_inactive>no</allow_inactive>
@@ -281,7 +297,8 @@
   <!-- Filesystem Modify Operations -->
   <action id="org.cosmic.ext.storage-service.filesystem-modify">
     <description>Modify filesystem properties</description>
-    <message>Authentication is required to modify filesystem properties</message>
+    <message
+        >Authentication is required to modify filesystem properties</message>
     <defaults>
       <allow_any>auth_admin</allow_any>
       <allow_inactive>auth_admin</allow_inactive>
@@ -314,7 +331,8 @@
   <!-- Take Ownership -->
   <action id="org.cosmic.ext.storage-service.filesystems-take-ownership">
     <description>Take ownership of filesystem files</description>
-    <message>Authentication is required to take ownership of filesystem files</message>
+    <message
+        >Authentication is required to take ownership of filesystem files</message>
     <defaults>
       <allow_any>auth_admin</allow_any>
       <allow_inactive>auth_admin</allow_inactive>

@@ -6,7 +6,7 @@
 //! including formatting, mounting, unmounting, and process management.
 
 use std::path::Path;
-use storage_models::{
+use storage_common::{
     CheckResult, FilesystemInfo, FormatOptions, MountOptions, MountOptionsSettings, UnmountResult,
 };
 use zbus::{Connection, interface};
@@ -108,7 +108,7 @@ impl FilesystemsHandler {
 
         let mut filesystems = Vec::new();
 
-        fn collect_volumes(volumes: &[storage_models::VolumeInfo], out: &mut Vec<FilesystemInfo>) {
+        fn collect_volumes(volumes: &[storage_common::VolumeInfo], out: &mut Vec<FilesystemInfo>) {
             for volume in volumes {
                 if volume.has_filesystem
                     && volume.id_type != "crypto_LUKS"

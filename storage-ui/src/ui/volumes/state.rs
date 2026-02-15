@@ -4,7 +4,7 @@ use crate::{
     ui::btrfs::BtrfsState,
     utils::{DiskSegmentKind, PartitionExtent, SegmentAnomaly, compute_disk_segments},
 };
-use storage_models::{ByteRange, CreatePartitionInfo, PartitionInfo, VolumeInfo};
+use storage_common::{ByteRange, CreatePartitionInfo, PartitionInfo, VolumeInfo};
 
 /// Which detail tab is active below the drive header
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]

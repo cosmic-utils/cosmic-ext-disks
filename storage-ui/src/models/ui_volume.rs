@@ -5,7 +5,7 @@
 use crate::client::{FilesystemsClient, error::ClientError};
 use std::ops::Deref;
 use std::sync::Arc;
-use storage_models::VolumeInfo;
+use storage_common::VolumeInfo;
 
 /// UI model wrapping VolumeInfo with shared client and hierarchical children
 ///

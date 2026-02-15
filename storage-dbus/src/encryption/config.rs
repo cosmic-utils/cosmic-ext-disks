@@ -19,8 +19,8 @@ use crate::options::{
 };
 use crate::udisks_block_config::{ConfigurationItem, UDisks2BlockConfigurationProxy};
 
-// Re-export from storage-models (canonical domain model)
-pub use storage_models::EncryptionOptionsSettings;
+// Re-export from storage-common (canonical domain model)
+pub use storage_common::EncryptionOptionsSettings;
 
 /// Get encryption options settings for a LUKS device
 ///

@@ -1,10 +1,10 @@
 [package]
-name = "cosmic-ext-disks"
+name = "cosmic-ext-storage"
 version = "0.1.0"
 edition = "2024"
 license = "GPL-3.0-only"
-description = "A Disk utility for the COSMIC™ desktop"
-repository = "https://github.com/cosmic-utils/cosmic-ext-disks"
+description = "A Storage utility for the COSMIC™ desktop"
+repository = "https://github.com/cosmic-utils/cosmic-ext-storage"
 
 [build-dependencies]
 vergen = { workspace = true }
@@ -28,5 +28,4 @@ zbus.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true
-storage-models.workspace = true
-
+storage-common.workspace = true

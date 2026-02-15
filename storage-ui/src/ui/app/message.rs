@@ -70,7 +70,7 @@ pub enum Message {
     },
     BtrfsSubvolumesLoaded {
         mount_point: String,
-        result: Result<Vec<storage_models::BtrfsSubvolume>, String>,
+        result: Result<Vec<storage_common::BtrfsSubvolume>, String>,
     },
     BtrfsDeleteSubvolume {
         block_path: String,
@@ -99,7 +99,7 @@ pub enum Message {
     },
     BtrfsDefaultSubvolumeLoaded {
         mount_point: String,
-        result: Result<storage_models::BtrfsSubvolume, String>,
+        result: Result<storage_common::BtrfsSubvolume, String>,
     },
     BtrfsSetDefaultSubvolume {
         mount_point: String,
@@ -125,7 +125,7 @@ pub enum Message {
     },
     BtrfsDeletedSubvolumesLoaded {
         mount_point: String,
-        result: Result<Vec<storage_models::DeletedSubvolume>, String>,
+        result: Result<Vec<storage_common::DeletedSubvolume>, String>,
     },
     BtrfsToggleShowDeleted {
         mount_point: String,

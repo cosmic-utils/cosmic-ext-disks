@@ -13,7 +13,7 @@ use tracing_subscriber::util::SubscriberInitExt;
 
 static LOG_GUARD: OnceLock<WorkerGuard> = OnceLock::new();
 
-const DEFAULT_LOG_PREFIX: &str = "cosmic-ext-disks.log";
+const DEFAULT_LOG_PREFIX: &str = "cosmic-ext-storage.log";
 const KEEP_DAYS: u64 = 7;
 
 pub(crate) fn init() {
@@ -21,9 +21,9 @@ pub(crate) fn init() {
         // Default verbosity: keep our crates at INFO, but quiet very chatty GPU logging.
         EnvFilter::new("info")
             .add_directive(
-                "cosmic_ext_disks=info"
+                "cosmic_ext_storage=info"
                     .parse()
-                    .expect("Invalid log directive: cosmic_ext_disks=info"),
+                    .expect("Invalid log directive: cosmic_ext_storage=info"),
             )
             .add_directive(
                 "wgpu=warn"
@@ -85,7 +85,7 @@ pub(crate) fn init() {
             let _ = LOG_GUARD.set(guard);
         }
         Err(e) => {
-            eprintln!("cosmic-ext-disks: failed to initialize file logging: {e:#}");
+            eprintln!("cosmic-ext-storage: failed to initialize file logging: {e:#}");
             tracing_subscriber::registry()
                 .with(env_filter)
                 .with(stdout_layer)
@@ -114,7 +114,7 @@ fn file_writer() -> anyhow::Result<(tracing_appender::non_blocking::NonBlocking,
 }
 
 fn resolve_log_location() -> (PathBuf, OsString) {
-    if let Some(file) = std::env::var_os("COSMIC_EXT_DISKS_LOG_FILE") {
+    if let Some(file) = std::env::var_os("COSMIC_EXT_STORAGE_LOG_FILE") {
         let path = PathBuf::from(file);
         let dir = path
             .parent()
@@ -127,7 +127,7 @@ fn resolve_log_location() -> (PathBuf, OsString) {
         return (dir, prefix);
     }
 
-    if let Some(dir) = std::env::var_os("COSMIC_EXT_DISKS_LOG_DIR") {
+    if let Some(dir) = std::env::var_os("COSMIC_EXT_STORAGE_LOG_DIR") {
         return (PathBuf::from(dir), OsString::from(DEFAULT_LOG_PREFIX));
     }
 
@@ -137,7 +137,7 @@ fn resolve_log_location() -> (PathBuf, OsString) {
 fn default_log_dir() -> PathBuf {
     if let Some(xdg_state) = std::env::var_os("XDG_STATE_HOME") {
         return PathBuf::from(xdg_state)
-            .join("cosmic-ext-disks")
+            .join("cosmic-ext-storage")
             .join("logs");
     }
 
@@ -145,11 +145,13 @@ fn default_log_dir() -> PathBuf {
         return PathBuf::from(home)
             .join(".local")
             .join("state")
-            .join("cosmic-ext-disks")
+            .join("cosmic-ext-storage")
             .join("logs");
     }
 
-    PathBuf::from("/tmp").join("cosmic-ext-disks").join("logs")
+    PathBuf::from("/tmp")
+        .join("cosmic-ext-storage")
+        .join("logs")
 }
 
 fn cleanup_old_logs(dir: &Path, prefix: &OsString) {

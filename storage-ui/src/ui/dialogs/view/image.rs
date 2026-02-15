@@ -15,11 +15,11 @@ use cosmic::{
     widget::text::caption,
     widget::{button, dialog},
 };
-use storage_models::bytes_to_pretty;
+use storage_common::bytes_to_pretty;
 
 pub fn new_disk_image<'a>(state: NewDiskImageDialog) -> Element<'a, Message> {
     let size_pretty = bytes_to_pretty(&state.size_bytes, false);
-    let step = storage_models::get_step(&state.size_bytes);
+    let step = storage_common::get_step(&state.size_bytes);
 
     let path_label = if state.path.trim().is_empty() {
         fl!("no-file-selected")
@@ -213,9 +213,9 @@ pub fn image_operation<'a>(state: ImageOperationDialog) -> Element<'a, Message> 
             content =
                 content.push(iced_widget::progress_bar(0.0..=1.0, fraction).width(Length::Fill));
             if total_bytes > 0 {
-                let done = storage_models::bytes_to_pretty(&bytes_completed, false);
-                let total = storage_models::bytes_to_pretty(&total_bytes, false);
-                let speed = storage_models::bytes_to_pretty(&speed_bytes_per_sec, false);
+                let done = storage_common::bytes_to_pretty(&bytes_completed, false);
+                let total = storage_common::bytes_to_pretty(&total_bytes, false);
+                let speed = storage_common::bytes_to_pretty(&speed_bytes_per_sec, false);
                 content = content.push(caption(format!("{} / {} · {}/s", done, total, speed)));
             }
         }

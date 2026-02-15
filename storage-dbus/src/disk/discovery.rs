@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: GPL-3.0-only
 
-//! Disk and volume discovery - builds storage_models::DiskInfo and VolumeInfo directly from UDisks2.
+//! Disk and volume discovery - builds storage_common::DiskInfo and VolumeInfo directly from UDisks2.
 
 use std::collections::HashMap;
 
 use anyhow::Result;
-use storage_models::{DiskInfo, PartitionInfo, VolumeInfo, VolumeKind};
+use storage_common::{DiskInfo, PartitionInfo, VolumeInfo, VolumeKind};
 use udisks2::{
     block::BlockProxy,
     drive::{DriveProxy, RotationRate},
@@ -502,18 +502,18 @@ pub async fn block_object_path_for_device(
     super::resolve::block_object_path_for_device(device).await
 }
 
-/// Get disk information as canonical storage-models types (public API).
+/// Get disk information as canonical storage-common types (public API).
 pub async fn get_disks() -> Result<Vec<DiskInfo>> {
     let pairs = get_disks_with_volumes_inner().await?;
     Ok(pairs.into_iter().map(|(d, _)| d).collect())
 }
 
-/// Get disks with their volume hierarchies as canonical storage-models types.
+/// Get disks with their volume hierarchies as canonical storage-common types.
 pub async fn get_disks_with_volumes() -> Result<Vec<(DiskInfo, Vec<VolumeInfo>)>> {
     get_disks_with_volumes_inner().await
 }
 
-/// Get disks with flat partition lists as canonical storage-models types.
+/// Get disks with flat partition lists as canonical storage-common types.
 pub async fn get_disks_with_partitions() -> Result<Vec<(DiskInfo, Vec<PartitionInfo>)>> {
     let pairs = get_disks_with_volumes_inner().await?;
     Ok(pairs

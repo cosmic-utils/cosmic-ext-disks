@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 
 use crate::client::error::ClientError;
-use storage_models::{CreatePartitionInfo, PartitionInfo};
+use storage_common::{CreatePartitionInfo, PartitionInfo};
 use zbus::{Connection, proxy};
 
 /// D-Bus proxy interface for partition management

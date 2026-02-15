@@ -6,7 +6,7 @@ edition = "2024"
 license = "GPL-3.0-only"
 
 [dependencies]
-storage-models = { path = "../storage-models" }
+storage-common = { path = "../storage-common" }
 udisks2.workspace = true
 zbus.workspace = true
 tokio.workspace = true

@@ -76,7 +76,7 @@ impl DisksHandler {
 
         tracing::debug!("ListDisks called");
 
-        // Get disks from storage-dbus using new storage-models API
+        // Get disks from storage-dbus using new storage-common API
         let disks = storage_dbus::disk::get_disks().await.map_err(|e| {
             tracing::error!("Failed to get disks: {e}");
             zbus::fdo::Error::Failed(format!("Failed to enumerate disks: {e}"))
@@ -136,9 +136,9 @@ impl DisksHandler {
 
             // Recursively flatten volume tree
             fn flatten_volumes(
-                vol_info: &storage_models::VolumeInfo,
+                vol_info: &storage_common::VolumeInfo,
                 parent_device: Option<String>,
-                output: &mut Vec<storage_models::VolumeInfo>,
+                output: &mut Vec<storage_common::VolumeInfo>,
             ) {
                 // Clone and update parent_path
                 let mut vol = vol_info.clone();
@@ -298,10 +298,10 @@ impl DisksHandler {
 
         // Search for the volume
         fn find_volume(
-            vol_info: &storage_models::VolumeInfo,
+            vol_info: &storage_common::VolumeInfo,
             target_device: &str,
             parent_device: Option<String>,
-        ) -> Option<storage_models::VolumeInfo> {
+        ) -> Option<storage_common::VolumeInfo> {
             // Check if this is the target volume
             if vol_info.device_path.as_deref() == Some(target_device) {
                 let mut vol = vol_info.clone();
@@ -388,8 +388,8 @@ impl DisksHandler {
                 }
             })?;
 
-        // Convert to storage_models::SmartStatus
-        let smart_status = storage_models::SmartStatus {
+        // Convert to storage_common::SmartStatus
+        let smart_status = storage_common::SmartStatus {
             device: device.clone(),
             healthy: !smart_info
                 .selftest_status
@@ -469,7 +469,7 @@ impl DisksHandler {
 
         for (key, value) in smart_info.attributes.iter() {
             if let Ok(raw_value) = value.parse::<u64>() {
-                attributes.push(storage_models::SmartAttribute {
+                attributes.push(storage_common::SmartAttribute {
                     id: 0,
                     name: key.clone(),
                     current: 100,
@@ -991,7 +991,7 @@ pub async fn monitor_hotplug_events(connection: zbus::Connection, object_path: &
 async fn get_disk_info_for_path(
     _connection: &zbus::Connection,
     object_path: &zbus::zvariant::ObjectPath<'_>,
-) -> Result<storage_models::DiskInfo> {
+) -> Result<storage_common::DiskInfo> {
     storage_dbus::get_disk_info_for_drive_path(object_path.as_str())
         .await
         .map_err(|e| anyhow::anyhow!("{}", e))

@@ -165,7 +165,7 @@ pub fn disk_header<'a>(
                 // Look up the corresponding UiVolume to check if it's a LUKS container
                 if let Some(volume_node) = helpers::find_volume_for_partition(volumes, volume_model)
                 {
-                    if volume_node.volume.kind == storage_models::VolumeKind::CryptoContainer
+                    if volume_node.volume.kind == storage_common::VolumeKind::CryptoContainer
                         && !volume_node.children.is_empty()
                     {
                         // Aggregate children's usage for LUKS containers

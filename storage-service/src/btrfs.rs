@@ -3,7 +3,7 @@
 use crate::auth::require_authorization;
 use disks_btrfs::SubvolumeManager;
 use std::path::PathBuf;
-use storage_models::btrfs::SubvolumeList;
+use storage_common::btrfs::SubvolumeList;
 use zbus::message::Header as MessageHeader;
 use zbus::object_server::SignalEmitter;
 use zbus::{Connection, interface};

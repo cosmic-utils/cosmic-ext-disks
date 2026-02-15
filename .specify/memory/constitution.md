@@ -17,7 +17,7 @@ Follow-up TODOs: None
 ==================
 -->
 
-# COSMIC Disks Constitution
+# COSMIC Ext Storage Constitution
 
 ## Core Principles
 
@@ -42,13 +42,13 @@ The workspace is organized into focused crates with clear responsibilities:
 | `storage-ui` | COSMIC GUI application (libcosmic-based) |
 | `storage-dbus` | UDisks2 D-Bus abstraction layer |
 | `storage-service` | Background D-Bus service for privileged operations |
-| `storage-models` | Shared data models and types |
+| `storage-common` | Shared data models and types |
 | `storage-sys` | Low-level system operations (commands, sysfs) |
 | `storage-btrfs` | BTRFS-specific utilities (subvolumes, snapshots) |
 
 - Each crate MUST have a single, well-defined purpose
 - Dependencies between crates MUST be unidirectional (no circular dependencies)
-- Shared code goes in `storage-models`; implementation details stay in specific crates
+- Shared code goes in `storage-common`; implementation details stay in specific crates
 - Module organization: sibling files for small modules (≤3 files), folder with `mod.rs` for larger hierarchies
 
 **Rationale**: Clear boundaries enable independent testing, reduce coupling, and make the codebase navigable for contributors.

@@ -4,7 +4,7 @@
 
 use crate::error::DiskError;
 use std::collections::HashMap;
-use storage_models::FormatOptions;
+use storage_common::FormatOptions;
 use udisks2::block::BlockProxy;
 use zbus::{Connection, zvariant::Value};
 

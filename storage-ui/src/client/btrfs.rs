@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 
 use crate::client::error::ClientError;
-use storage_models::btrfs::{DeletedSubvolume, FilesystemUsage, SubvolumeList};
+use storage_common::btrfs::{DeletedSubvolume, FilesystemUsage, SubvolumeList};
 use zbus::{Connection, proxy};
 
 /// D-Bus proxy interface for BTRFS operations

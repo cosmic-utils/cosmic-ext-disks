@@ -6,7 +6,7 @@ use super::UiVolume;
 use crate::client::{FilesystemsClient, error::ClientError};
 use std::collections::HashMap;
 use std::sync::Arc;
-use storage_models::VolumeInfo;
+use storage_common::VolumeInfo;
 
 /// Build a hierarchical volume tree from a flat list with parent_path references
 ///
@@ -87,7 +87,7 @@ pub fn build_volume_tree(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use storage_models::VolumeKind;
+    use storage_common::VolumeKind;
 
     fn test_fs_client() -> Option<Arc<FilesystemsClient>> {
         let rt = tokio::runtime::Runtime::new().ok()?;

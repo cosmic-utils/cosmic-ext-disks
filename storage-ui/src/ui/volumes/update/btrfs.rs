@@ -100,7 +100,8 @@ pub(super) fn btrfs_create_subvolume_message(
                 move |result| match result {
                     Ok(drives) => {
                         // Close dialog and refresh, preserving BTRFS volume selection
-                        Message::UpdateNavWithChildSelection(drives, Some(block_path.clone())).into()
+                        Message::UpdateNavWithChildSelection(drives, Some(block_path.clone()))
+                            .into()
                     }
                     Err(e) => {
                         let ctx = UiErrorContext::new("create_subvolume");
@@ -141,7 +142,7 @@ pub(super) fn open_create_snapshot(
     };
 
     // Get subvolumes list
-    let subvolumes: Vec<storage_models::BtrfsSubvolume> = match &btrfs_state.subvolumes {
+    let subvolumes: Vec<storage_common::BtrfsSubvolume> = match &btrfs_state.subvolumes {
         Some(Ok(subvols)) if !subvols.is_empty() => subvols.clone(),
         _ => {
             // No subvolumes available
@@ -233,7 +234,8 @@ pub(super) fn btrfs_create_snapshot_message(
                 move |result| match result {
                     Ok(drives) => {
                         // Close dialog and refresh, preserving BTRFS volume selection
-                        Message::UpdateNavWithChildSelection(drives, Some(block_path.clone())).into()
+                        Message::UpdateNavWithChildSelection(drives, Some(block_path.clone()))
+                            .into()
                     }
                     Err(e) => {
                         let ctx = UiErrorContext::new("create_snapshot");

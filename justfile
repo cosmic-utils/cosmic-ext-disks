@@ -1,4 +1,4 @@
-# Justfile for COSMIC Disks development
+# Justfile for COSMIC Ext Storage development
 
 # Default recipe - full development workflow
 # Builds, installs policies, starts service in background, and launches the UI
@@ -6,9 +6,9 @@ default:
     #!/usr/bin/env bash
     set -euo pipefail
 
-    echo "========================================"
-    echo "  COSMIC Disks Development Environment"
-    echo "========================================"
+    echo "============================================"
+    echo "  COSMIC Ext Storage Development Environment"
+    echo "============================================"
     echo ""
 
     # Step 1: Build workspace
@@ -63,14 +63,14 @@ default:
     echo ""
 
     # Step 5: Launch the UI
-    echo "► Step 5/5: Launching COSMIC Disks UI..."
+    echo "► Step 5/5: Launching COSMIC Ext Storage UI..."
     echo ""
-    echo "========================================"
+    echo "==========================================="
     echo "  Development environment ready!"
     echo "  Service logs: /tmp/cosmic-storage-service.log"
-    echo "========================================"
+    echo "==========================================="
     echo ""
-    RUST_LOG=cosmic_ext_disks=debug,info,wgpu=warn,wgpu_core=warn,wgpu_hal=warn,naga=warn,iced_winit=warn,iced_wgpu=warn,i18n_embed=warn ./target/debug/cosmic-ext-disks
+    RUST_LOG=cosmic_ext_storage=debug,info,wgpu=warn,wgpu_core=warn,wgpu_hal=warn,naga=warn,iced_winit=warn,iced_wgpu=warn,i18n_embed=warn ./target/debug/cosmic-ext-storage
 
     # Cleanup on exit
     echo ""
@@ -172,11 +172,11 @@ stop-service:
     sudo pkill -f cosmic-storage-service || true
     echo "Service stopped"
 
-# Start the COSMIC Disks UI
+# Start the COSMIC Ext Storage UI
 app: build
     #!/usr/bin/env bash
-    echo "Starting COSMIC Disks UI..."
-    RUST_LOG=cosmic_ext_disks=debug,info,wgpu=warn,wgpu_core=warn,wgpu_hal=warn,naga=warn,iced_winit=warn,iced_wgpu=warn,i18n_embed=warn ./target/debug/cosmic-ext-disks
+    echo "Starting COSMIC Ext Storage UI..."
+    RUST_LOG=cosmic_ext_storage=debug,info,wgpu=warn,wgpu_core=warn,wgpu_hal=warn,naga=warn,iced_winit=warn,iced_wgpu=warn,i18n_embed=warn ./target/debug/cosmic-ext-storage
 
 
 
@@ -190,8 +190,8 @@ dev: build
     sudo rm -f /tmp/cosmic-storage-service.log
     sudo bash -c 'nohup env RUST_LOG=storage_service=info ./target/debug/cosmic-storage-service > /tmp/cosmic-storage-service.log 2>&1 &'
     sleep 2
-    echo "Starting COSMIC Disks UI..."
-    RUST_LOG=cosmic_ext_disks=debug,info,wgpu=warn,wgpu_core=warn,wgpu_hal=warn,naga=warn,iced_winit=warn,iced_wgpu=warn,i18n_embed=warn ./target/debug/cosmic-ext-disks
+    echo "Starting COSMIC Ext Storage UI..."
+    RUST_LOG=cosmic_ext_storage=debug,info,wgpu=warn,wgpu_core=warn,wgpu_hal=warn,naga=warn,iced_winit=warn,iced_wgpu=warn,i18n_embed=warn ./target/debug/cosmic-ext-storage
     echo ""
     echo "App exited. Stopping service..."
     sudo pkill -f cosmic-storage-service || true
@@ -199,8 +199,8 @@ dev: build
 # Development with complete rebuild
 dev-clean: clean build service-bg
     @sleep 2
-    @echo "Starting COSMIC Disks UI..."
-    @RUST_LOG=cosmic_ext_disks=debug,info,wgpu=warn,wgpu_core=warn,wgpu_hal=warn,naga=warn,iced_winit=warn,iced_wgpu=warn,i18n_embed=warn ./target/debug/cosmic-ext-disks
+    @echo "Starting COSMIC Ext Storage UI..."
+    @RUST_LOG=cosmic_ext_storage=debug,info,wgpu=warn,wgpu_core=warn,wgpu_hal=warn,naga=warn,iced_winit=warn,iced_wgpu=warn,i18n_embed=warn ./target/debug/cosmic-ext-storage
     @just stop-service
 
 # Test D-Bus interface using busctl

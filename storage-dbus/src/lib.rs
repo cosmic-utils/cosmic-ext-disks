@@ -19,27 +19,27 @@ pub mod smart;
 pub mod util;
 pub mod volume;
 
-// Re-export storage-models types (canonical domain models)
-pub use storage_models;
-pub use storage_models::ProcessInfo;
+// Re-export storage-common types (canonical domain models)
+pub use storage_common;
+pub use storage_common::ProcessInfo;
 
-// Re-export format utilities (now in storage-models)
-pub use storage_models::{bytes_to_pretty, get_numeric, get_step, pretty_to_bytes};
+// Re-export format utilities (now in storage-common)
+pub use storage_common::{bytes_to_pretty, get_numeric, get_step, pretty_to_bytes};
 
-// Re-export partition type catalog (now in storage-models)
-pub use storage_models::{
+// Re-export partition type catalog (now in storage-common)
+pub use storage_common::{
     COMMON_DOS_TYPES, COMMON_GPT_TYPES, PartitionTypeInfo, PartitionTypeInfoFlags,
     get_all_partition_type_infos, get_valid_partition_names, make_partition_flags_bits,
 };
 
-// Re-export volume types (now in storage-models)
-pub use storage_models::{VolumeKind, VolumeType};
+// Re-export volume types (now in storage-common)
+pub use storage_common::{VolumeKind, VolumeType};
 
-// Re-export CreatePartitionInfo (now in storage-models)
-pub use storage_models::CreatePartitionInfo;
+// Re-export CreatePartitionInfo (now in storage-common)
+pub use storage_common::CreatePartitionInfo;
 
-// Re-export GPT alignment (now in storage-models)
-pub use storage_models::GPT_ALIGNMENT_BYTES;
+// Re-export GPT alignment (now in storage-common)
+pub use storage_common::GPT_ALIGNMENT_BYTES;
 
 // Re-export commonly used zbus types
 pub use zbus::zvariant::OwnedObjectPath;
@@ -51,7 +51,7 @@ pub use dbus::bytestring::{
 };
 
 // Re-export key types from new modules
-// Discovery and operations return storage_models types only
+// Discovery and operations return storage_common types only
 pub use manager::{DeviceEvent, DeviceEventStream, DiskManager};
 pub use smart::{SmartInfo, SmartSelfTestKind};
 

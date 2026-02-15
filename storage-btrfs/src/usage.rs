@@ -4,7 +4,7 @@ use crate::error::{BtrfsError, Result};
 use std::ffi::CString;
 use std::mem::MaybeUninit;
 use std::path::PathBuf;
-use storage_models::btrfs::FilesystemUsage;
+use storage_common::btrfs::FilesystemUsage;
 
 /// Get filesystem usage information using statvfs
 pub fn get_filesystem_usage(mount_point: &PathBuf) -> Result<FilesystemUsage> {

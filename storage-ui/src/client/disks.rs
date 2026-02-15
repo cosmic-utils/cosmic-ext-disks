@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 
 use crate::client::error::ClientError;
-use storage_models::{DiskInfo, SmartAttribute, SmartStatus, VolumeInfo};
+use storage_common::{DiskInfo, SmartAttribute, SmartStatus, VolumeInfo};
 use zbus::{Connection, proxy};
 
 /// D-Bus proxy interface for disk discovery and SMART operations

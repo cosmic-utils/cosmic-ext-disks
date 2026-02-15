@@ -8,7 +8,7 @@ use crate::ui::dialogs::message::CreateMessage;
 use crate::ui::dialogs::state::ShowDialog;
 use crate::ui::error::{UiErrorContext, log_error_and_show_dialog};
 use crate::ui::volumes::helpers;
-use storage_models::CreatePartitionInfo;
+use storage_common::CreatePartitionInfo;
 
 use crate::ui::volumes::VolumesControl;
 

@@ -1,7 +1,7 @@
 use std::{collections::HashMap, fs, io, path::Path};
 
 use anyhow::{Context, Result};
-use storage_models::ByteRange;
+use storage_common::ByteRange;
 use tracing::{debug, warn};
 use udisks2::block::BlockProxy;
 use zbus::zvariant::Value;

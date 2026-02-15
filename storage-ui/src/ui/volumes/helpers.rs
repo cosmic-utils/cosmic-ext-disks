@@ -1,12 +1,12 @@
 use crate::models::UiVolume;
-use storage_models::{PartitionTypeInfo, VolumeInfo, VolumeKind};
+use storage_common::{PartitionTypeInfo, VolumeInfo, VolumeKind};
 
 pub(crate) fn common_partition_filesystem_type(table_type: &str, index: usize) -> Option<String> {
     match table_type {
-        "gpt" => storage_models::COMMON_GPT_TYPES
+        "gpt" => storage_common::COMMON_GPT_TYPES
             .get(index)
             .map(|p: &PartitionTypeInfo| p.filesystem_type.clone()),
-        "dos" => storage_models::COMMON_DOS_TYPES
+        "dos" => storage_common::COMMON_DOS_TYPES
             .get(index)
             .map(|p: &PartitionTypeInfo| p.filesystem_type.clone()),
         _ => None,
@@ -19,8 +19,8 @@ pub(crate) fn common_partition_type_index_for(table_type: &str, id_type: Option<
     };
 
     let list: &[PartitionTypeInfo] = match table_type {
-        "gpt" => &storage_models::COMMON_GPT_TYPES,
-        "dos" => &storage_models::COMMON_DOS_TYPES,
+        "gpt" => &storage_common::COMMON_GPT_TYPES,
+        "dos" => &storage_common::COMMON_DOS_TYPES,
         _ => return 0,
     };
 

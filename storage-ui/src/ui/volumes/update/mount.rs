@@ -70,7 +70,7 @@ enum UnmountResult {
     Busy {
         device: String,
         mount_point: String,
-        processes: Vec<storage_models::ProcessInfo>,
+        processes: Vec<storage_common::ProcessInfo>,
         device_path: String,
     },
     GenericError,

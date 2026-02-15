@@ -4,7 +4,7 @@ use nix::unistd::Pid;
 use std::collections::HashMap;
 use std::path::Path;
 
-pub use storage_models::{KillResult, ProcessInfo};
+pub use storage_common::{KillResult, ProcessInfo};
 
 /// Find all processes that have open file descriptors pointing to the given mount point.
 ///

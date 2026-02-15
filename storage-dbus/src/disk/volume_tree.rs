@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: GPL-3.0-only
 
-//! Build storage_models::VolumeInfo tree from UDisks2.
+//! Build storage_common::VolumeInfo tree from UDisks2.
 //! Used by discovery to populate volumes per disk.
 
 use std::path::Path;
 
 use anyhow::Result;
-use storage_models::VolumeKind;
+use storage_common::VolumeKind;
 use udisks2::{
     block::BlockProxy, encrypted::EncryptedProxy, filesystem::FilesystemProxy,
     partition::PartitionProxy, partitiontable::PartitionTableProxy,
@@ -24,7 +24,7 @@ pub(crate) async fn probe_basic_block(
     object_path: OwnedObjectPath,
     label: String,
     kind: VolumeKind,
-) -> Result<storage_models::VolumeInfo> {
+) -> Result<storage_common::VolumeInfo> {
     let block_proxy = BlockProxy::builder(connection)
         .path(&object_path)?
         .build()
@@ -97,7 +97,7 @@ pub(crate) async fn probe_basic_block(
         label
     };
 
-    Ok(storage_models::VolumeInfo {
+    Ok(storage_common::VolumeInfo {
         kind,
         label: final_label,
         size,
@@ -122,7 +122,7 @@ pub(crate) async fn from_block_object(
     kind: VolumeKind,
     parent_path: Option<String>,
     block_index: Option<&BlockIndex>,
-) -> Result<storage_models::VolumeInfo> {
+) -> Result<storage_common::VolumeInfo> {
     let mut info = probe_basic_block(connection, object_path, label, kind).await?;
     info.parent_path = parent_path;
 
@@ -161,7 +161,7 @@ pub(crate) async fn crypto_container_for_partition(
     label: String,
     parent_path: Option<String>,
     block_index: &BlockIndex,
-) -> Result<storage_models::VolumeInfo> {
+) -> Result<storage_common::VolumeInfo> {
     let encrypted_proxy = EncryptedProxy::builder(connection)
         .path(&partition_object_path)?
         .build()

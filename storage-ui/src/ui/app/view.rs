@@ -14,7 +14,7 @@ use cosmic::iced::Length;
 use cosmic::iced::alignment::{Alignment, Horizontal, Vertical};
 use cosmic::widget::{self, Space, icon};
 use cosmic::{Apply, Element, iced_widget};
-use storage_models::{VolumeInfo, VolumeKind, bytes_to_pretty};
+use storage_common::{VolumeInfo, VolumeKind, bytes_to_pretty};
 
 /// Custom button style for header tabs with accent color background.
 fn tab_button_class(active: bool) -> cosmic::theme::Button {
@@ -325,7 +325,7 @@ pub(crate) fn view(app: &AppModel) -> Element<'_, Message> {
                             volume_model,
                         )
                     {
-                        if volume_node.volume.kind == storage_models::VolumeKind::CryptoContainer
+                        if volume_node.volume.kind == storage_common::VolumeKind::CryptoContainer
                             && !volume_node.children.is_empty()
                         {
                             // Aggregate children's usage for LUKS containers

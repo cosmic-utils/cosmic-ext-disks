@@ -1,6 +1,6 @@
 [Unit]
 Description=COSMIC Storage Management Service
-Documentation=https://github.com/cosmic-utils/cosmic-ext-disks
+Documentation=https://github.com/cosmic-utils/cosmic-ext-storage
 Requires=dbus.service
 After=dbus.service
 

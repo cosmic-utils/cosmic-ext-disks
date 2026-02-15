@@ -2,7 +2,7 @@
 
 //! UI-specific models with owned clients and hierarchical structure
 //!
-//! These models wrap storage-models types (DiskInfo, VolumeInfo, PartitionInfo)
+//! These models wrap storage-common types (DiskInfo, VolumeInfo, PartitionInfo)
 //! and add UI-specific functionality:
 //! - Owned D-Bus clients for refreshing data
 //! - Tree-building from flat lists using parent_path

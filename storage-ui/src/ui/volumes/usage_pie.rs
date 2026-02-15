@@ -2,7 +2,7 @@ use cosmic::iced::alignment::Horizontal;
 use cosmic::iced::{Alignment, Color, Font, Length, Pixels, Point, Rectangle, mouse};
 use cosmic::widget::{self};
 use cosmic::{Element, iced_widget};
-use storage_models::bytes_to_pretty;
+use storage_common::bytes_to_pretty;
 
 use crate::app::Message;
 

@@ -1,4 +1,4 @@
-use storage_models::BtrfsSubvolume;
+use storage_common::BtrfsSubvolume;
 
 /// Messages for BTRFS management operations
 #[derive(Debug, Clone)]

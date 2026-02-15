@@ -3,7 +3,7 @@
 **Feature Branch**: `feature/storage-service`
 **Created**: 2026-02-14
 **Status**: Draft
-**Input**: User description: "for this current branch (continuation of refactoring work): just file default case should: build workspace, install dbus policy & polkit, stop service, start-service-bg, run cosmic-ext-disks. Make sure we've not got any redundant just file logic, propose simplifying if necessary. Analyze disks-ui for overcomplexity, poor conventions, etc. and plan required changes."
+**Input**: User description: "for this current branch (continuation of refactoring work): just file default case should: build workspace, install dbus policy & polkit, stop service, start-service-bg, run cosmic-ext-storage. Make sure we've not got any redundant just file logic, propose simplifying if necessary. Analyze storage-ui for overcomplexity, poor conventions, etc. and plan required changes."
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -17,7 +17,7 @@ As a developer working on the COSMIC Disks application, I want a single command 
 
 **Acceptance Scenarios**:
 
-1. **Given** a clean repository state, **When** the developer runs `just`, **Then** the workspace builds, D-Bus and Polkit policies are installed, any existing service is stopped, the storage service starts in the background, and the cosmic-ext-disks UI launches.
+1. **Given** a clean repository state, **When** the developer runs `just`, **Then** the workspace builds, D-Bus and Polkit policies are installed, any existing service is stopped, the storage service starts in the background, and the cosmic-ext-storage UI launches.
 2. **Given** an already-running service, **When** the developer runs `just`, **Then** the existing service is stopped before starting a fresh instance.
 
 ---

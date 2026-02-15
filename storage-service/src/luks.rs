@@ -4,7 +4,7 @@
 //!
 //! This module provides D-Bus methods for managing LUKS encrypted volumes.
 
-use storage_models::EncryptionOptionsSettings;
+use storage_common::EncryptionOptionsSettings;
 use zbus::{Connection, interface};
 
 use crate::auth::check_polkit_auth;

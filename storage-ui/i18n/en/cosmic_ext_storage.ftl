@@ -1,4 +1,4 @@
-app-title = Disks
+app-title = Storage
 settings = Settings
 about = About
 

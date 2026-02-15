@@ -108,8 +108,8 @@ pub enum SmartDialogMessage {
     Loaded(
         Result<
             (
-                storage_models::SmartStatus,
-                Vec<storage_models::SmartAttribute>,
+                storage_common::SmartStatus,
+                Vec<storage_common::SmartAttribute>,
             ),
             String,
         >,

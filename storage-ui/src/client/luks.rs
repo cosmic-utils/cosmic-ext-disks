@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 
 use crate::client::error::ClientError;
-use storage_models::{EncryptionOptionsSettings, LuksInfo};
+use storage_common::{EncryptionOptionsSettings, LuksInfo};
 use zbus::{Connection, proxy};
 
 /// D-Bus proxy interface for LUKS encryption operations

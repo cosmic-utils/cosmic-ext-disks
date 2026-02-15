@@ -1,21 +1,23 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <component type="desktop-application">
-  <id>com.cosmic.Disks</id>
+  <id>com.cosmic.ext.Storage</id>
   <metadata_license>CC0-1.0</metadata_license>
   <project_license>MPL-2.0</project_license>
   <name>Disks</name>
-  <summary>An application for the COSMIC™ desktop</summary>
-  <icon type="local" width="64" height="64">com.cosmic.Disks</icon>
-  <icon type="local" width="128" height="128">com.cosmic.Disks</icon>
+  <summary>A Storage Utility for the COSMIC™ desktop</summary>
+  <icon type="local" width="64" height="64">com.cosmic.ext.Storage</icon>
+  <icon type="local" width="128" height="128">com.cosmic.ext.Storage</icon>
   <icon type="remote" width="64" height="64" scale="1">
-    https://github.com/cosmic-utils/cosmic-ext-disks/raw/main/storage-ui/resources/icons/hicolor/scalable/apps/com.cosmic.Disks.svg
+    https://github.com/cosmic-utils/cosmic-ext-storage/raw/main/storage-ui/resources/icons/hicolor/scalable/apps/com.cosmic.Disks.svg
   </icon>
-  <url type="vcs-browser">https://github.com/cosmic-utils/cosmic-ext-disks</url>
-  <launchable type="desktop-id">com.cosmic.Disks.desktop</launchable>
+  <url
+        type="vcs-browser"
+    >https://github.com/cosmic-utils/cosmic-ext-storage</url>
+  <launchable type="desktop-id">com.cosmic.ext.Storage.desktop</launchable>
   <provides>
     <id>com.cosmic.Disks</id>
     <binaries>
-      <binary>cosmic-ext-disks</binary>
+      <binary>cosmic-ext-storage</binary>
     </binaries>
   </provides>
   <requires>

@@ -4,7 +4,7 @@ members = [
     "storage-ui",
     "storage-btrfs",         # New library
     "storage-service",     # New D-Bus service
-    "storage-models",      # Shared data models
+    "storage-common",      # Shared data models
     "storage-sys",         # Low-level system operations
 ]
 default-members = ["storage-ui"]
@@ -42,7 +42,7 @@ clap = { version = "4.5", features = ["derive"] }
 
 # workspace dependencies
 storage-dbus = { package = "cosmic-ext-storage-dbus", path = "storage-dbus", version = "0.1.0" }
-storage-models = { path = "storage-models", version = "0.1.0" }
+storage-common = { path = "storage-common", version = "0.1.0" }
 
 # build dependencies
 vergen = { version = "8.3.2", features = ["build", "cargo", "rustc", "si", "git", "git2"] }

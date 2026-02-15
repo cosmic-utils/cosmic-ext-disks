@@ -12,7 +12,7 @@ use crate::ui::dialogs::state::{
 use crate::ui::error::{UiErrorContext, log_error_and_show_dialog};
 use crate::ui::volumes::helpers;
 use crate::utils::DiskSegmentKind;
-use storage_models::{CreatePartitionInfo, VolumeKind};
+use storage_common::{CreatePartitionInfo, VolumeKind};
 
 use crate::ui::volumes::VolumesControl;
 
@@ -182,11 +182,11 @@ pub(super) fn open_edit_partition(
         return Task::none();
     };
 
-    if volume.kind != storage_models::VolumeKind::Partition {
+    if volume.kind != storage_common::VolumeKind::Partition {
         return Task::none();
     }
 
-    let partition_types = storage_models::get_all_partition_type_infos(segment.table_type.as_str());
+    let partition_types = storage_common::get_all_partition_type_infos(segment.table_type.as_str());
     if partition_types.is_empty() {
         return Task::done(
             Message::Dialog(Box::new(ShowDialog::Info {
@@ -245,7 +245,7 @@ pub(super) fn open_resize_partition(
         return Task::none();
     };
 
-    if volume.kind != storage_models::VolumeKind::Partition {
+    if volume.kind != storage_common::VolumeKind::Partition {
         return Task::none();
     }
 
@@ -321,7 +321,7 @@ pub(super) fn edit_partition_message(
 
             return Task::perform(
                 async move {
-                    let flags = storage_models::make_partition_flags_bits(legacy, system, hidden);
+                    let flags = storage_common::make_partition_flags_bits(legacy, system, hidden);
 
                     let partitions_client = PartitionsClient::new().await.map_err(|e| {
                         anyhow::anyhow!("Failed to create partitions client: {}", e)

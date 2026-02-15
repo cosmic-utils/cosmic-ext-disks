@@ -1,4 +1,4 @@
-# Architecture Overview — cosmic-ext-disks
+# Architecture Overview — cosmic-ext-storage
 
 **Last updated**: 2026-02-14
 **Maintainer**: This document provides project context for speckit workflows
@@ -7,7 +7,7 @@
 
 ## Project Identity
 
-- **Name**: COSMIC Disks (cosmic-ext-disks)
+- **Name**: COSMIC Ext Storage (cosmic-ext-storage)
 - **Purpose**: Disk utility application for the COSMIC desktop
 - **Type**: Rust workspace with multiple crates
 - **Platform**: Linux only (systemd-based distributions)
@@ -17,11 +17,11 @@
 ## Workspace Structure
 
 ```
-cosmic-ext-disks/
+cosmic-ext-storage/
 ├── storage-ui/           # COSMIC GUI application (libcosmic-based)
 ├── storage-service/      # D-Bus service for privileged operations
 ├── storage-dbus/         # UDisks2 D-Bus abstraction layer
-├── storage-models/       # Shared data models and types
+├── storage-common/       # Shared data models and types
 ├── storage-sys/          # Low-level system operations
 ├── storage-btrfs/        # BTRFS-specific utilities
 └── .specify/             # Spec kit configuration and memory
@@ -40,7 +40,7 @@ cosmic-ext-disks/
 | `storage-ui` | COSMIC GUI application | `AppModel`, `UiDrive`, `UiVolume` |
 | `storage-service` | D-Bus service (root) | `DisksInterface`, `PartitionsInterface` |
 | `storage-dbus` | UDisks2 abstraction | `DriveModel`, `VolumeNode`, `VolumeModel` |
-| `storage-models` | Shared domain types | `DiskInfo`, `VolumeInfo`, `PartitionInfo` |
+| `storage-common` | Shared domain types | `DiskInfo`, `VolumeInfo`, `PartitionInfo` |
 | `storage-sys` | Low-level system ops | Command execution, sysfs reading |
 | `storage-btrfs` | BTRFS utilities | `SubvolumeManager`, snapshot operations |
 
@@ -48,20 +48,20 @@ cosmic-ext-disks/
 
 ```
 storage-ui
-    ├── storage-models
+    ├── storage-common
     └── storage-service (via D-Bus)
 
 storage-service
     ├── storage-dbus
-    ├── storage-models
+    ├── storage-common
     ├── storage-btrfs
     └── storage-sys
 
 storage-dbus
-    └── storage-models
+    └── storage-common
 
 storage-btrfs
-    └── storage-models
+    └── storage-common
 
 storage-sys
     └── (standalone)
@@ -108,7 +108,7 @@ storage-sys
 
 ---
 
-## Key Types (storage-models)
+## Key Types (storage-common)
 
 ### DiskInfo
 
@@ -302,7 +302,7 @@ pub enum ClientError {
 - **App ID**: `com.cosmos.Disks`
 - **Config**: `~/.config/cosmic/com.cosmos.Disks/` (via cosmic_config)
 - **Service**: `org.cosmic.ext.StorageService` on system bus
-- **Logs**: `~/.local/state/cosmic_ext_disks/` (file logging)
+- **Logs**: `~/.local/state/cosmic_ext_storage/` (file logging)
 
 ---
 

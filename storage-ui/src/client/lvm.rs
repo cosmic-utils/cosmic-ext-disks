@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 
 use crate::client::error::ClientError;
-use storage_models::{LogicalVolumeInfo, PhysicalVolumeInfo, VolumeGroupInfo};
+use storage_common::{LogicalVolumeInfo, PhysicalVolumeInfo, VolumeGroupInfo};
 use zbus::{Connection, proxy};
 
 /// D-Bus proxy interface for LVM operations

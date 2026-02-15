@@ -14,7 +14,7 @@ use crate::ui::dialogs::state::{
 };
 use crate::ui::error::{UiErrorContext, log_error_and_show_dialog};
 use crate::ui::volumes::helpers;
-use storage_models::VolumeKind;
+use storage_common::VolumeKind;
 
 use crate::ui::volumes::VolumesControl;
 
@@ -123,7 +123,7 @@ pub(super) fn open_edit_encryption_options(
     let device_path = volume.device_path.clone();
     Task::perform(
         async move {
-            let settings: Option<storage_models::EncryptionOptionsSettings> =
+            let settings: Option<storage_common::EncryptionOptionsSettings> =
                 if let Some(ref device) = device_path {
                     match LuksClient::new().await {
                         Ok(client) => client.get_encryption_options(device).await.ok().flatten(),
@@ -483,7 +483,7 @@ pub(super) fn edit_encryption_options_message(
                                 anyhow::anyhow!("Failed to clear encryption options: {}", e)
                             })?;
                     } else {
-                        let settings = storage_models::EncryptionOptionsSettings {
+                        let settings = storage_common::EncryptionOptionsSettings {
                             name,
                             unlock_at_startup,
                             require_auth,

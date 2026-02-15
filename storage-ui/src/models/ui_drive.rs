@@ -6,7 +6,7 @@ use super::{UiVolume, build_volume_tree};
 use crate::client::{DisksClient, PartitionsClient, error::ClientError};
 use std::ops::Deref;
 use std::sync::Arc;
-use storage_models::{DiskInfo, PartitionInfo};
+use storage_common::{DiskInfo, PartitionInfo};
 
 /// Recursively collect all volumes from a slice of roots into a flat list (each without children).
 fn collect_volumes_flat_slice(

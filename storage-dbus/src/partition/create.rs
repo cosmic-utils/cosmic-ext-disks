@@ -4,7 +4,7 @@
 
 use crate::error::DiskError;
 use std::collections::HashMap;
-use storage_models::CreatePartitionInfo;
+use storage_common::CreatePartitionInfo;
 use udisks2::{block::BlockProxy, partitiontable::PartitionTableProxy};
 use zbus::{
     Connection,
@@ -96,13 +96,8 @@ pub async fn create_partition_with_filesystem(
     info: &CreatePartitionInfo,
 ) -> Result<String, DiskError> {
     // Step 1: Create the partition
-    let partition_path = create_partition(
-        disk_path,
-        info.offset,
-        info.size,
-        &info.selected_type,
-    )
-    .await?;
+    let partition_path =
+        create_partition(disk_path, info.offset, info.size, &info.selected_type).await?;
 
     tracing::info!(
         "Created partition {} at offset {}, size {}",
@@ -128,27 +123,30 @@ pub async fn create_partition_with_filesystem(
 
         // After formatting with encrypt.passphrase, UDisks2 auto-unlocks the device
         // Get the cleartext device path from the Encrypted interface
-        let cleartext_path =
-            match crate::encryption::get_cleartext_device(&partition_path).await {
-                Ok(path) if !path.is_empty() && path != "/" => {
-                    tracing::info!("Using auto-unlocked cleartext device: {}", path);
-                    path
-                }
-                _ => {
-                    // Not auto-unlocked, unlock manually
-                    tracing::info!("Unlocking LUKS device {}", partition_path);
-                    crate::unlock_luks(&partition_path, &info.password).await?
-                }
-            };
+        let cleartext_path = match crate::encryption::get_cleartext_device(&partition_path).await {
+            Ok(path) if !path.is_empty() && path != "/" => {
+                tracing::info!("Using auto-unlocked cleartext device: {}", path);
+                path
+            }
+            _ => {
+                // Not auto-unlocked, unlock manually
+                tracing::info!("Unlocking LUKS device {}", partition_path);
+                crate::unlock_luks(&partition_path, &info.password).await?
+            }
+        };
 
-        tracing::info!("Formatting cleartext device {} as {}", cleartext_path, fs_type);
+        tracing::info!(
+            "Formatting cleartext device {} as {}",
+            cleartext_path,
+            fs_type
+        );
 
         // Format the cleartext device with the requested filesystem
         crate::format_filesystem(
             &cleartext_path,
             fs_type,
             &info.name,
-            storage_models::FormatOptions::default(),
+            storage_common::FormatOptions::default(),
         )
         .await?;
 
@@ -157,7 +155,7 @@ pub async fn create_partition_with_filesystem(
         // Direct filesystem formatting (no LUKS)
         tracing::info!("Formatting {} as {}", partition_path, fs_type);
 
-        let options = storage_models::FormatOptions {
+        let options = storage_common::FormatOptions {
             label: info.name.clone(),
             force: false,
             erase: info.erase,
@@ -165,8 +163,7 @@ pub async fn create_partition_with_filesystem(
             ..Default::default()
         };
 
-        crate::format_filesystem(&partition_path, fs_type, &info.name, options)
-            .await?;
+        crate::format_filesystem(&partition_path, fs_type, &info.name, options).await?;
 
         Ok(partition_path)
     }

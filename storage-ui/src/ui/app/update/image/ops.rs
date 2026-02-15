@@ -4,7 +4,7 @@
 use crate::client::{FilesystemsClient, ImageClient};
 use crate::models::UiDrive;
 use crate::ui::dialogs::state::ImageOperationKind;
-use storage_models::VolumeInfo;
+use storage_common::VolumeInfo;
 
 /// Start a backup or restore operation via the storage-service.
 /// Returns the operation_id for progress tracking and cancel.

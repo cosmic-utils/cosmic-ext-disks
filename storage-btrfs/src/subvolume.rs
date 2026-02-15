@@ -4,7 +4,7 @@ use crate::error::{BtrfsError, Result};
 use btrfsutil::subvolume::{DeleteFlags, SnapshotFlags, Subvolume};
 use std::path::{Path, PathBuf};
 use std::process::Command;
-use storage_models::btrfs::BtrfsSubvolume;
+use storage_common::btrfs::BtrfsSubvolume;
 
 /// Manager for BTRFS subvolume operations
 pub struct SubvolumeManager {

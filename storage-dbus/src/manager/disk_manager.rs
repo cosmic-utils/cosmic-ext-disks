@@ -12,7 +12,7 @@ use zbus::{
 use zbus_macros::proxy;
 
 use crate::disk::discovery;
-use storage_models::{DiskInfo, VolumeInfo};
+use storage_common::{DiskInfo, VolumeInfo};
 
 #[proxy(
     default_service = "org.freedesktop.UDisks2",

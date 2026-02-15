@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-only
 
-//! SMART types - re-exported from storage-models
+//! SMART types - re-exported from storage-common
 //!
-//! Domain types are defined in storage-models; this module re-exports them
+//! Domain types are defined in storage-common; this module re-exports them
 //! and provides internal helpers for UDisks2-specific conversions.
 
-// Re-export canonical domain types from storage-models
-pub use storage_models::{SmartInfo, SmartSelfTestKind};
+// Re-export canonical domain types from storage-common
+pub use storage_common::{SmartInfo, SmartSelfTestKind};

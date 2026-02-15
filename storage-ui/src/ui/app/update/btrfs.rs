@@ -30,7 +30,7 @@ pub(super) fn handle_btrfs_message(app: &mut AppModel, message: Message) -> Task
                     let subvol_list = btrfs_client.list_subvolumes(&mount_point).await?;
                     Ok(subvol_list.subvolumes)
                 },
-                move |result: anyhow::Result<Vec<storage_models::BtrfsSubvolume>>| {
+                move |result: anyhow::Result<Vec<storage_common::BtrfsSubvolume>>| {
                     if let Err(ref e) = result {
                         tracing::error!("Failed to load BTRFS subvolumes: {:#}", e);
                     }
@@ -224,7 +224,7 @@ pub(super) fn handle_btrfs_message(app: &mut AppModel, message: Message) -> Task
                         .ok_or_else(|| anyhow::anyhow!("Default subvolume not found"))?;
                     Ok(default_subvol)
                 },
-                move |result: anyhow::Result<storage_models::BtrfsSubvolume>| {
+                move |result: anyhow::Result<storage_common::BtrfsSubvolume>| {
                     let result = result.map_err(|e| format!("{:#}", e));
                     Message::BtrfsDefaultSubvolumeLoaded {
                         mount_point: mount_point_for_async.clone(),
@@ -413,7 +413,7 @@ pub(super) fn handle_btrfs_message(app: &mut AppModel, message: Message) -> Task
                     let deleted_list = btrfs_client.list_deleted(&mount_point).await?;
                     Ok(deleted_list)
                 },
-                move |result: anyhow::Result<Vec<storage_models::DeletedSubvolume>>| {
+                move |result: anyhow::Result<Vec<storage_common::DeletedSubvolume>>| {
                     let result = result.map_err(|e| format!("{:#}", e));
                     Message::BtrfsDeletedSubvolumesLoaded {
                         mount_point: mount_point_for_async.clone(),

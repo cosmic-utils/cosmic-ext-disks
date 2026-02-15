@@ -13,7 +13,7 @@ use crate::fl;
 use crate::ui::volumes::helpers;
 use crate::utils::DiskSegmentKind;
 use crate::{app::Message, models::UiVolume};
-use storage_models::{VolumeKind, bytes_to_pretty};
+use storage_common::{VolumeKind, bytes_to_pretty};
 
 use super::{Segment, ToggleState, VolumesControl, VolumesControlMessage};
 

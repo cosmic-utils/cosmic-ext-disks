@@ -1,8 +1,8 @@
 use anyhow::{Context, Result};
 use std::{ffi::CString, mem::MaybeUninit};
 
-// Re-export Usage from storage-models
-pub use storage_models::Usage;
+// Re-export Usage from storage-common
+pub use storage_common::Usage;
 
 pub fn usage_for_mount_point(mount_point: &str, filesystem: Option<&str>) -> Result<Usage> {
     let mount_point_c = CString::new(mount_point)

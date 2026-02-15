@@ -6,7 +6,7 @@ use cosmic::iced::Length;
 use cosmic::widget;
 use cosmic::{Element, iced_widget};
 use std::collections::HashMap;
-use storage_models::{BtrfsSubvolume, VolumeInfo};
+use storage_common::{BtrfsSubvolume, VolumeInfo};
 
 /// Helper to get expander icon name
 fn expander_icon(expanded: bool) -> &'static str {
