@@ -336,11 +336,14 @@ async fn build_volumes_for_block(
     for (idx, part_path) in partition_paths.into_iter().enumerate() {
         let label = format!("Partition {}", idx + 1);
 
-        let is_luks = EncryptedProxy::builder(connection)
+        let is_luks = match EncryptedProxy::builder(connection)
             .path(&part_path)?
             .build()
             .await
-            .is_ok();
+        {
+            Ok(proxy) => proxy.cleartext_device().await.is_ok(),
+            Err(_) => false,
+        };
 
         let info = if is_luks {
             volume_tree::crypto_container_for_partition(
