@@ -88,6 +88,7 @@ pub(super) fn btrfs_create_subvolume_message(
             state.error = None;
 
             let mount_point = state.mount_point.clone();
+            let block_path = state.block_path.clone();
             let name = name.to_string();
 
             return Task::perform(
@@ -96,11 +97,10 @@ pub(super) fn btrfs_create_subvolume_message(
                     btrfs_client.create_subvolume(&mount_point, &name).await?;
                     load_all_drives().await
                 },
-                |result| match result {
+                move |result| match result {
                     Ok(drives) => {
-                        // Close dialog and refresh the drive list
-                        // The subvolume list will reload automatically via nav update
-                        Message::UpdateNav(drives, None).into()
+                        // Close dialog and refresh, preserving BTRFS volume selection
+                        Message::UpdateNavWithChildSelection(drives, Some(block_path.clone())).into()
                     }
                     Err(e) => {
                         let ctx = UiErrorContext::new("create_subvolume");
@@ -220,6 +220,7 @@ pub(super) fn btrfs_create_snapshot_message(
             let dest = name.to_string(); // dest is a string, not std::path::PathBuf
             let read_only = state.read_only;
             let mount_point = state.mount_point.clone();
+            let block_path = state.block_path.clone();
 
             return Task::perform(
                 async move {
@@ -229,10 +230,10 @@ pub(super) fn btrfs_create_snapshot_message(
                         .await?;
                     load_all_drives().await
                 },
-                |result| match result {
+                move |result| match result {
                     Ok(drives) => {
-                        // Close dialog and refresh the drive list
-                        Message::UpdateNav(drives, None).into()
+                        // Close dialog and refresh, preserving BTRFS volume selection
+                        Message::UpdateNavWithChildSelection(drives, Some(block_path.clone())).into()
                     }
                     Err(e) => {
                         let ctx = UiErrorContext::new("create_snapshot");
