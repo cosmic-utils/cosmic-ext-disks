@@ -20,7 +20,7 @@ pub(super) fn open_edit_mount_options(
     }
 
     let target = if let Some(node) = control.selected_volume_node() {
-        if !node.can_mount() {
+        if !node.volume.has_filesystem {
             return Task::none();
         }
         FilesystemTarget::Node(node.clone())
@@ -31,7 +31,7 @@ pub(super) fn open_edit_mount_options(
         let Some(volume) = segment.volume.clone() else {
             return Task::none();
         };
-        if !volume.can_mount() {
+        if !volume.has_filesystem {
             return Task::none();
         }
         FilesystemTarget::Volume(volume)

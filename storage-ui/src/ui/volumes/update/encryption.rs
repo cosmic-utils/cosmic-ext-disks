@@ -27,7 +27,7 @@ pub(super) fn open_take_ownership(
     }
 
     let target = if let Some(node) = control.selected_volume_node() {
-        if !node.can_mount() {
+        if !node.volume.has_filesystem {
             return Task::none();
         }
         FilesystemTarget::Node(node.clone())
@@ -39,7 +39,7 @@ pub(super) fn open_take_ownership(
             return Task::none();
         };
 
-        if !volume.can_mount() {
+        if !volume.has_filesystem {
             return Task::none();
         }
 

@@ -126,7 +126,7 @@ install-dbus-policy:
     @echo "Reloading D-Bus configuration..."
     sudo systemctl reload dbus
     @echo ""
-    @echo "D-Bus policy installed. You can now run 'just start-service'"
+    @echo "D-Bus policy installed. You can now run 'just service'"
 
 # Install just the Polkit policy for development (requires root)
 install-polkit-policy:
@@ -141,14 +141,14 @@ install-dev-policies: install-dbus-policy install-polkit-policy
     @echo "Development policies installed. Ready for testing!"
 
 # Start the storage service (for development)
-start-service: build
+service: build
     #!/usr/bin/env bash
     echo "Starting storage service (requires root)..."
     sudo pkill -f cosmic-storage-service || true
     sudo RUST_LOG=storage_service=debug,info ./target/debug/cosmic-storage-service
 
 # Start the storage service in background
-start-service-bg: build
+service-bg: build
     #!/usr/bin/env bash
     set -euo pipefail
     echo "Starting storage service in background (requires root)..."
@@ -173,7 +173,7 @@ stop-service:
     echo "Service stopped"
 
 # Start the COSMIC Disks UI
-start-app: build
+app: build
     #!/usr/bin/env bash
     echo "Starting COSMIC Disks UI..."
     RUST_LOG=cosmic_ext_disks=debug,info,wgpu=warn,wgpu_core=warn,wgpu_hal=warn,naga=warn,iced_winit=warn,iced_wgpu=warn,i18n_embed=warn ./target/debug/cosmic-ext-disks
@@ -197,7 +197,7 @@ dev: build
     sudo pkill -f cosmic-storage-service || true
 
 # Development with complete rebuild
-dev-clean: clean build start-service-bg
+dev-clean: clean build service-bg
     @sleep 2
     @echo "Starting COSMIC Disks UI..."
     @RUST_LOG=cosmic_ext_disks=debug,info,wgpu=warn,wgpu_core=warn,wgpu_hal=warn,naga=warn,iced_winit=warn,iced_wgpu=warn,i18n_embed=warn ./target/debug/cosmic-ext-disks

@@ -21,7 +21,7 @@ pub(super) fn open_edit_filesystem_label(
     }
 
     let target = if let Some(node) = control.selected_volume_node() {
-        if !node.can_mount() {
+        if !node.volume.has_filesystem {
             return Task::none();
         }
 
@@ -34,7 +34,7 @@ pub(super) fn open_edit_filesystem_label(
             return Task::none();
         };
 
-        if !volume.can_mount() {
+        if !volume.has_filesystem {
             return Task::none();
         }
 
@@ -117,7 +117,7 @@ pub(super) fn open_check_filesystem(
     }
 
     let target = if let Some(node) = control.selected_volume_node() {
-        if !node.can_mount() {
+        if !node.volume.has_filesystem {
             return Task::none();
         }
         FilesystemTarget::Node(node.clone())
@@ -128,7 +128,7 @@ pub(super) fn open_check_filesystem(
         let Some(volume) = segment.volume.clone() else {
             return Task::none();
         };
-        if !volume.can_mount() {
+        if !volume.has_filesystem {
             return Task::none();
         }
         FilesystemTarget::Volume(volume)
@@ -199,7 +199,7 @@ pub(super) fn open_repair_filesystem(
     }
 
     let target = if let Some(node) = control.selected_volume_node() {
-        if !node.can_mount() {
+        if !node.volume.has_filesystem {
             return Task::none();
         }
         FilesystemTarget::Node(node.clone())
@@ -211,7 +211,7 @@ pub(super) fn open_repair_filesystem(
             return Task::none();
         };
 
-        if !volume.can_mount() {
+        if !volume.has_filesystem {
             return Task::none();
         }
 
