@@ -2,7 +2,7 @@ name: Update Version
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
 
 permissions:
   contents: write
@@ -78,11 +78,11 @@ jobs:
         run: |
           set -euo pipefail
           VERSION="$VERSION"
-          sed -i 's/^version = ".*"/version = "'$VERSION'"/' disks-dbus/Cargo.toml
-          sed -i 's/^version = ".*"/version = "'$VERSION'"/' disks-ui/Cargo.toml
+          sed -i 's/^version = ".*"/version = "'$VERSION'"/' storage-dbus/Cargo.toml
+          sed -i 's/^version = ".*"/version = "'$VERSION'"/' storage-ui/Cargo.toml
 
           # Keep the workspace dependency version in sync so cargo can publish without mutating files.
-          sed -i 's|disks-dbus = { package = "cosmic-ext-disks-dbus", path = "disks-dbus", version = ".*" }|disks-dbus = { package = "cosmic-ext-disks-dbus", path = "disks-dbus", version = "'$VERSION'" }|' Cargo.toml
+          sed -i 's|storage-dbus = { package = "cosmic-ext-storage-dbus", path = "storage-dbus", version = ".*" }|storage-dbus = { package = "cosmic-ext-storage-dbus", path = "storage-dbus", version = "'$VERSION'" }|' Cargo.toml
 
       - name: Run fmt
         if: steps.pr_check.outputs.exists != 'true'
@@ -106,8 +106,8 @@ jobs:
           author: "github-actions[bot] <41898282+github-actions[bot]@users.noreply.github.com>"
           add-paths: |
             Cargo.toml
-            disks-dbus/Cargo.toml
-            disks-ui/Cargo.toml
+            storage-dbus/Cargo.toml
+            storage-ui/Cargo.toml
           branch: "chore/release-v${{ env.VERSION }}"
           delete-branch: true
           base: main

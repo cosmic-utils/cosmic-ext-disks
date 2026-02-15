@@ -1,0 +1,37 @@
+[package]
+name = "storage-btrfs"
+description = "BTRFS operations library for COSMIC Disks"
+version = "0.2.0"
+edition = "2024"
+license = "GPL-3.0-only"
+
+[lib]
+name = "disks_btrfs"
+path = "src/lib.rs"
+
+# Optional CLI binary for testing
+[[bin]]
+name = "storage-btrfs-cli"
+path = "src/bin/cli.rs"
+required-features = ["cli"]
+
+[features]
+default = []
+cli = ["dep:clap"]
+
+[dependencies]
+# Core dependencies
+btrfsutil.workspace = true
+uuid.workspace = true
+chrono.workspace = true
+anyhow.workspace = true
+thiserror.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+storage-common.workspace = true
+libc.workspace = true
+tracing.workspace = true
+
+# CLI-only dependencies
+clap = { workspace = true, optional = true }
+tracing-subscriber = { workspace = true, optional = true }
