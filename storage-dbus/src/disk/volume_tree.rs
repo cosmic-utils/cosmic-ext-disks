@@ -77,21 +77,32 @@ pub(crate) async fn probe_basic_block(
     let id_type = block_proxy.id_type().await.map_err(anyhow::Error::msg)?;
     let size = block_proxy.size().await.map_err(anyhow::Error::msg)?;
 
-    // Get partition offset if this is a partition
-    let offset = match PartitionProxy::builder(connection)
+    // Get partition offset and number if this is a partition
+    let (offset, partition_number) = match PartitionProxy::builder(connection)
         .path(&object_path)?
         .build()
         .await
     {
-        Ok(partition_proxy) => partition_proxy.offset().await.unwrap_or(0),
-        Err(_) => 0,
+        Ok(partition_proxy) => (
+            partition_proxy.offset().await.unwrap_or(0),
+            partition_proxy.number().await.unwrap_or(0),
+        ),
+        Err(_) => (0, 0),
+    };
+
+    // Use partition number for label if this is a partition, otherwise use provided label
+    let final_label = if partition_number > 0 {
+        format!("Partition {}", partition_number)
+    } else {
+        label
     };
 
     Ok(storage_models::VolumeInfo {
         kind,
-        label,
+        label: final_label,
         size,
         offset,
+        partition_number,
         id_type,
         device_path,
         parent_path: None,

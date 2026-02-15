@@ -378,33 +378,35 @@ fn flatten_volumes_to_partitions(
 ) -> Vec<PartitionInfo> {
     let mut out = Vec::new();
     for vol in volumes {
+        // Only include actual disk partitions (have a partition number > 0)
+        // This excludes nested volumes like LUKS cleartext devices
         if let Some(ref dev) = vol.device_path {
-            out.push(PartitionInfo {
-                device: dev.clone(),
-                number: 0,
-                parent_path: parent_device.to_string(),
-                size: vol.size,
-                offset: vol.offset,
-                type_id: vol.id_type.clone(),
-                type_name: String::new(),
-                flags: 0,
-                name: vol.label.clone(),
-                uuid: String::new(),
-                table_type: String::new(),
-                has_filesystem: vol.has_filesystem,
-                filesystem_type: if vol.has_filesystem {
-                    Some(vol.id_type.clone())
-                } else {
-                    None
-                },
-                mount_points: vol.mount_points.clone(),
-                usage: vol.usage.clone(),
-            });
+            if vol.partition_number > 0 {
+                out.push(PartitionInfo {
+                    device: dev.clone(),
+                    number: vol.partition_number,
+                    parent_path: parent_device.to_string(),
+                    size: vol.size,
+                    offset: vol.offset,
+                    type_id: vol.id_type.clone(),
+                    type_name: String::new(),
+                    flags: 0,
+                    name: vol.label.clone(),
+                    uuid: String::new(),
+                    table_type: String::new(),
+                    has_filesystem: vol.has_filesystem,
+                    filesystem_type: if vol.has_filesystem {
+                        Some(vol.id_type.clone())
+                    } else {
+                        None
+                    },
+                    mount_points: vol.mount_points.clone(),
+                    usage: vol.usage.clone(),
+                });
+            }
         }
-        out.extend(flatten_volumes_to_partitions(
-            &vol.children,
-            vol.device_path.as_deref().unwrap_or(parent_device),
-        ));
+        // Note: We intentionally do NOT recurse into children here.
+        // Children like LUKS cleartext devices are not disk partitions.
     }
     // Sort by offset to ensure partitions appear in disk order
     out.sort_by_key(|p| p.offset);
