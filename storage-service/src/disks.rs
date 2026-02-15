@@ -13,6 +13,7 @@ use crate::auth::check_polkit_auth;
 
 /// D-Bus interface for disk discovery and SMART operations
 pub struct DisksHandler {
+    #[allow(dead_code)]
     manager: DiskManager,
 }
 
@@ -24,6 +25,7 @@ impl DisksHandler {
     }
 
     /// Get the underlying DiskManager for internal use
+    #[allow(dead_code)]
     pub fn manager(&self) -> &DiskManager {
         &self.manager
     }
@@ -871,69 +873,57 @@ pub async fn monitor_hotplug_events(connection: zbus::Connection, object_path: &
     tokio::spawn(async move {
         use futures_util::StreamExt;
 
-        loop {
-            match added_stream.next().await {
-                Some(signal) => {
-                    match signal.body().deserialize::<(
-                        OwnedObjectPath,
-                        HashMap<String, HashMap<String, OwnedValue>>,
-                    )>() {
-                        Ok((object_path, interfaces)) => {
-                            // Check if this is a Drive interface being added
-                            if interfaces.contains_key("org.freedesktop.UDisks2.Drive") {
-                                tracing::debug!("Drive added: {}", object_path);
+        while let Some(signal) = added_stream.next().await {
+            match signal.body().deserialize::<(
+                OwnedObjectPath,
+                HashMap<String, HashMap<String, OwnedValue>>,
+            )>() {
+                Ok((object_path, interfaces)) => {
+                    // Check if this is a Drive interface being added
+                    if interfaces.contains_key("org.freedesktop.UDisks2.Drive") {
+                        tracing::debug!("Drive added: {}", object_path);
 
-                                // Get the drive info
-                                match get_disk_info_for_path(
-                                    &connection_clone,
-                                    &object_path.as_ref(),
-                                )
-                                .await
-                                {
-                                    Ok(disk_info) => {
-                                        let device = disk_info.device.clone();
-                                        match serde_json::to_string(&disk_info) {
-                                            Ok(json) => {
-                                                tracing::info!("Disk added: {}", device);
+                        // Get the drive info
+                        match get_disk_info_for_path(&connection_clone, &object_path.as_ref()).await
+                        {
+                            Ok(disk_info) => {
+                                let device = disk_info.device.clone();
+                                match serde_json::to_string(&disk_info) {
+                                    Ok(json) => {
+                                        tracing::info!("Disk added: {}", device);
 
-                                                // Emit signal
-                                                if let Err(e) = DisksHandler::disk_added(
-                                                    iface_ref_clone.signal_emitter(),
-                                                    &device,
-                                                    &json,
-                                                )
-                                                .await
-                                                {
-                                                    tracing::error!(
-                                                        "Failed to emit disk_added signal: {}",
-                                                        e
-                                                    );
-                                                }
-                                            }
-                                            Err(e) => {
-                                                tracing::error!(
-                                                    "Failed to serialize disk info: {}",
-                                                    e
-                                                );
-                                            }
+                                        // Emit signal
+                                        if let Err(e) = DisksHandler::disk_added(
+                                            iface_ref_clone.signal_emitter(),
+                                            &device,
+                                            &json,
+                                        )
+                                        .await
+                                        {
+                                            tracing::error!(
+                                                "Failed to emit disk_added signal: {}",
+                                                e
+                                            );
                                         }
                                     }
                                     Err(e) => {
-                                        tracing::error!(
-                                            "Failed to get disk info for {}: {}",
-                                            object_path,
-                                            e
-                                        );
+                                        tracing::error!("Failed to serialize disk info: {}", e);
                                     }
                                 }
                             }
-                        }
-                        Err(e) => {
-                            tracing::error!("Failed to parse InterfacesAdded signal: {}", e);
+                            Err(e) => {
+                                tracing::error!(
+                                    "Failed to get disk info for {}: {}",
+                                    object_path,
+                                    e
+                                );
+                            }
                         }
                     }
                 }
-                None => break,
+                Err(e) => {
+                    tracing::error!("Failed to parse InterfacesAdded signal: {}", e);
+                }
             }
         }
     });
@@ -943,42 +933,35 @@ pub async fn monitor_hotplug_events(connection: zbus::Connection, object_path: &
     tokio::spawn(async move {
         use futures_util::StreamExt;
 
-        loop {
-            match removed_stream.next().await {
-                Some(signal) => {
-                    match signal
-                        .body()
-                        .deserialize::<(OwnedObjectPath, Vec<String>)>()
-                    {
-                        Ok((object_path, interfaces)) => {
-                            // Check if Drive interface is being removed
-                            if interfaces.contains(&"org.freedesktop.UDisks2.Drive".to_string()) {
-                                // Extract device name from object path
-                                // e.g., /org/freedesktop/UDisks2/drives/Samsung_SSD_970_EVO_S1234 -> device path
-                                let device = format!(
-                                    "/dev/{}",
-                                    object_path.as_str().rsplit('/').next().unwrap_or("unknown")
-                                );
+        while let Some(signal) = removed_stream.next().await {
+            match signal
+                .body()
+                .deserialize::<(OwnedObjectPath, Vec<String>)>()
+            {
+                Ok((object_path, interfaces)) => {
+                    // Check if Drive interface is being removed
+                    if interfaces.contains(&"org.freedesktop.UDisks2.Drive".to_string()) {
+                        // Extract device name from object path
+                        // e.g., /org/freedesktop/UDisks2/drives/Samsung_SSD_970_EVO_S1234 -> device path
+                        let device = format!(
+                            "/dev/{}",
+                            object_path.as_str().rsplit('/').next().unwrap_or("unknown")
+                        );
 
-                                tracing::info!("Disk removed: {} ({})", device, object_path);
+                        tracing::info!("Disk removed: {} ({})", device, object_path);
 
-                                // Emit signal
-                                if let Err(e) = DisksHandler::disk_removed(
-                                    iface_ref_clone.signal_emitter(),
-                                    &device,
-                                )
+                        // Emit signal
+                        if let Err(e) =
+                            DisksHandler::disk_removed(iface_ref_clone.signal_emitter(), &device)
                                 .await
-                                {
-                                    tracing::error!("Failed to emit disk_removed signal: {}", e);
-                                }
-                            }
-                        }
-                        Err(e) => {
-                            tracing::error!("Failed to parse InterfacesRemoved signal: {}", e);
+                        {
+                            tracing::error!("Failed to emit disk_removed signal: {}", e);
                         }
                     }
                 }
-                None => break,
+                Err(e) => {
+                    tracing::error!("Failed to parse InterfacesRemoved signal: {}", e);
+                }
             }
         }
     });

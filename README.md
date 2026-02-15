@@ -55,6 +55,7 @@ just clippy             # Run linter
 - ✅ Feature Parity with Gnome Disks
    - **Deferred until v0.2**: Benchmark Disk/Partition
    - **Deferred until v0.2**: ATA Drive settings
+- 🎯 Performance improvements
 - 🎯 LVM/Logical container support
 - 🎯 Detailed Usage - Think "windirstat".
 - ⌛ BTRFS support 

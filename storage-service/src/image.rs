@@ -46,6 +46,7 @@ pub struct ProgressInfo {
 
 /// State of an active operation
 struct OperationState {
+    #[allow(dead_code)]
     id: String,
     kind: OperationType,
     source: String,

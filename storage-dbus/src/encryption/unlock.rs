@@ -2,8 +2,8 @@
 
 //! LUKS unlocking operations
 
-use crate::error::DiskError;
 use crate::disk::resolve::block_object_path_for_device;
+use crate::error::DiskError;
 use std::collections::HashMap;
 use udisks2::{block::BlockProxy, encrypted::EncryptedProxy};
 use zbus::{Connection, zvariant::Value};

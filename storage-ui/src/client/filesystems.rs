@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-only
+#![allow(clippy::too_many_arguments)]
 
 use crate::client::error::ClientError;
 use storage_common::{
@@ -7,6 +8,7 @@ use storage_common::{
 use zbus::{Connection, proxy};
 
 /// D-Bus proxy interface for filesystem operations
+#[allow(clippy::too_many_arguments)]
 #[proxy(
     interface = "org.cosmic.ext.StorageService.Filesystems",
     default_service = "org.cosmic.ext.StorageService",
@@ -124,6 +126,7 @@ impl FilesystemsClient {
     }
 
     /// List all filesystems
+    #[allow(dead_code)]
     pub async fn list_filesystems(&self) -> Result<Vec<FilesystemInfo>, ClientError> {
         let json = self.proxy.list_filesystems().await?;
         let filesystems: Vec<FilesystemInfo> = serde_json::from_str(&json).map_err(|e| {
@@ -133,6 +136,7 @@ impl FilesystemsClient {
     }
 
     /// Get list of supported filesystem types
+    #[allow(dead_code)]
     pub async fn get_supported_filesystems(&self) -> Result<Vec<String>, ClientError> {
         let json = self.proxy.get_supported_filesystems().await?;
         let types: Vec<String> = serde_json::from_str(&json).map_err(|e| {
@@ -185,6 +189,7 @@ impl FilesystemsClient {
     }
 
     /// Get processes blocking unmount
+    #[allow(dead_code)]
     pub async fn get_blocking_processes(
         &self,
         device_or_mount: &str,
@@ -206,6 +211,7 @@ impl FilesystemsClient {
     }
 
     /// Get filesystem usage statistics
+    #[allow(dead_code)]
     pub async fn get_usage(&self, mount_point: &str) -> Result<FilesystemUsage, ClientError> {
         let json = self.proxy.get_usage(mount_point).await?;
         let usage: FilesystemUsage = serde_json::from_str(&json)
@@ -231,6 +237,7 @@ impl FilesystemsClient {
     }
 
     /// Set persistent mount options for a device
+    #[allow(clippy::too_many_arguments)]
     pub async fn edit_mount_options(
         &self,
         device: &str,

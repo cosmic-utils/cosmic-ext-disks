@@ -10,7 +10,7 @@ use zbus::{Connection, proxy};
     default_service = "org.cosmic.ext.StorageService",
     default_path = "/org/cosmic/ext/StorageService/partitions"
 )]
-trait PartitionsInterface {
+pub trait PartitionsInterface {
     /// List all partitions on a disk
     async fn list_partitions(&self, disk: &str) -> zbus::Result<String>;
 
@@ -109,6 +109,7 @@ impl PartitionsClient {
     }
 
     /// Create a new partition, returns the device path (e.g., /dev/sda1)
+    #[allow(dead_code)]
     pub async fn create_partition(
         &self,
         disk: &str,
@@ -176,6 +177,7 @@ impl PartitionsClient {
     }
 
     /// Get the underlying proxy for signal subscriptions
+    #[allow(dead_code)]
     pub fn proxy(&self) -> &PartitionsInterfaceProxy<'static> {
         &self.proxy
     }

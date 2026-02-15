@@ -10,7 +10,7 @@ use crate::ui::volumes::VolumesControlMessage;
 
 /// Messages emitted by the application and its widgets.
 #[derive(Debug, Clone)]
-#[allow(clippy::enum_variant_names)]
+#[allow(clippy::enum_variant_names, dead_code)]
 pub enum Message {
     OpenRepositoryUrl,
     OpenPath(String),

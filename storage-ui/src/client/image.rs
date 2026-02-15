@@ -66,6 +66,7 @@ trait ImageInterface {
 }
 
 /// Operation status information
+#[allow(dead_code)]
 #[derive(Debug, Clone, serde::Deserialize)]
 pub struct OperationStatus {
     pub operation_id: String,
@@ -185,6 +186,7 @@ impl ImageClient {
     /// List all active backup/restore operations
     ///
     /// Returns a list of operation statuses.
+    #[allow(dead_code)]
     pub async fn list_active_operations(&self) -> Result<Vec<OperationStatus>, ClientError> {
         let json = self.proxy.list_active_operations().await?;
         let operations: Vec<OperationStatus> = serde_json::from_str(&json).map_err(|e| {

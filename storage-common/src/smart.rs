@@ -26,7 +26,7 @@ impl SmartSelfTestKind {
     }
 
     /// Parse from string
-    pub fn from_str(s: &str) -> Option<Self> {
+    pub fn parse(s: &str) -> Option<Self> {
         match s.to_lowercase().as_str() {
             "short" => Some(Self::Short),
             "extended" | "long" => Some(Self::Extended),

@@ -27,7 +27,7 @@ impl PartitionTableType {
     }
 
     /// Parse from UDisks2 string format
-    pub fn from_str(s: &str) -> Option<Self> {
+    pub fn parse(s: &str) -> Option<Self> {
         match s {
             "gpt" => Some(Self::Gpt),
             "dos" | "mbr" => Some(Self::Mbr),

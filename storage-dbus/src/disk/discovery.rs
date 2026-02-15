@@ -380,30 +380,30 @@ fn flatten_volumes_to_partitions(
     for vol in volumes {
         // Only include actual disk partitions (have a partition number > 0)
         // This excludes nested volumes like LUKS cleartext devices
-        if let Some(ref dev) = vol.device_path {
-            if vol.partition_number > 0 {
-                out.push(PartitionInfo {
-                    device: dev.clone(),
-                    number: vol.partition_number,
-                    parent_path: parent_device.to_string(),
-                    size: vol.size,
-                    offset: vol.offset,
-                    type_id: vol.id_type.clone(),
-                    type_name: String::new(),
-                    flags: 0,
-                    name: vol.label.clone(),
-                    uuid: String::new(),
-                    table_type: String::new(),
-                    has_filesystem: vol.has_filesystem,
-                    filesystem_type: if vol.has_filesystem {
-                        Some(vol.id_type.clone())
-                    } else {
-                        None
-                    },
-                    mount_points: vol.mount_points.clone(),
-                    usage: vol.usage.clone(),
-                });
-            }
+        if let Some(ref dev) = vol.device_path
+            && vol.partition_number > 0
+        {
+            out.push(PartitionInfo {
+                device: dev.clone(),
+                number: vol.partition_number,
+                parent_path: parent_device.to_string(),
+                size: vol.size,
+                offset: vol.offset,
+                type_id: vol.id_type.clone(),
+                type_name: String::new(),
+                flags: 0,
+                name: vol.label.clone(),
+                uuid: String::new(),
+                table_type: String::new(),
+                has_filesystem: vol.has_filesystem,
+                filesystem_type: if vol.has_filesystem {
+                    Some(vol.id_type.clone())
+                } else {
+                    None
+                },
+                mount_points: vol.mount_points.clone(),
+                usage: vol.usage.clone(),
+            });
         }
         // Note: We intentionally do NOT recurse into children here.
         // Children like LUKS cleartext devices are not disk partitions.

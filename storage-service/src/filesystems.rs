@@ -747,6 +747,7 @@ impl FilesystemsHandler {
     /// Set persistent mount options (fstab configuration) for a device
     ///
     /// Authorization: org.cosmic.ext.storage-service.filesystem-mount (allow_active)
+    #[allow(clippy::too_many_arguments)]
     async fn edit_mount_options(
         &self,
         #[zbus(connection)] connection: &Connection,

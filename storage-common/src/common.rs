@@ -76,7 +76,6 @@ impl Usage {
 }
 
 /// Format utilities for converting between bytes and human-readable strings
-
 /// Convert bytes to human-readable format (e.g., "1.50 GB")
 pub fn bytes_to_pretty(bytes: &u64, add_bytes: bool) -> String {
     let mut steps = 0;

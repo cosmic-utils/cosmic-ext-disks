@@ -10,7 +10,7 @@ use zbus::{Connection, proxy};
     default_service = "org.cosmic.ext.StorageService",
     default_path = "/org/cosmic/ext/StorageService/lvm"
 )]
-trait LvmInterface {
+pub trait LvmInterface {
     /// List all volume groups
     async fn list_volume_groups(&self) -> zbus::Result<String>;
 
@@ -75,10 +75,12 @@ trait LvmInterface {
 }
 
 /// Client for LVM operations
+#[allow(dead_code)]
 pub struct LvmClient {
     proxy: LvmInterfaceProxy<'static>,
 }
 
+#[allow(dead_code)]
 impl LvmClient {
     /// Create a new LVM client connected to the storage service
     pub async fn new() -> Result<Self, ClientError> {

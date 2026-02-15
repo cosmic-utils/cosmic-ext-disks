@@ -3,11 +3,11 @@
 use crate::error::{BtrfsError, Result};
 use std::ffi::CString;
 use std::mem::MaybeUninit;
-use std::path::PathBuf;
+use std::path::Path;
 use storage_common::btrfs::FilesystemUsage;
 
 /// Get filesystem usage information using statvfs
-pub fn get_filesystem_usage(mount_point: &PathBuf) -> Result<FilesystemUsage> {
+pub fn get_filesystem_usage(mount_point: &Path) -> Result<FilesystemUsage> {
     // Convert path to CString
     let c_path = CString::new(mount_point.to_string_lossy().as_bytes())
         .map_err(|e| BtrfsError::InvalidPath(format!("Invalid mount point path: {}", e)))?;

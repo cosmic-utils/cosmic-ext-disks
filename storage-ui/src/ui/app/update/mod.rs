@@ -23,6 +23,7 @@ use cosmic::dialog::file_chooser;
 use cosmic::widget::nav_bar;
 
 /// Recursively search for a volume child by device_path
+#[allow(dead_code)]
 fn find_volume_child_recursive<'a>(
     children: &'a [crate::models::UiVolume],
     device_path: &str,
@@ -287,9 +288,10 @@ pub(crate) fn update(app: &mut AppModel, message: Message) -> Task<Message> {
 
         Message::UpdateNavWithChildSelection(drive_models, child_device_path) => {
             // Preserve tab selection and BTRFS state before nav rebuild
-            let saved_state = app.nav.active_data::<VolumesControl>().map(|v| {
-                (v.detail_tab, v.btrfs_state.clone())
-            });
+            let saved_state = app
+                .nav
+                .active_data::<VolumesControl>()
+                .map(|v| (v.detail_tab, v.btrfs_state.clone()));
 
             // Update drives while preserving child volume selection
             let task = nav::update_nav(app, drive_models, None);
@@ -322,30 +324,28 @@ pub(crate) fn update(app: &mut AppModel, message: Message) -> Task<Message> {
                         control.btrfs_state = saved_btrfs;
 
                         // Refresh BTRFS data if on BTRFS tab
-                        if saved_tab == crate::ui::volumes::DetailTab::BtrfsManagement {
-                            if let Some(btrfs_state) = &control.btrfs_state {
-                                if let (Some(mount_point), Some(block_path)) =
-                                    (&btrfs_state.mount_point, &btrfs_state.block_path)
-                                {
-                                    let refresh_task = Task::batch(vec![
-                                        Task::done(
-                                            Message::BtrfsLoadSubvolumes {
-                                                block_path: block_path.clone(),
-                                                mount_point: mount_point.clone(),
-                                            }
-                                            .into(),
-                                        ),
-                                        Task::done(
-                                            Message::BtrfsLoadUsage {
-                                                block_path: block_path.clone(),
-                                                mount_point: mount_point.clone(),
-                                            }
-                                            .into(),
-                                        ),
-                                    ]);
-                                    return task.chain(refresh_task);
-                                }
-                            }
+                        if saved_tab == crate::ui::volumes::DetailTab::BtrfsManagement
+                            && let Some(btrfs_state) = &control.btrfs_state
+                            && let (Some(mount_point), Some(block_path)) =
+                                (&btrfs_state.mount_point, &btrfs_state.block_path)
+                        {
+                            let refresh_task = Task::batch(vec![
+                                Task::done(
+                                    Message::BtrfsLoadSubvolumes {
+                                        block_path: block_path.clone(),
+                                        mount_point: mount_point.clone(),
+                                    }
+                                    .into(),
+                                ),
+                                Task::done(
+                                    Message::BtrfsLoadUsage {
+                                        block_path: block_path.clone(),
+                                        mount_point: mount_point.clone(),
+                                    }
+                                    .into(),
+                                ),
+                            ]);
+                            return task.chain(refresh_task);
                         }
                     }
                 }

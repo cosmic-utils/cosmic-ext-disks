@@ -153,6 +153,7 @@ impl UiDrive {
     ///     drive.refresh_volumes().await?;
     /// }
     /// ```
+    #[allow(dead_code)]
     pub async fn refresh_volume(&mut self, device: &str) -> Result<bool, ClientError> {
         match self.client.get_volume_info(device).await {
             Ok(updated_vol_info) => {
@@ -175,6 +176,7 @@ impl UiDrive {
     ///
     /// This supports atomic updates - after creating a partition, just add it
     /// to the tree without a full refresh.
+    #[allow(dead_code)]
     pub fn add_partition(&mut self, partition: PartitionInfo, volume: UiVolume) {
         self.partitions.push(partition);
         self.volumes.push(volume);
@@ -183,6 +185,7 @@ impl UiDrive {
     /// Remove a partition from the tree after deletion
     ///
     /// Returns true if the partition was found and removed.
+    #[allow(dead_code)]
     pub fn remove_partition(&mut self, device: &str) -> bool {
         // Remove from partitions list
         let partition_removed =
@@ -203,6 +206,7 @@ impl UiDrive {
     }
 
     /// Find a volume by device path (recursive search)
+    #[allow(dead_code)]
     pub fn find_volume(&self, device: &str) -> Option<&UiVolume> {
         for root in &self.volumes {
             if let Some(vol) = root.find_by_device(device) {
@@ -213,6 +217,7 @@ impl UiDrive {
     }
 
     /// Find a volume by device path (mutable, recursive search)
+    #[allow(dead_code)]
     pub fn find_volume_mut(&mut self, device: &str) -> Option<&mut UiVolume> {
         for root in &mut self.volumes {
             if let Some(vol) = root.find_by_device_mut(device) {

@@ -101,6 +101,7 @@ impl BtrfsHandler {
     }
 
     /// Create a snapshot of a subvolume
+    #[allow(clippy::too_many_arguments)]
     async fn create_snapshot(
         &self,
         #[zbus(connection)] connection: &Connection,
