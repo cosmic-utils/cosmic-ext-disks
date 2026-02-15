@@ -4,6 +4,7 @@
 
 use crate::error::DiskError;
 use std::collections::HashMap;
+use storage_models::CreatePartitionInfo;
 use udisks2::{block::BlockProxy, partitiontable::PartitionTableProxy};
 use zbus::{
     Connection,
@@ -24,7 +25,7 @@ pub async fn create_partition_table(disk_path: &str, table_type: &str) -> Result
     Ok(())
 }
 
-/// Create a partition
+/// Create a partition (low-level, no formatting)
 pub async fn create_partition(
     disk_path: &str,
     offset: u64,
@@ -80,4 +81,88 @@ pub async fn create_partition(
         });
 
     Ok(device_path)
+}
+
+/// Create a partition with optional filesystem formatting.
+///
+/// This is a high-level function that handles the complete partition creation flow:
+/// 1. Creates the partition
+/// 2. If `filesystem_type` is set and not empty:
+///    - If LUKS is requested: formats as LUKS, unlocks, then formats the cleartext device
+///    - Otherwise: formats the partition directly
+/// 3. Returns the final device path
+pub async fn create_partition_with_filesystem(
+    disk_path: &str,
+    info: &CreatePartitionInfo,
+) -> Result<String, DiskError> {
+    // Step 1: Create the partition
+    let partition_path = create_partition(
+        disk_path,
+        info.offset,
+        info.size,
+        &info.selected_type,
+    )
+    .await?;
+
+    tracing::info!(
+        "Created partition {} at offset {}, size {}",
+        partition_path,
+        info.offset,
+        info.size
+    );
+
+    // Step 2: Handle formatting if filesystem_type is specified
+    let fs_type = info.filesystem_type.trim();
+    if fs_type.is_empty() {
+        // No filesystem requested, just return the partition path
+        return Ok(partition_path);
+    }
+
+    // Step 3: Format based on whether LUKS is requested
+    if info.password_protected && !info.password.is_empty() {
+        // LUKS + filesystem flow
+        tracing::info!("Formatting {} as LUKS", partition_path);
+
+        // Format as LUKS
+        crate::format_luks(&partition_path, &info.password, "luks2").await?;
+
+        tracing::info!("Unlocking LUKS device {}", partition_path);
+
+        // Unlock the LUKS device
+        let cleartext_path = crate::unlock_luks(&partition_path, &info.password).await?;
+
+        tracing::info!("Formatting cleartext device {} as {}", cleartext_path, fs_type);
+
+        // Format the cleartext device with the requested filesystem
+        crate::format_filesystem(
+            &cleartext_path,
+            fs_type,
+            &info.name,
+            storage_models::FormatOptions::default(),
+        )
+        .await?;
+
+        // Lock the device after formatting (optional, but cleaner)
+        if let Err(e) = crate::lock_luks(&partition_path).await {
+            tracing::warn!("Failed to lock LUKS device after formatting: {}", e);
+        }
+
+        Ok(partition_path)
+    } else {
+        // Direct filesystem formatting (no LUKS)
+        tracing::info!("Formatting {} as {}", partition_path, fs_type);
+
+        let options = storage_models::FormatOptions {
+            label: info.name.clone(),
+            force: false,
+            erase: info.erase,
+            discard: false,
+            ..Default::default()
+        };
+
+        crate::format_filesystem(&partition_path, fs_type, &info.name, options)
+            .await?;
+
+        Ok(partition_path)
+    }
 }

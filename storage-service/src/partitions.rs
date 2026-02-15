@@ -272,6 +272,99 @@ impl PartitionsHandler {
         Ok(device_path)
     }
 
+    /// Create a new partition with filesystem formatting (all-in-one)
+    ///
+    /// Args:
+    /// - disk: Device identifier (e.g., "/dev/sda", "sda")
+    /// - info_json: JSON-serialized CreatePartitionInfo
+    ///
+    /// Returns: Device path of created partition (e.g., "/dev/sda1")
+    ///
+    /// Authorization: org.cosmic.ext.storage-service.partition-modify (auth_admin_keep)
+    async fn create_partition_with_filesystem(
+        &self,
+        #[zbus(connection)] connection: &Connection,
+        #[zbus(signal_context)] signal_ctx: zbus::object_server::SignalEmitter<'_>,
+        disk: String,
+        info_json: String,
+    ) -> zbus::fdo::Result<String> {
+        // Check authorization
+        check_polkit_auth(
+            connection,
+            "org.cosmic.ext.storage-service.partition-modify",
+        )
+        .await
+        .map_err(|e| zbus::fdo::Error::Failed(format!("Authorization failed: {e}")))?;
+
+        // Parse the CreatePartitionInfo
+        let info: storage_models::CreatePartitionInfo =
+            serde_json::from_str(&info_json).map_err(|e| {
+                tracing::error!("Failed to parse CreatePartitionInfo: {e}");
+                zbus::fdo::Error::InvalidArgs(format!("Invalid partition info JSON: {e}"))
+            })?;
+
+        tracing::info!(
+            "Creating partition with filesystem on {}: offset={}, size={}, fs={}, luks={}",
+            disk,
+            info.offset,
+            info.size,
+            info.filesystem_type,
+            info.password_protected
+        );
+
+        let disk_device = if disk.starts_with("/dev/") {
+            disk.clone()
+        } else {
+            format!("/dev/{}", disk)
+        };
+
+        let block_path = storage_dbus::block_object_path_for_device(&disk_device)
+            .await
+            .map_err(|e| {
+                tracing::error!("Failed to resolve device: {e}");
+                zbus::fdo::Error::Failed(format!("Device not found: {e}"))
+            })?;
+
+        let device_path =
+            storage_dbus::create_partition_with_filesystem(block_path.as_str(), &info)
+                .await
+                .map_err(|e| {
+                    tracing::error!("Failed to create partition with filesystem: {e}");
+                    zbus::fdo::Error::Failed(format!("Failed to create partition: {e}"))
+                })?;
+
+        tracing::info!(
+            "Successfully created partition with filesystem: {}",
+            device_path
+        );
+
+        let partition_info_json = serde_json::to_string(&storage_models::PartitionInfo {
+            device: device_path.clone(),
+            number: 0,
+            parent_path: disk.clone(),
+            size: info.size,
+            offset: info.offset,
+            type_id: info.selected_type.clone(),
+            type_name: String::new(),
+            flags: 0,
+            name: info.name.clone(),
+            uuid: String::new(),
+            table_type: String::new(),
+            has_filesystem: !info.filesystem_type.is_empty(),
+            filesystem_type: if info.filesystem_type.is_empty() {
+                None
+            } else {
+                Some(info.filesystem_type.clone())
+            },
+            mount_points: vec![],
+            usage: None,
+        })
+        .unwrap_or_default();
+        let _ =
+            Self::partition_created(&signal_ctx, &disk, &device_path, &partition_info_json).await;
+        Ok(device_path)
+    }
+
     /// Delete an existing partition
     ///
     /// Args:

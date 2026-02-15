@@ -98,12 +98,7 @@ pub(super) fn create_message(
                             anyhow::anyhow!("Failed to create partitions client: {}", e)
                         })?;
                         partitions_client
-                            .create_partition(
-                                &device,
-                                create_partition_info.offset,
-                                create_partition_info.size,
-                                &create_partition_info.selected_type,
-                            )
+                            .create_partition_with_filesystem(&device, &create_partition_info)
                             .await
                             .map_err(|e| anyhow::anyhow!("Failed to create partition: {}", e))?;
                         load_all_drives().await.map_err(|e| e.into())

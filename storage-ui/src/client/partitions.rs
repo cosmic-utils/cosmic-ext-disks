@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 
 use crate::client::error::ClientError;
-use storage_models::PartitionInfo;
+use storage_models::{CreatePartitionInfo, PartitionInfo};
 use zbus::{Connection, proxy};
 
 /// D-Bus proxy interface for partition management
@@ -17,13 +17,20 @@ trait PartitionsInterface {
     /// Create a new partition table (destroys existing partitions)
     async fn create_partition_table(&self, disk: &str, table_type: &str) -> zbus::Result<()>;
 
-    /// Create a new partition
+    /// Create a new partition (low-level, no formatting)
     async fn create_partition(
         &self,
         disk: &str,
         offset: u64,
         size: u64,
         type_id: &str,
+    ) -> zbus::Result<String>;
+
+    /// Create a new partition with filesystem formatting (all-in-one)
+    async fn create_partition_with_filesystem(
+        &self,
+        disk: &str,
+        info_json: &str,
     ) -> zbus::Result<String>;
 
     /// Delete a partition
@@ -112,6 +119,22 @@ impl PartitionsClient {
         Ok(self
             .proxy
             .create_partition(disk, offset, size, type_id)
+            .await?)
+    }
+
+    /// Create a new partition with filesystem formatting (all-in-one)
+    /// This handles partition creation, optional LUKS encryption, and filesystem formatting.
+    pub async fn create_partition_with_filesystem(
+        &self,
+        disk: &str,
+        info: &CreatePartitionInfo,
+    ) -> Result<String, ClientError> {
+        let info_json = serde_json::to_string(info).map_err(|e| {
+            ClientError::ParseError(format!("Failed to serialize partition info: {}", e))
+        })?;
+        Ok(self
+            .proxy
+            .create_partition_with_filesystem(disk, &info_json)
             .await?)
     }
 

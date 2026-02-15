@@ -46,6 +46,9 @@ pub struct FormatOptions {
     /// Force formatting even if filesystem appears to exist
     pub force: bool,
 
+    /// Erase/wipe the device before formatting (secure erase)
+    pub erase: bool,
+
     /// Enable discard/TRIM support
     pub discard: bool,
 

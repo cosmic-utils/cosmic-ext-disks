@@ -83,8 +83,8 @@ pub use util::{find_processes_using_mount, kill_processes};
 
 // Partition operations (from new partition module)
 pub use partition::{
-    create_partition, create_partition_table, delete_partition, edit_partition, resize_partition,
-    set_partition_flags, set_partition_name, set_partition_type,
+    create_partition, create_partition_table, create_partition_with_filesystem, delete_partition,
+    edit_partition, resize_partition, set_partition_flags, set_partition_name, set_partition_type,
 };
 
 // Filesystem operations (from new filesystem module)
