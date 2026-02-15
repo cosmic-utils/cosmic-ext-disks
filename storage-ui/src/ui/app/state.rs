@@ -8,6 +8,7 @@ use crate::ui::sidebar::SidebarState;
 use cosmic::ApplicationExt;
 use cosmic::app::{Core, Task};
 use cosmic::widget::nav_bar;
+use storage_common::FilesystemToolInfo;
 
 /// The context page to display in the context drawer.
 #[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
@@ -35,6 +36,9 @@ pub struct AppModel {
     pub(crate) image_op_operation_id: Option<String>,
 
     pub dialog: Option<ShowDialog>,
+
+    /// Cached filesystem tool availability from service
+    pub(crate) filesystem_tools: Vec<FilesystemToolInfo>,
 }
 
 impl AppModel {

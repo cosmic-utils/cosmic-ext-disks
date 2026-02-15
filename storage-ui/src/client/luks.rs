@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-only
 
+use crate::client::connection::shared_connection;
 use crate::client::error::ClientError;
 use storage_common::{EncryptionOptionsSettings, LuksInfo};
-use zbus::{Connection, proxy};
+use zbus::proxy;
 
 /// D-Bus proxy interface for LUKS encryption operations
 #[proxy(
@@ -61,11 +62,9 @@ pub struct LuksClient {
 impl LuksClient {
     /// Create a new LUKS client connected to the storage service
     pub async fn new() -> Result<Self, ClientError> {
-        let conn = Connection::system().await.map_err(|e| {
-            ClientError::Connection(format!("Failed to connect to system bus: {}", e))
-        })?;
+        let conn = shared_connection().await?;
 
-        let proxy = LuksInterfaceProxy::new(&conn)
+        let proxy = LuksInterfaceProxy::new(conn)
             .await
             .map_err(|e| ClientError::Connection(format!("Failed to create LUKS proxy: {}", e)))?;
 

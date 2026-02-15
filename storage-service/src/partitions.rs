@@ -5,18 +5,25 @@
 //! This module provides D-Bus methods for managing disk partitions,
 //! including creating/deleting partitions and partition tables.
 
+use storage_dbus::DiskManager;
 use zbus::zvariant::OwnedObjectPath;
 use zbus::{Connection, interface};
 
 use crate::auth::check_polkit_auth;
 
 /// D-Bus interface for partition management operations
-pub struct PartitionsHandler;
+pub struct PartitionsHandler {
+    /// DiskManager for disk enumeration (cached connection)
+    manager: DiskManager,
+}
 
 impl PartitionsHandler {
     /// Create a new PartitionsHandler
-    pub fn new() -> Self {
-        Self
+    pub async fn new() -> Self {
+        let manager = DiskManager::new()
+            .await
+            .expect("Failed to create DiskManager");
+        Self { manager }
     }
 }
 
@@ -94,7 +101,7 @@ impl PartitionsHandler {
 
         tracing::debug!("Listing partitions for disk: {disk}");
 
-        let disk_volumes = storage_dbus::disk::get_disks_with_partitions()
+        let disk_volumes = storage_dbus::disk::get_disks_with_partitions(&self.manager)
             .await
             .map_err(|e| {
                 tracing::error!("Failed to get drives: {e}");

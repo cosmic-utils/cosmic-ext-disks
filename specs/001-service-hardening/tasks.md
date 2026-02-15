@@ -22,10 +22,10 @@
 
 **Purpose**: Verify build environment and understand current codebase
 
-- [ ] T001 Verify workspace builds cleanly with `cargo build --workspace`
-- [ ] T002 Run existing tests with `cargo test --workspace --all-features` to establish baseline
-- [ ] T003 [P] Review current D-Bus connection patterns in `storage-ui/src/client/*.rs`
-- [ ] T004 [P] Review current discovery function in `storage-dbus/src/disk/discovery.rs`
+- [x] T001 Verify workspace builds cleanly with `cargo build --workspace`
+- [x] T002 Run existing tests with `cargo test --workspace --all-features` to establish baseline
+- [x] T003 [P] Review current D-Bus connection patterns in `storage-ui/src/client/*.rs`
+- [x] T004 [P] Review current discovery function in `storage-dbus/src/disk/discovery.rs`
 
 ---
 
@@ -35,7 +35,7 @@
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete
 
-- [ ] T005 Add `FilesystemToolInfo` struct to `storage-common/src/lib.rs` with fs_type, fs_name, command, package_hint, available fields
+- [x] T005 Add `FilesystemToolInfo` struct to `storage-common/src/lib.rs` with fs_type, fs_name, command, package_hint, available fields
 
 **Checkpoint**: Foundation ready - user story implementation can now begin
 
@@ -49,13 +49,13 @@
 
 ### Implementation for User Story 4
 
-- [ ] T006 [US4] Add `connection: Arc<Connection>` field to DiskManager in `storage-dbus/src/disk/manager.rs`
-- [ ] T007 [US4] Update `DiskManager::new()` to establish and cache connection in `storage-dbus/src/disk/manager.rs`
-- [ ] T008 [US4] Add `pub fn connection(&self) -> &Arc<Connection>` method to DiskManager in `storage-dbus/src/disk/manager.rs`
-- [ ] T009 [US4] Update `get_disks_with_volumes()` signature to accept `&DiskManager` parameter in `storage-dbus/src/disk/discovery.rs`
-- [ ] T010 [US4] Replace `Connection::system()` with `manager.connection()` in `storage-dbus/src/disk/discovery.rs`
-- [ ] T011 [US4] Update all call sites in `storage-service/src/disks.rs` to pass manager reference to `get_disks_with_volumes()`
-- [ ] T012 [US4] Verify build with `cargo build --workspace`
+- [x] T006 [US4] Add `connection: Arc<Connection>` field to DiskManager in `storage-dbus/src/disk/manager.rs`
+- [x] T007 [US4] Update `DiskManager::new()` to establish and cache connection in `storage-dbus/src/disk/manager.rs`
+- [x] T008 [US4] Add `pub fn connection(&self) -> &Arc<Connection>` method to DiskManager in `storage-dbus/src/disk/manager.rs`
+- [x] T009 [US4] Update `get_disks_with_volumes()` signature to accept `&DiskManager` parameter in `storage-dbus/src/disk/discovery.rs`
+- [x] T010 [US4] Replace `Connection::system()` with `manager.connection()` in `storage-dbus/src/disk/discovery.rs`
+- [x] T011 [US4] Update all call sites in `storage-service/src/disks.rs` to pass manager reference to `get_disks_with_volumes()`
+- [x] T012 [US4] Verify build with `cargo build --workspace`
 
 **Checkpoint**: Layer 2 connection caching complete - service operations should be noticeably faster
 
@@ -69,15 +69,15 @@
 
 ### Implementation for User Story 1
 
-- [ ] T013 [US1] Create `storage-ui/src/client/connection.rs` with `OnceLock<Connection>` and `shared_connection()` function
-- [ ] T014 [US1] Export connection module in `storage-ui/src/client/mod.rs`
-- [ ] T015 [P] [US1] Update `DisksClient::new()` to use `shared_connection()` in `storage-ui/src/client/disks.rs`
-- [ ] T016 [P] [US1] Update `FilesystemsClient::new()` to use `shared_connection()` in `storage-ui/src/client/filesystems.rs`
-- [ ] T017 [P] [US1] Update `PartitionsClient::new()` to use `shared_connection()` in `storage-ui/src/client/partitions.rs`
-- [ ] T018 [P] [US1] Update `LuksClient::new()` to use `shared_connection()` in `storage-ui/src/client/luks.rs` (if exists)
-- [ ] T019 [P] [US1] Update `LvmClient::new()` to use `shared_connection()` in `storage-ui/src/client/lvm.rs` (if exists)
-- [ ] T020 [P] [US1] Update `BtrfsClient::new()` to use `shared_connection()` in `storage-ui/src/client/btrfs.rs` (if exists)
-- [ ] T021 [US1] Verify build with `cargo build --workspace`
+- [x] T013 [US1] Create `storage-ui/src/client/connection.rs` with `OnceLock<Connection>` and `shared_connection()` function
+- [x] T014 [US1] Export connection module in `storage-ui/src/client/mod.rs`
+- [x] T015 [P] [US1] Update `DisksClient::new()` to use `shared_connection()` in `storage-ui/src/client/disks.rs`
+- [x] T016 [P] [US1] Update `FilesystemsClient::new()` to use `shared_connection()` in `storage-ui/src/client/filesystems.rs`
+- [x] T017 [P] [US1] Update `PartitionsClient::new()` to use `shared_connection()` in `storage-ui/src/client/partitions.rs`
+- [x] T018 [P] [US1] Update `LuksClient::new()` to use `shared_connection()` in `storage-ui/src/client/luks.rs` (if exists)
+- [x] T019 [P] [US1] Update `LvmClient::new()` to use `shared_connection()` in `storage-ui/src/client/lvm.rs` (if exists)
+- [x] T020 [P] [US1] Update `BtrfsClient::new()` to use `shared_connection()` in `storage-ui/src/client/btrfs.rs` (if exists)
+- [x] T021 [US1] Verify build with `cargo build --workspace`
 
 **Checkpoint**: Layer 1 connection sharing complete - app startup should be faster
 
@@ -91,13 +91,13 @@
 
 ### Implementation for User Story 2
 
-- [ ] T022 [US2] Create `storage-service/src/protected_paths.rs` with `PROTECTED_SYSTEM_PATHS` constant array
-- [ ] T023 [US2] Add `is_protected_path()` function with canonical path matching in `storage-service/src/protected_paths.rs`
-- [ ] T024 [US2] Add `mod protected_paths;` declaration in `storage-service/src/main.rs`
-- [ ] T025 [US2] Import and use `is_protected_path()` in unmount handler in `storage-service/src/filesystems.rs`
-- [ ] T026 [US2] Add protected path check before kill_processes logic, return error in `UnmountResult` format in `storage-service/src/filesystems.rs`
-- [ ] T027 [US2] Add tracing log for protected path rejection in `storage-service/src/filesystems.rs`
-- [ ] T028 [US2] Verify build with `cargo build --workspace`
+- [x] T022 [US2] Create `storage-service/src/protected_paths.rs` with `PROTECTED_SYSTEM_PATHS` constant array
+- [x] T023 [US2] Add `is_protected_path()` function with canonical path matching in `storage-service/src/protected_paths.rs`
+- [x] T024 [US2] Add `mod protected_paths;` declaration in `storage-service/src/main.rs`
+- [x] T025 [US2] Import and use `is_protected_path()` in unmount handler in `storage-service/src/filesystems.rs`
+- [x] T026 [US2] Add protected path check before kill_processes logic, return error in `UnmountResult` format in `storage-service/src/filesystems.rs`
+- [x] T027 [US2] Add tracing log for protected path rejection in `storage-service/src/filesystems.rs`
+- [x] T028 [US2] Verify build with `cargo build --workspace`
 
 **Checkpoint**: System path protection complete - critical paths are now protected
 
@@ -111,13 +111,13 @@
 
 ### Implementation for User Story 3
 
-- [ ] T029 [US3] Add `filesystem_tools: Vec<FilesystemToolInfo>` field to FilesystemsHandler in `storage-service/src/filesystems.rs`
-- [ ] T030 [US3] Implement `detect_all_filesystem_tools()` function in `storage-service/src/filesystems.rs`
-- [ ] T031 [US3] Update `FilesystemsHandler::new()` to call detection and populate fields in `storage-service/src/filesystems.rs`
-- [ ] T032 [US3] Add `get_filesystem_tools()` D-Bus method returning JSON in `storage-service/src/filesystems.rs`
-- [ ] T033 [US3] Add `get_filesystem_tools()` client method in `storage-ui/src/client/filesystems.rs`
-- [ ] T034 [US3] Mark `storage-ui/src/utils/fs_tools.rs` as deprecated with comment (if it exists)
-- [ ] T035 [US3] Verify build with `cargo build --workspace`
+- [x] T029 [US3] Add `filesystem_tools: Vec<FilesystemToolInfo>` field to FilesystemsHandler in `storage-service/src/filesystems.rs`
+- [x] T030 [US3] Implement `detect_all_filesystem_tools()` function in `storage-service/src/filesystems.rs`
+- [x] T031 [US3] Update `FilesystemsHandler::new()` to call detection and populate fields in `storage-service/src/filesystems.rs`
+- [x] T032 [US3] Add `get_filesystem_tools()` D-Bus method returning JSON in `storage-service/src/filesystems.rs`
+- [x] T033 [US3] Add `get_filesystem_tools()` client method in `storage-ui/src/client/filesystems.rs`
+- [x] T034 [US3] Mark `storage-ui/src/utils/fs_tools.rs` as deprecated with comment (if it exists)
+- [x] T035 [US3] Verify build with `cargo build --workspace`
 
 **Checkpoint**: FSTools consolidation complete - UI can query service for capabilities
 
@@ -127,9 +127,9 @@
 
 **Purpose**: Quality gates and final verification
 
-- [ ] T036 Run `cargo fmt --all --check` and fix any formatting issues
-- [ ] T037 Run `cargo clippy --workspace --all-features` and fix any warnings
-- [ ] T038 Run `cargo test --workspace --all-features` and verify all tests pass
+- [x] T036 Run `cargo fmt --all --check` and fix any formatting issues
+- [x] T037 Run `cargo clippy --workspace --all-features` and fix any warnings
+- [x] T038 Run `cargo test --workspace --all-features` and verify all tests pass
 - [ ] T039 Manual test: Start service, launch UI, verify startup time improvement
 - [ ] T040 Manual test: Attempt unmount with kill_processes on protected path, verify error displayed
 - [ ] T041 Manual test: Query get_filesystem_tools(), verify accurate tool detection

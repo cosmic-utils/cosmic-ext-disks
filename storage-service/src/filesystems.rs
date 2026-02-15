@@ -7,45 +7,86 @@
 
 use std::path::Path;
 use storage_common::{
-    CheckResult, FilesystemInfo, FormatOptions, MountOptions, MountOptionsSettings, UnmountResult,
+    CheckResult, FilesystemInfo, FilesystemToolInfo, FormatOptions, MountOptions,
+    MountOptionsSettings, UnmountResult,
 };
+use storage_dbus::DiskManager;
 use zbus::{Connection, interface};
 
 use crate::auth::check_polkit_auth;
 
 /// D-Bus interface for filesystem management operations
 pub struct FilesystemsHandler {
-    /// Cached list of supported filesystem tools
+    /// Cached list of supported filesystem tools (simple list for backward compat)
     supported_tools: Vec<String>,
+    /// Detailed filesystem tool information
+    filesystem_tools: Vec<FilesystemToolInfo>,
+    /// DiskManager for disk enumeration (cached connection)
+    manager: DiskManager,
 }
 
 impl FilesystemsHandler {
     /// Create a new FilesystemsHandler and detect available tools
-    pub fn new() -> Self {
-        let supported_tools = Self::detect_filesystem_tools();
-        Self { supported_tools }
+    pub async fn new() -> Self {
+        let filesystem_tools = Self::detect_all_filesystem_tools();
+        let supported_tools: Vec<String> = filesystem_tools
+            .iter()
+            .filter(|t| t.available)
+            .map(|t| t.fs_type.clone())
+            .collect();
+        let manager = DiskManager::new()
+            .await
+            .expect("Failed to create DiskManager");
+        Self {
+            supported_tools,
+            filesystem_tools,
+            manager,
+        }
     }
 
-    /// Detect which mkfs tools are installed
-    fn detect_filesystem_tools() -> Vec<String> {
+    /// Detect all filesystem tools with detailed information
+    fn detect_all_filesystem_tools() -> Vec<FilesystemToolInfo> {
         let tools = vec![
-            ("ext4", "mkfs.ext4"),
-            ("xfs", "mkfs.xfs"),
-            ("btrfs", "mkfs.btrfs"),
-            ("vfat", "mkfs.vfat"),
-            ("ntfs", "mkfs.ntfs"),
-            ("exfat", "mkfs.exfat"),
+            ("ext4", "EXT4", "mkfs.ext4", "e2fsprogs"),
+            ("xfs", "XFS", "mkfs.xfs", "xfsprogs"),
+            ("btrfs", "Btrfs", "mkfs.btrfs", "btrfs-progs"),
+            ("vfat", "FAT32", "mkfs.vfat", "dosfstools"),
+            ("ntfs", "NTFS", "mkfs.ntfs", "ntfs-3g"),
+            ("exfat", "exFAT", "mkfs.exfat", "exfat-utils"),
         ];
 
-        let mut supported = Vec::new();
-        for (fs_type, command) in tools {
-            if which::which(command).is_ok() {
-                supported.push(fs_type.to_string());
-            }
+        let mut results = Vec::new();
+        for (fs_type, fs_name, command, package_hint) in tools {
+            let available = which::which(command).is_ok();
+            results.push(FilesystemToolInfo {
+                fs_type: fs_type.to_string(),
+                fs_name: fs_name.to_string(),
+                command: command.to_string(),
+                package_hint: package_hint.to_string(),
+                available,
+            });
         }
 
-        tracing::info!("Detected filesystem support: {:?}", supported);
-        supported
+        tracing::info!(
+            "Detected filesystem tools: {:?}",
+            results
+                .iter()
+                .filter(|t| t.available)
+                .map(|t| &t.fs_type)
+                .collect::<Vec<_>>()
+        );
+        results
+    }
+
+    /// Legacy method for backward compatibility
+    #[allow(dead_code)]
+    fn detect_filesystem_tools() -> Vec<String> {
+        let tools = Self::detect_all_filesystem_tools();
+        tools
+            .iter()
+            .filter(|t| t.available)
+            .map(|t| t.fs_type.clone())
+            .collect()
     }
 }
 
@@ -98,8 +139,8 @@ impl FilesystemsHandler {
 
         tracing::debug!("Listing filesystems");
 
-        // Get all drives
-        let drives = storage_dbus::disk::get_disks_with_volumes()
+        // Get all drives using cached connection
+        let drives = storage_dbus::disk::get_disks_with_volumes(&self.manager)
             .await
             .map_err(|e| {
                 tracing::error!("Failed to get drives: {e}");
@@ -174,6 +215,31 @@ impl FilesystemsHandler {
         // Serialize to JSON
         let json = serde_json::to_string(&self.supported_tools).map_err(|e| {
             tracing::error!("Failed to serialize supported filesystems: {e}");
+            zbus::fdo::Error::Failed(format!("Failed to serialize: {e}"))
+        })?;
+
+        Ok(json)
+    }
+
+    /// Get detailed information about available filesystem tools
+    ///
+    /// Returns: JSON array of FilesystemToolInfo objects with availability status
+    ///
+    /// Authorization: org.cosmic.ext.storage-service.filesystem-read (allow_active)
+    async fn get_filesystem_tools(
+        &self,
+        #[zbus(connection)] connection: &Connection,
+    ) -> zbus::fdo::Result<String> {
+        // Check authorization
+        check_polkit_auth(connection, "org.cosmic.ext.storage-service.filesystem-read")
+            .await
+            .map_err(|e| zbus::fdo::Error::Failed(format!("Authorization failed: {e}")))?;
+
+        tracing::debug!("Getting filesystem tool details");
+
+        // Serialize to JSON
+        let json = serde_json::to_string(&self.filesystem_tools).map_err(|e| {
+            tracing::error!("Failed to serialize filesystem tools: {e}");
             zbus::fdo::Error::Failed(format!("Failed to serialize: {e}"))
         })?;
 
@@ -367,6 +433,31 @@ impl FilesystemsHandler {
                         .unwrap_or_default();
 
                     if kill_processes && !processes.is_empty() {
+                        // Check if this is a protected system path
+                        use std::path::Path;
+                        if crate::protected_paths::is_protected_path(Path::new(&mount_point)) {
+                            tracing::warn!(
+                                "Refusing to kill processes on protected system path: {}",
+                                mount_point
+                            );
+
+                            let result = UnmountResult {
+                                success: false,
+                                error: Some(format!(
+                                    "Cannot kill processes on protected system path: {}",
+                                    mount_point
+                                )),
+                                blocking_processes: processes,
+                            };
+
+                            let json = serde_json::to_string(&result).map_err(|e| {
+                                zbus::fdo::Error::Failed(format!("Failed to serialize: {e}"))
+                            })?;
+
+                            return Ok(json);
+                        }
+
+                        // Check authorization for killing processes
                         // Check authorization for killing processes
                         if let Err(auth_err) = check_polkit_auth(
                             connection,

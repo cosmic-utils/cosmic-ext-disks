@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-only
 
+use crate::client::connection::shared_connection;
 use crate::client::error::ClientError;
 use storage_common::btrfs::{DeletedSubvolume, FilesystemUsage, SubvolumeList};
-use zbus::{Connection, proxy};
+use zbus::proxy;
 
 /// D-Bus proxy interface for BTRFS operations
 #[proxy(
@@ -64,11 +65,9 @@ impl std::fmt::Debug for BtrfsClient {
 impl BtrfsClient {
     /// Create a new BTRFS client connected to the storage service
     pub async fn new() -> Result<Self, ClientError> {
-        let conn = Connection::system().await.map_err(|e| {
-            ClientError::Connection(format!("Failed to connect to system bus: {}", e))
-        })?;
+        let conn = shared_connection().await?;
 
-        let proxy = BtrfsInterfaceProxy::new(&conn)
+        let proxy = BtrfsInterfaceProxy::new(conn)
             .await
             .map_err(|e| ClientError::Connection(format!("Failed to create proxy: {}", e)))?;
 

@@ -1,13 +1,16 @@
 use cosmic::{Element, cosmic_theme, iced::Alignment, theme, widget};
+use storage_common::FilesystemToolInfo;
 
 use crate::{
     app::{APP_ICON, Message, REPOSITORY},
     config::Config,
     fl,
-    utils::get_missing_tools,
 };
 
-pub fn settings<'a>(config: &Config) -> Element<'a, Message> {
+pub fn settings<'a>(
+    config: &Config,
+    filesystem_tools: &[FilesystemToolInfo],
+) -> Element<'a, Message> {
     let cosmic_theme::Spacing {
         space_xxs,
         space_s,
@@ -43,8 +46,8 @@ pub fn settings<'a>(config: &Config) -> Element<'a, Message> {
         .align_x(Alignment::Center)
         .spacing(space_xxs);
 
-    // Filesystem tools status section
-    let missing_tools = get_missing_tools();
+    // Filesystem tools status section - use tools from service
+    let missing_tools: Vec<_> = filesystem_tools.iter().filter(|t| !t.available).collect();
 
     if !missing_tools.is_empty() {
         let tools_title = widget::text::title4(fl!("fs-tools-missing-title"));
@@ -55,7 +58,7 @@ pub fn settings<'a>(config: &Config) -> Element<'a, Message> {
             let tool_text = widget::text::body(format!(
                 "• {} - {}",
                 tool.package_hint,
-                fl!("fs-tools-required-for", fs_name = tool.fs_name)
+                fl!("fs-tools-required-for", fs_name = tool.fs_name.clone())
             ));
             tools_list = tools_list.push(tool_text);
         }

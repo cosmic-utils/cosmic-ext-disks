@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-only
 
+use crate::client::connection::shared_connection;
 use crate::client::error::ClientError;
 use storage_common::{CreatePartitionInfo, PartitionInfo};
-use zbus::{Connection, proxy};
+use zbus::proxy;
 
 /// D-Bus proxy interface for partition management
 #[proxy(
@@ -79,11 +80,9 @@ impl std::fmt::Debug for PartitionsClient {
 impl PartitionsClient {
     /// Create a new partitions client connected to the storage service
     pub async fn new() -> Result<Self, ClientError> {
-        let conn = Connection::system().await.map_err(|e| {
-            ClientError::Connection(format!("Failed to connect to system bus: {}", e))
-        })?;
+        let conn = shared_connection().await?;
 
-        let proxy = PartitionsInterfaceProxy::new(&conn).await.map_err(|e| {
+        let proxy = PartitionsInterfaceProxy::new(conn).await.map_err(|e| {
             ClientError::Connection(format!("Failed to create partitions proxy: {}", e))
         })?;
 

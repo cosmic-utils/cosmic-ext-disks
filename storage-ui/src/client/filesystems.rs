@@ -1,11 +1,13 @@
 // SPDX-License-Identifier: GPL-3.0-only
 #![allow(clippy::too_many_arguments)]
 
+use crate::client::connection::shared_connection;
 use crate::client::error::ClientError;
 use storage_common::{
-    FilesystemInfo, FilesystemUsage, MountOptionsSettings, ProcessInfo, UnmountResult,
+    FilesystemInfo, FilesystemToolInfo, FilesystemUsage, MountOptionsSettings, ProcessInfo,
+    UnmountResult,
 };
-use zbus::{Connection, proxy};
+use zbus::proxy;
 
 /// D-Bus proxy interface for filesystem operations
 #[allow(clippy::too_many_arguments)]
@@ -20,6 +22,9 @@ pub trait FilesystemsInterface {
 
     /// Get list of supported filesystem types
     async fn get_supported_filesystems(&self) -> zbus::Result<String>;
+
+    /// Get detailed filesystem tool information
+    async fn get_filesystem_tools(&self) -> zbus::Result<String>;
 
     /// Format a device with a filesystem
     async fn format(
@@ -114,11 +119,9 @@ impl std::fmt::Debug for FilesystemsClient {
 impl FilesystemsClient {
     /// Create a new filesystems client connected to the storage service
     pub async fn new() -> Result<Self, ClientError> {
-        let conn = Connection::system().await.map_err(|e| {
-            ClientError::Connection(format!("Failed to connect to system bus: {}", e))
-        })?;
+        let conn = shared_connection().await?;
 
-        let proxy = FilesystemsInterfaceProxy::new(&conn).await.map_err(|e| {
+        let proxy = FilesystemsInterfaceProxy::new(conn).await.map_err(|e| {
             ClientError::Connection(format!("Failed to create filesystems proxy: {}", e))
         })?;
 
@@ -143,6 +146,16 @@ impl FilesystemsClient {
             ClientError::ParseError(format!("Failed to parse filesystem types: {}", e))
         })?;
         Ok(types)
+    }
+
+    /// Get detailed filesystem tool information
+    #[allow(dead_code)]
+    pub async fn get_filesystem_tools(&self) -> Result<Vec<FilesystemToolInfo>, ClientError> {
+        let json = self.proxy.get_filesystem_tools().await?;
+        let tools: Vec<FilesystemToolInfo> = serde_json::from_str(&json).map_err(|e| {
+            ClientError::ParseError(format!("Failed to parse filesystem tools: {}", e))
+        })?;
+        Ok(tools)
     }
 
     /// Format a device with a filesystem

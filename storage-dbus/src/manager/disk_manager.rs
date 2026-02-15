@@ -3,6 +3,7 @@ use futures::StreamExt;
 use futures::stream::Stream;
 use futures::task::{Context, Poll};
 use std::collections::HashMap;
+use std::sync::Arc;
 use tokio::sync::mpsc;
 use tracing::warn;
 use zbus::{
@@ -49,8 +50,11 @@ pub trait UDisks2ObjectManager {
     ) -> zbus::Result<()>;
 }
 
+#[derive(Clone)]
 pub struct DiskManager {
-    connection: Connection,
+    /// Cached D-Bus connection to system bus (for UDisks2)
+    /// Wrapped in Arc for thread-safe sharing with discovery functions
+    connection: Arc<Connection>,
 }
 
 #[derive(Debug, PartialEq)]
@@ -65,12 +69,12 @@ pub struct DeviceEventStream {
 
 impl DiskManager {
     pub async fn new() -> Result<Self> {
-        let connection = Connection::system().await?;
+        let connection = Arc::new(Connection::system().await?);
         Ok(Self { connection })
     }
 
-    /// Get a reference to the D-Bus connection
-    pub fn connection(&self) -> &Connection {
+    /// Get a reference to the cached D-Bus connection for reuse
+    pub fn connection(&self) -> &Arc<Connection> {
         &self.connection
     }
 
@@ -147,6 +151,7 @@ impl DiskManager {
     }
 
     pub async fn apply_change(
+        &self,
         drives: &mut Vec<(DiskInfo, Vec<VolumeInfo>)>,
         added: Option<String>,
         removed: Option<String>,
@@ -159,7 +164,7 @@ impl DiskManager {
         }
 
         if added.is_some() {
-            *drives = discovery::get_disks_with_volumes().await?;
+            *drives = discovery::get_disks_with_volumes(self).await?;
         }
 
         Ok(())

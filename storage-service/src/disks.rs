@@ -79,10 +79,12 @@ impl DisksHandler {
         tracing::debug!("ListDisks called");
 
         // Get disks from storage-dbus using new storage-common API
-        let disks = storage_dbus::disk::get_disks().await.map_err(|e| {
-            tracing::error!("Failed to get disks: {e}");
-            zbus::fdo::Error::Failed(format!("Failed to enumerate disks: {e}"))
-        })?;
+        let disks = storage_dbus::disk::get_disks(&self.manager)
+            .await
+            .map_err(|e| {
+                tracing::error!("Failed to get disks: {e}");
+                zbus::fdo::Error::Failed(format!("Failed to enumerate disks: {e}"))
+            })?;
 
         tracing::debug!("Found {} disks", disks.len());
 
@@ -123,7 +125,7 @@ impl DisksHandler {
         tracing::debug!("ListVolumes called");
 
         // Get all drives using storage-dbus
-        let disk_volumes = storage_dbus::disk::get_disks_with_volumes()
+        let disk_volumes = storage_dbus::disk::get_disks_with_volumes(&self.manager)
             .await
             .map_err(|e| {
                 tracing::error!("Failed to get drives: {e}");
@@ -204,10 +206,12 @@ impl DisksHandler {
         tracing::debug!("GetDiskInfo called for device: {device}");
 
         // Get all disks and find the requested one
-        let disks = storage_dbus::disk::get_disks().await.map_err(|e| {
-            tracing::error!("Failed to get disks: {e}");
-            zbus::fdo::Error::Failed(format!("Failed to enumerate disks: {e}"))
-        })?;
+        let disks = storage_dbus::disk::get_disks(&self.manager)
+            .await
+            .map_err(|e| {
+                tracing::error!("Failed to get disks: {e}");
+                zbus::fdo::Error::Failed(format!("Failed to enumerate disks: {e}"))
+            })?;
 
         // Log available disks for debugging
         tracing::debug!("Found {} disks total", disks.len());
@@ -291,7 +295,7 @@ impl DisksHandler {
         tracing::debug!("GetVolumeInfo called for device: {device}");
 
         // Get all drives and search for the volume
-        let disk_volumes = storage_dbus::disk::get_disks_with_volumes()
+        let disk_volumes = storage_dbus::disk::get_disks_with_volumes(&self.manager)
             .await
             .map_err(|e| {
                 tracing::error!("Failed to get drives: {e}");
@@ -516,7 +520,7 @@ impl DisksHandler {
             format!("/dev/{}", device)
         };
 
-        let disk_volumes = storage_dbus::disk::get_disks_with_volumes()
+        let disk_volumes = storage_dbus::disk::get_disks_with_volumes(&self.manager)
             .await
             .map_err(|e| {
                 tracing::error!("Failed to get drives: {e}");
@@ -572,7 +576,7 @@ impl DisksHandler {
             format!("/dev/{}", device)
         };
 
-        let disk_volumes = storage_dbus::disk::get_disks_with_volumes()
+        let disk_volumes = storage_dbus::disk::get_disks_with_volumes(&self.manager)
             .await
             .map_err(|e| zbus::fdo::Error::Failed(format!("Failed to enumerate drives: {e}")))?;
 
@@ -622,7 +626,7 @@ impl DisksHandler {
             format!("/dev/{}", device)
         };
 
-        let disk_volumes = storage_dbus::disk::get_disks_with_volumes()
+        let disk_volumes = storage_dbus::disk::get_disks_with_volumes(&self.manager)
             .await
             .map_err(|e| zbus::fdo::Error::Failed(format!("Failed to enumerate drives: {e}")))?;
 
@@ -672,7 +676,7 @@ impl DisksHandler {
             format!("/dev/{}", device)
         };
 
-        let disk_volumes = storage_dbus::disk::get_disks_with_volumes()
+        let disk_volumes = storage_dbus::disk::get_disks_with_volumes(&self.manager)
             .await
             .map_err(|e| zbus::fdo::Error::Failed(format!("Failed to enumerate drives: {e}")))?;
 
@@ -722,7 +726,7 @@ impl DisksHandler {
             format!("/dev/{}", device)
         };
 
-        let disk_volumes = storage_dbus::disk::get_disks_with_volumes()
+        let disk_volumes = storage_dbus::disk::get_disks_with_volumes(&self.manager)
             .await
             .map_err(|e| zbus::fdo::Error::Failed(format!("Failed to enumerate drives: {e}")))?;
 
@@ -791,7 +795,7 @@ impl DisksHandler {
             format!("/dev/{}", device)
         };
 
-        let disk_volumes = storage_dbus::disk::get_disks_with_volumes()
+        let disk_volumes = storage_dbus::disk::get_disks_with_volumes(&self.manager)
             .await
             .map_err(|e| {
                 tracing::error!("Failed to get drives: {e}");
@@ -840,7 +844,11 @@ impl DisksHandler {
 ///
 /// This function subscribes to UDisks2's InterfacesAdded and InterfacesRemoved signals
 /// and emits DiskAdded/DiskRemoved signals when drives are hotplugged.
-pub async fn monitor_hotplug_events(connection: zbus::Connection, object_path: &str) -> Result<()> {
+pub async fn monitor_hotplug_events(
+    connection: zbus::Connection,
+    object_path: &str,
+    manager: storage_dbus::DiskManager,
+) -> Result<()> {
     use std::collections::HashMap;
     use zbus::zvariant::{OwnedObjectPath, OwnedValue};
 
@@ -868,8 +876,8 @@ pub async fn monitor_hotplug_events(connection: zbus::Connection, object_path: &
     let mut removed_stream = obj_manager.receive_signal("InterfacesRemoved").await?;
 
     // Spawn task to handle added signals
-    let connection_clone = connection.clone();
     let iface_ref_clone = iface_ref.clone();
+    let manager_clone = manager;
     tokio::spawn(async move {
         use futures_util::StreamExt;
 
@@ -884,8 +892,7 @@ pub async fn monitor_hotplug_events(connection: zbus::Connection, object_path: &
                         tracing::debug!("Drive added: {}", object_path);
 
                         // Get the drive info
-                        match get_disk_info_for_path(&connection_clone, &object_path.as_ref()).await
-                        {
+                        match get_disk_info_for_path(&manager_clone, &object_path.as_ref()).await {
                             Ok(disk_info) => {
                                 let device = disk_info.device.clone();
                                 match serde_json::to_string(&disk_info) {
@@ -972,10 +979,10 @@ pub async fn monitor_hotplug_events(connection: zbus::Connection, object_path: &
 
 /// Helper function to get DiskInfo for a specific UDisks2 drive object path
 async fn get_disk_info_for_path(
-    _connection: &zbus::Connection,
+    manager: &storage_dbus::DiskManager,
     object_path: &zbus::zvariant::ObjectPath<'_>,
 ) -> Result<storage_common::DiskInfo> {
-    storage_dbus::get_disk_info_for_drive_path(object_path.as_str())
+    storage_dbus::get_disk_info_for_drive_path(manager, object_path.as_str())
         .await
         .map_err(|e| anyhow::anyhow!("{}", e))
 }

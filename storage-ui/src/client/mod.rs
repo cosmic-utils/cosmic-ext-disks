@@ -3,6 +3,7 @@
 //! D-Bus client wrappers for storage-service operations
 
 pub mod btrfs;
+pub mod connection;
 pub mod disks;
 pub mod error;
 pub mod filesystems;

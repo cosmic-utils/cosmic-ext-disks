@@ -162,6 +162,7 @@ pub(super) fn open_format_partition(
         volume,
         info,
         running: false,
+        filesystem_tools: control.filesystem_tools.clone(),
     }));
 
     Task::none()
