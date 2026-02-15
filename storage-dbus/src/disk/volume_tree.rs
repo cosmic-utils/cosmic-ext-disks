@@ -9,7 +9,7 @@ use anyhow::Result;
 use storage_models::VolumeKind;
 use udisks2::{
     block::BlockProxy, encrypted::EncryptedProxy, filesystem::FilesystemProxy,
-    partitiontable::PartitionTableProxy,
+    partition::PartitionProxy, partitiontable::PartitionTableProxy,
 };
 use zbus::Connection;
 use zbus::zvariant::OwnedObjectPath;
@@ -77,10 +77,21 @@ pub(crate) async fn probe_basic_block(
     let id_type = block_proxy.id_type().await.map_err(anyhow::Error::msg)?;
     let size = block_proxy.size().await.map_err(anyhow::Error::msg)?;
 
+    // Get partition offset if this is a partition
+    let offset = match PartitionProxy::builder(connection)
+        .path(&object_path)?
+        .build()
+        .await
+    {
+        Ok(partition_proxy) => partition_proxy.offset().await.unwrap_or(0),
+        Err(_) => 0,
+    };
+
     Ok(storage_models::VolumeInfo {
         kind,
         label,
         size,
+        offset,
         id_type,
         device_path,
         parent_path: None,

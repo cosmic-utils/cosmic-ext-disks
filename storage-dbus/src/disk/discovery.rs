@@ -384,7 +384,7 @@ fn flatten_volumes_to_partitions(
                 number: 0,
                 parent_path: parent_device.to_string(),
                 size: vol.size,
-                offset: 0,
+                offset: vol.offset,
                 type_id: vol.id_type.clone(),
                 type_name: String::new(),
                 flags: 0,
@@ -406,6 +406,8 @@ fn flatten_volumes_to_partitions(
             vol.device_path.as_deref().unwrap_or(parent_device),
         ));
     }
+    // Sort by offset to ensure partitions appear in disk order
+    out.sort_by_key(|p| p.offset);
     out
 }
 

@@ -56,6 +56,9 @@ pub struct VolumeInfo {
     /// Size in bytes
     pub size: u64,
 
+    /// Offset from start of disk in bytes (for partitions only)
+    pub offset: u64,
+
     /// Filesystem/ID type (e.g., "ext4", "crypto_LUKS", "LVM2_member")
     pub id_type: String,
 
