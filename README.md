@@ -1,4 +1,4 @@
-# Disks
+# Storage
 
 > [!IMPORTANT]
 > By using this software, you fully accept all responsibility for any data loss or corruption caused whilst using this software.
@@ -6,44 +6,86 @@
 > [!WARNING]
 > This software is currently in early beta, and has not been tested against many drive type, partition type, and partition scheme combinations yet. 
 ---
-A Disk utility application for the Cosmic Desktop.
+An All-in-one Storage utility for the Cosmic Desktop.
 
 
 ### Prerequisites
-You will need the following packages/services on a systemd-based installation:
- - `udisks2` (system service; required for device enumeration and events)
-
+You will need the following packages/services:
+ - `udisks2` (system service) - required for device enumeration and events
+ - `just` (task runner) - install via `cargo install just` or your package manager
+ 
 For partition type support:
- - `ntfs-3g`
- - `exfatprogs`
- - `dosfstools`
+Recommended:
+ - `ntfs-3g` / `ntfsprogs` - NTFS Support
+ - `exfatprogs` - exFAT Support
+ - `dosfstools` - FAT32 Support
+
+ Optional: 
+ - `xfsprogs` - XFS Support - Untested but "should" work
+ - `btrfs-progs` - BTRFS support
+ - `f2fs-tools` - F2FS support - Untested but "should" work
+ - `udftools` - UDF Support - Untested but "should" work
+
+ No bcachefs support as of yet, but will be coming soon.
+ 
+
+### Development
+
+**Quick Start:**
+```bash
+just
+```
+This single command builds the workspace, installs development policies (D-Bus + Polkit), starts the storage service in the background, and launches the UI.
+
+**Other useful commands:**
+```bash
+just build              # Build workspace only
+just dev                # Build, start service, run UI (stops service on exit)
+just service-bg         # Start service in background only
+just app                # Start UI only (assumes service is running)
+just stop-service       # Stop the storage service
+just test               # Run tests
+just clippy             # Run linter
+```
 
 
-### Upcoming Changes
+### Features
 
-#### V1 - 99% Feature Parity with Gnome Disks (plus a few extras!)
-1. UI - Dialogs are still ugly, and main UI still needs some tweaking. 
-2. Testing of as many disk types and partition/disk schemes as possible.
-3. 1st class BTRFS support - Subvolumes CRUD, and snapshotting maybe
-4. Automatic "Resource Busy" resolution on unmount
-   - Essentially this will list what processes are holding the mount open, and give you the option to kill them.
-5. Add detection for required packages:
-    - Add help text in about pane listing missing deps and what functionality relies on them. 
-6. Documentation Pass - Readme and code summaries for contributors/testers
-7. Packaging for package managers/flathub 
+#### v0.1 - ⌛ WIP
+- ✅ Feature Parity with Gnome Disks
+   - **Deferred until v0.2**: Benchmark Disk/Partition
+   - **Deferred until v0.2**: ATA Drive settings
+- 🎯 Performance improvements
+- 🎯 LVM/Logical container support
+- 🎯 Detailed Usage - Think "windirstat".
+- ⌛ BTRFS support 
+  - Subvolumes Management
+  - Snapshot Management & Scheduling
+  - Optional Usage breakdown (requires enablement of quotas)
+- ⌛ New UI
+   - **Deferred**: Modal dialog windows blocked by upstream libcosmic limitations
+- 🎯 Rclone configuration
+- 🎯 Samba/ftp configuration 
+- Testing of as many disk types and partition/disk schemes as possible.
+- ✅ Automatic "Resource Busy" resolution on unmount
+   - List processes that are holding the mount open, and give you the option to kill them.
+- ⌛ Detection for required packages:
+    - Help text under the settings pane explaining missing packages
+- 🎯 Documentation - Docs/Readme/Code comments & summaries
+- 🎯 Packaging for package managers/flathub 
 
 
 #### Later
-1. Benchmark Disks
-2. ATA Drive Settings
-4. LVM Support
+- Potential move from udisks2.
+- Any feature requests welcome!
 
 
-![Screenshot of cosmos-disks](https://github.com/cosmic-utils/cosmic-ext-disks/blob/main/screenshots/cosmic-ext-disks.png)
+![Screenshot of Storage App](https://github.com/cosmic-utils/cosmic-ext-storage/blob/main/screenshots/cosmic-ext-storage.png)
 
 
 ### Notes on use of AI
 AI has been used as a ***tool*** for development of this project, and has not been treated as a self-sufficient engineer.
 
-I have been a professional (employed) software engineer since 2012, and I am very much against AI slop and the existential threat it imposes on our industry.
-That being said, when used correctly, I believe it's an invaulable tool for a sole developer on a project as large as this; Especially when money, or the threat of taking somebody's job, isn't on the line.
+I have been a professional software engineer since 2012, and I am very much against AI slop and the existential threat it imposes on our industry.
+
+That being said, I believe when it's used correctly, it is an invaulable tool for a sole developer on a project as large as this; Especially when money, or the threat of taking somebody's job, isn't on the line.

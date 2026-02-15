@@ -1,0 +1,11 @@
+[Desktop Entry]
+Name=Storage
+Comment=Storage utility for the COSMIC™ desktop
+Type=Application
+Icon=com.cosmic.ext.Storage
+Exec=cosmic-ext-storage %F
+Terminal=false
+StartupNotify=true
+Categories=COSMIC
+Keywords=COSMIC
+MimeType=
