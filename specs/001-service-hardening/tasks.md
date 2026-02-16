@@ -236,3 +236,186 @@ With multiple developers after Phase 2:
 - Commit after each task or logical group
 - Stop at any checkpoint to validate story independently
 - Constitution requires: `cargo test`, `cargo clippy`, `cargo fmt` all pass before merge
+
+---
+
+## APPENDIX B: Security Critical Tasks (US5 & US6)
+
+*Added during implementation: Security audit revealed critical vulnerabilities requiring new user stories.*
+
+### Background
+
+Two critical security issues were discovered:
+1. **Polkit Bypass (US5)**: All authorization checks validate against root (always passes) instead of actual caller
+2. **User Context Loss (US6)**: Mount operations create root-owned paths/files inaccessible to users
+
+These are **P1 CRITICAL** and should be addressed before other work.
+
+---
+
+## Phase 8: Foundational - Authorization Types (CRITICAL PREREQUISITE)
+
+**Purpose**: Types needed for authorization macro and user context passthrough
+
+**⚠️ CRITICAL**: Must complete before US5/US6
+
+- [X] T042 Create `storage-service-macros` crate directory at `storage-service-macros/`
+- [X] T043 Create `storage-service-macros/Cargo.toml` with `proc-macro = true` and dependencies (syn, quote, proc-macro2)
+- [X] T044 Create `storage-service-macros/src/lib.rs` with crate structure
+- [X] T045 [P] Create `CallerInfo` struct in `storage-common/src/caller.rs` with `uid: u32`, `username: Option<String>`, `sender: String` fields
+- [X] T046 [P] Export `CallerInfo` from `storage-common/src/lib.rs`
+- [X] T047 Add `storage-service-macros` dependency to `storage-service/Cargo.toml`
+- [X] T048 Implement `#[authorized_interface]` procedural macro in `storage-service-macros/src/lib.rs` that wraps `#[zbus::interface]` with Polkit auth
+
+**Checkpoint**: Authorization infrastructure ready
+
+---
+
+## Phase 9: User Story 5 - Proper Polkit Authorization (Priority: P1) 🔒 SECURITY CRITICAL
+
+**Goal**: Fix complete security bypass - all destructive operations currently bypass authorization
+
+**Independent Test**: Unprivileged user attempts format/delete - should see Polkit password prompt
+
+### Implementation for User Story 5
+
+**Filesystems (P1 - Most Critical)**
+
+- [X] T049 [US5] Migrate `mount` method to `#[authorized_interface(action = "org.cosmic.ext.storage-service.mount")]` in `storage-service/src/filesystems.rs`
+- [X] T050 [US5] Migrate `unmount` method to `#[authorized_interface]` in `storage-service/src/filesystems.rs`
+- [X] T051 [US5] Migrate `format` method to `#[authorized_interface]` in `storage-service/src/filesystems.rs`
+- [X] T052 [US5] Migrate `set_label` method to `#[authorized_interface]` in `storage-service/src/filesystems.rs`
+- [X] T053 [US5] Migrate `take_ownership` method to `#[authorized_interface]` in `storage-service/src/filesystems.rs`
+- [X] T054 [US5] Migrate `check` method to `#[authorized_interface]` in `storage-service/src/filesystems.rs`
+- [X] T055 [US5] Migrate `repair` method to `#[authorized_interface]` in `storage-service/src/filesystems.rs`
+
+**Partitions (P1)**
+
+- [ ] T056 [P] [US5] Migrate `create_partition` method to `#[authorized_interface]` in `storage-service/src/partitions.rs`
+- [ ] T057 [P] [US5] Migrate `delete_partition` method to `#[authorized_interface]` in `storage-service/src/partitions.rs`
+- [ ] T058 [P] [US5] Migrate `resize_partition` method to `#[authorized_interface]` in `storage-service/src/partitions.rs`
+- [ ] T059 [P] [US5] Migrate `set_partition_type` method to `#[authorized_interface]` in `storage-service/src/partitions.rs`
+- [ ] T060 [P] [US5] Migrate `set_partition_name` method to `#[authorized_interface]` in `storage-service/src/partitions.rs`
+- [ ] T061 [P] [US5] Migrate `set_partition_flags` method to `#[authorized_interface]` in `storage-service/src/partitions.rs`
+
+**LUKS (P1)**
+
+- [ ] T062 [P] [US5] Migrate `unlock_luks` method to `#[authorized_interface]` in `storage-service/src/luks.rs`
+- [ ] T063 [P] [US5] Migrate `lock_luks` method to `#[authorized_interface]` in `storage-service/src/luks.rs`
+- [ ] T064 [P] [US5] Migrate `format_luks` method to `#[authorized_interface]` in `storage-service/src/luks.rs`
+- [ ] T065 [P] [US5] Migrate `change_passphrase` method to `#[authorized_interface]` in `storage-service/src/luks.rs`
+
+**Btrfs (P2)**
+
+- [ ] T066 [P] [US5] Migrate `create_subvolume` method to `#[authorized_interface]` in `storage-service/src/btrfs.rs`
+- [ ] T067 [P] [US5] Migrate `delete_subvolume` method to `#[authorized_interface]` in `storage-service/src/btrfs.rs`
+- [ ] T068 [P] [US5] Migrate `create_snapshot` method to `#[authorized_interface]` in `storage-service/src/btrfs.rs`
+
+**Zram (P2)**
+
+- [ ] T069 [P] [US5] Migrate `create_zram` method to `#[authorized_interface]` in `storage-service/src/zram.rs`
+- [ ] T070 [P] [US5] Migrate `destroy_zram` method to `#[authorized_interface]` in `storage-service/src/zram.rs`
+
+**Disks (P2)**
+
+- [ ] T071 [P] [US5] Migrate `eject` method to `#[authorized_interface]` in `storage-service/src/disks.rs`
+- [ ] T072 [P] [US5] Migrate `power_off` method to `#[authorized_interface]` in `storage-service/src/disks.rs`
+
+**Cleanup**
+
+- [ ] T073 [US5] Deprecate or remove `check_polkit_auth()` function in `storage-service/src/auth.rs`
+- [ ] T074 [US5] Add deprecation warning to functions using `connection.unique_name()` for caller identity in `storage-service/src/auth.rs`
+
+**Checkpoint**: All destructive operations now properly check Polkit against actual caller
+
+---
+
+## Phase 10: User Story 6 - User-Owned Mount Points (Priority: P1)
+
+**Goal**: Mount operations create user-accessible paths (`/run/media/<username>/`) with user-owned files
+
+**Independent Test**: Non-root user mounts USB - verify path under their username and file ownership
+
+### Implementation for User Story 6
+
+- [ ] T075 [US6] Add `caller_uid: Option<u32>` parameter to `mount_filesystem()` in `storage-dbus/src/filesystem/mount.rs`
+- [ ] T076 [US6] Implement `get_username_from_uid()` helper using `libc::getpwuid` in `storage-dbus/src/filesystem/mount.rs`
+- [ ] T077 [US6] Add `as-user` UDisks2 option with resolved username when `caller_uid` is provided in `storage-dbus/src/filesystem/mount.rs`
+- [ ] T078 [US6] Add `uid` UDisks2 option for FAT/NTFS/exFAT file ownership in `storage-dbus/src/filesystem/mount.rs`
+- [ ] T079 [US6] Update `mount` method in `storage-service/src/filesystems.rs` to pass `caller.uid` to `mount_filesystem()`
+
+**Checkpoint**: Mount operations now create user-accessible mount points
+
+---
+
+## Phase 11: Security Polish & Validation
+
+**Purpose**: Verify security fixes work correctly
+
+- [ ] T080 Run `cargo build --workspace` and verify compilation
+- [ ] T081 Run `cargo clippy --workspace --all-features` and fix any warnings
+- [ ] T082 Run `cargo test --workspace --all-features` and verify tests pass
+- [ ] T083 Manual test: Unprivileged user attempts format operation - verify Polkit prompt appears
+- [ ] T084 Manual test: Cancel Polkit prompt - verify operation is denied
+- [ ] T085 Manual test: Non-root user mounts USB drive - verify mount path is `/run/media/<username>/`
+- [ ] T086 Manual test: Non-root user accesses mounted FAT/NTFS files - verify read/write works
+- [ ] T087 Verify no code uses `connection.unique_name()` for caller identification
+
+---
+
+## Updated Dependencies (Including Security)
+
+```
+Phase 8 (Auth Types) ─────► Phase 9 (US5 Polkit) ─────► Phase 10 (US6 User Mount)
+                                    │
+                                    ▼
+                           Phase 11 (Security Polish)
+```
+
+**Critical Path for Security Fix**:
+1. Phase 8 (Auth Types) - MUST complete first
+2. Phase 9 (US5 Polkit) - CRITICAL SECURITY
+3. Phase 10 (US6 User Mount) - Dependent on US5 for CallerInfo
+4. Phase 11 (Security Polish) - Validation
+
+---
+
+## Updated Summary
+
+| Metric | Original | Security Addition | Total |
+|--------|----------|-------------------|-------|
+| Total Tasks | 41 | 46 | 87 |
+| Setup/Foundational | 5 | 7 | 12 |
+| US4 (Layer 2 Caching) | 7 | - | 7 |
+| US1 (Layer 1 Caching) | 9 | - | 9 |
+| US2 (Protected Paths) | 7 | - | 7 |
+| US3 (FSTools) | 7 | - | 7 |
+| US5 (Polkit Authorization) | - | 26 | 26 |
+| US6 (User Mount) | - | 5 | 5 |
+| Polish Tasks | 6 | 8 | 14 |
+| Parallel Opportunities | 10 | 18 | 28 |
+
+---
+
+## Recommended Implementation Order
+
+### Immediate (Security Critical)
+
+1. **Phase 8**: Auth Types (T042-T048)
+2. **Phase 9**: US5 Polkit (T049-T074) - Deploy immediately after completion
+3. **Phase 10**: US6 User Mount (T075-T079)
+4. **Phase 11**: Security Polish (T080-T087)
+
+### Already Complete (Performance & Safety)
+
+- Phase 1-7: Connection caching, protected paths, FSTools
+
+---
+
+## Security Task Notes
+
+- US5 tasks are SECURITY CRITICAL - any user can currently perform any operation
+- The `#[authorized_interface]` macro replaces manual `check_polkit_auth()` calls
+- All methods must use `header.sender()` to get actual caller, NOT `connection.unique_name()`
+- US6 depends on US5 because it needs `CallerInfo.uid` from authorized methods
+- Test with unprivileged user to verify Polkit prompts appear

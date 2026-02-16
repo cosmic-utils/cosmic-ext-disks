@@ -349,3 +349,234 @@ Enumerate disks via UDisks2 (using existing connection)
 ```
 
 **Performance Impact**: No new D-Bus connection created for discovery operations after initial service startup.
+
+---
+
+## APPENDIX B: Authorization & User Context Types
+
+*Added during implementation: Security audit revealed need for caller identity tracking.*
+
+### CallerInfo (storage-common)
+
+Information about the D-Bus caller, extracted from message header and provided to service methods.
+
+```rust
+/// Information about a D-Bus method caller
+#[derive(Debug, Clone)]
+pub struct CallerInfo {
+    /// Unix user ID of the calling process
+    pub uid: u32,
+
+    /// Username resolved from UID (via getpwuid)
+    /// May be None if user lookup fails
+    pub username: Option<String>,
+
+    /// D-Bus unique bus name of the caller (e.g., ":1.42")
+    pub sender: String,
+}
+```
+
+**Validation Rules**:
+- `uid` is always present (from D-Bus)
+- `username` is resolved via `libc::getpwuid`, may be `None`
+- `sender` is the unique bus name from message header
+
+**Lifecycle**:
+1. Extracted from D-Bus message header by `#[authorized_interface]` macro
+2. Populated with UID via `get_connection_unix_user()`
+3. Username resolved via `getpwuid`
+4. Passed to method body for use in operations
+
+---
+
+### AuthorizedInterface Attribute (storage-service-macros)
+
+Procedural macro attribute that wraps `#[zbus::interface]` with Polkit authorization.
+
+**Attribute Parameters**:
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `action` | `&str` | Yes | Polkit action ID to check |
+
+**Generated Code Behavior**:
+
+1. Adds `#[zbus(header)]` and `#[zbus(connection)]` parameters
+2. Extracts sender from `header.sender()`
+3. Looks up caller UID via `get_connection_unix_user()`
+4. Resolves username via `getpwuid`
+5. Checks Polkit authorization with correct subject
+6. If authorized: creates `CallerInfo` and calls method body
+7. If not authorized: returns `zbus::fdo::Error::AccessDenied`
+
+**Usage**:
+
+```rust
+#[authorized_interface(action = "org.cosmic.ext.storage-service.mount")]
+async fn mount(
+    &self,
+    caller: CallerInfo,  // Auto-injected
+    device: String,
+    mount_point: String,
+    options_json: String,
+) -> zbus::fdo::Result<String> {
+    // Authorization already verified
+    // Use caller.uid for UDisks2 passthrough
+}
+```
+
+---
+
+### Modified Types - User Context Passthrough
+
+#### MountOptions (existing - extended)
+
+The mount function signature is extended to accept optional caller UID.
+
+```rust
+// storage-dbus/src/filesystem/mount.rs
+
+pub async fn mount_filesystem(
+    device_path: &str,
+    _mount_point: &str,
+    options: MountOptions,
+    caller_uid: Option<u32>,  // NEW: for UDisks2 user context
+) -> Result<String, DiskError>
+```
+
+**Behavior with caller_uid**:
+- If `Some(uid)`: Pass `as-user=<username>` and `uid=<uid>` to UDisks2
+- If `None`: Use default UDisks2 behavior (mount as root)
+
+---
+
+## Updated Relationships Diagram
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                     storage-ui (GUI)                        │
+│                                                             │
+│  SharedConnection (OnceLock<Connection>)                    │
+│       │                                                     │
+│       └─────> D-Bus method call with sender identity        │
+└─────────────────────────┬───────────────────────────────────┘
+                          │ D-Bus (caller's unique name in header)
+                          ▼
+┌─────────────────────────────────────────────────────────────┐
+│                  storage-service (D-Bus Service)            │
+│                                                             │
+│  #[authorized_interface(action = "...")]                    │
+│       │                                                     │
+│       ├──> 1. Extract sender from MessageHeader             │
+│       ├──> 2. Look up UID via get_connection_unix_user()    │
+│       ├──> 3. Resolve username via getpwuid                 │
+│       ├──> 4. Check Polkit authorization                    │
+│       │                                                     │
+│       └──> If authorized: Create CallerInfo, call method    │
+│                                                             │
+│  Method receives: caller: CallerInfo                        │
+│       │                                                     │
+│       └─────> Pass caller.uid to storage-dbus operations    │
+└─────────────────────────┬───────────────────────────────────┘
+                          │ library calls with caller context
+                          ▼
+┌─────────────────────────────────────────────────────────────┐
+│                  storage-dbus (Library)                     │
+│                                                             │
+│  mount_filesystem(device, mount_point, options, caller_uid) │
+│       │                                                     │
+│       └─────> If caller_uid:                                │
+│                   - Resolve username from UID               │
+│                   - Pass as-user=<username> to UDisks2      │
+│                   - Pass uid=<uid> to UDisks2               │
+└─────────────────────────┬───────────────────────────────────┘
+                          │ D-Bus (as-user option in call)
+                          ▼
+┌─────────────────────────────────────────────────────────────┐
+│                    UDisks2 (System Service)                 │
+│                                                             │
+│  Mount created at: /run/media/<username>/                   │
+│  Files owned by: <uid>                                      │
+└─────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## Data Flow - Authorization & User Context
+
+### Authorization Flow
+
+```
+D-Bus Method Call
+    │
+    ├──> Message Header contains sender (":1.42")
+    │
+    ▼
+#[authorized_interface] Macro
+    │
+    ├──> 1. header.sender() → ":1.42"
+    │
+    ├──> 2. get_connection_unix_user(":1.42") → uid=1000
+    │
+    ├──> 3. getpwuid(1000) → username="alice"
+    │
+    ├──> 4. get_connection_unix_process_id(":1.42") → pid=12345
+    │
+    ├──> 5. Subject::new_for_owner(12345, None, None)
+    │
+    ├──> 6. Polkit check_authorization(subject, action_id)
+    │         │
+    │         ├──> Authorized → Continue
+    │         └──> Not Authorized → Return AccessDenied
+    │
+    ▼
+Method Body
+    │
+    └──> Receives CallerInfo { uid: 1000, username: Some("alice"), sender: ":1.42" }
+```
+
+### Mount with User Context Flow
+
+```
+mount(caller: CallerInfo, device, ...)
+    │
+    ▼
+mount_filesystem(device, options, Some(caller.uid))
+    │
+    ▼
+get_username_from_uid(1000) → "alice"
+    │
+    ▼
+UDisks2 Filesystem.Mount({
+    "as-user": "alice",      // Mount path: /run/media/alice/
+    "uid": 1000,             // File ownership: alice
+    "options": "rw,nosuid"   // Standard mount options
+})
+    │
+    ▼
+Mount point: /run/media/alice/USB_DRIVE
+Files owned by: alice (uid 1000)
+```
+
+---
+
+## Migration Checklist
+
+### Types to Create
+
+- [ ] `storage-common/src/caller.rs` - `CallerInfo` struct
+- [ ] `storage-service-macros/Cargo.toml` - proc-macro crate config
+- [ ] `storage-service-macros/src/lib.rs` - `#[authorized_interface]` macro
+
+### Functions to Modify
+
+| Function | Location | Change |
+|----------|----------|--------|
+| `mount_filesystem()` | `storage-dbus/src/filesystem/mount.rs` | Add `caller_uid: Option<u32>` param |
+| All interface methods | `storage-service/src/*.rs` | Migrate to `#[authorized_interface]` |
+
+### Functions to Deprecate
+
+| Function | Location | Replacement |
+|----------|----------|-------------|
+| `check_polkit_auth()` | `storage-service/src/auth.rs` | `#[authorized_interface]` macro |

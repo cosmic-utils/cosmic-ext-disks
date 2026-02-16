@@ -162,3 +162,204 @@ Phase 2 (Protected Paths) ──> Independent
 | Disk enumeration | ~2-3s each | <500ms first, <200ms cached |
 | UI event response | ~1-2s | <500ms |
 | D-Bus connections per operation | 10+ | 1-2 |
+
+---
+
+## APPENDIX B: Polkit Authorization & User Context Passthrough
+
+*Added during implementation: Security audit revealed critical vulnerabilities requiring immediate attention.*
+
+### Security Issues Identified
+
+1. **Polkit Bypass**: `check_polkit_auth()` uses `connection.unique_name()` which returns the service's own name (root), not the caller's. This means ALL authorization checks pass because root is always authorized.
+
+2. **UDisks2 User Context Loss**: When the service calls UDisks2, UDisks2 sees the request coming from root. Mount points appear under `/run/media/root/` with root-owned files, inaccessible to the actual user.
+
+### Revised Implementation Phases
+
+The original phases (0-3) remain valid but security fixes take priority:
+
+#### Phase 0.5: Authorization Macro Infrastructure (CRITICAL - Do First)
+
+**Rationale**: This is a complete security bypass. Any user can perform any destructive operation without authentication.
+
+**Changes**:
+
+1. **Create `storage-service-macros` crate**:
+   ```text
+   storage-service-macros/
+   ├── Cargo.toml          # proc-macro = true
+   └── src/
+       └── lib.rs          # #[authorized_interface()] macro
+   ```
+
+2. **Define `CallerInfo` struct in `storage-common`**:
+   ```rust
+   pub struct CallerInfo {
+       pub uid: u32,
+       pub username: Option<String>,
+       pub sender: String,
+   }
+   ```
+
+3. **Implement the macro**:
+   - Wraps `#[zbus::interface]` functionality
+   - Auto-injects `#[zbus(header)]` and `#[zbus(connection)]`
+   - Extracts caller info before method body
+   - Performs Polkit check with correct subject
+   - Injects `CallerInfo` parameter into method
+
+**Files**:
+- `storage-service-macros/Cargo.toml` (NEW)
+- `storage-service-macros/src/lib.rs` (NEW)
+- `storage-common/src/caller.rs` (NEW)
+- `storage-common/src/lib.rs` (MODIFY: export caller module)
+
+---
+
+#### Phase 0.6: Migrate Service Methods to Authorized Macro (CRITICAL)
+
+**Rationale**: All existing authorization is broken. Must migrate all methods.
+
+**Changes by File**:
+
+| File | Methods to Migrate | Priority |
+|------|-------------------|----------|
+| `storage-service/src/filesystems.rs` | `mount`, `unmount`, `format`, `set_label`, `take_ownership`, `check`, `repair` | P1 |
+| `storage-service/src/partitions.rs` | `create_partition`, `delete_partition`, `resize_partition`, `set_partition_type`, `set_partition_name`, `set_partition_flags` | P1 |
+| `storage-service/src/luks.rs` | `unlock_luks`, `lock_luks`, `format_luks`, `change_passphrase` | P1 |
+| `storage-service/src/btrfs.rs` | `create_subvolume`, `delete_subvolume`, `create_snapshot` | P2 |
+| `storage-service/src/zram.rs` | `create_zram`, `destroy_zram` | P2 |
+| `storage-service/src/disks.rs` | `eject`, `power_off` | P2 |
+
+**Migration Pattern**:
+
+```rust
+// BEFORE (broken)
+async fn mount(&self, device: String, ...) -> zbus::fdo::Result<String> {
+    check_polkit_auth(connection, "action.id").await?;  // Checks against root!
+    // ...
+}
+
+// AFTER (fixed)
+#[authorized_interface(action = "org.cosmic.ext.storage-service.mount")]
+async fn mount(&self, caller: CallerInfo, device: String, ...) -> zbus::fdo::Result<String> {
+    // Authorization already checked against actual caller
+    // caller.uid and caller.username available
+}
+```
+
+---
+
+#### Phase 0.7: UDisks2 User Context Passthrough (CRITICAL)
+
+**Rationale**: Users cannot access their mounted filesystems.
+
+**Changes**:
+
+1. **Update `mount_filesystem()` signature**:
+   ```rust
+   // storage-dbus/src/filesystem/mount.rs
+   pub async fn mount_filesystem(
+       device_path: &str,
+       mount_point: &str,
+       options: MountOptions,
+       caller_uid: Option<u32>,  // NEW
+   ) -> Result<String, DiskError>
+   ```
+
+2. **Add username resolution**:
+   ```rust
+   fn get_username_from_uid(uid: u32) -> Option<String> {
+       unsafe { libc::getpwuid(uid) }
+           .as_ref()
+           .and_then(|pw| std::ffi::CStr::from_ptr((*pw).pw_name).to_str().ok())
+           .map(|s| s.to_string())
+   }
+   ```
+
+3. **Pass `as-user` and `uid` to UDisks2**:
+   ```rust
+   if let Some(uid) = caller_uid {
+       if let Some(username) = get_username_from_uid(uid) {
+           opts.insert("as-user", Value::from(username));
+           opts.insert("uid", Value::from(uid));
+       }
+   }
+   ```
+
+4. **Update service call sites** to pass `caller.uid`:
+
+**Files**:
+- `storage-dbus/src/filesystem/mount.rs` (MODIFY)
+- `storage-service/src/filesystems.rs` (MODIFY: pass caller.uid)
+
+---
+
+### Updated Dependencies Between Phases
+
+```
+Phase 0.5 (Macro Infrastructure)
+         │
+         ▼
+Phase 0.6 (Migrate Methods) ──────┐
+         │                        │
+         ▼                        ▼
+Phase 0.7 (User Passthrough)   Phase 0 (Layer 2 Caching)
+         │                        │
+         └────────┬───────────────┘
+                  ▼
+            Phase 1 (Layer 1 Sharing)
+                  │
+                  ▼
+            Phase 2 (Protected Paths)
+                  │
+                  ▼
+            Phase 3 (FSTools)
+```
+
+---
+
+### Updated Project Structure
+
+```text
+storage-service-macros/           # NEW CRATE
+├── Cargo.toml                    # proc-macro = true
+└── src/
+    └── lib.rs                    # #[authorized_interface()] macro
+
+storage-common/
+├── src/
+│   ├── caller.rs                 # NEW: CallerInfo struct
+│   ├── capabilities.rs           # ServiceCapabilities
+│   └── protected.rs              # ProtectedPath types
+
+storage-service/
+├── Cargo.toml                    # MODIFY: add storage-service-macros dep
+└── src/
+    ├── filesystems.rs            # MODIFY: use #[authorized_interface]
+    ├── partitions.rs             # MODIFY: use #[authorized_interface]
+    ├── luks.rs                   # MODIFY: use #[authorized_interface
+    ├── btrfs.rs                  # MODIFY: use #[authorized_interface]
+    ├── zram.rs                   # MODIFY: use #[authorized_interface]
+    ├── disks.rs                  # MODIFY: use #[authorized_interface]
+    └── auth.rs                   # DEPRECATE: check_polkit_auth()
+
+storage-dbus/
+└── src/
+    └── filesystem/
+        └── mount.rs              # MODIFY: accept caller_uid, use as-user
+```
+
+---
+
+### Additional Success Criteria
+
+| ID | Criterion | Verification |
+|----|-----------|--------------|
+| SC-010 | All destructive methods require proper Polkit auth | Attempt as unprivileged user |
+| SC-011 | Polkit password prompts appear when required | Manual testing |
+| SC-012 | Mount points created under `/run/media/<username>/` | Mount and check path |
+| SC-013 | Files on mounted FAT/NTFS owned by mounting user | `ls -la` on mount |
+| SC-014 | `check_polkit_auth()` deprecated or removed | Code review |
+| SC-015 | No authorization uses `connection.unique_name()` | Code search |

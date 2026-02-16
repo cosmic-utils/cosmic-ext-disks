@@ -344,3 +344,269 @@ All subsequent operations reuse this connection
 2. **Layer 1** (storage-ui → storage-service): Important but less frequent calls
 3. **System Path Protection**: Safety feature, independent of performance
 4. **FSTools Consolidation**: Lower priority, maintainability improvement
+
+---
+
+## APPENDIX B: Polkit Authorization & User Context Research
+
+*Added during implementation: Security audit revealed critical vulnerabilities in authorization checking.*
+
+### 7. Procedural Macro for Authorized Interface
+
+**Question**: How can we implement a `#[authorized_interface()]` macro that wraps `#[zbus::interface]` and adds Polkit authorization?
+
+#### Decision: Create a procedural macro crate `storage-service-macros`
+
+**Rationale**:
+- Procedural macros require a separate crate type (`proc-macro = true`)
+- Macro can generate the `#[zbus::interface]` code with authorization wrapper
+- Centralizes authorization logic in one place
+- Eliminates boilerplate in each interface method
+
+**Macro Design**:
+
+```rust
+// storage-service-macros/src/lib.rs
+
+use proc_macro::TokenStream;
+use quote::quote;
+use syn::{parse_macro_parse, ItemImpl};
+
+#[proc_macro_attribute]
+pub fn authorized_interface(attr: TokenStream, item: TokenStream) -> TokenStream {
+    let action_id = parse_macro_parse!(attr as LitStr);
+    let impl_block = parse_macro_parse!(item as ItemImpl);
+
+    // Generate code that:
+    // 1. Extracts header and connection from zbus
+    // 2. Gets caller info from header.sender()
+    // 3. Checks Polkit authorization
+    // 4. Injects CallerInfo parameter into method body
+
+    let expanded = quote! {
+        #[zbus::interface(name = "org.cosmic.ext.StorageService")]
+        impl #impl_block {
+            // Generated authorization wrapper for each method
+        }
+    };
+
+    expanded.into()
+}
+```
+
+**Usage Pattern**:
+
+```rust
+// In service methods
+#[authorized_interface(action = "org.cosmic.ext.storage-service.mount")]
+async fn mount(
+    &self,
+    caller: CallerInfo,  // Auto-injected by macro
+    device: String,
+    mount_point: String,
+    options: MountOptions,
+) -> zbus::fdo::Result<String> {
+    // caller.uid and caller.username available
+    // Authorization already verified
+    crate::filesystem::mount_filesystem(&device, &mount_point, options, Some(caller.uid)).await
+}
+```
+
+**Alternatives Considered**:
+
+| Approach | Rejected Because |
+|----------|------------------|
+| Manual `#[zbus(header)]` on each method | Boilerplate across 60+ methods, error-prone |
+| Runtime middleware/dispatch | zbus doesn't support middleware hooks |
+| Base trait with default auth method | Still requires per-method invocation |
+| Wrapper struct around impl blocks | Doesn't compose with `#[interface]` macro |
+
+---
+
+### 8. Extracting Caller Identity from D-Bus Messages
+
+**Question**: How do we correctly identify the calling user in a D-Bus method?
+
+#### Decision: Use `#[zbus(header)]` parameter with `header.sender()` to get unique bus name, then look up UID
+
+**Rationale**:
+- `MessageHeader::sender()` returns the caller's unique bus name (e.g., `:1.42`)
+- `DBusProxy::get_connection_unix_user()` converts bus name to UID
+- This is the CORRECT approach, unlike `connection.unique_name()` which returns the service's own name
+
+**Implementation Pattern**:
+
+```rust
+use zbus::message::Header as MessageHeader;
+
+async fn method(
+    #[zbus(header)] header: MessageHeader<'_>,
+    #[zbus(connection)] connection: &Connection,
+) -> zbus::fdo::Result<()> {
+    // Get the ACTUAL caller's bus name
+    let sender = header.sender()
+        .ok_or_else(|| zbus::fdo::Error::Failed("No sender".into()))?;
+
+    // Look up the caller's UID
+    let dbus_proxy = zbus::fdo::DBusProxy::new(connection).await?;
+    let uid = dbus_proxy.get_connection_unix_user(sender.as_ref()).await?;
+
+    // Now we have the real caller's UID
+}
+```
+
+**Common Mistake (Current Bug)**:
+
+```rust
+// WRONG - returns the service's own bus name!
+let sender = connection.unique_name().unwrap().to_string();
+// This checks if root is authorized (always yes)
+```
+
+---
+
+### 9. Polkit Authorization with Correct Subject
+
+**Question**: How do we construct the Polkit Subject for authorization checking?
+
+#### Decision: Use `Subject::new_for_owner(pid, None, None)` with PID from D-Bus
+
+**Rationale**:
+- Polkit needs a Subject to check authorization against
+- `new_for_owner()` takes a PID and creates the correct subject type
+- We get PID from `get_connection_unix_process_id()` using the caller's bus name
+
+**Implementation Pattern**:
+
+```rust
+use zbus_polkit::policykit1::{AuthorityProxy, Subject, CheckAuthorizationFlags};
+
+async fn check_authorization(
+    connection: &Connection,
+    sender: &str,  // Caller's unique bus name from header.sender()
+    action_id: &str,
+) -> Result<bool, ServiceError> {
+    let authority = AuthorityProxy::new(connection).await?;
+
+    // Get caller's PID from their bus name
+    let dbus_proxy = zbus::fdo::DBusProxy::new(connection).await?;
+    let bus_name: zbus::names::BusName = sender.try_into()?;
+    let pid = dbus_proxy.get_connection_unix_process_id(bus_name).await?;
+
+    // Create subject for the ACTUAL caller
+    let subject = Subject::new_for_owner(pid, None, None)?;
+
+    let result = authority.check_authorization(
+        &subject,
+        action_id,
+        &HashMap::new(),
+        CheckAuthorizationFlags::AllowUserInteraction.into(),
+        "",
+    ).await?;
+
+    Ok(result.is_authorized)
+}
+```
+
+---
+
+### 10. UDisks2 User Context Passthrough
+
+**Question**: Which UDisks2 operations need user context, and how do we pass it?
+
+#### Decision: Use `as-user` option for mount path, `uid` option for file ownership
+
+**Rationale**:
+- UDisks2's `Filesystem.Mount()` supports an `as-user` option that creates mount points under `/run/media/<username>/`
+- The `uid` mount option ensures files on FAT/NTFS/exFAT are owned by the user
+- Both options together provide complete user context
+
+**UDisks2 Operations Requiring User Context**:
+
+| Operation | Option | Effect |
+|-----------|--------|--------|
+| `Filesystem.Mount()` | `as-user=<username>` | Mount point created at `/run/media/<username>/` |
+| `Filesystem.Mount()` | `uid=<uid>` | Files owned by user (FAT/NTFS/exFAT) |
+| `Filesystem.TakeOwnership()` | Run as user | Files chown'd to user |
+
+**Implementation Pattern**:
+
+```rust
+// storage-dbus/src/filesystem/mount.rs
+
+pub async fn mount_filesystem(
+    device_path: &str,
+    options: MountOptions,
+    caller_uid: Option<u32>,  // NEW parameter
+) -> Result<String, DiskError> {
+    let mut opts: HashMap<&str, Value<'_>> = HashMap::new();
+
+    if let Some(uid) = caller_uid {
+        // Get username from UID
+        if let Some(username) = get_username_from_uid(uid) {
+            // This sets mount path to /run/media/<username>/
+            opts.insert("as-user", Value::from(username));
+            // This sets file ownership on FAT/NTFS
+            opts.insert("uid", Value::from(uid));
+        }
+    }
+
+    // ... rest of mount logic
+}
+
+fn get_username_from_uid(uid: u32) -> Option<String> {
+    let pw = unsafe { libc::getpwuid(uid) };
+    if pw.is_null() { return None; }
+    unsafe {
+        std::ffi::CStr::from_ptr((*pw).pw_name)
+            .to_str().ok().map(|s| s.to_string())
+    }
+}
+```
+
+---
+
+### 11. Methods Requiring Authorization Fix
+
+**Question**: Which service methods currently have broken authorization?
+
+#### Identified Methods
+
+All methods using `check_polkit_auth()` or `require_authorization()` without explicitly passing the sender from `header.sender()` are affected.
+
+**Affected Files**:
+
+| File | Methods | Impact |
+|------|---------|--------|
+| `storage-service/src/filesystems.rs` | `mount`, `unmount`, `format`, `set_label`, `take_ownership` | HIGH - All filesystem ops bypassed |
+| `storage-service/src/partitions.rs` | `create`, `delete`, `resize`, `set_type`, `set_flags` | HIGH - All partition ops bypassed |
+| `storage-service/src/luks.rs` | `unlock`, `lock`, `format_luks`, `change_passphrase` | HIGH - All encryption ops bypassed |
+| `storage-service/src/btrfs.rs` | `create_subvolume`, `delete_subvolume`, `create_snapshot` | MEDIUM - Btrfs ops bypassed |
+| `storage-service/src/zram.rs` | `create_zram_device`, `destroy_zram_device` | MEDIUM - Zram ops bypassed |
+| `storage-service/src/disks.rs` | `eject`, `power_off` | MEDIUM - Disk control bypassed |
+
+**Total**: ~60+ method calls across 7 files
+
+---
+
+## Final Summary of Decisions
+
+| Topic | Decision | Scope |
+|-------|----------|-------|
+| UI Connection Sharing | `tokio::sync::OnceCell` with static getter | storage-ui |
+| DBus Library Connection | `Arc<Connection>` stored in `DiskManager` | storage-dbus |
+| Protected Paths | Static constant with canonicalization + prefix matching | storage-service |
+| FSTools Detection | Enhance existing detection, add D-Bus method | storage-service |
+| Error Communication | Use existing `UnmountResult.error` field | storage-service |
+| **Authorization Macro** | **Create `storage-service-macros` crate with `#[authorized_interface()]`** | **NEW CRATE** |
+| **Caller Identity** | **Use `header.sender()` + `get_connection_unix_user()`** | **storage-service** |
+| **UDisks2 User Passthrough** | **`as-user` + `uid` options for mount operations** | **storage-dbus** |
+
+## Revised Implementation Priority
+
+1. **Authorization Macro** (CRITICAL SECURITY): Fixes complete Polkit bypass
+2. **User Context Passthrough** (CRITICAL USABILITY): Mounts accessible to users
+3. **Layer 2** (storage-dbus → UDisks2): Performance
+4. **Layer 1** (storage-ui → storage-service): Performance
+5. **System Path Protection**: Safety feature
+6. **FSTools Consolidation**: Maintainability

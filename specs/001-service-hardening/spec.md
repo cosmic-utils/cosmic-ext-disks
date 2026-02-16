@@ -185,3 +185,159 @@ As the storage service, I want to reuse a single D-Bus connection to UDisks2 acr
 - **SC-007**: The `get_disks_with_volumes()` function creates zero new D-Bus connections after the first call (verified via logging/metrics)
 - **SC-008**: Disk enumeration operations complete in under 500ms after initial connection is established
 - **SC-009**: No duplicate connection creation code exists in storage-dbus discovery functions
+
+---
+
+## APPENDIX B: Polkit Authorization & User Context Passthrough
+
+*Added during implementation: Security audit revealed that Polkit authorization checks were validating against the service (root) instead of the actual D-Bus caller, completely bypassing authorization protections.*
+
+### Background
+
+The storage-service uses Polkit (via zbus_polkit crate) to authorize destructive operations like formatting disks, modifying partitions, and mounting/unmounting filesystems. However, the current implementation has two critical security issues:
+
+1. **Polkit bypass**: The `check_polkit_auth()` function uses `connection.unique_name()` which returns the service's own bus name, not the caller's. This means all authorization checks pass because root is always authorized.
+
+2. **UDisks2 user context loss**: When the service calls UDisks2 on behalf of a user, UDisks2 sees the request coming from root. Operations like mounting create mount points owned by root (`/run/media/root/`) instead of the actual user, making them inaccessible.
+
+### User Story 5 - Proper Polkit Authorization for All Service Methods (Priority: P1)
+
+As a system administrator, I want all destructive storage operations to properly check Polkit authorization against the actual calling user, so that unauthorized users cannot perform dangerous operations and authorized users see appropriate password prompts.
+
+**Why this priority**: This is a critical security vulnerability. Currently, ANY user can perform ANY operation (format disks, delete partitions, etc.) without authentication because the authorization check validates against root instead of the caller.
+
+**Independent Test**: Can be fully tested by having an unprivileged user attempt a destructive operation and verifying:
+1. A Polkit password prompt appears (if policy requires it)
+2. The operation is denied if the user cancels or enters wrong credentials
+3. The operation proceeds only after successful authentication
+
+**Acceptance Scenarios**:
+
+1. **Given** an unprivileged user runs the storage UI, **When** they attempt to format a disk, **Then** a Polkit authentication prompt appears requesting their password or admin credentials
+2. **Given** the user cancels the Polkit prompt, **When** the operation is attempted, **Then** the operation is denied with an "Not authorized" error
+3. **Given** the user enters incorrect credentials, **When** the operation is attempted, **Then** the operation is denied and the user can retry
+4. **Given** the user provides correct credentials, **When** the operation is attempted, **Then** the operation proceeds and completes successfully
+5. **Given** an admin user performs an operation, **When** the Polkit policy allows active admins without prompt, **Then** the operation proceeds immediately
+
+---
+
+### User Story 6 - User-Owned Mount Points and File Ownership (Priority: P1)
+
+As a regular user, I want filesystems mounted through the storage application to be owned by me, so that I can actually access my files without needing root privileges.
+
+**Why this priority**: Currently, mounts appear under `/run/media/root/` and files are owned by root, making them inaccessible to the user who requested the mount.
+
+**Independent Test**: Can be fully tested by:
+1. Mounting a USB drive as a non-root user
+2. Verifying the mount point is under `/run/media/<username>/`
+3. Verifying the user can read/write files on the mounted filesystem
+
+**Acceptance Scenarios**:
+
+1. **Given** a regular user mounts a USB drive, **When** the mount completes, **Then** the mount point is created under `/run/media/<username>/`
+2. **Given** a regular user mounts a FAT/NTFS filesystem, **When** the mount completes, **Then** files on the filesystem are owned by that user (not root)
+3. **Given** a regular user mounts a filesystem, **When** they browse the mount, **Then** they can create, read, and modify files without sudo
+4. **Given** a mounted filesystem, **When** the user requests to unmount it, **Then** they can unmount it without admin credentials (if they mounted it)
+
+---
+
+### Functional Requirements - Polkit Authorization
+
+#### Authorized Interface Macro
+
+- **FR-020**: A procedural macro `#[authorized_interface()]` MUST be created that wraps the zbus `#[interface]` macro
+- **FR-021**: The macro MUST automatically inject Polkit authorization checking before method execution
+- **FR-022**: The macro MUST support specifying the Polkit action ID as an attribute (e.g., `#[authorized_interface(action = "org.cosmic.ext.storage-service.format")]`)
+- **FR-023**: The macro MUST automatically inject a `sender: CallerInfo` parameter into the function signature
+- **FR-024**: The `CallerInfo` struct MUST contain: `uid: u32`, `username: Option<String>`, `sender: String`
+- **FR-025**: The macro MUST extract the caller's identity from the D-Bus message header and populate `CallerInfo`
+- **FR-026**: If Polkit authorization fails, the macro MUST return a `zbus::fdo::Error::AccessDenied` without executing the method body
+- **FR-027**: The macro MUST preserve all existing `#[interface]` functionality (signals, properties, etc.)
+
+#### Authorization Checking
+
+- **FR-028**: All destructive service methods MUST use the `#[authorized_interface()]` macro or equivalent authorization
+- **FR-029**: Authorization checks MUST use the caller's unique bus name from the message header, NOT `connection.unique_name()`
+- **FR-030**: The `check_polkit_auth()` function MUST be deprecated or fixed to require an explicit sender parameter
+- **FR-031**: Authorization MUST support `AllowUserInteraction` flag to enable password prompts
+
+---
+
+### Functional Requirements - UDisks2 User Context Passthrough
+
+#### User-Dependent Operations
+
+- **FR-032**: The service MUST identify which UDisks2 operations have user-dependent behavior
+- **FR-033**: For mount operations, the service MUST pass the caller's username via UDisks2's `as-user` option
+- **FR-034**: For mount operations on FAT/NTFS/exFAT, the service MUST pass the caller's UID via the `uid` mount option
+- **FR-035**: For filesystem ownership operations (take ownership), the service MUST run as the requesting user
+
+#### UDisks2 Operations Requiring User Context
+
+The following UDisks2 operations have material dependency on the calling user:
+
+| Operation | User Dependency | Required Passthrough |
+|-----------|-----------------|---------------------|
+| Filesystem.Mount() | Mount point path, file ownership | `as-user=<username>`, `uid=<uid>` |
+| Filesystem.Mount() with vfat/ntfs/exfat | File ownership in filesystem | `uid=<uid>` option |
+| Filesystem.SetLabel() | May require filesystem ownership | Run as user or verify ownership |
+| Encrypted.Unlock() | Cleartext device ownership | May need `as-user` equivalent |
+| Partition.SetType() | Partition table ownership | Usually requires auth anyway |
+
+---
+
+### Key Entities - Authorization Layer
+
+- **CallerInfo**: A struct containing the caller's identity extracted from D-Bus message header
+  - `uid: u32` - Unix user ID of the calling process
+  - `username: Option<String>` - Username resolved from UID (via getpwuid)
+  - `sender: String` - D-Bus unique bus name of the caller (e.g., ":1.42")
+
+- **AuthorizedInterface**: A procedural macro attribute that:
+  - Wraps `#[zbus::interface]` functionality
+  - Injects pre-call Polkit authorization
+  - Provides caller identity to the method body
+
+- **PolkitAction**: An attribute specifying the Polkit action ID for a method
+  - Maps to actions defined in `data/polkit-1/actions/org.cosmic.ext.storage-service.policy`
+
+---
+
+### Technical Design - Authorized Interface Macro
+
+```rust
+// Example usage of the proposed macro
+#[authorized_interface(name = "org.cosmic.ext.StorageService.Filesystems")]
+impl Filesystems {
+    #[authorized_interface(action = "org.cosmic.ext.storage-service.mount")]
+    pub async fn mount(
+        &self,
+        sender: CallerInfo,  // Auto-injected by macro
+        device: String,
+        mount_point: String,
+        options: MountOptions,
+    ) -> zbus::fdo::Result<String> {
+        // Method body - authorization already checked
+        // sender.uid and sender.username available for UDisks2 passthrough
+        crate::filesystem::mount_filesystem(&device, &mount_point, options, Some(sender.uid)).await
+    }
+}
+```
+
+The macro expands to:
+1. Standard `#[zbus::interface]` with `#[zbus(header)]` and `#[zbus(connection)]` parameters
+2. Extract caller info from header and connection
+3. Perform Polkit check against the actual caller
+4. If authorized, populate `CallerInfo` and call method body
+5. If not authorized, return `AccessDenied` error
+
+---
+
+### Additional Success Criteria
+
+- **SC-010**: All destructive service methods require proper Polkit authorization (verified by attempting operations as unprivileged user)
+- **SC-011**: Polkit password prompts appear when required by policy (verified manually)
+- **SC-012**: Mount points are created under `/run/media/<username>/` not `/run/media/root/` (verified by mounting as non-root user)
+- **SC-013**: Files on mounted FAT/NTFS filesystems are owned by the mounting user (verified via `ls -la`)
+- **SC-014**: The `check_polkit_auth()` function is either removed or requires explicit sender parameter
+- **SC-015**: No authorization checks use `connection.unique_name()` to identify the caller
