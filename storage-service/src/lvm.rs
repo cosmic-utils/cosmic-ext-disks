@@ -8,9 +8,9 @@
 use std::path::Path;
 use std::process::Command;
 use storage_common::{LogicalVolumeInfo, PhysicalVolumeInfo, VolumeGroupInfo};
-use zbus::{Connection, interface};
-
-use crate::auth::check_polkit_auth;
+use storage_service_macros::authorized_interface;
+use zbus::message::Header as MessageHeader;
+use zbus::{interface, Connection};
 
 /// D-Bus interface for LVM management operations
 pub struct LVMHandler {
@@ -84,17 +84,15 @@ impl LVMHandler {
     /// Returns: JSON-serialized Vec<VolumeGroupInfo>
     ///
     /// Authorization: org.cosmic.ext.storage-service.lvm-read (allow_active)
+    #[authorized_interface(action = "org.cosmic.ext.storage-service.lvm-read")]
     async fn list_volume_groups(
         &self,
-        #[zbus(connection)] connection: &Connection,
+        #[zbus(connection)] _connection: &Connection,
+        #[zbus(header)] _header: MessageHeader<'_>,
     ) -> zbus::fdo::Result<String> {
-        check_polkit_auth(connection, "org.cosmic.ext.storage-service.lvm-read")
-            .await
-            .map_err(|e| zbus::fdo::Error::Failed(format!("Authorization failed: {e}")))?;
-
         self.require_lvm()?;
 
-        tracing::debug!("Listing volume groups");
+        tracing::debug!("Listing volume groups (UID {})", caller.uid);
 
         // Call vgs command
         let output = Command::new("vgs")
@@ -165,17 +163,15 @@ impl LVMHandler {
     /// Returns: JSON-serialized Vec<LogicalVolumeInfo>
     ///
     /// Authorization: org.cosmic.ext.storage-service.lvm-read (allow_active)
+    #[authorized_interface(action = "org.cosmic.ext.storage-service.lvm-read")]
     async fn list_logical_volumes(
         &self,
-        #[zbus(connection)] connection: &Connection,
+        #[zbus(connection)] _connection: &Connection,
+        #[zbus(header)] _header: MessageHeader<'_>,
     ) -> zbus::fdo::Result<String> {
-        check_polkit_auth(connection, "org.cosmic.ext.storage-service.lvm-read")
-            .await
-            .map_err(|e| zbus::fdo::Error::Failed(format!("Authorization failed: {e}")))?;
-
         self.require_lvm()?;
 
-        tracing::debug!("Listing logical volumes");
+        tracing::debug!("Listing logical volumes (UID {})", caller.uid);
 
         // Call lvs command
         let output = Command::new("lvs")
@@ -247,17 +243,15 @@ impl LVMHandler {
     /// Returns: JSON-serialized Vec<PhysicalVolumeInfo>
     ///
     /// Authorization: org.cosmic.ext.storage-service.lvm-read (allow_active)
+    #[authorized_interface(action = "org.cosmic.ext.storage-service.lvm-read")]
     async fn list_physical_volumes(
         &self,
-        #[zbus(connection)] connection: &Connection,
+        #[zbus(connection)] _connection: &Connection,
+        #[zbus(header)] _header: MessageHeader<'_>,
     ) -> zbus::fdo::Result<String> {
-        check_polkit_auth(connection, "org.cosmic.ext.storage-service.lvm-read")
-            .await
-            .map_err(|e| zbus::fdo::Error::Failed(format!("Authorization failed: {e}")))?;
-
         self.require_lvm()?;
 
-        tracing::debug!("Listing physical volumes");
+        tracing::debug!("Listing physical volumes (UID {})", caller.uid);
 
         // Call pvs command
         let output = Command::new("pvs")
@@ -331,17 +325,15 @@ impl LVMHandler {
     /// - devices_json: JSON-serialized Vec<String> of device paths (e.g., ["/dev/sda1", "/dev/sdb1"])
     ///
     /// Authorization: org.cosmic.ext.storage-service.lvm-modify (auth_admin_keep)
+    #[authorized_interface(action = "org.cosmic.ext.storage-service.lvm-modify")]
     async fn create_volume_group(
         &self,
-        #[zbus(connection)] connection: &Connection,
+        #[zbus(connection)] _connection: &Connection,
+        #[zbus(header)] _header: MessageHeader<'_>,
         #[zbus(signal_context)] signal_ctx: zbus::object_server::SignalEmitter<'_>,
         vg_name: String,
         devices_json: String,
     ) -> zbus::fdo::Result<()> {
-        check_polkit_auth(connection, "org.cosmic.ext.storage-service.lvm-modify")
-            .await
-            .map_err(|e| zbus::fdo::Error::Failed(format!("Authorization failed: {e}")))?;
-
         self.require_lvm()?;
 
         // Parse devices
@@ -355,9 +347,10 @@ impl LVMHandler {
         }
 
         tracing::info!(
-            "Creating volume group '{}' with devices: {:?}",
+            "Creating volume group '{}' with devices: {:?} (UID {})",
             vg_name,
-            devices
+            devices,
+            caller.uid
         );
 
         // Run vgcreate
@@ -391,25 +384,24 @@ impl LVMHandler {
     /// - size_bytes: Size in bytes
     ///
     /// Authorization: org.cosmic.ext.storage-service.lvm-modify (auth_admin_keep)
+    #[authorized_interface(action = "org.cosmic.ext.storage-service.lvm-modify")]
     async fn create_logical_volume(
         &self,
-        #[zbus(connection)] connection: &Connection,
+        #[zbus(connection)] _connection: &Connection,
+        #[zbus(header)] _header: MessageHeader<'_>,
         #[zbus(signal_context)] signal_ctx: zbus::object_server::SignalEmitter<'_>,
         vg_name: String,
         lv_name: String,
         size_bytes: u64,
     ) -> zbus::fdo::Result<String> {
-        check_polkit_auth(connection, "org.cosmic.ext.storage-service.lvm-modify")
-            .await
-            .map_err(|e| zbus::fdo::Error::Failed(format!("Authorization failed: {e}")))?;
-
         self.require_lvm()?;
 
         tracing::info!(
-            "Creating logical volume '{}/{}' with size {} bytes",
+            "Creating logical volume '{}/{}' with size {} bytes (UID {})",
             vg_name,
             lv_name,
-            size_bytes
+            size_bytes,
+            caller.uid
         );
 
         // Run lvcreate with size in bytes
@@ -443,22 +435,21 @@ impl LVMHandler {
     /// - new_size_bytes: New size in bytes
     ///
     /// Authorization: org.cosmic.ext.storage-service.lvm-modify (auth_admin_keep)
+    #[authorized_interface(action = "org.cosmic.ext.storage-service.lvm-modify")]
     async fn resize_logical_volume(
         &self,
-        #[zbus(connection)] connection: &Connection,
+        #[zbus(connection)] _connection: &Connection,
+        #[zbus(header)] _header: MessageHeader<'_>,
         lv_path: String,
         new_size_bytes: u64,
     ) -> zbus::fdo::Result<()> {
-        check_polkit_auth(connection, "org.cosmic.ext.storage-service.lvm-modify")
-            .await
-            .map_err(|e| zbus::fdo::Error::Failed(format!("Authorization failed: {e}")))?;
-
         self.require_lvm()?;
 
         tracing::info!(
-            "Resizing logical volume '{}' to {} bytes",
+            "Resizing logical volume '{}' to {} bytes (UID {})",
             lv_path,
-            new_size_bytes
+            new_size_bytes,
+            caller.uid
         );
 
         // Run lvresize with new size in bytes
@@ -490,19 +481,17 @@ impl LVMHandler {
     /// - vg_name: Name of the volume group to delete
     ///
     /// Authorization: org.cosmic.ext.storage-service.lvm-modify (auth_admin_keep)
+    #[authorized_interface(action = "org.cosmic.ext.storage-service.lvm-modify")]
     async fn delete_volume_group(
         &self,
-        #[zbus(connection)] connection: &Connection,
+        #[zbus(connection)] _connection: &Connection,
+        #[zbus(header)] _header: MessageHeader<'_>,
         #[zbus(signal_context)] signal_ctx: zbus::object_server::SignalEmitter<'_>,
         vg_name: String,
     ) -> zbus::fdo::Result<()> {
-        check_polkit_auth(connection, "org.cosmic.ext.storage-service.lvm-modify")
-            .await
-            .map_err(|e| zbus::fdo::Error::Failed(format!("Authorization failed: {e}")))?;
-
         self.require_lvm()?;
 
-        tracing::info!("Deleting volume group '{}'", vg_name);
+        tracing::info!("Deleting volume group '{}' (UID {})", vg_name, caller.uid);
 
         // Run vgremove
         let output = Command::new("vgremove")
@@ -532,19 +521,17 @@ impl LVMHandler {
     /// - lv_path: Logical volume path (e.g., "/dev/vg0/lv0" or "vg0/lv0")
     ///
     /// Authorization: org.cosmic.ext.storage-service.lvm-modify (auth_admin_keep)
+    #[authorized_interface(action = "org.cosmic.ext.storage-service.lvm-modify")]
     async fn delete_logical_volume(
         &self,
-        #[zbus(connection)] connection: &Connection,
+        #[zbus(connection)] _connection: &Connection,
+        #[zbus(header)] _header: MessageHeader<'_>,
         #[zbus(signal_context)] signal_ctx: zbus::object_server::SignalEmitter<'_>,
         lv_path: String,
     ) -> zbus::fdo::Result<()> {
-        check_polkit_auth(connection, "org.cosmic.ext.storage-service.lvm-modify")
-            .await
-            .map_err(|e| zbus::fdo::Error::Failed(format!("Authorization failed: {e}")))?;
-
         self.require_lvm()?;
 
-        tracing::info!("Deleting logical volume '{}'", lv_path);
+        tracing::info!("Deleting logical volume '{}' (UID {})", lv_path, caller.uid);
 
         // Run lvremove
         let output = Command::new("lvremove")
@@ -580,22 +567,21 @@ impl LVMHandler {
     /// - pv_device: Physical volume device path (e.g., "/dev/sda1")
     ///
     /// Authorization: org.cosmic.ext.storage-service.lvm-modify (auth_admin_keep)
+    #[authorized_interface(action = "org.cosmic.ext.storage-service.lvm-modify")]
     async fn remove_physical_volume(
         &self,
-        #[zbus(connection)] connection: &Connection,
+        #[zbus(connection)] _connection: &Connection,
+        #[zbus(header)] _header: MessageHeader<'_>,
         vg_name: String,
         pv_device: String,
     ) -> zbus::fdo::Result<()> {
-        check_polkit_auth(connection, "org.cosmic.ext.storage-service.lvm-modify")
-            .await
-            .map_err(|e| zbus::fdo::Error::Failed(format!("Authorization failed: {e}")))?;
-
         self.require_lvm()?;
 
         tracing::info!(
-            "Removing physical volume '{}' from volume group '{}'",
+            "Removing physical volume '{}' from volume group '{}' (UID {})",
             pv_device,
-            vg_name
+            vg_name,
+            caller.uid
         );
 
         // Run vgreduce

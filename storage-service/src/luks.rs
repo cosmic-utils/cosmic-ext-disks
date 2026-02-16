@@ -5,9 +5,9 @@
 //! This module provides D-Bus methods for managing LUKS encrypted volumes.
 
 use storage_common::EncryptionOptionsSettings;
-use zbus::{Connection, interface};
-
-use crate::auth::check_polkit_auth;
+use storage_service_macros::authorized_interface;
+use zbus::message::Header as MessageHeader;
+use zbus::{interface, Connection};
 
 /// D-Bus interface for LUKS encryption operations
 pub struct LuksHandler;
@@ -48,15 +48,13 @@ impl LuksHandler {
     /// Returns: JSON-serialized Vec<LuksInfo>
     ///
     /// Authorization: org.cosmic.ext.storage-service.luks-read (allow_active)
+    #[authorized_interface(action = "org.cosmic.ext.storage-service.luks-read")]
     async fn list_encrypted_devices(
         &self,
-        #[zbus(connection)] connection: &Connection,
+        #[zbus(connection)] _connection: &Connection,
+        #[zbus(header)] _header: MessageHeader<'_>,
     ) -> zbus::fdo::Result<String> {
-        check_polkit_auth(connection, "org.cosmic.ext.storage-service.luks-read")
-            .await
-            .map_err(|e| zbus::fdo::Error::Failed(format!("Authorization failed: {e}")))?;
-
-        tracing::debug!("Listing encrypted devices");
+        tracing::debug!("Listing encrypted devices (UID {})", caller.uid);
 
         // Delegate to storage-dbus operation
         let luks_devices = storage_dbus::list_luks_devices().await.map_err(|e| {
@@ -80,19 +78,17 @@ impl LuksHandler {
     /// - version: LUKS version ("luks1" or "luks2", defaults to "luks2")
     ///
     /// Authorization: org.cosmic.ext.storage-service.luks-format (auth_admin - always prompt)
+    #[authorized_interface(action = "org.cosmic.ext.storage-service.luks-format")]
     async fn format(
         &self,
-        #[zbus(connection)] connection: &Connection,
+        #[zbus(connection)] _connection: &Connection,
+        #[zbus(header)] _header: MessageHeader<'_>,
         #[zbus(signal_context)] signal_ctx: zbus::object_server::SignalEmitter<'_>,
         device: String,
         passphrase: String,
         version: String,
     ) -> zbus::fdo::Result<()> {
-        check_polkit_auth(connection, "org.cosmic.ext.storage-service.luks-format")
-            .await
-            .map_err(|e| zbus::fdo::Error::Failed(format!("Authorization failed: {e}")))?;
-
-        tracing::info!("Formatting device '{}' as LUKS", device);
+        tracing::info!("Formatting device '{}' as LUKS (UID {})", device, caller.uid);
 
         // Validate version
         let luks_version = if version.is_empty() || version == "luks2" {
@@ -128,18 +124,16 @@ impl LuksHandler {
     /// Returns: Cleartext device path (e.g., "/dev/mapper/luks-xxx")
     ///
     /// Authorization: org.cosmic.ext.storage-service.luks-unlock (allow_active)
+    #[authorized_interface(action = "org.cosmic.ext.storage-service.luks-unlock")]
     async fn unlock(
         &self,
-        #[zbus(connection)] connection: &Connection,
+        #[zbus(connection)] _connection: &Connection,
+        #[zbus(header)] _header: MessageHeader<'_>,
         #[zbus(signal_context)] signal_ctx: zbus::object_server::SignalEmitter<'_>,
         device: String,
         passphrase: String,
     ) -> zbus::fdo::Result<String> {
-        check_polkit_auth(connection, "org.cosmic.ext.storage-service.luks-unlock")
-            .await
-            .map_err(|e| zbus::fdo::Error::Failed(format!("Authorization failed: {e}")))?;
-
-        tracing::info!("Unlocking LUKS device '{}'", device);
+        tracing::info!("Unlocking LUKS device '{}' (UID {})", device, caller.uid);
 
         // Delegate to storage-dbus operation
         let cleartext_device = storage_dbus::unlock_luks(&device, &passphrase)
@@ -164,17 +158,15 @@ impl LuksHandler {
     /// - device: Device path (e.g., "/dev/sda1")
     ///
     /// Authorization: org.cosmic.ext.storage-service.luks-lock (allow_active)
+    #[authorized_interface(action = "org.cosmic.ext.storage-service.luks-lock")]
     async fn lock(
         &self,
-        #[zbus(connection)] connection: &Connection,
+        #[zbus(connection)] _connection: &Connection,
+        #[zbus(header)] _header: MessageHeader<'_>,
         #[zbus(signal_context)] signal_ctx: zbus::object_server::SignalEmitter<'_>,
         device: String,
     ) -> zbus::fdo::Result<()> {
-        check_polkit_auth(connection, "org.cosmic.ext.storage-service.luks-lock")
-            .await
-            .map_err(|e| zbus::fdo::Error::Failed(format!("Authorization failed: {e}")))?;
-
-        tracing::info!("Locking LUKS device '{}'", device);
+        tracing::info!("Locking LUKS device '{}' (UID {})", device, caller.uid);
 
         // Delegate to storage-dbus operation
         storage_dbus::lock_luks(&device).await.map_err(|e| {
@@ -195,18 +187,16 @@ impl LuksHandler {
     /// - new_passphrase: New passphrase
     ///
     /// Authorization: org.cosmic.ext.storage-service.luks-modify (auth_admin_keep)
+    #[authorized_interface(action = "org.cosmic.ext.storage-service.luks-modify")]
     async fn change_passphrase(
         &self,
-        #[zbus(connection)] connection: &Connection,
+        #[zbus(connection)] _connection: &Connection,
+        #[zbus(header)] _header: MessageHeader<'_>,
         device: String,
         current_passphrase: String,
         new_passphrase: String,
     ) -> zbus::fdo::Result<()> {
-        check_polkit_auth(connection, "org.cosmic.ext.storage-service.luks-modify")
-            .await
-            .map_err(|e| zbus::fdo::Error::Failed(format!("Authorization failed: {e}")))?;
-
-        tracing::info!("Changing passphrase for LUKS device '{}'", device);
+        tracing::info!("Changing passphrase for LUKS device '{}' (UID {})", device, caller.uid);
 
         // Delegate to storage-dbus operation
         storage_dbus::change_luks_passphrase(&device, &current_passphrase, &new_passphrase)
@@ -229,14 +219,14 @@ impl LuksHandler {
     /// Returns: JSON-serialized Option<EncryptionOptionsSettings> ("null" if none)
     ///
     /// Authorization: org.cosmic.ext.storage-service.luks-read (allow_active)
+    #[authorized_interface(action = "org.cosmic.ext.storage-service.luks-read")]
     async fn get_encryption_options(
         &self,
-        #[zbus(connection)] connection: &Connection,
+        #[zbus(connection)] _connection: &Connection,
+        #[zbus(header)] _header: MessageHeader<'_>,
         device: String,
     ) -> zbus::fdo::Result<String> {
-        check_polkit_auth(connection, "org.cosmic.ext.storage-service.luks-read")
-            .await
-            .map_err(|e| zbus::fdo::Error::Failed(format!("Authorization failed: {e}")))?;
+        tracing::debug!("Getting encryption options for '{}' (UID {})", device, caller.uid);
 
         // Delegate to storage-dbus operation
         let settings = storage_dbus::get_encryption_options(&device)
@@ -259,18 +249,15 @@ impl LuksHandler {
     /// - options_json: JSON-serialized EncryptionOptionsSettings (name, unlock_at_startup, require_auth, other_options, optional passphrase)
     ///
     /// Authorization: org.cosmic.ext.storage-service.luks-set-options
+    #[authorized_interface(action = "org.cosmic.ext.storage-service.luks-set-options")]
     async fn set_encryption_options(
         &self,
-        #[zbus(connection)] connection: &Connection,
+        #[zbus(connection)] _connection: &Connection,
+        #[zbus(header)] _header: MessageHeader<'_>,
         device: String,
         options_json: String,
     ) -> zbus::fdo::Result<()> {
-        check_polkit_auth(
-            connection,
-            "org.cosmic.ext.storage-service.luks-set-options",
-        )
-        .await
-        .map_err(|e| zbus::fdo::Error::Failed(format!("Authorization failed: {e}")))?;
+        tracing::debug!("Setting encryption options for '{}' (UID {})", device, caller.uid);
 
         let settings: EncryptionOptionsSettings = serde_json::from_str(&options_json)
             .map_err(|e| zbus::fdo::Error::InvalidArgs(format!("Invalid options JSON: {e}")))?;
@@ -290,17 +277,14 @@ impl LuksHandler {
     /// Clear encryption options (remove crypttab entry) for a LUKS device
     ///
     /// Authorization: org.cosmic.ext.storage-service.luks-set-options
+    #[authorized_interface(action = "org.cosmic.ext.storage-service.luks-set-options")]
     async fn default_encryption_options(
         &self,
-        #[zbus(connection)] connection: &Connection,
+        #[zbus(connection)] _connection: &Connection,
+        #[zbus(header)] _header: MessageHeader<'_>,
         device: String,
     ) -> zbus::fdo::Result<()> {
-        check_polkit_auth(
-            connection,
-            "org.cosmic.ext.storage-service.luks-set-options",
-        )
-        .await
-        .map_err(|e| zbus::fdo::Error::Failed(format!("Authorization failed: {e}")))?;
+        tracing::debug!("Clearing encryption options for '{}' (UID {})", device, caller.uid);
 
         // Delegate to storage-dbus operation
         storage_dbus::clear_encryption_options(&device)

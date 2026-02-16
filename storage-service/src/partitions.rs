@@ -6,10 +6,10 @@
 //! including creating/deleting partitions and partition tables.
 
 use storage_dbus::DiskManager;
+use storage_service_macros::authorized_interface;
+use zbus::message::Header as MessageHeader;
 use zbus::zvariant::OwnedObjectPath;
-use zbus::{Connection, interface};
-
-use crate::auth::check_polkit_auth;
+use zbus::{interface, Connection};
 
 /// D-Bus interface for partition management operations
 pub struct PartitionsHandler {
@@ -89,17 +89,14 @@ impl PartitionsHandler {
     /// Returns: JSON-serialized Vec<PartitionInfo>
     ///
     /// Authorization: org.cosmic.ext.storage-service.partition-read (allow_active)
+    #[authorized_interface(action = "org.cosmic.ext.storage-service.partition-read")]
     async fn list_partitions(
         &self,
-        #[zbus(connection)] connection: &Connection,
+        #[zbus(connection)] _connection: &Connection,
+        #[zbus(header)] _header: MessageHeader<'_>,
         disk: String,
     ) -> zbus::fdo::Result<String> {
-        // Check authorization
-        check_polkit_auth(connection, "org.cosmic.ext.storage-service.partition-read")
-            .await
-            .map_err(|e| zbus::fdo::Error::Failed(format!("Authorization failed: {e}")))?;
-
-        tracing::debug!("Listing partitions for disk: {disk}");
+        tracing::debug!("Listing partitions for disk: {disk} (UID {})", caller.uid);
 
         let disk_volumes = storage_dbus::disk::get_disks_with_partitions(&self.manager)
             .await
@@ -140,22 +137,21 @@ impl PartitionsHandler {
     /// - table_type: Type of partition table ("gpt" or "dos"/"mbr")
     ///
     /// Authorization: org.cosmic.ext.storage-service.partition-modify (auth_admin_keep)
+    #[authorized_interface(action = "org.cosmic.ext.storage-service.partition-modify")]
     async fn create_partition_table(
         &self,
-        #[zbus(connection)] connection: &Connection,
+        #[zbus(connection)] _connection: &Connection,
+        #[zbus(header)] _header: MessageHeader<'_>,
         #[zbus(signal_context)] signal_ctx: zbus::object_server::SignalEmitter<'_>,
         disk: String,
         table_type: String,
     ) -> zbus::fdo::Result<()> {
-        // Check authorization (requires admin password)
-        check_polkit_auth(
-            connection,
-            "org.cosmic.ext.storage-service.partition-modify",
-        )
-        .await
-        .map_err(|e| zbus::fdo::Error::Failed(format!("Authorization failed: {e}")))?;
-
-        tracing::info!("Creating {} partition table on disk: {}", table_type, disk);
+        tracing::info!(
+            "Creating {} partition table on disk: {} (UID {})",
+            table_type,
+            disk,
+            caller.uid
+        );
 
         // Validate and normalize table type
         let normalized_type = match table_type.to_lowercase().as_str() {
@@ -209,29 +205,24 @@ impl PartitionsHandler {
     /// Returns: Device path of created partition (e.g., "/dev/sda1")
     ///
     /// Authorization: org.cosmic.ext.storage-service.partition-modify (auth_admin_keep)
+    #[authorized_interface(action = "org.cosmic.ext.storage-service.partition-modify")]
     async fn create_partition(
         &self,
-        #[zbus(connection)] connection: &Connection,
+        #[zbus(connection)] _connection: &Connection,
+        #[zbus(header)] _header: MessageHeader<'_>,
         #[zbus(signal_context)] signal_ctx: zbus::object_server::SignalEmitter<'_>,
         disk: String,
         offset: u64,
         size: u64,
         type_id: String,
     ) -> zbus::fdo::Result<String> {
-        // Check authorization
-        check_polkit_auth(
-            connection,
-            "org.cosmic.ext.storage-service.partition-modify",
-        )
-        .await
-        .map_err(|e| zbus::fdo::Error::Failed(format!("Authorization failed: {e}")))?;
-
         tracing::info!(
-            "Creating partition on {}: offset={}, size={}, type={}",
+            "Creating partition on {}: offset={}, size={}, type={} (UID {})",
             disk,
             offset,
             size,
-            type_id
+            type_id,
+            caller.uid
         );
 
         let disk_device = if disk.starts_with("/dev/") {
@@ -288,21 +279,15 @@ impl PartitionsHandler {
     /// Returns: Device path of created partition (e.g., "/dev/sda1")
     ///
     /// Authorization: org.cosmic.ext.storage-service.partition-modify (auth_admin_keep)
+    #[authorized_interface(action = "org.cosmic.ext.storage-service.partition-modify")]
     async fn create_partition_with_filesystem(
         &self,
-        #[zbus(connection)] connection: &Connection,
+        #[zbus(connection)] _connection: &Connection,
+        #[zbus(header)] _header: MessageHeader<'_>,
         #[zbus(signal_context)] signal_ctx: zbus::object_server::SignalEmitter<'_>,
         disk: String,
         info_json: String,
     ) -> zbus::fdo::Result<String> {
-        // Check authorization
-        check_polkit_auth(
-            connection,
-            "org.cosmic.ext.storage-service.partition-modify",
-        )
-        .await
-        .map_err(|e| zbus::fdo::Error::Failed(format!("Authorization failed: {e}")))?;
-
         // Parse the CreatePartitionInfo
         let info: storage_common::CreatePartitionInfo =
             serde_json::from_str(&info_json).map_err(|e| {
@@ -311,12 +296,13 @@ impl PartitionsHandler {
             })?;
 
         tracing::info!(
-            "Creating partition with filesystem on {}: offset={}, size={}, fs={}, luks={}",
+            "Creating partition with filesystem on {}: offset={}, size={}, fs={}, luks={} (UID {})",
             disk,
             info.offset,
             info.size,
             info.filesystem_type,
-            info.password_protected
+            info.password_protected,
+            caller.uid
         );
 
         let disk_device = if disk.starts_with("/dev/") {
@@ -378,21 +364,15 @@ impl PartitionsHandler {
     /// - partition: Partition device path (e.g., "/dev/sda1")
     ///
     /// Authorization: org.cosmic.ext.storage-service.partition-modify (auth_admin_keep)
+    #[authorized_interface(action = "org.cosmic.ext.storage-service.partition-modify")]
     async fn delete_partition(
         &self,
-        #[zbus(connection)] connection: &Connection,
+        #[zbus(connection)] _connection: &Connection,
+        #[zbus(header)] _header: MessageHeader<'_>,
         #[zbus(signal_context)] signal_ctx: zbus::object_server::SignalEmitter<'_>,
         partition: String,
     ) -> zbus::fdo::Result<()> {
-        // Check authorization
-        check_polkit_auth(
-            connection,
-            "org.cosmic.ext.storage-service.partition-modify",
-        )
-        .await
-        .map_err(|e| zbus::fdo::Error::Failed(format!("Authorization failed: {e}")))?;
-
-        tracing::info!("Deleting partition: {}", partition);
+        tracing::info!("Deleting partition: {} (UID {})", partition, caller.uid);
 
         // Find partition path from device
         let partition_path = self.find_partition_path(&partition).await?;
@@ -420,22 +400,21 @@ impl PartitionsHandler {
     /// - new_size: New size in bytes
     ///
     /// Authorization: org.cosmic.ext.storage-service.partition-modify (auth_admin_keep)
+    #[authorized_interface(action = "org.cosmic.ext.storage-service.partition-modify")]
     async fn resize_partition(
         &self,
-        #[zbus(connection)] connection: &Connection,
+        #[zbus(connection)] _connection: &Connection,
+        #[zbus(header)] _header: MessageHeader<'_>,
         #[zbus(signal_context)] signal_ctx: zbus::object_server::SignalEmitter<'_>,
         partition: String,
         new_size: u64,
     ) -> zbus::fdo::Result<()> {
-        // Check authorization
-        check_polkit_auth(
-            connection,
-            "org.cosmic.ext.storage-service.partition-modify",
-        )
-        .await
-        .map_err(|e| zbus::fdo::Error::Failed(format!("Authorization failed: {e}")))?;
-
-        tracing::info!("Resizing partition {} to {} bytes", partition, new_size);
+        tracing::info!(
+            "Resizing partition {} to {} bytes (UID {})",
+            partition,
+            new_size,
+            caller.uid
+        );
 
         // Find partition path
         let partition_path = self.find_partition_path(&partition).await?;
@@ -463,22 +442,21 @@ impl PartitionsHandler {
     /// - type_id: Partition type identifier
     ///
     /// Authorization: org.cosmic.ext.storage-service.partition-modify (auth_admin_keep)
+    #[authorized_interface(action = "org.cosmic.ext.storage-service.partition-modify")]
     async fn set_partition_type(
         &self,
-        #[zbus(connection)] connection: &Connection,
+        #[zbus(connection)] _connection: &Connection,
+        #[zbus(header)] _header: MessageHeader<'_>,
         #[zbus(signal_context)] signal_ctx: zbus::object_server::SignalEmitter<'_>,
         partition: String,
         type_id: String,
     ) -> zbus::fdo::Result<()> {
-        // Check authorization
-        check_polkit_auth(
-            connection,
-            "org.cosmic.ext.storage-service.partition-modify",
-        )
-        .await
-        .map_err(|e| zbus::fdo::Error::Failed(format!("Authorization failed: {e}")))?;
-
-        tracing::info!("Setting partition {} type to {}", partition, type_id);
+        tracing::info!(
+            "Setting partition {} type to {} (UID {})",
+            partition,
+            type_id,
+            caller.uid
+        );
 
         // Find partition path
         let partition_path = self.find_partition_path(&partition).await?;
@@ -506,22 +484,21 @@ impl PartitionsHandler {
     /// - flags: Flags as u64 bitfield (0x01 = bootable, 0x02 = system, 0x04 = hidden)
     ///
     /// Authorization: org.cosmic.ext.storage-service.partition-modify (auth_admin_keep)
+    #[authorized_interface(action = "org.cosmic.ext.storage-service.partition-modify")]
     async fn set_partition_flags(
         &self,
-        #[zbus(connection)] connection: &Connection,
+        #[zbus(connection)] _connection: &Connection,
+        #[zbus(header)] _header: MessageHeader<'_>,
         #[zbus(signal_context)] signal_ctx: zbus::object_server::SignalEmitter<'_>,
         partition: String,
         flags: u64,
     ) -> zbus::fdo::Result<()> {
-        // Check authorization
-        check_polkit_auth(
-            connection,
-            "org.cosmic.ext.storage-service.partition-modify",
-        )
-        .await
-        .map_err(|e| zbus::fdo::Error::Failed(format!("Authorization failed: {e}")))?;
-
-        tracing::info!("Setting partition {} flags to 0x{:x}", partition, flags);
+        tracing::info!(
+            "Setting partition {} flags to 0x{:x} (UID {})",
+            partition,
+            flags,
+            caller.uid
+        );
 
         // Find partition path
         let partition_path = self.find_partition_path(&partition).await?;
@@ -549,22 +526,21 @@ impl PartitionsHandler {
     /// - name: Partition name (max 36 characters for GPT)
     ///
     /// Authorization: org.cosmic.ext.storage-service.partition-modify (auth_admin_keep)
+    #[authorized_interface(action = "org.cosmic.ext.storage-service.partition-modify")]
     async fn set_partition_name(
         &self,
-        #[zbus(connection)] connection: &Connection,
+        #[zbus(connection)] _connection: &Connection,
+        #[zbus(header)] _header: MessageHeader<'_>,
         #[zbus(signal_context)] signal_ctx: zbus::object_server::SignalEmitter<'_>,
         partition: String,
         name: String,
     ) -> zbus::fdo::Result<()> {
-        // Check authorization
-        check_polkit_auth(
-            connection,
-            "org.cosmic.ext.storage-service.partition-modify",
-        )
-        .await
-        .map_err(|e| zbus::fdo::Error::Failed(format!("Authorization failed: {e}")))?;
-
-        tracing::info!("Setting partition {} name to '{}'", partition, name);
+        tracing::info!(
+            "Setting partition {} name to '{}' (UID {})",
+            partition,
+            name,
+            caller.uid
+        );
 
         // Validate name length (GPT allows 36 characters)
         if name.len() > 36 {

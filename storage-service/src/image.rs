@@ -9,11 +9,13 @@ use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::Instant;
+use storage_service_macros::authorized_interface;
 use tokio::sync::Mutex;
 use tokio::task::JoinHandle;
 use tokio_util::sync::CancellationToken;
+use zbus::message::Header as MessageHeader;
 use zbus::object_server::SignalEmitter;
-use zbus::{Connection, interface};
+use zbus::{interface, Connection};
 
 /// Operation type for tracking
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -230,19 +232,16 @@ impl ImageHandler {
     /// Returns: operation_id for tracking progress
     ///
     /// Authorization: org.cosmic.ext.storage-service.disk-backup
+    #[authorized_interface(action = "org.cosmic.ext.storage-service.disk-backup")]
     async fn backup_drive(
         &self,
-        #[zbus(connection)] connection: &Connection,
+        #[zbus(connection)] _connection: &Connection,
+        #[zbus(header)] _header: MessageHeader<'_>,
         #[zbus(signal_context)] signal_ctx: SignalEmitter<'_>,
         device: String,
         output_path: String,
     ) -> zbus::fdo::Result<String> {
-        // Check authorization
-        crate::auth::check_polkit_auth(connection, "org.cosmic.ext.storage-service.disk-backup")
-            .await
-            .map_err(|e| zbus::fdo::Error::Failed(format!("Authorization failed: {e}")))?;
-
-        tracing::info!("Starting drive backup: {device} → {output_path}");
+        tracing::info!("Starting drive backup: {device} → {output_path} (UID {})", caller.uid);
 
         // Validate output path
         let output_path_obj = Path::new(&output_path);
@@ -330,22 +329,16 @@ impl ImageHandler {
     /// Returns: operation_id for tracking progress
     ///
     /// Authorization: org.cosmic.ext.storage-service.partition-backup
+    #[authorized_interface(action = "org.cosmic.ext.storage-service.partition-backup")]
     async fn backup_partition(
         &self,
-        #[zbus(connection)] connection: &Connection,
+        #[zbus(connection)] _connection: &Connection,
+        #[zbus(header)] _header: MessageHeader<'_>,
         #[zbus(signal_context)] signal_ctx: SignalEmitter<'_>,
         device: String,
         output_path: String,
     ) -> zbus::fdo::Result<String> {
-        // Check authorization
-        crate::auth::check_polkit_auth(
-            connection,
-            "org.cosmic.ext.storage-service.partition-backup",
-        )
-        .await
-        .map_err(|e| zbus::fdo::Error::Failed(format!("Authorization failed: {e}")))?;
-
-        tracing::info!("Starting partition backup: {device} → {output_path}");
+        tracing::info!("Starting partition backup: {device} → {output_path} (UID {})", caller.uid);
 
         // Validate output path
         let output_path_obj = Path::new(&output_path);
@@ -427,19 +420,16 @@ impl ImageHandler {
     /// Returns: operation_id for tracking progress
     ///
     /// Authorization: org.cosmic.ext.storage-service.disk-restore (always prompts)
+    #[authorized_interface(action = "org.cosmic.ext.storage-service.disk-restore")]
     async fn restore_drive(
         &self,
-        #[zbus(connection)] connection: &Connection,
+        #[zbus(connection)] _connection: &Connection,
+        #[zbus(header)] _header: MessageHeader<'_>,
         #[zbus(signal_context)] signal_ctx: SignalEmitter<'_>,
         device: String,
         image_path: String,
     ) -> zbus::fdo::Result<String> {
-        // Check authorization (auth_admin - always prompts)
-        crate::auth::check_polkit_auth(connection, "org.cosmic.ext.storage-service.disk-restore")
-            .await
-            .map_err(|e| zbus::fdo::Error::Failed(format!("Authorization failed: {e}")))?;
-
-        tracing::warn!("Starting DESTRUCTIVE drive restore: {image_path} → {device}");
+        tracing::warn!("Starting DESTRUCTIVE drive restore: {image_path} → {device} (UID {})", caller.uid);
 
         // Validate image file exists
         if !Path::new(&image_path).exists() {
@@ -517,22 +507,16 @@ impl ImageHandler {
     /// Returns: operation_id for tracking progress
     ///
     /// Authorization: org.cosmic.ext.storage-service.partition-restore (always prompts)
+    #[authorized_interface(action = "org.cosmic.ext.storage-service.partition-restore")]
     async fn restore_partition(
         &self,
-        #[zbus(connection)] connection: &Connection,
+        #[zbus(connection)] _connection: &Connection,
+        #[zbus(header)] _header: MessageHeader<'_>,
         #[zbus(signal_context)] signal_ctx: SignalEmitter<'_>,
         device: String,
         image_path: String,
     ) -> zbus::fdo::Result<String> {
-        // Check authorization (auth_admin - always prompts)
-        crate::auth::check_polkit_auth(
-            connection,
-            "org.cosmic.ext.storage-service.partition-restore",
-        )
-        .await
-        .map_err(|e| zbus::fdo::Error::Failed(format!("Authorization failed: {e}")))?;
-
-        tracing::warn!("Starting DESTRUCTIVE partition restore: {image_path} → {device}");
+        tracing::warn!("Starting DESTRUCTIVE partition restore: {image_path} → {device} (UID {})", caller.uid);
 
         // Validate image file
         if !Path::new(&image_path).exists() {
@@ -609,20 +593,14 @@ impl ImageHandler {
     /// Returns: Loop device path (e.g., "/dev/loop0")
     ///
     /// Authorization: org.cosmic.ext.storage-service.disk-loop-setup
+    #[authorized_interface(action = "org.cosmic.ext.storage-service.disk-loop-setup")]
     async fn loop_setup(
         &self,
-        #[zbus(connection)] connection: &Connection,
+        #[zbus(connection)] _connection: &Connection,
+        #[zbus(header)] _header: MessageHeader<'_>,
         image_path: String,
     ) -> zbus::fdo::Result<String> {
-        // Check authorization
-        crate::auth::check_polkit_auth(
-            connection,
-            "org.cosmic.ext.storage-service.disk-loop-setup",
-        )
-        .await
-        .map_err(|e| zbus::fdo::Error::Failed(format!("Authorization failed: {e}")))?;
-
-        tracing::info!("Setting up loop device for: {image_path}");
+        tracing::info!("Setting up loop device for: {image_path} (UID {})", caller.uid);
 
         // Validate image file
         if !Path::new(&image_path).exists() {

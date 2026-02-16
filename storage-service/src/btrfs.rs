@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: GPL-3.0-only
 
-use crate::auth::require_authorization;
 use disks_btrfs::SubvolumeManager;
 use std::path::PathBuf;
 use storage_common::btrfs::SubvolumeList;
+use storage_service_macros::authorized_interface;
 use zbus::message::Header as MessageHeader;
 use zbus::object_server::SignalEmitter;
-use zbus::{Connection, interface};
+use zbus::{interface, Connection};
 
 /// BTRFS operations handler
 pub struct BtrfsHandler;
@@ -20,27 +20,15 @@ impl BtrfsHandler {
 #[interface(name = "org.cosmic.ext.StorageService.Btrfs")]
 impl BtrfsHandler {
     /// List all subvolumes in a BTRFS filesystem
+    #[authorized_interface(action = "org.cosmic.ext.storage-service.btrfs-read")]
     async fn list_subvolumes(
         &self,
-        #[zbus(connection)] connection: &Connection,
-        #[zbus(header)] header: MessageHeader<'_>,
+        #[zbus(connection)] _connection: &Connection,
+        #[zbus(header)] _header: MessageHeader<'_>,
         #[zbus(signal_context)] _ctx: SignalEmitter<'_>,
         mountpoint: &str,
     ) -> zbus::fdo::Result<String> {
-        let sender = header
-            .sender()
-            .ok_or_else(|| zbus::fdo::Error::Failed("No sender".to_string()))?
-            .as_str();
-
-        // Check read authorization (less restrictive)
-        require_authorization(
-            connection,
-            sender,
-            "org.cosmic.ext.storage-service.btrfs-read",
-        )
-        .await?;
-
-        tracing::info!("Listing subvolumes at {}", mountpoint);
+        tracing::info!("Listing subvolumes at {} (UID {})", mountpoint, caller.uid);
 
         let manager = SubvolumeManager::new(mountpoint)
             .map_err(|e| zbus::fdo::Error::Failed(e.to_string()))?;
@@ -63,27 +51,21 @@ impl BtrfsHandler {
     }
 
     /// Create a new subvolume
+    #[authorized_interface(action = "org.cosmic.ext.storage-service.btrfs-modify")]
     async fn create_subvolume(
         &self,
-        #[zbus(connection)] connection: &Connection,
-        #[zbus(header)] header: MessageHeader<'_>,
+        #[zbus(connection)] _connection: &Connection,
+        #[zbus(header)] _header: MessageHeader<'_>,
         #[zbus(signal_context)] ctx: SignalEmitter<'_>,
         mountpoint: &str,
         name: &str,
     ) -> zbus::fdo::Result<()> {
-        let sender = header
-            .sender()
-            .ok_or_else(|| zbus::fdo::Error::Failed("No sender".to_string()))?
-            .as_str();
-
-        require_authorization(
-            connection,
-            sender,
-            "org.cosmic.ext.storage-service.btrfs-modify",
-        )
-        .await?;
-
-        tracing::info!("Creating subvolume {} at {}", name, mountpoint);
+        tracing::info!(
+            "Creating subvolume {} at {} (UID {})",
+            name,
+            mountpoint,
+            caller.uid
+        );
 
         let manager = SubvolumeManager::new(mountpoint)
             .map_err(|e| zbus::fdo::Error::Failed(e.to_string()))?;
@@ -101,34 +83,24 @@ impl BtrfsHandler {
     }
 
     /// Create a snapshot of a subvolume
+    #[authorized_interface(action = "org.cosmic.ext.storage-service.btrfs-modify")]
     #[allow(clippy::too_many_arguments)]
     async fn create_snapshot(
         &self,
-        #[zbus(connection)] connection: &Connection,
-        #[zbus(header)] header: MessageHeader<'_>,
+        #[zbus(connection)] _connection: &Connection,
+        #[zbus(header)] _header: MessageHeader<'_>,
         #[zbus(signal_context)] ctx: SignalEmitter<'_>,
         mountpoint: &str,
         source_path: &str,
         dest_path: &str,
         readonly: bool,
     ) -> zbus::fdo::Result<()> {
-        let sender = header
-            .sender()
-            .ok_or_else(|| zbus::fdo::Error::Failed("No sender".to_string()))?
-            .as_str();
-
-        require_authorization(
-            connection,
-            sender,
-            "org.cosmic.ext.storage-service.btrfs-modify",
-        )
-        .await?;
-
         tracing::info!(
-            "Creating snapshot from {} to {}, readonly={}",
+            "Creating snapshot from {} to {}, readonly={} (UID {})",
             source_path,
             dest_path,
-            readonly
+            readonly,
+            caller.uid
         );
 
         let manager = SubvolumeManager::new(mountpoint)
@@ -152,28 +124,22 @@ impl BtrfsHandler {
     }
 
     /// Delete a subvolume
+    #[authorized_interface(action = "org.cosmic.ext.storage-service.btrfs-modify")]
     async fn delete_subvolume(
         &self,
-        #[zbus(connection)] connection: &Connection,
-        #[zbus(header)] header: MessageHeader<'_>,
+        #[zbus(connection)] _connection: &Connection,
+        #[zbus(header)] _header: MessageHeader<'_>,
         #[zbus(signal_context)] ctx: SignalEmitter<'_>,
         mountpoint: &str,
         path: &str,
         recursive: bool,
     ) -> zbus::fdo::Result<()> {
-        let sender = header
-            .sender()
-            .ok_or_else(|| zbus::fdo::Error::Failed("No sender".to_string()))?
-            .as_str();
-
-        require_authorization(
-            connection,
-            sender,
-            "org.cosmic.ext.storage-service.btrfs-modify",
-        )
-        .await?;
-
-        tracing::info!("Deleting subvolume at {}, recursive={}", path, recursive);
+        tracing::info!(
+            "Deleting subvolume at {}, recursive={} (UID {})",
+            path,
+            recursive,
+            caller.uid
+        );
 
         let manager = SubvolumeManager::new(mountpoint)
             .map_err(|e| zbus::fdo::Error::Failed(e.to_string()))?;
@@ -189,28 +155,22 @@ impl BtrfsHandler {
     }
 
     /// Set or unset the read-only flag on a subvolume
+    #[authorized_interface(action = "org.cosmic.ext.storage-service.btrfs-modify")]
     async fn set_readonly(
         &self,
-        #[zbus(connection)] connection: &Connection,
-        #[zbus(header)] header: MessageHeader<'_>,
+        #[zbus(connection)] _connection: &Connection,
+        #[zbus(header)] _header: MessageHeader<'_>,
         #[zbus(signal_context)] ctx: SignalEmitter<'_>,
         mountpoint: &str,
         path: &str,
         readonly: bool,
     ) -> zbus::fdo::Result<()> {
-        let sender = header
-            .sender()
-            .ok_or_else(|| zbus::fdo::Error::Failed("No sender".to_string()))?
-            .as_str();
-
-        require_authorization(
-            connection,
-            sender,
-            "org.cosmic.ext.storage-service.btrfs-modify",
-        )
-        .await?;
-
-        tracing::info!("Setting readonly={} on {}", readonly, path);
+        tracing::info!(
+            "Setting readonly={} on {} (UID {})",
+            readonly,
+            path,
+            caller.uid
+        );
 
         let manager = SubvolumeManager::new(mountpoint)
             .map_err(|e| zbus::fdo::Error::Failed(e.to_string()))?;
@@ -226,27 +186,16 @@ impl BtrfsHandler {
     }
 
     /// Set a subvolume as the default
+    #[authorized_interface(action = "org.cosmic.ext.storage-service.btrfs-modify")]
     async fn set_default(
         &self,
-        #[zbus(connection)] connection: &Connection,
-        #[zbus(header)] header: MessageHeader<'_>,
+        #[zbus(connection)] _connection: &Connection,
+        #[zbus(header)] _header: MessageHeader<'_>,
         #[zbus(signal_context)] ctx: SignalEmitter<'_>,
         mountpoint: &str,
         path: &str,
     ) -> zbus::fdo::Result<()> {
-        let sender = header
-            .sender()
-            .ok_or_else(|| zbus::fdo::Error::Failed("No sender".to_string()))?
-            .as_str();
-
-        require_authorization(
-            connection,
-            sender,
-            "org.cosmic.ext.storage-service.btrfs-modify",
-        )
-        .await?;
-
-        tracing::info!("Setting default subvolume to {}", path);
+        tracing::info!("Setting default subvolume to {} (UID {})", path, caller.uid);
 
         let manager = SubvolumeManager::new(mountpoint)
             .map_err(|e| zbus::fdo::Error::Failed(e.to_string()))?;
@@ -262,24 +211,13 @@ impl BtrfsHandler {
     }
 
     /// Get the default subvolume ID
+    #[authorized_interface(action = "org.cosmic.ext.storage-service.btrfs-read")]
     async fn get_default(
         &self,
-        #[zbus(connection)] connection: &Connection,
-        #[zbus(header)] header: MessageHeader<'_>,
+        #[zbus(connection)] _connection: &Connection,
+        #[zbus(header)] _header: MessageHeader<'_>,
         mountpoint: &str,
     ) -> zbus::fdo::Result<u64> {
-        let sender = header
-            .sender()
-            .ok_or_else(|| zbus::fdo::Error::Failed("No sender".to_string()))?
-            .as_str();
-
-        require_authorization(
-            connection,
-            sender,
-            "org.cosmic.ext.storage-service.btrfs-read",
-        )
-        .await?;
-
         let manager = SubvolumeManager::new(mountpoint)
             .map_err(|e| zbus::fdo::Error::Failed(e.to_string()))?;
 
@@ -291,25 +229,18 @@ impl BtrfsHandler {
     }
 
     /// List deleted subvolumes pending cleanup
+    #[authorized_interface(action = "org.cosmic.ext.storage-service.btrfs-read")]
     async fn list_deleted(
         &self,
-        #[zbus(connection)] connection: &Connection,
-        #[zbus(header)] header: MessageHeader<'_>,
+        #[zbus(connection)] _connection: &Connection,
+        #[zbus(header)] _header: MessageHeader<'_>,
         mountpoint: &str,
     ) -> zbus::fdo::Result<String> {
-        let sender = header
-            .sender()
-            .ok_or_else(|| zbus::fdo::Error::Failed("No sender".to_string()))?
-            .as_str();
-
-        require_authorization(
-            connection,
-            sender,
-            "org.cosmic.ext.storage-service.btrfs-read",
-        )
-        .await?;
-
-        tracing::info!("Listing deleted subvolumes at {}", mountpoint);
+        tracing::info!(
+            "Listing deleted subvolumes at {} (UID {})",
+            mountpoint,
+            caller.uid
+        );
 
         let manager = SubvolumeManager::new(mountpoint)
             .map_err(|e| zbus::fdo::Error::Failed(e.to_string()))?;
@@ -325,25 +256,14 @@ impl BtrfsHandler {
     }
 
     /// Get filesystem usage information
+    #[authorized_interface(action = "org.cosmic.ext.storage-service.btrfs-read")]
     async fn get_usage(
         &self,
-        #[zbus(connection)] connection: &Connection,
-        #[zbus(header)] header: MessageHeader<'_>,
+        #[zbus(connection)] _connection: &Connection,
+        #[zbus(header)] _header: MessageHeader<'_>,
         mountpoint: &str,
     ) -> zbus::fdo::Result<String> {
-        let sender = header
-            .sender()
-            .ok_or_else(|| zbus::fdo::Error::Failed("No sender".to_string()))?
-            .as_str();
-
-        require_authorization(
-            connection,
-            sender,
-            "org.cosmic.ext.storage-service.btrfs-read",
-        )
-        .await?;
-
-        tracing::info!("Getting usage for {}", mountpoint);
+        tracing::info!("Getting usage for {} (UID {})", mountpoint, caller.uid);
 
         let usage = disks_btrfs::get_filesystem_usage(&PathBuf::from(mountpoint))
             .map_err(|e| zbus::fdo::Error::Failed(e.to_string()))?;

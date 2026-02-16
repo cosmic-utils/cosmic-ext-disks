@@ -48,3 +48,4 @@ storage-btrfs = { path = "../storage-btrfs" }
 storage-dbus.workspace = true
 storage-common.workspace = true
 storage-sys = { path = "../storage-sys", package = "cosmic-ext-storage-storage-sys" }
+storage-service-macros = { path = "../storage-service-macros" }

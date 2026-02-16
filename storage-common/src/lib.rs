@@ -24,6 +24,7 @@
 //! This eliminates circular conversions and ensures data consistency across all components.
 
 pub mod btrfs;
+pub mod caller;
 pub mod common;
 pub mod disk;
 pub mod encryption;
@@ -36,6 +37,7 @@ pub mod volume;
 
 // Re-export all public types
 pub use btrfs::*;
+pub use caller::*;
 pub use common::*;
 pub use disk::*;
 pub use encryption::*;
