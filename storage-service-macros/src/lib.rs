@@ -95,8 +95,8 @@ fn transform_method(action_id: &str, method: &ItemFn) -> TokenStream2 {
     let mut header_name = String::new();
 
     for arg in &sig.inputs {
-        if let FnArg::Typed(pat_type) = arg {
-            if let Pat::Ident(pat_ident) = pat_type.pat.as_ref() {
+        if let FnArg::Typed(pat_type) = arg
+            && let Pat::Ident(pat_ident) = pat_type.pat.as_ref() {
                 let param_name = pat_ident.ident.to_string();
 
                 // Check if this parameter has a zbus attribute
@@ -140,7 +140,6 @@ fn transform_method(action_id: &str, method: &ItemFn) -> TokenStream2 {
                     header_name = param_name.clone();
                 }
             }
-        }
     }
 
     // Get the original method body
@@ -173,6 +172,7 @@ fn transform_method(action_id: &str, method: &ItemFn) -> TokenStream2 {
     // Generate the transformed method
     // We keep the same parameters but inject authorization code at the beginning of the body
     quote! {
+        #[allow(clippy::too_many_arguments)]
         #vis async fn #method_name #generics ( #(#inputs),* ) #output {
             // === Step 1: Get the actual sender from the message header ===
             let __sender = #header_ident

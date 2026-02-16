@@ -57,12 +57,12 @@ pub async fn mount_filesystem(
     // Use UDisks2's `as-user` option to mount on behalf of the caller
     // This ensures the mount point is created under /run/media/<username>/
     // and the user can unmount it later
-    if let Some(uid) = caller_uid {
-        if let Some(username) = get_username_from_uid(uid) {
-            opts.insert("as-user", Value::from(username.clone()));
-            // Also set uid for filesystems that support it (vfat, ntfs, etc.)
-            opts.insert("uid", Value::from(uid));
-        }
+    if let Some(uid) = caller_uid
+        && let Some(username) = get_username_from_uid(uid)
+    {
+        opts.insert("as-user", Value::from(username.clone()));
+        // Also set uid for filesystems that support it (vfat, ntfs, etc.)
+        opts.insert("uid", Value::from(uid));
     }
 
     if options.read_only {
