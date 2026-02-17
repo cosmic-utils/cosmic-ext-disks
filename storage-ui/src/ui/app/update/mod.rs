@@ -120,6 +120,9 @@ pub(crate) fn update(app: &mut AppModel, message: Message) -> Task<Message> {
         Message::UpdateConfig(config) => {
             app.config = config;
         }
+        Message::FilesystemToolsLoaded(tools) => {
+            app.filesystem_tools = tools;
+        }
         Message::ToggleShowReserved(show_reserved) => {
             app.config.show_reserved = show_reserved;
 

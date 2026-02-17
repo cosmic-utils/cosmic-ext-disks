@@ -210,3 +210,22 @@ impl FilesystemType {
         }
     }
 }
+
+/// Information about a filesystem formatting tool
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct FilesystemToolInfo {
+    /// Filesystem type identifier (e.g., "ext4", "btrfs")
+    pub fs_type: String,
+
+    /// Human-readable filesystem name (e.g., "EXT4", "Btrfs")
+    pub fs_name: String,
+
+    /// Command to check for availability (e.g., "mkfs.ext4")
+    pub command: String,
+
+    /// Package name hint for installation (e.g., "e2fsprogs")
+    pub package_hint: String,
+
+    /// Whether the tool is currently available on this system
+    pub available: bool,
+}

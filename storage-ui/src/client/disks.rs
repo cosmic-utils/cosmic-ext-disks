@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-only
 
+use crate::client::connection::shared_connection;
 use crate::client::error::ClientError;
 use storage_common::{DiskInfo, SmartAttribute, SmartStatus, VolumeInfo};
-use zbus::{Connection, proxy};
+use zbus::proxy;
 
 /// D-Bus proxy interface for disk discovery and SMART operations
 #[proxy(
@@ -74,11 +75,9 @@ impl std::fmt::Debug for DisksClient {
 impl DisksClient {
     /// Create a new disks client connected to the storage service
     pub async fn new() -> Result<Self, ClientError> {
-        let conn = Connection::system().await.map_err(|e| {
-            ClientError::Connection(format!("Failed to connect to system bus: {}", e))
-        })?;
+        let conn = shared_connection().await?;
 
-        let proxy = DisksInterfaceProxy::new(&conn)
+        let proxy = DisksInterfaceProxy::new(conn)
             .await
             .map_err(|e| ClientError::Connection(format!("Failed to create disks proxy: {}", e)))?;
 

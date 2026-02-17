@@ -3,9 +3,10 @@ members = [
     "storage-dbus",
     "storage-ui",
     "storage-btrfs",         # New library
-    "storage-service",     # New D-Bus service
-    "storage-common",      # Shared data models
-    "storage-sys",         # Low-level system operations
+    "storage-service",       # New D-Bus service
+    "storage-service-macros", # Procedural macros for authorization
+    "storage-common",        # Shared data models
+    "storage-sys",           # Low-level system operations
 ]
 default-members = ["storage-ui"]
 resolver = "2"

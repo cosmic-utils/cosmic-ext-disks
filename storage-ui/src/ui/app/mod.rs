@@ -7,6 +7,7 @@ pub(crate) mod view;
 pub(crate) use message::Message;
 pub(crate) use state::{AppModel, ContextPage};
 
+use crate::client::FilesystemsClient;
 use crate::models::load_all_drives;
 
 use crate::config::Config;
@@ -50,6 +51,7 @@ impl Application for AppModel {
             sidebar: SidebarState::default(),
             dialog: None,
             image_op_operation_id: None,
+            filesystem_tools: vec![],
             // Optional configuration file for an application.
             config: cosmic_config::Config::new(Self::APP_ID, Config::VERSION)
                 .map(|context| match Config::get_entry(&context) {
@@ -84,7 +86,30 @@ impl Application for AppModel {
             },
         );
 
-        (app, command.chain(nav_command))
+        // Load filesystem tools from service
+        let tools_command = Task::perform(
+            async {
+                match FilesystemsClient::new().await {
+                    Ok(client) => match client.get_filesystem_tools().await {
+                        Ok(tools) => Some(tools),
+                        Err(e) => {
+                            tracing::error!(%e, "failed to load filesystem tools");
+                            None
+                        }
+                    },
+                    Err(e) => {
+                        tracing::error!(%e, "failed to create filesystems client");
+                        None
+                    }
+                }
+            },
+            |tools| match tools {
+                None => Message::None.into(),
+                Some(tools) => Message::FilesystemToolsLoaded(tools).into(),
+            },
+        );
+
+        (app, command.chain(nav_command).chain(tools_command))
     }
 
     /// Elements to pack at the start of the header bar.

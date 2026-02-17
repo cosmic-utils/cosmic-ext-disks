@@ -8,11 +8,34 @@ use storage_common::MountOptions;
 use udisks2::filesystem::FilesystemProxy;
 use zbus::{Connection, zvariant::Value};
 
+/// Get username from UID
+fn get_username_from_uid(uid: u32) -> Option<String> {
+    // SAFETY: getpwuid is thread-safe in POSIX
+    let pw = unsafe { libc::getpwuid(uid) };
+    if pw.is_null() {
+        return None;
+    }
+    // SAFETY: pw is valid and name is a null-terminated C string
+    unsafe {
+        std::ffi::CStr::from_ptr((*pw).pw_name)
+            .to_str()
+            .ok()
+            .map(|s| s.to_string())
+    }
+}
+
 /// Mount a filesystem
+///
+/// # Arguments
+/// * `device_path` - Device path (e.g., "/dev/sda1")
+/// * `_mount_point` - Mount point (unused when auto-mounting)
+/// * `options` - Mount options
+/// * `caller_uid` - Optional UID to mount as (important for proper file ownership and mount path)
 pub async fn mount_filesystem(
     device_path: &str,
     _mount_point: &str,
     options: MountOptions,
+    caller_uid: Option<u32>,
 ) -> Result<String, DiskError> {
     let connection = Connection::system()
         .await
@@ -30,6 +53,17 @@ pub async fn mount_filesystem(
     // Build mount options
     let mut opts: HashMap<&str, Value<'_>> = HashMap::new();
     let mut options_vec = Vec::new();
+
+    // Use UDisks2's `as-user` option to mount on behalf of the caller
+    // This ensures the mount point is created under /run/media/<username>/
+    // and the user can unmount it later
+    if let Some(uid) = caller_uid
+        && let Some(username) = get_username_from_uid(uid)
+    {
+        opts.insert("as-user", Value::from(username.clone()));
+        // Also set uid for filesystems that support it (vfat, ntfs, etc.)
+        opts.insert("uid", Value::from(uid));
+    }
 
     if options.read_only {
         options_vec.push("ro");

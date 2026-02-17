@@ -7,6 +7,7 @@ use crate::ui::dialogs::message::{
 };
 use crate::ui::dialogs::state::ShowDialog;
 use crate::ui::volumes::VolumesControlMessage;
+use storage_common::FilesystemToolInfo;
 
 /// Messages emitted by the application and its widgets.
 #[derive(Debug, Clone)]
@@ -32,6 +33,7 @@ pub enum Message {
     SmartData,
     StandbyNow,
     Wakeup,
+    FilesystemToolsLoaded(Vec<FilesystemToolInfo>),
 
     // Sidebar (custom treeview)
     SidebarSelectDrive(String),

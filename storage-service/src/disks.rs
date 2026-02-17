@@ -7,9 +7,9 @@
 
 use anyhow::Result;
 use storage_dbus::DiskManager;
+use storage_service_macros::authorized_interface;
+use zbus::message::Header as MessageHeader;
 use zbus::{Connection, interface};
-
-use crate::auth::check_polkit_auth;
 
 /// D-Bus interface for disk discovery and SMART operations
 pub struct DisksHandler {
@@ -67,22 +67,21 @@ impl DisksHandler {
     ///   org.cosmic.ext.StorageService.Disks \
     ///   ListDisks
     /// ```
+    #[authorized_interface(action = "org.cosmic.ext.storage-service.disk-read")]
     async fn list_disks(
         &self,
-        #[zbus(connection)] connection: &Connection,
+        #[zbus(connection)] _connection: &Connection,
+        #[zbus(header)] _header: MessageHeader<'_>,
     ) -> zbus::fdo::Result<String> {
-        // Check Polkit authorization
-        check_polkit_auth(connection, "org.cosmic.ext.storage-service.disk-read")
-            .await
-            .map_err(zbus::fdo::Error::from)?;
-
-        tracing::debug!("ListDisks called");
+        tracing::debug!("ListDisks called (UID {})", caller.uid);
 
         // Get disks from storage-dbus using new storage-common API
-        let disks = storage_dbus::disk::get_disks().await.map_err(|e| {
-            tracing::error!("Failed to get disks: {e}");
-            zbus::fdo::Error::Failed(format!("Failed to enumerate disks: {e}"))
-        })?;
+        let disks = storage_dbus::disk::get_disks(&self.manager)
+            .await
+            .map_err(|e| {
+                tracing::error!("Failed to get disks: {e}");
+                zbus::fdo::Error::Failed(format!("Failed to enumerate disks: {e}"))
+            })?;
 
         tracing::debug!("Found {} disks", disks.len());
 
@@ -111,19 +110,16 @@ impl DisksHandler {
     ///   org.cosmic.ext.StorageService.Disks \
     ///   ListVolumes
     /// ```
+    #[authorized_interface(action = "org.cosmic.ext.storage-service.disk-read")]
     async fn list_volumes(
         &self,
-        #[zbus(connection)] connection: &Connection,
+        #[zbus(connection)] _connection: &Connection,
+        #[zbus(header)] _header: MessageHeader<'_>,
     ) -> zbus::fdo::Result<String> {
-        // Check Polkit authorization
-        check_polkit_auth(connection, "org.cosmic.ext.storage-service.disk-read")
-            .await
-            .map_err(zbus::fdo::Error::from)?;
-
-        tracing::debug!("ListVolumes called");
+        tracing::debug!("ListVolumes called (UID {})", caller.uid);
 
         // Get all drives using storage-dbus
-        let disk_volumes = storage_dbus::disk::get_disks_with_volumes()
+        let disk_volumes = storage_dbus::disk::get_disks_with_volumes(&self.manager)
             .await
             .map_err(|e| {
                 tracing::error!("Failed to get drives: {e}");
@@ -191,23 +187,25 @@ impl DisksHandler {
     ///   org.cosmic.ext.StorageService.Disks \
     ///   GetDiskInfo s "/dev/sda"
     /// ```
+    #[authorized_interface(action = "org.cosmic.ext.storage-service.disk-read")]
     async fn get_disk_info(
         &self,
+        #[zbus(connection)] _connection: &Connection,
+        #[zbus(header)] _header: MessageHeader<'_>,
         device: String,
-        #[zbus(connection)] connection: &Connection,
     ) -> zbus::fdo::Result<String> {
-        // Check Polkit authorization
-        check_polkit_auth(connection, "org.cosmic.ext.storage-service.disk-read")
-            .await
-            .map_err(zbus::fdo::Error::from)?;
-
-        tracing::debug!("GetDiskInfo called for device: {device}");
+        tracing::debug!(
+            "GetDiskInfo called for device: {device} (UID {})",
+            caller.uid
+        );
 
         // Get all disks and find the requested one
-        let disks = storage_dbus::disk::get_disks().await.map_err(|e| {
-            tracing::error!("Failed to get disks: {e}");
-            zbus::fdo::Error::Failed(format!("Failed to enumerate disks: {e}"))
-        })?;
+        let disks = storage_dbus::disk::get_disks(&self.manager)
+            .await
+            .map_err(|e| {
+                tracing::error!("Failed to get disks: {e}");
+                zbus::fdo::Error::Failed(format!("Failed to enumerate disks: {e}"))
+            })?;
 
         // Log available disks for debugging
         tracing::debug!("Found {} disks total", disks.len());
@@ -278,20 +276,20 @@ impl DisksHandler {
     ///   org.cosmic.ext.StorageService.Disks \
     ///   GetVolumeInfo s "/dev/sda1"
     /// ```
+    #[authorized_interface(action = "org.cosmic.ext.storage-service.disk-read")]
     async fn get_volume_info(
         &self,
+        #[zbus(connection)] _connection: &Connection,
+        #[zbus(header)] _header: MessageHeader<'_>,
         device: String,
-        #[zbus(connection)] connection: &Connection,
     ) -> zbus::fdo::Result<String> {
-        // Check Polkit authorization
-        check_polkit_auth(connection, "org.cosmic.ext.storage-service.disk-read")
-            .await
-            .map_err(zbus::fdo::Error::from)?;
-
-        tracing::debug!("GetVolumeInfo called for device: {device}");
+        tracing::debug!(
+            "GetVolumeInfo called for device: {device} (UID {})",
+            caller.uid
+        );
 
         // Get all drives and search for the volume
-        let disk_volumes = storage_dbus::disk::get_disks_with_volumes()
+        let disk_volumes = storage_dbus::disk::get_disks_with_volumes(&self.manager)
             .await
             .map_err(|e| {
                 tracing::error!("Failed to get drives: {e}");
@@ -355,17 +353,17 @@ impl DisksHandler {
     /// Returns: JSON-serialized SmartStatus
     ///
     /// Authorization: org.cosmic.ext.storage-service.smart-read (allow_active)
+    #[authorized_interface(action = "org.cosmic.ext.storage-service.smart-read")]
     async fn get_smart_status(
         &self,
-        #[zbus(connection)] connection: &zbus::Connection,
+        #[zbus(connection)] _connection: &Connection,
+        #[zbus(header)] _header: MessageHeader<'_>,
         device: String,
     ) -> zbus::fdo::Result<String> {
-        // Check authorization
-        crate::auth::check_polkit_auth(connection, "org.cosmic.ext.storage-service.smart-read")
-            .await
-            .map_err(|e| zbus::fdo::Error::Failed(format!("Authorization failed: {e}")))?;
-
-        tracing::debug!("Getting SMART status for device: {device}");
+        tracing::debug!(
+            "Getting SMART status for device: {device} (UID {})",
+            caller.uid
+        );
 
         // Normalize device path (add /dev/ if missing)
         let device_path = if device.starts_with("/dev/") {
@@ -431,17 +429,17 @@ impl DisksHandler {
     /// Returns: JSON-serialized Vec<SmartAttribute>
     ///
     /// Authorization: org.cosmic.ext.storage-service.smart-read (allow_active)
+    #[authorized_interface(action = "org.cosmic.ext.storage-service.smart-read")]
     async fn get_smart_attributes(
         &self,
-        #[zbus(connection)] connection: &zbus::Connection,
+        #[zbus(connection)] _connection: &Connection,
+        #[zbus(header)] _header: MessageHeader<'_>,
         device: String,
     ) -> zbus::fdo::Result<String> {
-        // Check authorization
-        crate::auth::check_polkit_auth(connection, "org.cosmic.ext.storage-service.smart-read")
-            .await
-            .map_err(|e| zbus::fdo::Error::Failed(format!("Authorization failed: {e}")))?;
-
-        tracing::debug!("Getting SMART attributes for device: {device}");
+        tracing::debug!(
+            "Getting SMART attributes for device: {device} (UID {})",
+            caller.uid
+        );
 
         // Normalize device path
         let device_path = if device.starts_with("/dev/") {
@@ -498,17 +496,14 @@ impl DisksHandler {
     /// - device: Device identifier (e.g., "/dev/sda", "sda", or UDisks2 path)
     ///
     /// Authorization: org.cosmic.ext.storage-service.disk-eject (allow_active)
+    #[authorized_interface(action = "org.cosmic.ext.storage-service.disk-eject")]
     async fn eject(
         &self,
-        #[zbus(connection)] connection: &zbus::Connection,
+        #[zbus(connection)] _connection: &Connection,
+        #[zbus(header)] _header: MessageHeader<'_>,
         device: String,
     ) -> zbus::fdo::Result<()> {
-        // Check authorization
-        crate::auth::check_polkit_auth(connection, "org.cosmic.ext.storage-service.disk-eject")
-            .await
-            .map_err(|e| zbus::fdo::Error::Failed(format!("Authorization failed: {e}")))?;
-
-        tracing::debug!("Ejecting device: {device}");
+        tracing::debug!("Ejecting device: {device} (UID {})", caller.uid);
 
         let device_path = if device.starts_with("/dev/") {
             device.clone()
@@ -516,7 +511,7 @@ impl DisksHandler {
             format!("/dev/{}", device)
         };
 
-        let disk_volumes = storage_dbus::disk::get_disks_with_volumes()
+        let disk_volumes = storage_dbus::disk::get_disks_with_volumes(&self.manager)
             .await
             .map_err(|e| {
                 tracing::error!("Failed to get drives: {e}");
@@ -554,17 +549,14 @@ impl DisksHandler {
     /// - device: Device identifier (e.g., "/dev/sda", "sda", or UDisks2 path)
     ///
     /// Authorization: org.cosmic.ext.storage-service.disk-power-off (auth_admin_keep)
+    #[authorized_interface(action = "org.cosmic.ext.storage-service.disk-power-off")]
     async fn power_off(
         &self,
-        #[zbus(connection)] connection: &zbus::Connection,
+        #[zbus(connection)] _connection: &Connection,
+        #[zbus(header)] _header: MessageHeader<'_>,
         device: String,
     ) -> zbus::fdo::Result<()> {
-        // Check authorization
-        crate::auth::check_polkit_auth(connection, "org.cosmic.ext.storage-service.disk-power-off")
-            .await
-            .map_err(|e| zbus::fdo::Error::Failed(format!("Authorization failed: {e}")))?;
-
-        tracing::debug!("Powering off device: {device}");
+        tracing::debug!("Powering off device: {device} (UID {})", caller.uid);
 
         let device_path = if device.starts_with("/dev/") {
             device.clone()
@@ -572,7 +564,7 @@ impl DisksHandler {
             format!("/dev/{}", device)
         };
 
-        let disk_volumes = storage_dbus::disk::get_disks_with_volumes()
+        let disk_volumes = storage_dbus::disk::get_disks_with_volumes(&self.manager)
             .await
             .map_err(|e| zbus::fdo::Error::Failed(format!("Failed to enumerate drives: {e}")))?;
 
@@ -604,17 +596,14 @@ impl DisksHandler {
     /// - device: Device identifier (e.g., "/dev/sda", "sda", or UDisks2 path)
     ///
     /// Authorization: org.cosmic.ext.storage-service.disk-standby (allow_active)
+    #[authorized_interface(action = "org.cosmic.ext.storage-service.disk-standby")]
     async fn standby_now(
         &self,
-        #[zbus(connection)] connection: &zbus::Connection,
+        #[zbus(connection)] _connection: &Connection,
+        #[zbus(header)] _header: MessageHeader<'_>,
         device: String,
     ) -> zbus::fdo::Result<()> {
-        // Check authorization
-        crate::auth::check_polkit_auth(connection, "org.cosmic.ext.storage-service.disk-standby")
-            .await
-            .map_err(|e| zbus::fdo::Error::Failed(format!("Authorization failed: {e}")))?;
-
-        tracing::debug!("Putting device in standby: {device}");
+        tracing::debug!("Putting device in standby: {device} (UID {})", caller.uid);
 
         let device_path = if device.starts_with("/dev/") {
             device.clone()
@@ -622,7 +611,7 @@ impl DisksHandler {
             format!("/dev/{}", device)
         };
 
-        let disk_volumes = storage_dbus::disk::get_disks_with_volumes()
+        let disk_volumes = storage_dbus::disk::get_disks_with_volumes(&self.manager)
             .await
             .map_err(|e| zbus::fdo::Error::Failed(format!("Failed to enumerate drives: {e}")))?;
 
@@ -654,17 +643,14 @@ impl DisksHandler {
     /// - device: Device identifier (e.g., "/dev/sda", "sda", or UDisks2 path)
     ///
     /// Authorization: org.cosmic.ext.storage-service.disk-standby (allow_active)
+    #[authorized_interface(action = "org.cosmic.ext.storage-service.disk-standby")]
     async fn wakeup(
         &self,
-        #[zbus(connection)] connection: &zbus::Connection,
+        #[zbus(connection)] _connection: &Connection,
+        #[zbus(header)] _header: MessageHeader<'_>,
         device: String,
     ) -> zbus::fdo::Result<()> {
-        // Check authorization
-        crate::auth::check_polkit_auth(connection, "org.cosmic.ext.storage-service.disk-standby")
-            .await
-            .map_err(|e| zbus::fdo::Error::Failed(format!("Authorization failed: {e}")))?;
-
-        tracing::debug!("Waking up device: {device}");
+        tracing::debug!("Waking up device: {device} (UID {})", caller.uid);
 
         let device_path = if device.starts_with("/dev/") {
             device.clone()
@@ -672,7 +658,7 @@ impl DisksHandler {
             format!("/dev/{}", device)
         };
 
-        let disk_volumes = storage_dbus::disk::get_disks_with_volumes()
+        let disk_volumes = storage_dbus::disk::get_disks_with_volumes(&self.manager)
             .await
             .map_err(|e| zbus::fdo::Error::Failed(format!("Failed to enumerate drives: {e}")))?;
 
@@ -704,17 +690,14 @@ impl DisksHandler {
     /// - device: Device identifier (e.g., "/dev/sda", "sda", or UDisks2 path)
     ///
     /// Authorization: org.cosmic.ext.storage-service.disk-remove (auth_admin_keep)
+    #[authorized_interface(action = "org.cosmic.ext.storage-service.disk-remove")]
     async fn remove(
         &self,
-        #[zbus(connection)] connection: &zbus::Connection,
+        #[zbus(connection)] _connection: &Connection,
+        #[zbus(header)] _header: MessageHeader<'_>,
         device: String,
     ) -> zbus::fdo::Result<()> {
-        // Check authorization
-        crate::auth::check_polkit_auth(connection, "org.cosmic.ext.storage-service.disk-remove")
-            .await
-            .map_err(|e| zbus::fdo::Error::Failed(format!("Authorization failed: {e}")))?;
-
-        tracing::debug!("Safely removing device: {device}");
+        tracing::debug!("Safely removing device: {device} (UID {})", caller.uid);
 
         let device_path = if device.starts_with("/dev/") {
             device.clone()
@@ -722,7 +705,7 @@ impl DisksHandler {
             format!("/dev/{}", device)
         };
 
-        let disk_volumes = storage_dbus::disk::get_disks_with_volumes()
+        let disk_volumes = storage_dbus::disk::get_disks_with_volumes(&self.manager)
             .await
             .map_err(|e| zbus::fdo::Error::Failed(format!("Failed to enumerate drives: {e}")))?;
 
@@ -760,18 +743,20 @@ impl DisksHandler {
     /// - test_type: Type of test ("short", "long", "conveyance")
     ///
     /// Authorization: org.cosmic.ext.storage-service.smart-test (auth_admin_keep)
+    #[authorized_interface(action = "org.cosmic.ext.storage-service.smart-test")]
     async fn start_smart_test(
         &self,
-        #[zbus(connection)] connection: &zbus::Connection,
+        #[zbus(connection)] _connection: &Connection,
+        #[zbus(header)] _header: MessageHeader<'_>,
         device: String,
         test_type: String,
     ) -> zbus::fdo::Result<()> {
-        // Check authorization
-        crate::auth::check_polkit_auth(connection, "org.cosmic.ext.storage-service.smart-test")
-            .await
-            .map_err(|e| zbus::fdo::Error::Failed(format!("Authorization failed: {e}")))?;
-
-        tracing::info!("Starting SMART {} test for device: {}", test_type, device);
+        tracing::info!(
+            "Starting SMART {} test for device: {} (UID {})",
+            test_type,
+            device,
+            caller.uid
+        );
 
         // Validate test type
         let test_kind = match test_type.to_lowercase().as_str() {
@@ -791,7 +776,7 @@ impl DisksHandler {
             format!("/dev/{}", device)
         };
 
-        let disk_volumes = storage_dbus::disk::get_disks_with_volumes()
+        let disk_volumes = storage_dbus::disk::get_disks_with_volumes(&self.manager)
             .await
             .map_err(|e| {
                 tracing::error!("Failed to get drives: {e}");
@@ -840,7 +825,11 @@ impl DisksHandler {
 ///
 /// This function subscribes to UDisks2's InterfacesAdded and InterfacesRemoved signals
 /// and emits DiskAdded/DiskRemoved signals when drives are hotplugged.
-pub async fn monitor_hotplug_events(connection: zbus::Connection, object_path: &str) -> Result<()> {
+pub async fn monitor_hotplug_events(
+    connection: zbus::Connection,
+    object_path: &str,
+    manager: storage_dbus::DiskManager,
+) -> Result<()> {
     use std::collections::HashMap;
     use zbus::zvariant::{OwnedObjectPath, OwnedValue};
 
@@ -868,8 +857,8 @@ pub async fn monitor_hotplug_events(connection: zbus::Connection, object_path: &
     let mut removed_stream = obj_manager.receive_signal("InterfacesRemoved").await?;
 
     // Spawn task to handle added signals
-    let connection_clone = connection.clone();
     let iface_ref_clone = iface_ref.clone();
+    let manager_clone = manager;
     tokio::spawn(async move {
         use futures_util::StreamExt;
 
@@ -884,8 +873,7 @@ pub async fn monitor_hotplug_events(connection: zbus::Connection, object_path: &
                         tracing::debug!("Drive added: {}", object_path);
 
                         // Get the drive info
-                        match get_disk_info_for_path(&connection_clone, &object_path.as_ref()).await
-                        {
+                        match get_disk_info_for_path(&manager_clone, &object_path.as_ref()).await {
                             Ok(disk_info) => {
                                 let device = disk_info.device.clone();
                                 match serde_json::to_string(&disk_info) {
@@ -972,10 +960,10 @@ pub async fn monitor_hotplug_events(connection: zbus::Connection, object_path: &
 
 /// Helper function to get DiskInfo for a specific UDisks2 drive object path
 async fn get_disk_info_for_path(
-    _connection: &zbus::Connection,
+    manager: &storage_dbus::DiskManager,
     object_path: &zbus::zvariant::ObjectPath<'_>,
 ) -> Result<storage_common::DiskInfo> {
-    storage_dbus::get_disk_info_for_drive_path(object_path.as_str())
+    storage_dbus::get_disk_info_for_drive_path(manager, object_path.as_str())
         .await
         .map_err(|e| anyhow::anyhow!("{}", e))
 }

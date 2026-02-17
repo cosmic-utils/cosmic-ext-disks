@@ -3,6 +3,7 @@
 //! Disk and volume discovery - builds storage_common::DiskInfo and VolumeInfo directly from UDisks2.
 
 use std::collections::HashMap;
+use std::sync::Arc;
 
 use anyhow::Result;
 use storage_common::{DiskInfo, PartitionInfo, VolumeInfo, VolumeKind};
@@ -19,6 +20,7 @@ use super::block_index::BlockIndex;
 use super::volume_tree;
 use crate::dbus::bytestring as bs;
 use crate::gpt::{fallback_gpt_usable_range_bytes, probe_gpt_usable_range_bytes};
+use crate::manager::DiskManager;
 use crate::manager::UDisks2ManagerProxy;
 
 #[derive(Debug, Clone)]
@@ -413,19 +415,20 @@ fn flatten_volumes_to_partitions(
     out
 }
 
-async fn get_disks_with_volumes_inner() -> Result<Vec<(DiskInfo, Vec<VolumeInfo>)>> {
-    let connection = Connection::system().await?;
-    let drive_paths = get_drive_paths(&connection).await?;
+async fn get_disks_with_volumes_inner(
+    connection: &Arc<Connection>,
+) -> Result<Vec<(DiskInfo, Vec<VolumeInfo>)>> {
+    let drive_paths = get_drive_paths(connection).await?;
 
-    let manager_proxy = UDisks2ManagerProxy::new(&connection).await?;
+    let manager_proxy = UDisks2ManagerProxy::new(connection).await?;
     let all_block_objects = manager_proxy.get_block_devices(HashMap::new()).await?;
-    let block_index = BlockIndex::build(&connection, &all_block_objects).await?;
+    let block_index = BlockIndex::build(connection, &all_block_objects).await?;
 
     let mut result: Vec<(DiskInfo, Vec<VolumeInfo>)> = Vec::new();
 
     for pair in drive_paths {
         let disk_info = match build_disk_info(
-            &connection,
+            connection,
             pair.drive_path.as_ref(),
             &pair.block_path,
             pair.backing_file.clone(),
@@ -441,7 +444,7 @@ async fn get_disks_with_volumes_inner() -> Result<Vec<(DiskInfo, Vec<VolumeInfo>
 
         let block_path_str = pair.block_path.to_string();
 
-        let partition_table_type = match PartitionTableProxy::builder(&connection)
+        let partition_table_type = match PartitionTableProxy::builder(connection)
             .path(&pair.block_path)?
             .build()
             .await
@@ -454,7 +457,7 @@ async fn get_disks_with_volumes_inner() -> Result<Vec<(DiskInfo, Vec<VolumeInfo>
         disk_info.partition_table_type = partition_table_type.clone();
 
         if partition_table_type.as_deref() == Some("gpt")
-            && let Ok(block_proxy) = BlockProxy::builder(&connection)
+            && let Ok(block_proxy) = BlockProxy::builder(connection)
                 .path(&pair.block_path)?
                 .build()
                 .await
@@ -472,7 +475,7 @@ async fn get_disks_with_volumes_inner() -> Result<Vec<(DiskInfo, Vec<VolumeInfo>
         }
 
         let volumes = build_volumes_for_block(
-            &connection,
+            connection,
             &pair.block_path,
             &block_index,
             &disk_info.device,
@@ -503,19 +506,26 @@ pub async fn block_object_path_for_device(
 }
 
 /// Get disk information as canonical storage-common types (public API).
-pub async fn get_disks() -> Result<Vec<DiskInfo>> {
-    let pairs = get_disks_with_volumes_inner().await?;
+/// Uses the cached connection from DiskManager for improved performance.
+pub async fn get_disks(manager: &DiskManager) -> Result<Vec<DiskInfo>> {
+    let pairs = get_disks_with_volumes_inner(manager.connection()).await?;
     Ok(pairs.into_iter().map(|(d, _)| d).collect())
 }
 
 /// Get disks with their volume hierarchies as canonical storage-common types.
-pub async fn get_disks_with_volumes() -> Result<Vec<(DiskInfo, Vec<VolumeInfo>)>> {
-    get_disks_with_volumes_inner().await
+/// Uses the cached connection from DiskManager for improved performance.
+pub async fn get_disks_with_volumes(
+    manager: &DiskManager,
+) -> Result<Vec<(DiskInfo, Vec<VolumeInfo>)>> {
+    get_disks_with_volumes_inner(manager.connection()).await
 }
 
 /// Get disks with flat partition lists as canonical storage-common types.
-pub async fn get_disks_with_partitions() -> Result<Vec<(DiskInfo, Vec<PartitionInfo>)>> {
-    let pairs = get_disks_with_volumes_inner().await?;
+/// Uses the cached connection from DiskManager for improved performance.
+pub async fn get_disks_with_partitions(
+    manager: &DiskManager,
+) -> Result<Vec<(DiskInfo, Vec<PartitionInfo>)>> {
+    let pairs = get_disks_with_volumes_inner(manager.connection()).await?;
     Ok(pairs
         .into_iter()
         .map(|(d, vols)| {
@@ -526,12 +536,16 @@ pub async fn get_disks_with_partitions() -> Result<Vec<(DiskInfo, Vec<PartitionI
 }
 
 /// Get DiskInfo for a drive given its UDisks2 drive object path (e.g. from InterfacesAdded).
-pub async fn get_disk_info_for_drive_path(drive_path: &str) -> Result<DiskInfo> {
-    let connection = Connection::system().await?;
-    let manager_proxy = UDisks2ManagerProxy::new(&connection).await?;
+/// Uses the cached connection from DiskManager for improved performance.
+pub async fn get_disk_info_for_drive_path(
+    manager: &DiskManager,
+    drive_path: &str,
+) -> Result<DiskInfo> {
+    let connection = manager.connection();
+    let manager_proxy = UDisks2ManagerProxy::new(connection.as_ref()).await?;
     let block_paths = manager_proxy.get_block_devices(HashMap::new()).await?;
     for block_path in block_paths {
-        let is_partition = match udisks2::partition::PartitionProxy::builder(&connection)
+        let is_partition = match udisks2::partition::PartitionProxy::builder(connection.as_ref())
             .path(&block_path)?
             .build()
             .await
@@ -542,14 +556,14 @@ pub async fn get_disk_info_for_drive_path(drive_path: &str) -> Result<DiskInfo> 
         if is_partition {
             continue;
         }
-        let block_proxy = BlockProxy::builder(&connection)
+        let block_proxy = BlockProxy::builder(connection.as_ref())
             .path(&block_path)?
             .build()
             .await?;
         if let Ok(d) = block_proxy.drive().await
             && d.as_str() == drive_path
         {
-            return build_disk_info(&connection, Some(&d), &block_path, None).await;
+            return build_disk_info(connection.as_ref(), Some(&d), &block_path, None).await;
         }
     }
     Err(anyhow::anyhow!(

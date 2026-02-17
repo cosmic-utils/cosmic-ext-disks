@@ -268,7 +268,7 @@ pub(crate) fn context_drawer(
 
     Some(match app.context_page {
         ContextPage::Settings => cosmic_context_drawer::context_drawer(
-            settings(&app.config),
+            settings(&app.config, &app.filesystem_tools),
             Message::ToggleContextPage(ContextPage::Settings),
         )
         .title(fl!("settings")),
@@ -361,7 +361,8 @@ pub(crate) fn view(app: &AppModel) -> Element<'_, Message> {
             .width(Length::Fill);
 
             // Bottom section: Volume-specific detail view (2/3 of height)
-            let bottom_section = volume_detail_view(volumes_control, segment);
+            let bottom_section =
+                volume_detail_view(volumes_control, segment, &app.filesystem_tools);
 
             // Full layout wrapped in a single scrollable
             widget::scrollable(
@@ -387,6 +388,7 @@ pub(crate) fn view(app: &AppModel) -> Element<'_, Message> {
 fn volume_detail_view<'a>(
     volumes_control: &'a VolumesControl,
     segment: &'a crate::ui::volumes::Segment,
+    filesystem_tools: &'a [storage_common::FilesystemToolInfo],
 ) -> Element<'a, Message> {
     if segment.kind == DiskSegmentKind::Reserved {
         return widget::container(widget::Row::from_vec(vec![]))
@@ -429,7 +431,7 @@ fn volume_detail_view<'a>(
             } else if let Some(ref p) = segment.volume {
                 build_partition_info(p, selected_volume, volumes_control, segment)
             } else {
-                build_free_space_info(segment)
+                build_free_space_info(segment, filesystem_tools)
             }
         };
 
@@ -1066,7 +1068,10 @@ fn build_partition_info<'a>(
 }
 
 /// Build info display for free space - mirrors disk header layout
-fn build_free_space_info(segment: &crate::ui::volumes::Segment) -> Element<'_, Message> {
+fn build_free_space_info<'a>(
+    segment: &'a crate::ui::volumes::Segment,
+    filesystem_tools: &'a [storage_common::FilesystemToolInfo],
+) -> Element<'a, Message> {
     use crate::ui::volumes::usage_pie;
 
     // Empty pie chart for free space (0% used)
@@ -1103,6 +1108,7 @@ fn build_free_space_info(segment: &crate::ui::volumes::Segment) -> Element<'_, M
         .width(Length::Fill);
 
     // Action button for creating a partition in free space
+    let filesystem_tools_clone = filesystem_tools.to_vec();
     let add_partition_button = widget::tooltip(
         widget::button::icon(icon::from_name("list-add-symbolic")).on_press(Message::Dialog(
             Box::new(ShowDialog::AddPartition(
@@ -1110,6 +1116,7 @@ fn build_free_space_info(segment: &crate::ui::volumes::Segment) -> Element<'_, M
                     info: segment.get_create_info(),
                     running: false,
                     error: None,
+                    filesystem_tools: filesystem_tools_clone,
                 },
             )),
         )),

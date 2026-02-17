@@ -4,7 +4,9 @@ use crate::{
     ui::btrfs::BtrfsState,
     utils::{DiskSegmentKind, PartitionExtent, SegmentAnomaly, compute_disk_segments},
 };
-use storage_common::{ByteRange, CreatePartitionInfo, PartitionInfo, VolumeInfo};
+use storage_common::{
+    ByteRange, CreatePartitionInfo, FilesystemToolInfo, PartitionInfo, VolumeInfo,
+};
 
 /// Which detail tab is active below the drive header
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -35,6 +37,8 @@ pub struct VolumesControl {
     pub btrfs_state: Option<BtrfsState>,
     /// Which detail tab is currently displayed
     pub detail_tab: DetailTab,
+    /// Cached filesystem tool availability from service
+    pub filesystem_tools: Vec<FilesystemToolInfo>,
 }
 
 #[derive(Clone, Debug)]
@@ -335,7 +339,11 @@ impl Segment {
 }
 
 impl VolumesControl {
-    pub fn new(drive: &UiDrive, show_reserved: bool) -> Self {
+    pub fn new(
+        drive: &UiDrive,
+        show_reserved: bool,
+        filesystem_tools: Vec<FilesystemToolInfo>,
+    ) -> Self {
         // Flatten all volumes to a list for lookup
         fn flatten_volumes(node: &UiVolume, out: &mut Vec<VolumeInfo>) {
             out.push(node.volume.clone());
@@ -374,6 +382,7 @@ impl VolumesControl {
             show_reserved,
             btrfs_state: None,
             detail_tab: DetailTab::default(),
+            filesystem_tools,
         }
     }
 

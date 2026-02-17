@@ -18,6 +18,7 @@ mod image;
 mod luks;
 mod lvm;
 mod partitions;
+mod protected_paths;
 mod service;
 
 use btrfs::BtrfsHandler;
@@ -52,21 +53,22 @@ async fn main() -> Result<()> {
     }
 
     // Build D-Bus connection with socket activation support
+    // Create DisksHandler first so we can extract its manager for hotplug monitoring
+    let disks_handler = DisksHandler::new().await?;
+    let hotplug_manager = disks_handler.manager().clone();
+
     let connection = ConnectionBuilder::system()?
         .name("org.cosmic.ext.StorageService")?
         .serve_at("/org/cosmic/ext/StorageService", StorageService::new())?
         .serve_at("/org/cosmic/ext/StorageService/btrfs", BtrfsHandler::new())?
-        .serve_at(
-            "/org/cosmic/ext/StorageService/disks",
-            DisksHandler::new().await?,
-        )?
+        .serve_at("/org/cosmic/ext/StorageService/disks", disks_handler)?
         .serve_at(
             "/org/cosmic/ext/StorageService/partitions",
-            PartitionsHandler::new(),
+            PartitionsHandler::new().await,
         )?
         .serve_at(
             "/org/cosmic/ext/StorageService/filesystems",
-            FilesystemsHandler::new(),
+            FilesystemsHandler::new().await,
         )?
         .serve_at("/org/cosmic/ext/StorageService/lvm", LVMHandler::new())?
         .serve_at("/org/cosmic/ext/StorageService/luks", LuksHandler::new())?
@@ -85,8 +87,12 @@ async fn main() -> Result<()> {
     tracing::info!("  - Image interface at /org/cosmic/ext/StorageService/image");
 
     // Start disk hotplug monitoring
-    disks::monitor_hotplug_events(connection.clone(), "/org/cosmic/ext/StorageService/disks")
-        .await?;
+    disks::monitor_hotplug_events(
+        connection.clone(),
+        "/org/cosmic/ext/StorageService/disks",
+        hotplug_manager,
+    )
+    .await?;
     tracing::info!("Disk hotplug monitoring enabled");
 
     // Keep service running until shutdown signal

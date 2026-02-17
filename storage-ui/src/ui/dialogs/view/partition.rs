@@ -7,14 +7,24 @@ use crate::ui::dialogs::state::{
     CreatePartitionDialog, EditFilesystemLabelDialog, EditPartitionDialog, FormatPartitionDialog,
     ResizePartitionDialog,
 };
+use crate::utils::SizeUnit;
 use crate::utils::labelled_spinner;
-use crate::utils::{SizeUnit, get_fs_tool_status};
 use cosmic::{
     Element, Theme, iced, iced_widget,
     widget::text::caption,
     widget::{button, checkbox, container, dialog, divider, dropdown, slider, text, text_input},
 };
-use storage_common::{COMMON_DOS_TYPES, COMMON_GPT_TYPES, PartitionTypeInfo, bytes_to_pretty};
+use storage_common::{
+    COMMON_DOS_TYPES, COMMON_GPT_TYPES, FilesystemToolInfo, PartitionTypeInfo, bytes_to_pretty,
+};
+
+/// Check if a filesystem tool is available from the tools list
+fn is_tool_available(tools: &[FilesystemToolInfo], fs_type: &str) -> bool {
+    tools
+        .iter()
+        .find(|t| t.fs_type == fs_type)
+        .is_some_and(|t| t.available)
+}
 
 pub fn create_partition<'a>(state: CreatePartitionDialog) -> Element<'a, Message> {
     let running = state.running;
@@ -129,15 +139,15 @@ pub fn create_partition<'a>(state: CreatePartitionDialog) -> Element<'a, Message
     content = content.push(free_row);
     content = content.push(divider::horizontal::default());
 
-    // Get filesystem tool availability status
-    let tool_status = get_fs_tool_status();
+    // Get filesystem tool availability from service data
+    let filesystem_tools = &state.filesystem_tools;
 
     // Filter partition types to only include those with available tools
     let available_types: Vec<_> = partition_types
         .iter()
         .filter(|p_type| {
             let fs_type = p_type.filesystem_type.as_str();
-            tool_status.get(fs_type).copied().unwrap_or(true)
+            is_tool_available(filesystem_tools, fs_type)
         })
         .collect();
 
@@ -256,6 +266,7 @@ pub fn format_partition<'a>(state: FormatPartitionDialog) -> Element<'a, Message
         volume: _,
         info: create,
         running,
+        filesystem_tools,
     } = state;
 
     let size_pretty = bytes_to_pretty(&create.size, false);
@@ -281,15 +292,13 @@ pub fn format_partition<'a>(state: FormatPartitionDialog) -> Element<'a, Message
         );
     }
 
-    // Get filesystem tool availability status
-    let tool_status = get_fs_tool_status();
-
+    // Get filesystem tool availability from service data
     // Filter partition types to only include those with available tools
     let available_types: Vec<_> = partition_types
         .iter()
         .filter(|p_type| {
             let fs_type = p_type.filesystem_type.as_str();
-            tool_status.get(fs_type).copied().unwrap_or(true)
+            is_tool_available(&filesystem_tools, fs_type)
         })
         .collect();
 

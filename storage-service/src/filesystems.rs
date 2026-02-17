@@ -7,45 +7,86 @@
 
 use std::path::Path;
 use storage_common::{
-    CheckResult, FilesystemInfo, FormatOptions, MountOptions, MountOptionsSettings, UnmountResult,
+    CheckResult, FilesystemInfo, FilesystemToolInfo, FormatOptions, MountOptions,
+    MountOptionsSettings, UnmountResult,
 };
+use storage_dbus::DiskManager;
+use storage_service_macros::authorized_interface;
+use zbus::message::Header as MessageHeader;
 use zbus::{Connection, interface};
-
-use crate::auth::check_polkit_auth;
 
 /// D-Bus interface for filesystem management operations
 pub struct FilesystemsHandler {
-    /// Cached list of supported filesystem tools
+    /// Cached list of supported filesystem tools (simple list for backward compat)
     supported_tools: Vec<String>,
+    /// Detailed filesystem tool information
+    filesystem_tools: Vec<FilesystemToolInfo>,
+    /// DiskManager for disk enumeration (cached connection)
+    manager: DiskManager,
 }
 
 impl FilesystemsHandler {
     /// Create a new FilesystemsHandler and detect available tools
-    pub fn new() -> Self {
-        let supported_tools = Self::detect_filesystem_tools();
-        Self { supported_tools }
+    pub async fn new() -> Self {
+        let filesystem_tools = Self::detect_all_filesystem_tools();
+        let supported_tools: Vec<String> = filesystem_tools
+            .iter()
+            .filter(|t| t.available)
+            .map(|t| t.fs_type.clone())
+            .collect();
+        let manager = DiskManager::new()
+            .await
+            .expect("Failed to create DiskManager");
+        Self {
+            supported_tools,
+            filesystem_tools,
+            manager,
+        }
     }
 
-    /// Detect which mkfs tools are installed
-    fn detect_filesystem_tools() -> Vec<String> {
+    /// Detect all filesystem tools with detailed information
+    fn detect_all_filesystem_tools() -> Vec<FilesystemToolInfo> {
         let tools = vec![
-            ("ext4", "mkfs.ext4"),
-            ("xfs", "mkfs.xfs"),
-            ("btrfs", "mkfs.btrfs"),
-            ("vfat", "mkfs.vfat"),
-            ("ntfs", "mkfs.ntfs"),
-            ("exfat", "mkfs.exfat"),
+            ("ext4", "EXT4", "mkfs.ext4", "e2fsprogs"),
+            ("xfs", "XFS", "mkfs.xfs", "xfsprogs"),
+            ("btrfs", "Btrfs", "mkfs.btrfs", "btrfs-progs"),
+            ("vfat", "FAT32", "mkfs.vfat", "dosfstools"),
+            ("ntfs", "NTFS", "mkfs.ntfs", "ntfs-3g"),
+            ("exfat", "exFAT", "mkfs.exfat", "exfat-utils"),
         ];
 
-        let mut supported = Vec::new();
-        for (fs_type, command) in tools {
-            if which::which(command).is_ok() {
-                supported.push(fs_type.to_string());
-            }
+        let mut results = Vec::new();
+        for (fs_type, fs_name, command, package_hint) in tools {
+            let available = which::which(command).is_ok();
+            results.push(FilesystemToolInfo {
+                fs_type: fs_type.to_string(),
+                fs_name: fs_name.to_string(),
+                command: command.to_string(),
+                package_hint: package_hint.to_string(),
+                available,
+            });
         }
 
-        tracing::info!("Detected filesystem support: {:?}", supported);
-        supported
+        tracing::info!(
+            "Detected filesystem tools: {:?}",
+            results
+                .iter()
+                .filter(|t| t.available)
+                .map(|t| &t.fs_type)
+                .collect::<Vec<_>>()
+        );
+        results
+    }
+
+    /// Legacy method for backward compatibility
+    #[allow(dead_code)]
+    fn detect_filesystem_tools() -> Vec<String> {
+        let tools = Self::detect_all_filesystem_tools();
+        tools
+            .iter()
+            .filter(|t| t.available)
+            .map(|t| t.fs_type.clone())
+            .collect()
     }
 }
 
@@ -87,19 +128,17 @@ impl FilesystemsHandler {
     /// Returns: JSON-serialized Vec<FilesystemInfo>
     ///
     /// Authorization: org.cosmic.ext.storage-service.filesystem-read (allow_active)
+    #[authorized_interface(action = "org.cosmic.ext.storage-service.filesystem-read")]
     async fn list_filesystems(
         &self,
-        #[zbus(connection)] connection: &Connection,
+        #[zbus(connection)] _connection: &Connection,
+        #[zbus(header)] _header: MessageHeader<'_>,
     ) -> zbus::fdo::Result<String> {
-        // Check authorization
-        check_polkit_auth(connection, "org.cosmic.ext.storage-service.filesystem-read")
-            .await
-            .map_err(|e| zbus::fdo::Error::Failed(format!("Authorization failed: {e}")))?;
+        // `caller` is injected by the macro
+        tracing::debug!("Listing filesystems for UID {}", caller.uid);
 
-        tracing::debug!("Listing filesystems");
-
-        // Get all drives
-        let drives = storage_dbus::disk::get_disks_with_volumes()
+        // Get all drives using cached connection
+        let drives = storage_dbus::disk::get_disks_with_volumes(&self.manager)
             .await
             .map_err(|e| {
                 tracing::error!("Failed to get drives: {e}");
@@ -160,20 +199,39 @@ impl FilesystemsHandler {
     /// Returns: JSON array of filesystem type strings
     ///
     /// Authorization: org.cosmic.ext.storage-service.filesystem-read (allow_active)
+    #[authorized_interface(action = "org.cosmic.ext.storage-service.filesystem-read")]
     async fn get_supported_filesystems(
         &self,
-        #[zbus(connection)] connection: &Connection,
+        #[zbus(connection)] _connection: &Connection,
+        #[zbus(header)] _header: MessageHeader<'_>,
     ) -> zbus::fdo::Result<String> {
-        // Check authorization
-        check_polkit_auth(connection, "org.cosmic.ext.storage-service.filesystem-read")
-            .await
-            .map_err(|e| zbus::fdo::Error::Failed(format!("Authorization failed: {e}")))?;
-
-        tracing::debug!("Getting supported filesystems");
+        tracing::debug!("Getting supported filesystems for UID {}", caller.uid);
 
         // Serialize to JSON
         let json = serde_json::to_string(&self.supported_tools).map_err(|e| {
             tracing::error!("Failed to serialize supported filesystems: {e}");
+            zbus::fdo::Error::Failed(format!("Failed to serialize: {e}"))
+        })?;
+
+        Ok(json)
+    }
+
+    /// Get detailed information about available filesystem tools
+    ///
+    /// Returns: JSON array of FilesystemToolInfo objects with availability status
+    ///
+    /// Authorization: org.cosmic.ext.storage-service.filesystem-read (allow_active)
+    #[authorized_interface(action = "org.cosmic.ext.storage-service.filesystem-read")]
+    async fn get_filesystem_tools(
+        &self,
+        #[zbus(connection)] _connection: &Connection,
+        #[zbus(header)] _header: MessageHeader<'_>,
+    ) -> zbus::fdo::Result<String> {
+        tracing::debug!("Getting filesystem tool details for UID {}", caller.uid);
+
+        // Serialize to JSON
+        let json = serde_json::to_string(&self.filesystem_tools).map_err(|e| {
+            tracing::error!("Failed to serialize filesystem tools: {e}");
             zbus::fdo::Error::Failed(format!("Failed to serialize: {e}"))
         })?;
 
@@ -189,28 +247,23 @@ impl FilesystemsHandler {
     /// - options_json: JSON-serialized FormatOptions
     ///
     /// Authorization: org.cosmic.ext.storage-service.filesystem-format (auth_admin - always prompt)
+    #[authorized_interface(action = "org.cosmic.ext.storage-service.filesystem-format")]
     async fn format(
         &self,
-        #[zbus(connection)] connection: &Connection,
+        #[zbus(connection)] _connection: &Connection,
+        #[zbus(header)] _header: MessageHeader<'_>,
         #[zbus(signal_context)] signal_ctx: zbus::object_server::SignalEmitter<'_>,
         device: String,
         fs_type: String,
         label: String,
         options_json: String,
     ) -> zbus::fdo::Result<()> {
-        // Check authorization (always prompt for format)
-        check_polkit_auth(
-            connection,
-            "org.cosmic.ext.storage-service.filesystem-format",
-        )
-        .await
-        .map_err(|e| zbus::fdo::Error::Failed(format!("Authorization failed: {e}")))?;
-
         tracing::info!(
-            "Formatting {} as {} with label '{}'",
+            "Formatting {} as {} with label '{}' (requested by UID {})",
             device,
             fs_type,
-            label
+            label,
+            caller.uid
         );
 
         // Validate filesystem type is supported
@@ -248,42 +301,38 @@ impl FilesystemsHandler {
     /// Returns: Actual mount point used
     ///
     /// Authorization: org.cosmic.ext.storage-service.filesystem-mount (allow_active)
+    #[authorized_interface(action = "org.cosmic.ext.storage-service.filesystem-mount")]
     async fn mount(
         &self,
-        #[zbus(connection)] connection: &Connection,
+        #[zbus(connection)] _connection: &Connection,
+        #[zbus(header)] _header: MessageHeader<'_>,
         #[zbus(signal_context)] signal_ctx: zbus::object_server::SignalEmitter<'_>,
         device: String,
         mount_point: String,
         options_json: String,
     ) -> zbus::fdo::Result<String> {
-        // Check authorization
-        check_polkit_auth(
-            connection,
-            "org.cosmic.ext.storage-service.filesystem-mount",
-        )
-        .await
-        .map_err(|e| zbus::fdo::Error::Failed(format!("Authorization failed: {e}")))?;
-
         tracing::info!(
-            "Mounting {} to {}",
+            "Mounting {} to {} (as UID {})",
             device,
             if mount_point.is_empty() {
                 "(auto)"
             } else {
                 &mount_point
-            }
+            },
+            caller.uid
         );
 
         // Parse options
         let mount_opts: MountOptions = serde_json::from_str(&options_json).unwrap_or_default();
 
-        // Delegate to storage-dbus operation
-        let actual_mount_point = storage_dbus::mount_filesystem(&device, &mount_point, mount_opts)
-            .await
-            .map_err(|e| {
-                tracing::error!("Failed to mount filesystem: {e}");
-                zbus::fdo::Error::Failed(format!("Failed to mount filesystem: {e}"))
-            })?;
+        // Delegate to storage-dbus operation with caller UID
+        let actual_mount_point =
+            storage_dbus::mount_filesystem(&device, &mount_point, mount_opts, Some(caller.uid))
+                .await
+                .map_err(|e| {
+                    tracing::error!("Failed to mount filesystem: {e}");
+                    zbus::fdo::Error::Failed(format!("Failed to mount filesystem: {e}"))
+                })?;
 
         tracing::info!("Successfully mounted at: {}", actual_mount_point);
         let _ = Self::mounted(&signal_ctx, &device, &actual_mount_point).await;
@@ -301,27 +350,22 @@ impl FilesystemsHandler {
     ///
     /// Authorization: org.cosmic.ext.storage-service.filesystem-mount (base)
     ///                org.cosmic.ext.storage-service.filesystem-kill-processes (if kill_processes=true)
+    #[authorized_interface(action = "org.cosmic.ext.storage-service.filesystem-mount")]
     async fn unmount(
         &self,
         #[zbus(connection)] connection: &Connection,
+        #[zbus(header)] header: MessageHeader<'_>,
         #[zbus(signal_context)] signal_ctx: zbus::object_server::SignalEmitter<'_>,
         device_or_mount: String,
         force: bool,
         kill_processes: bool,
     ) -> zbus::fdo::Result<String> {
-        // Check authorization for unmount
-        check_polkit_auth(
-            connection,
-            "org.cosmic.ext.storage-service.filesystem-mount",
-        )
-        .await
-        .map_err(|e| zbus::fdo::Error::Failed(format!("Authorization failed: {e}")))?;
-
         tracing::info!(
-            "Unmounting {} (force={}, kill={})",
+            "Unmounting {} (force={}, kill={}) for UID {}",
             device_or_mount,
             force,
-            kill_processes
+            kill_processes,
+            caller.uid
         );
 
         // Determine if input is device or mount point (for finding processes later)
@@ -367,17 +411,44 @@ impl FilesystemsHandler {
                         .unwrap_or_default();
 
                     if kill_processes && !processes.is_empty() {
+                        // Check if this is a protected system path
+                        use std::path::Path;
+                        if crate::protected_paths::is_protected_path(Path::new(&mount_point)) {
+                            tracing::warn!(
+                                "Refusing to kill processes on protected system path: {}",
+                                mount_point
+                            );
+
+                            let result = UnmountResult {
+                                success: false,
+                                error: Some(format!(
+                                    "Cannot kill processes on protected system path: {}",
+                                    mount_point
+                                )),
+                                blocking_processes: processes,
+                            };
+
+                            let json = serde_json::to_string(&result).map_err(|e| {
+                                zbus::fdo::Error::Failed(format!("Failed to serialize: {e}"))
+                            })?;
+
+                            return Ok(json);
+                        }
+
                         // Check authorization for killing processes
-                        if let Err(auth_err) = check_polkit_auth(
+                        // Note: We use the connection and header from the macro for secondary auth
+                        let auth_result = crate::auth::check_authorization(
                             connection,
+                            header
+                                .sender()
+                                .ok_or_else(|| zbus::fdo::Error::Failed("No sender".to_string()))?
+                                .as_str(),
                             "org.cosmic.ext.storage-service.filesystem-kill-processes",
                         )
-                        .await
-                        {
-                            tracing::warn!(
-                                "Authorization failed for killing processes: {}",
-                                auth_err
-                            );
+                        .await;
+
+                        if auth_result.is_err() {
+                            tracing::warn!("Authorization failed for killing processes");
 
                             let result = UnmountResult {
                                 success: false,
@@ -479,17 +550,18 @@ impl FilesystemsHandler {
     /// Returns: JSON-serialized Vec<ProcessInfo>
     ///
     /// Authorization: org.cosmic.ext.storage-service.filesystem-read (allow_active)
+    #[authorized_interface(action = "org.cosmic.ext.storage-service.filesystem-read")]
     async fn get_blocking_processes(
         &self,
-        #[zbus(connection)] connection: &Connection,
+        #[zbus(connection)] _connection: &Connection,
+        #[zbus(header)] _header: MessageHeader<'_>,
         device_or_mount: String,
     ) -> zbus::fdo::Result<String> {
-        // Check authorization
-        check_polkit_auth(connection, "org.cosmic.ext.storage-service.filesystem-read")
-            .await
-            .map_err(|e| zbus::fdo::Error::Failed(format!("Authorization failed: {e}")))?;
-
-        tracing::debug!("Getting blocking processes for {}", device_or_mount);
+        tracing::debug!(
+            "Getting blocking processes for {} (UID {})",
+            device_or_mount,
+            caller.uid
+        );
 
         // Determine mount point via storage-dbus
         let mount_point = if device_or_mount.starts_with("/dev/") {
@@ -536,21 +608,20 @@ impl FilesystemsHandler {
     /// Returns: JSON-serialized CheckResult
     ///
     /// Authorization: org.cosmic.ext.storage-service.filesystem-modify (auth_admin_keep)
+    #[authorized_interface(action = "org.cosmic.ext.storage-service.filesystem-modify")]
     async fn check(
         &self,
-        #[zbus(connection)] connection: &Connection,
+        #[zbus(connection)] _connection: &Connection,
+        #[zbus(header)] _header: MessageHeader<'_>,
         device: String,
         repair: bool,
     ) -> zbus::fdo::Result<String> {
-        // Check authorization
-        check_polkit_auth(
-            connection,
-            "org.cosmic.ext.storage-service.filesystem-modify",
-        )
-        .await
-        .map_err(|e| zbus::fdo::Error::Failed(format!("Authorization failed: {e}")))?;
-
-        tracing::info!("Checking filesystem on {} (repair={})", device, repair);
+        tracing::info!(
+            "Checking filesystem on {} (repair={}) for UID {}",
+            device,
+            repair,
+            caller.uid
+        );
 
         // Delegate to storage-dbus operation
         let clean = storage_dbus::check_filesystem(&device, repair)
@@ -587,21 +658,20 @@ impl FilesystemsHandler {
     /// - label: New filesystem label
     ///
     /// Authorization: org.cosmic.ext.storage-service.filesystem-modify (auth_admin_keep)
+    #[authorized_interface(action = "org.cosmic.ext.storage-service.filesystem-modify")]
     async fn set_label(
         &self,
-        #[zbus(connection)] connection: &Connection,
+        #[zbus(connection)] _connection: &Connection,
+        #[zbus(header)] _header: MessageHeader<'_>,
         device: String,
         label: String,
     ) -> zbus::fdo::Result<()> {
-        // Check authorization
-        check_polkit_auth(
-            connection,
-            "org.cosmic.ext.storage-service.filesystem-modify",
-        )
-        .await
-        .map_err(|e| zbus::fdo::Error::Failed(format!("Authorization failed: {e}")))?;
-
-        tracing::info!("Setting label on {} to '{}'", device, label);
+        tracing::info!(
+            "Setting label on {} to '{}' for UID {}",
+            device,
+            label,
+            caller.uid
+        );
 
         // Delegate to storage-dbus operation
         storage_dbus::set_filesystem_label(&device, &label)
@@ -624,17 +694,18 @@ impl FilesystemsHandler {
     /// Returns: JSON with size, used, available, percent
     ///
     /// Authorization: org.cosmic.ext.storage-service.filesystem-read (allow_active)
+    #[authorized_interface(action = "org.cosmic.ext.storage-service.filesystem-read")]
     async fn get_usage(
         &self,
-        #[zbus(connection)] connection: &Connection,
+        #[zbus(connection)] _connection: &Connection,
+        #[zbus(header)] _header: MessageHeader<'_>,
         mount_point: String,
     ) -> zbus::fdo::Result<String> {
-        // Check authorization
-        check_polkit_auth(connection, "org.cosmic.ext.storage-service.filesystem-read")
-            .await
-            .map_err(|e| zbus::fdo::Error::Failed(format!("Authorization failed: {e}")))?;
-
-        tracing::debug!("Getting usage for mount point: {}", mount_point);
+        tracing::debug!(
+            "Getting usage for mount point: {} (UID {})",
+            mount_point,
+            caller.uid
+        );
 
         // Validate mount point exists and is mounted
         if !Path::new(&mount_point).exists() {
@@ -687,14 +758,14 @@ impl FilesystemsHandler {
     /// Returns: JSON Option<MountOptionsSettings> ("null" if none)
     ///
     /// Authorization: org.cosmic.ext.storage-service.filesystem-read (allow_active)
+    #[authorized_interface(action = "org.cosmic.ext.storage-service.filesystem-read")]
     async fn get_mount_options(
         &self,
-        #[zbus(connection)] connection: &Connection,
+        #[zbus(connection)] _connection: &Connection,
+        #[zbus(header)] _header: MessageHeader<'_>,
         device: String,
     ) -> zbus::fdo::Result<String> {
-        check_polkit_auth(connection, "org.cosmic.ext.storage-service.filesystem-read")
-            .await
-            .map_err(|e| zbus::fdo::Error::Failed(format!("Authorization failed: {e}")))?;
+        tracing::debug!("Getting mount options for {} (UID {})", device, caller.uid);
 
         match storage_dbus::get_mount_options(&device).await {
             Ok(Some(s)) => {
@@ -724,17 +795,18 @@ impl FilesystemsHandler {
     /// Clear persistent mount options (remove fstab entry) for a device
     ///
     /// Authorization: org.cosmic.ext.storage-service.filesystem-mount (allow_active)
+    #[authorized_interface(action = "org.cosmic.ext.storage-service.filesystem-mount")]
     async fn default_mount_options(
         &self,
-        #[zbus(connection)] connection: &Connection,
+        #[zbus(connection)] _connection: &Connection,
+        #[zbus(header)] _header: MessageHeader<'_>,
         device: String,
     ) -> zbus::fdo::Result<()> {
-        check_polkit_auth(
-            connection,
-            "org.cosmic.ext.storage-service.filesystem-mount",
-        )
-        .await
-        .map_err(|e| zbus::fdo::Error::Failed(format!("Authorization failed: {e}")))?;
+        tracing::debug!(
+            "Resetting mount options for {} (UID {})",
+            device,
+            caller.uid
+        );
 
         storage_dbus::reset_mount_options(&device)
             .await
@@ -747,10 +819,12 @@ impl FilesystemsHandler {
     /// Set persistent mount options (fstab configuration) for a device
     ///
     /// Authorization: org.cosmic.ext.storage-service.filesystem-mount (allow_active)
+    #[authorized_interface(action = "org.cosmic.ext.storage-service.filesystem-mount")]
     #[allow(clippy::too_many_arguments)]
     async fn edit_mount_options(
         &self,
-        #[zbus(connection)] connection: &Connection,
+        #[zbus(connection)] _connection: &Connection,
+        #[zbus(header)] _header: MessageHeader<'_>,
         device: String,
         mount_at_startup: bool,
         show_in_ui: bool,
@@ -763,12 +837,7 @@ impl FilesystemsHandler {
         identify_as: String,
         filesystem_type: String,
     ) -> zbus::fdo::Result<()> {
-        check_polkit_auth(
-            connection,
-            "org.cosmic.ext.storage-service.filesystem-mount",
-        )
-        .await
-        .map_err(|e| zbus::fdo::Error::Failed(format!("Authorization failed: {e}")))?;
+        tracing::debug!("Setting mount options for {} (UID {})", device, caller.uid);
 
         let display_opt = if display_name.trim().is_empty() {
             None
@@ -813,20 +882,20 @@ impl FilesystemsHandler {
     /// - recursive: Take ownership of child mounts
     ///
     /// Authorization: org.cosmic.ext.storage-service.filesystems-take-ownership
+    #[authorized_interface(action = "org.cosmic.ext.storage-service.filesystems-take-ownership")]
     async fn take_ownership(
         &self,
-        #[zbus(connection)] connection: &Connection,
+        #[zbus(connection)] _connection: &Connection,
+        #[zbus(header)] _header: MessageHeader<'_>,
         device: String,
         recursive: bool,
     ) -> zbus::fdo::Result<()> {
-        check_polkit_auth(
-            connection,
-            "org.cosmic.ext.storage-service.filesystems-take-ownership",
-        )
-        .await
-        .map_err(|e| zbus::fdo::Error::Failed(format!("Authorization failed: {e}")))?;
-
-        tracing::info!("Taking ownership of {} (recursive={})", device, recursive);
+        tracing::info!(
+            "Taking ownership of {} (recursive={}) for UID {}",
+            device,
+            recursive,
+            caller.uid
+        );
 
         // Delegate to storage-dbus operation
         storage_dbus::take_filesystem_ownership(&device, recursive)

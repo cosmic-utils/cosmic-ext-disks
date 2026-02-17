@@ -1,6 +1,7 @@
 use crate::models::{UiDrive, UiVolume};
 use storage_common::{
-    CreatePartitionInfo, PartitionTypeInfo, ProcessInfo, SmartAttribute, SmartStatus, VolumeInfo,
+    CreatePartitionInfo, FilesystemToolInfo, PartitionTypeInfo, ProcessInfo, SmartAttribute,
+    SmartStatus, VolumeInfo,
 };
 
 #[derive(Debug, Clone)]
@@ -33,6 +34,7 @@ pub struct FormatPartitionDialog {
     pub volume: VolumeInfo,
     pub info: CreatePartitionInfo,
     pub running: bool,
+    pub filesystem_tools: Vec<FilesystemToolInfo>,
 }
 
 #[derive(Debug, Clone)]
@@ -184,6 +186,7 @@ pub struct CreatePartitionDialog {
     pub info: CreatePartitionInfo,
     pub running: bool,
     pub error: Option<String>,
+    pub filesystem_tools: Vec<FilesystemToolInfo>,
 }
 
 #[derive(Debug, Clone)]
