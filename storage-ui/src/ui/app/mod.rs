@@ -8,9 +8,11 @@ pub(crate) use message::Message;
 pub(crate) use state::{AppModel, ContextPage};
 
 use crate::client::FilesystemsClient;
+use crate::client::RcloneClient;
 use crate::models::load_all_drives;
 
 use crate::config::Config;
+use crate::ui::network::NetworkState;
 use crate::ui::sidebar::SidebarState;
 use cosmic::app::{Core, Task};
 use cosmic::cosmic_config::{self, CosmicConfigEntry};
@@ -52,6 +54,7 @@ impl Application for AppModel {
             dialog: None,
             image_op_operation_id: None,
             filesystem_tools: vec![],
+            network: NetworkState::new(),
             // Optional configuration file for an application.
             config: cosmic_config::Config::new(Self::APP_ID, Config::VERSION)
                 .map(|context| match Config::get_entry(&context) {
@@ -109,7 +112,38 @@ impl Application for AppModel {
             },
         );
 
-        (app, command.chain(nav_command).chain(tools_command))
+        // Load network remotes from RClone service
+        let network_command = Task::perform(
+            async {
+                match RcloneClient::new().await {
+                    Ok(client) => match client.list_remotes().await {
+                        Ok(list) => Some(list.remotes),
+                        Err(e) => {
+                            tracing::warn!(%e, "failed to load network remotes");
+                            None
+                        }
+                    },
+                    Err(e) => {
+                        tracing::info!(%e, "RClone client not available, network features disabled");
+                        None
+                    }
+                }
+            },
+            |remotes| {
+                Message::NetworkRemotesLoaded(
+                    remotes.ok_or_else(|| "RClone not available".to_string()),
+                )
+                .into()
+            },
+        );
+
+        (
+            app,
+            command
+                .chain(nav_command)
+                .chain(tools_command)
+                .chain(network_command),
+        )
     }
 
     /// Elements to pack at the start of the header bar.

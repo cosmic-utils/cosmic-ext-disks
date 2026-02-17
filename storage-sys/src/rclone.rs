@@ -222,15 +222,14 @@ impl RCloneCli {
             .arg("--max-depth")
             .arg("1")
             .output()
-            .map_err(|e| SysError::RCloneTestFailed(format!("Failed to execute rclone ls: {}", e)))?;
+            .map_err(|e| {
+                SysError::RCloneTestFailed(format!("Failed to execute rclone ls: {}", e))
+            })?;
 
         let latency_ms = start.elapsed().as_millis() as u64;
 
         if output.status.success() {
-            info!(
-                "Remote {} test succeeded in {}ms",
-                remote_name, latency_ms
-            );
+            info!("Remote {} test succeeded in {}ms", remote_name, latency_ms);
             Ok((true, "Connection successful".to_string(), latency_ms))
         } else {
             let stderr = String::from_utf8_lossy(&output.stderr);

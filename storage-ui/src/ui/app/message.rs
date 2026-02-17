@@ -6,6 +6,7 @@ use crate::ui::dialogs::message::{
     NewDiskImageDialogMessage, SmartDialogMessage, UnmountBusyMessage,
 };
 use crate::ui::dialogs::state::ShowDialog;
+use crate::ui::network::NetworkMessage;
 use crate::ui::volumes::VolumesControlMessage;
 use storage_common::FilesystemToolInfo;
 
@@ -135,6 +136,11 @@ pub enum Message {
     BtrfsRefreshAll {
         mount_point: String,
     },
+
+    // Network mounts (RClone, Samba, FTP)
+    Network(NetworkMessage),
+    LoadNetworkRemotes,
+    NetworkRemotesLoaded(Result<Vec<storage_common::rclone::RemoteConfig>, String>),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -178,5 +184,11 @@ impl From<ImageOperationDialogMessage> for Message {
 impl From<UnmountBusyMessage> for Message {
     fn from(val: UnmountBusyMessage) -> Self {
         Message::UnmountBusy(val)
+    }
+}
+
+impl From<NetworkMessage> for Message {
+    fn from(val: NetworkMessage) -> Self {
+        Message::Network(val)
     }
 }

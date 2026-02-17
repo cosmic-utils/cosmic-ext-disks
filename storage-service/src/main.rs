@@ -87,7 +87,8 @@ async fn main() -> Result<()> {
 
     // Conditionally serve RClone interface if available
     if let Some(handler) = rclone_handler {
-        connection_builder = connection_builder.serve_at("/org/cosmic/ext/StorageService/rclone", handler)?;
+        connection_builder =
+            connection_builder.serve_at("/org/cosmic/ext/StorageService/rclone", handler)?;
     }
 
     let connection = connection_builder.build().await?;

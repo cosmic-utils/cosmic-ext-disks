@@ -2,6 +2,7 @@ mod btrfs;
 mod drive;
 mod image;
 mod nav;
+mod network;
 mod smart;
 
 use super::APP_ID;
@@ -14,6 +15,7 @@ use crate::fl;
 use crate::models::load_all_drives;
 use crate::ui::dialogs::state::ShowDialog;
 use crate::ui::error::{UiErrorContext, log_error_and_show_dialog};
+use crate::ui::network::NetworkMessage;
 use crate::ui::sidebar::SidebarNodeKey;
 use crate::ui::volumes::VolumesControl;
 use crate::ui::volumes::helpers as volumes_helpers;
@@ -659,6 +661,17 @@ pub(crate) fn update(app: &mut AppModel, message: Message) -> Task<Message> {
             if let Some(volumes) = app.nav.active_data::<VolumesControl>() {
                 return retry_unmount(volumes, device_path);
             }
+        }
+
+        // Network mounts (RClone, Samba, FTP)
+        Message::Network(msg) => {
+            return network::handle_network_message(app, msg);
+        }
+        Message::LoadNetworkRemotes => {
+            return network::handle_network_message(app, NetworkMessage::LoadRemotes);
+        }
+        Message::NetworkRemotesLoaded(result) => {
+            return network::handle_network_message(app, NetworkMessage::RemotesLoaded(result));
         }
     }
     Task::none()

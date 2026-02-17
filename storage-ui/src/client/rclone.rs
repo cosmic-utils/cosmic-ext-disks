@@ -1,5 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-only
 
+// TODO: Remove when UI integration is complete
+#![allow(dead_code)]
+
 use crate::client::connection::shared_connection;
 use crate::client::error::ClientError;
 use storage_common::rclone::{MountStatusResult, RemoteConfig, RemoteConfigList, TestResult};

@@ -237,7 +237,7 @@ pub(crate) fn nav_bar(app: &AppModel) -> Option<Element<'_, cosmic::Action<Messa
 
     let controls_enabled = app.dialog.is_none();
 
-    let mut nav = sidebar::view::sidebar(&app.nav, &app.sidebar, controls_enabled)
+    let mut nav = sidebar::view::sidebar(&app.nav, &app.sidebar, &app.network, controls_enabled)
         .map(Into::into)
         .apply(widget::container)
         .padding(8)

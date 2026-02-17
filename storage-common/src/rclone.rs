@@ -10,10 +10,11 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 
 /// Defines whether a configuration is per-user or system-wide
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum ConfigScope {
     /// Per-user configuration (~/.config/rclone/rclone.conf)
+    #[default]
     User,
     /// System-wide configuration (/etc/rclone.conf)
     System,
@@ -76,10 +77,11 @@ impl std::str::FromStr for ConfigScope {
 }
 
 /// Runtime state of a network mount
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "status", rename_all = "lowercase")]
 pub enum MountStatus {
     /// Not currently mounted
+    #[default]
     Unmounted,
     /// Mount operation in progress
     Mounting,
@@ -91,16 +93,13 @@ pub enum MountStatus {
     Error(String),
 }
 
-impl Default for MountStatus {
-    fn default() -> Self {
-        MountStatus::Unmounted
-    }
-}
-
 impl MountStatus {
     /// Check if the mount is in a terminal state (not transitioning)
     pub fn is_terminal(&self) -> bool {
-        matches!(self, MountStatus::Unmounted | MountStatus::Mounted | MountStatus::Error(_))
+        matches!(
+            self,
+            MountStatus::Unmounted | MountStatus::Mounted | MountStatus::Error(_)
+        )
     }
 
     /// Check if the mount is currently mounted
@@ -110,20 +109,15 @@ impl MountStatus {
 }
 
 /// Type of network mount backend. Designed for future extensibility.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum MountType {
     /// RClone mount
+    #[default]
     RClone,
     // Future:
     // Samba,
     // Ftp,
-}
-
-impl Default for MountType {
-    fn default() -> Self {
-        MountType::RClone
-    }
 }
 
 /// Configuration for a single RClone remote
@@ -292,24 +286,27 @@ pub struct MountStatusResult {
 impl MountStatusResult {
     /// Create a new mount status result
     pub fn new(status: MountStatus, mount_point: PathBuf) -> Self {
-        Self { status, mount_point }
+        Self {
+            status,
+            mount_point,
+        }
     }
 }
 
 /// List of supported RClone remote types
 pub const SUPPORTED_REMOTE_TYPES: &[&str] = &[
-    "drive",      // Google Drive
-    "s3",         // Amazon S3
-    "dropbox",    // Dropbox
-    "onedrive",   // Microsoft OneDrive
-    "ftp",        // FTP
-    "sftp",       // SFTP
-    "webdav",     // WebDAV
+    "drive",              // Google Drive
+    "s3",                 // Amazon S3
+    "dropbox",            // Dropbox
+    "onedrive",           // Microsoft OneDrive
+    "ftp",                // FTP
+    "sftp",               // SFTP
+    "webdav",             // WebDAV
     "googlecloudstorage", // Google Cloud Storage
-    "azureblob",  // Azure Blob Storage
-    "b2",         // Backblaze B2
-    "box",        // Box
-    "pcloud",     // pCloud
-    "yandex",     // Yandex Disk
-    "alias",      // Alias for testing
+    "azureblob",          // Azure Blob Storage
+    "b2",                 // Backblaze B2
+    "box",                // Box
+    "pcloud",             // pCloud
+    "yandex",             // Yandex Disk
+    "alias",              // Alias for testing
 ];
