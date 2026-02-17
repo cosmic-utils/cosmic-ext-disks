@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-only
 
-//! COSMIC Storage Service - D-Bus service for privileged disk operations
+//! COSMIC Ext Storage Service - D-Bus service for privileged disk operations
 //!
 //! This service provides a D-Bus interface for managing storage devices,
 //! with Polkit-based authorization and socket activation support.
@@ -44,7 +44,7 @@ async fn main() -> Result<()> {
         .init();
 
     tracing::info!(
-        "Starting COSMIC Storage Service v{}",
+        "Starting COSMIC Ext Storage Service v{}",
         env!("CARGO_PKG_VERSION")
     );
 
@@ -118,6 +118,6 @@ async fn main() -> Result<()> {
     tokio::signal::ctrl_c().await?;
     tracing::info!("Received shutdown signal");
 
-    tracing::info!("COSMIC Storage Service shutting down");
+    tracing::info!("COSMIC Ext Storage Service shutting down");
     Ok(())
 }

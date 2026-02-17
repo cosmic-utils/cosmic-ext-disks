@@ -6,7 +6,7 @@
 ## Prerequisites
 
 1. **RClone installed**: `sudo apt install rclone` or download from https://rclone.org/install/
-2. **COSMIC Storage Service**: Built and installed from this repository
+2. **COSMIC Ext Storage Service**: Built and installed from this repository
 3. **Polkit policy**: Installed to `/usr/share/polkit-1/actions/`
 
 ## Quick Test

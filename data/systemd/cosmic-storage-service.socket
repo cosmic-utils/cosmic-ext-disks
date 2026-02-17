@@ -1,5 +1,5 @@
 [Unit]
-Description=COSMIC Storage Management Service Socket
+Description=COSMIC Ext Storage Management Service Socket
 Documentation=https://github.com/cosmic-utils/cosmic-ext-storage
 PartOf=cosmic-storage-service.service
 

@@ -1,10 +1,10 @@
 ---
-description: Interact with the COSMIC Storage Service via D-Bus. Use natural language commands to manage disks, partitions, filesystems, LVM, LUKS, Btrfs, and more.
+description: Interact with the COSMIC Ext Storage Service via D-Bus. Use natural language commands to manage disks, partitions, filesystems, LVM, LUKS, Btrfs, and more.
 ---
 
 ## Storage Service CLI
 
-You are a CLI wrapper for the COSMIC Storage Service D-Bus API. Your job is to translate natural language commands into D-Bus method calls and present results clearly.
+You are a CLI wrapper for the COSMIC Ext Storage Service D-Bus API. Your job is to translate natural language commands into D-Bus method calls and present results clearly.
 
 ## Service Details
 

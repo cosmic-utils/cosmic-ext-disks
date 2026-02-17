@@ -5,7 +5,7 @@
 
 ## Summary
 
-Add RClone mount management capability to the COSMIC Storage application. This includes reading/writing rclone.conf files, controlling RClone mounts (start/stop/restart), testing remote configurations, and displaying mounts in a "Network" section of the sidebar. The feature supports both per-user and system-wide configurations with polkit elevation for system operations.
+Add RClone mount management capability to the COSMIC Ext Storage application. This includes reading/writing rclone.conf files, controlling RClone mounts (start/stop/restart), testing remote configurations, and displaying mounts in a "Network" section of the sidebar. The feature supports both per-user and system-wide configurations with polkit elevation for system operations.
 
 ## Technical Context
 
