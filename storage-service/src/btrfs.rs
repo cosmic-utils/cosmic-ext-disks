@@ -6,7 +6,7 @@ use storage_common::btrfs::SubvolumeList;
 use storage_service_macros::authorized_interface;
 use zbus::message::Header as MessageHeader;
 use zbus::object_server::SignalEmitter;
-use zbus::{interface, Connection};
+use zbus::{Connection, interface};
 
 /// BTRFS operations handler
 pub struct BtrfsHandler;

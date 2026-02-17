@@ -13,7 +13,7 @@ use storage_common::{
 use storage_dbus::DiskManager;
 use storage_service_macros::authorized_interface;
 use zbus::message::Header as MessageHeader;
-use zbus::{interface, Connection};
+use zbus::{Connection, interface};
 
 /// D-Bus interface for filesystem management operations
 pub struct FilesystemsHandler {
@@ -314,7 +314,11 @@ impl FilesystemsHandler {
         tracing::info!(
             "Mounting {} to {} (as UID {})",
             device,
-            if mount_point.is_empty() { "(auto)" } else { &mount_point },
+            if mount_point.is_empty() {
+                "(auto)"
+            } else {
+                &mount_point
+            },
             caller.uid
         );
 
@@ -435,16 +439,16 @@ impl FilesystemsHandler {
                         // Note: We use the connection and header from the macro for secondary auth
                         let auth_result = crate::auth::check_authorization(
                             connection,
-                            header.sender()
+                            header
+                                .sender()
                                 .ok_or_else(|| zbus::fdo::Error::Failed("No sender".to_string()))?
                                 .as_str(),
                             "org.cosmic.ext.storage-service.filesystem-kill-processes",
-                        ).await;
+                        )
+                        .await;
 
                         if auth_result.is_err() {
-                            tracing::warn!(
-                                "Authorization failed for killing processes"
-                            );
+                            tracing::warn!("Authorization failed for killing processes");
 
                             let result = UnmountResult {
                                 success: false,
@@ -553,7 +557,11 @@ impl FilesystemsHandler {
         #[zbus(header)] _header: MessageHeader<'_>,
         device_or_mount: String,
     ) -> zbus::fdo::Result<String> {
-        tracing::debug!("Getting blocking processes for {} (UID {})", device_or_mount, caller.uid);
+        tracing::debug!(
+            "Getting blocking processes for {} (UID {})",
+            device_or_mount,
+            caller.uid
+        );
 
         // Determine mount point via storage-dbus
         let mount_point = if device_or_mount.starts_with("/dev/") {
@@ -608,7 +616,12 @@ impl FilesystemsHandler {
         device: String,
         repair: bool,
     ) -> zbus::fdo::Result<String> {
-        tracing::info!("Checking filesystem on {} (repair={}) for UID {}", device, repair, caller.uid);
+        tracing::info!(
+            "Checking filesystem on {} (repair={}) for UID {}",
+            device,
+            repair,
+            caller.uid
+        );
 
         // Delegate to storage-dbus operation
         let clean = storage_dbus::check_filesystem(&device, repair)
@@ -653,7 +666,12 @@ impl FilesystemsHandler {
         device: String,
         label: String,
     ) -> zbus::fdo::Result<()> {
-        tracing::info!("Setting label on {} to '{}' for UID {}", device, label, caller.uid);
+        tracing::info!(
+            "Setting label on {} to '{}' for UID {}",
+            device,
+            label,
+            caller.uid
+        );
 
         // Delegate to storage-dbus operation
         storage_dbus::set_filesystem_label(&device, &label)
@@ -683,7 +701,11 @@ impl FilesystemsHandler {
         #[zbus(header)] _header: MessageHeader<'_>,
         mount_point: String,
     ) -> zbus::fdo::Result<String> {
-        tracing::debug!("Getting usage for mount point: {} (UID {})", mount_point, caller.uid);
+        tracing::debug!(
+            "Getting usage for mount point: {} (UID {})",
+            mount_point,
+            caller.uid
+        );
 
         // Validate mount point exists and is mounted
         if !Path::new(&mount_point).exists() {
@@ -780,7 +802,11 @@ impl FilesystemsHandler {
         #[zbus(header)] _header: MessageHeader<'_>,
         device: String,
     ) -> zbus::fdo::Result<()> {
-        tracing::debug!("Resetting mount options for {} (UID {})", device, caller.uid);
+        tracing::debug!(
+            "Resetting mount options for {} (UID {})",
+            device,
+            caller.uid
+        );
 
         storage_dbus::reset_mount_options(&device)
             .await

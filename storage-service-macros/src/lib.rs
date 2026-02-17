@@ -36,7 +36,8 @@ use proc_macro::TokenStream;
 use proc_macro2::TokenStream as TokenStream2;
 use quote::quote;
 use syn::{
-    parse_macro_input, ItemFn, FnArg, Pat, parse::Parse, parse::ParseStream, Token, LitStr, Result as SynResult,
+    FnArg, ItemFn, LitStr, Pat, Result as SynResult, Token, parse::Parse, parse::ParseStream,
+    parse_macro_input,
 };
 
 /// Arguments for the authorized_interface attribute
@@ -96,50 +97,52 @@ fn transform_method(action_id: &str, method: &ItemFn) -> TokenStream2 {
 
     for arg in &sig.inputs {
         if let FnArg::Typed(pat_type) = arg
-            && let Pat::Ident(pat_ident) = pat_type.pat.as_ref() {
-                let param_name = pat_ident.ident.to_string();
+            && let Pat::Ident(pat_ident) = pat_type.pat.as_ref()
+        {
+            let param_name = pat_ident.ident.to_string();
 
-                // Check if this parameter has a zbus attribute
-                let _has_zbus_attr = pat_type.attrs.iter().any(|attr| {
-                    attr.path().segments.iter().any(|seg| seg.ident == "zbus")
-                });
+            // Check if this parameter has a zbus attribute
+            let _has_zbus_attr = pat_type
+                .attrs
+                .iter()
+                .any(|attr| attr.path().segments.iter().any(|seg| seg.ident == "zbus"));
 
-                // Check the attribute content for connection/header
-                let mut found_connection_attr = false;
-                let mut found_header_attr = false;
+            // Check the attribute content for connection/header
+            let mut found_connection_attr = false;
+            let mut found_header_attr = false;
 
-                for attr in &pat_type.attrs {
-                    if let syn::Meta::List(list) = &attr.meta {
-                        let tokens_str = list.tokens.to_string();
-                        if tokens_str.contains("connection") {
-                            found_connection_attr = true;
-                        }
-                        if tokens_str.contains("header") {
-                            found_header_attr = true;
-                        }
+            for attr in &pat_type.attrs {
+                if let syn::Meta::List(list) = &attr.meta {
+                    let tokens_str = list.tokens.to_string();
+                    if tokens_str.contains("connection") {
+                        found_connection_attr = true;
+                    }
+                    if tokens_str.contains("header") {
+                        found_header_attr = true;
                     }
                 }
-
-                // Check by attribute content
-                if found_connection_attr {
-                    has_connection = true;
-                    connection_name = param_name.clone();
-                }
-                if found_header_attr {
-                    has_header = true;
-                    header_name = param_name.clone();
-                }
-
-                // Also check by parameter name convention (with underscore prefix)
-                if param_name == "connection" || param_name == "_connection" {
-                    has_connection = true;
-                    connection_name = param_name.clone();
-                }
-                if param_name == "header" || param_name == "_header" {
-                    has_header = true;
-                    header_name = param_name.clone();
-                }
             }
+
+            // Check by attribute content
+            if found_connection_attr {
+                has_connection = true;
+                connection_name = param_name.clone();
+            }
+            if found_header_attr {
+                has_header = true;
+                header_name = param_name.clone();
+            }
+
+            // Also check by parameter name convention (with underscore prefix)
+            if param_name == "connection" || param_name == "_connection" {
+                has_connection = true;
+                connection_name = param_name.clone();
+            }
+            if param_name == "header" || param_name == "_header" {
+                has_header = true;
+                header_name = param_name.clone();
+            }
+        }
     }
 
     // Get the original method body
@@ -159,7 +162,8 @@ fn transform_method(action_id: &str, method: &ItemFn) -> TokenStream2 {
         };
     }
 
-    let connection_ident: syn::Ident = syn::Ident::new(&connection_name, proc_macro2::Span::call_site());
+    let connection_ident: syn::Ident =
+        syn::Ident::new(&connection_name, proc_macro2::Span::call_site());
     let header_ident: syn::Ident = syn::Ident::new(&header_name, proc_macro2::Span::call_site());
 
     // Collect the inputs into a vec for quote

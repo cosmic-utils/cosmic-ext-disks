@@ -7,7 +7,7 @@
 use storage_common::EncryptionOptionsSettings;
 use storage_service_macros::authorized_interface;
 use zbus::message::Header as MessageHeader;
-use zbus::{interface, Connection};
+use zbus::{Connection, interface};
 
 /// D-Bus interface for LUKS encryption operations
 pub struct LuksHandler;
@@ -88,7 +88,11 @@ impl LuksHandler {
         passphrase: String,
         version: String,
     ) -> zbus::fdo::Result<()> {
-        tracing::info!("Formatting device '{}' as LUKS (UID {})", device, caller.uid);
+        tracing::info!(
+            "Formatting device '{}' as LUKS (UID {})",
+            device,
+            caller.uid
+        );
 
         // Validate version
         let luks_version = if version.is_empty() || version == "luks2" {
@@ -196,7 +200,11 @@ impl LuksHandler {
         current_passphrase: String,
         new_passphrase: String,
     ) -> zbus::fdo::Result<()> {
-        tracing::info!("Changing passphrase for LUKS device '{}' (UID {})", device, caller.uid);
+        tracing::info!(
+            "Changing passphrase for LUKS device '{}' (UID {})",
+            device,
+            caller.uid
+        );
 
         // Delegate to storage-dbus operation
         storage_dbus::change_luks_passphrase(&device, &current_passphrase, &new_passphrase)
@@ -226,7 +234,11 @@ impl LuksHandler {
         #[zbus(header)] _header: MessageHeader<'_>,
         device: String,
     ) -> zbus::fdo::Result<String> {
-        tracing::debug!("Getting encryption options for '{}' (UID {})", device, caller.uid);
+        tracing::debug!(
+            "Getting encryption options for '{}' (UID {})",
+            device,
+            caller.uid
+        );
 
         // Delegate to storage-dbus operation
         let settings = storage_dbus::get_encryption_options(&device)
@@ -257,7 +269,11 @@ impl LuksHandler {
         device: String,
         options_json: String,
     ) -> zbus::fdo::Result<()> {
-        tracing::debug!("Setting encryption options for '{}' (UID {})", device, caller.uid);
+        tracing::debug!(
+            "Setting encryption options for '{}' (UID {})",
+            device,
+            caller.uid
+        );
 
         let settings: EncryptionOptionsSettings = serde_json::from_str(&options_json)
             .map_err(|e| zbus::fdo::Error::InvalidArgs(format!("Invalid options JSON: {e}")))?;
@@ -284,7 +300,11 @@ impl LuksHandler {
         #[zbus(header)] _header: MessageHeader<'_>,
         device: String,
     ) -> zbus::fdo::Result<()> {
-        tracing::debug!("Clearing encryption options for '{}' (UID {})", device, caller.uid);
+        tracing::debug!(
+            "Clearing encryption options for '{}' (UID {})",
+            device,
+            caller.uid
+        );
 
         // Delegate to storage-dbus operation
         storage_dbus::clear_encryption_options(&device)

@@ -10,7 +10,7 @@ use std::process::Command;
 use storage_common::{LogicalVolumeInfo, PhysicalVolumeInfo, VolumeGroupInfo};
 use storage_service_macros::authorized_interface;
 use zbus::message::Header as MessageHeader;
-use zbus::{interface, Connection};
+use zbus::{Connection, interface};
 
 /// D-Bus interface for LVM management operations
 pub struct LVMHandler {

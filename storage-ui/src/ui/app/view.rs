@@ -361,7 +361,8 @@ pub(crate) fn view(app: &AppModel) -> Element<'_, Message> {
             .width(Length::Fill);
 
             // Bottom section: Volume-specific detail view (2/3 of height)
-            let bottom_section = volume_detail_view(volumes_control, segment, &app.filesystem_tools);
+            let bottom_section =
+                volume_detail_view(volumes_control, segment, &app.filesystem_tools);
 
             // Full layout wrapped in a single scrollable
             widget::scrollable(

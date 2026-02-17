@@ -15,7 +15,7 @@ use tokio::task::JoinHandle;
 use tokio_util::sync::CancellationToken;
 use zbus::message::Header as MessageHeader;
 use zbus::object_server::SignalEmitter;
-use zbus::{interface, Connection};
+use zbus::{Connection, interface};
 
 /// Operation type for tracking
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -241,7 +241,10 @@ impl ImageHandler {
         device: String,
         output_path: String,
     ) -> zbus::fdo::Result<String> {
-        tracing::info!("Starting drive backup: {device} → {output_path} (UID {})", caller.uid);
+        tracing::info!(
+            "Starting drive backup: {device} → {output_path} (UID {})",
+            caller.uid
+        );
 
         // Validate output path
         let output_path_obj = Path::new(&output_path);
@@ -338,7 +341,10 @@ impl ImageHandler {
         device: String,
         output_path: String,
     ) -> zbus::fdo::Result<String> {
-        tracing::info!("Starting partition backup: {device} → {output_path} (UID {})", caller.uid);
+        tracing::info!(
+            "Starting partition backup: {device} → {output_path} (UID {})",
+            caller.uid
+        );
 
         // Validate output path
         let output_path_obj = Path::new(&output_path);
@@ -429,7 +435,10 @@ impl ImageHandler {
         device: String,
         image_path: String,
     ) -> zbus::fdo::Result<String> {
-        tracing::warn!("Starting DESTRUCTIVE drive restore: {image_path} → {device} (UID {})", caller.uid);
+        tracing::warn!(
+            "Starting DESTRUCTIVE drive restore: {image_path} → {device} (UID {})",
+            caller.uid
+        );
 
         // Validate image file exists
         if !Path::new(&image_path).exists() {
@@ -516,7 +525,10 @@ impl ImageHandler {
         device: String,
         image_path: String,
     ) -> zbus::fdo::Result<String> {
-        tracing::warn!("Starting DESTRUCTIVE partition restore: {image_path} → {device} (UID {})", caller.uid);
+        tracing::warn!(
+            "Starting DESTRUCTIVE partition restore: {image_path} → {device} (UID {})",
+            caller.uid
+        );
 
         // Validate image file
         if !Path::new(&image_path).exists() {
@@ -600,7 +612,10 @@ impl ImageHandler {
         #[zbus(header)] _header: MessageHeader<'_>,
         image_path: String,
     ) -> zbus::fdo::Result<String> {
-        tracing::info!("Setting up loop device for: {image_path} (UID {})", caller.uid);
+        tracing::info!(
+            "Setting up loop device for: {image_path} (UID {})",
+            caller.uid
+        );
 
         // Validate image file
         if !Path::new(&image_path).exists() {

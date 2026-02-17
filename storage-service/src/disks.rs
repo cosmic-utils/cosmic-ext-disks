@@ -9,7 +9,7 @@ use anyhow::Result;
 use storage_dbus::DiskManager;
 use storage_service_macros::authorized_interface;
 use zbus::message::Header as MessageHeader;
-use zbus::{interface, Connection};
+use zbus::{Connection, interface};
 
 /// D-Bus interface for disk discovery and SMART operations
 pub struct DisksHandler {
@@ -194,7 +194,10 @@ impl DisksHandler {
         #[zbus(header)] _header: MessageHeader<'_>,
         device: String,
     ) -> zbus::fdo::Result<String> {
-        tracing::debug!("GetDiskInfo called for device: {device} (UID {})", caller.uid);
+        tracing::debug!(
+            "GetDiskInfo called for device: {device} (UID {})",
+            caller.uid
+        );
 
         // Get all disks and find the requested one
         let disks = storage_dbus::disk::get_disks(&self.manager)
@@ -280,7 +283,10 @@ impl DisksHandler {
         #[zbus(header)] _header: MessageHeader<'_>,
         device: String,
     ) -> zbus::fdo::Result<String> {
-        tracing::debug!("GetVolumeInfo called for device: {device} (UID {})", caller.uid);
+        tracing::debug!(
+            "GetVolumeInfo called for device: {device} (UID {})",
+            caller.uid
+        );
 
         // Get all drives and search for the volume
         let disk_volumes = storage_dbus::disk::get_disks_with_volumes(&self.manager)
@@ -354,7 +360,10 @@ impl DisksHandler {
         #[zbus(header)] _header: MessageHeader<'_>,
         device: String,
     ) -> zbus::fdo::Result<String> {
-        tracing::debug!("Getting SMART status for device: {device} (UID {})", caller.uid);
+        tracing::debug!(
+            "Getting SMART status for device: {device} (UID {})",
+            caller.uid
+        );
 
         // Normalize device path (add /dev/ if missing)
         let device_path = if device.starts_with("/dev/") {
@@ -427,7 +436,10 @@ impl DisksHandler {
         #[zbus(header)] _header: MessageHeader<'_>,
         device: String,
     ) -> zbus::fdo::Result<String> {
-        tracing::debug!("Getting SMART attributes for device: {device} (UID {})", caller.uid);
+        tracing::debug!(
+            "Getting SMART attributes for device: {device} (UID {})",
+            caller.uid
+        );
 
         // Normalize device path
         let device_path = if device.starts_with("/dev/") {
@@ -739,7 +751,12 @@ impl DisksHandler {
         device: String,
         test_type: String,
     ) -> zbus::fdo::Result<()> {
-        tracing::info!("Starting SMART {} test for device: {} (UID {})", test_type, device, caller.uid);
+        tracing::info!(
+            "Starting SMART {} test for device: {} (UID {})",
+            test_type,
+            device,
+            caller.uid
+        );
 
         // Validate test type
         let test_kind = match test_type.to_lowercase().as_str() {

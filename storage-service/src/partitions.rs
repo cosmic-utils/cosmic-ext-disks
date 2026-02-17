@@ -9,7 +9,7 @@ use storage_dbus::DiskManager;
 use storage_service_macros::authorized_interface;
 use zbus::message::Header as MessageHeader;
 use zbus::zvariant::OwnedObjectPath;
-use zbus::{interface, Connection};
+use zbus::{Connection, interface};
 
 /// D-Bus interface for partition management operations
 pub struct PartitionsHandler {
