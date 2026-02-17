@@ -52,8 +52,8 @@ pub enum NetworkMessage {
     OpenEditRemote { name: String, scope: ConfigScope },
     /// Delete remote (with confirmation)
     DeleteRemote { name: String, scope: ConfigScope },
-    /// Delete confirmed
-    DeleteRemoteConfirmed { name: String, scope: ConfigScope },
+    /// Confirm delete remote
+    ConfirmDeleteRemote { name: String, scope: ConfigScope },
     /// Delete completed
     DeleteCompleted {
         name: String,

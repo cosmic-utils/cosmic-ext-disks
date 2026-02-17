@@ -216,6 +216,30 @@ pub fn network_mount_item(
             });
         }
         actions.push(test_btn.into());
+
+        // Edit configuration button
+        let mut edit_btn =
+            widget::button::custom(icon::from_name("document-edit-symbolic").size(16)).padding(4);
+        edit_btn = edit_btn.class(transparent_button_class(selected));
+        if controls_enabled {
+            edit_btn = edit_btn.on_press(NetworkMessage::OpenEditRemote {
+                name: name.to_string(),
+                scope,
+            });
+        }
+        actions.push(edit_btn.into());
+
+        // Delete configuration button
+        let mut delete_btn =
+            widget::button::custom(icon::from_name("user-trash-symbolic").size(16)).padding(4);
+        delete_btn = delete_btn.class(transparent_button_class(selected));
+        if controls_enabled {
+            delete_btn = delete_btn.on_press(NetworkMessage::DeleteRemote {
+                name: name.to_string(),
+                scope,
+            });
+        }
+        actions.push(delete_btn.into());
     }
 
     // Spacing for action row
@@ -234,12 +258,27 @@ pub fn network_mount_item(
     row_container(row, selected, controls_enabled)
 }
 
-/// Section header for sidebar
-fn section_header(label: &str) -> Element<'static, NetworkMessage> {
-    widget::text::caption_heading(label.to_string())
-        .apply(widget::container)
-        .padding([8, 12, 4, 12])
-        .into()
+/// Section header for sidebar with optional add button
+fn section_header(label: &str, controls_enabled: bool) -> Element<'static, NetworkMessage> {
+    let label_widget = widget::text::caption_heading(label.to_string());
+
+    if controls_enabled {
+        // Add button with plus icon
+        let add_btn = widget::button::custom(icon::from_name("list-add-symbolic").size(14))
+            .padding(2)
+            .class(cosmic::theme::Button::Link)
+            .on_press(NetworkMessage::OpenAddRemote);
+
+        widget::Row::with_children(vec![label_widget.into(), widget::Space::new(Length::Fill, 0).into(), add_btn.into()])
+            .padding([8, 12, 4, 12])
+            .align_y(cosmic::iced::Alignment::Center)
+            .into()
+    } else {
+        label_widget
+            .apply(widget::container)
+            .padding([8, 12, 4, 12])
+            .into()
+    }
 }
 
 /// Render the Network section for the sidebar
@@ -249,8 +288,8 @@ pub fn network_section(
 ) -> Element<'static, NetworkMessage> {
     let mut children: Vec<Element<'static, NetworkMessage>> = Vec::new();
 
-    // Header
-    children.push(section_header("Network"));
+    // Header with add button
+    children.push(section_header("Network", controls_enabled));
 
     // Loading state
     if state.loading {

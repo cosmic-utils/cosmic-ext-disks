@@ -83,13 +83,32 @@ impl RCloneCli {
             return Err(SysError::RCloneConfigNotFound);
         }
 
+        // Read the file content first to provide better error messages
+        let content = std::fs::read_to_string(config_path).map_err(|e| {
+            SysError::RCloneConfigParse(format!("Failed to read configuration file: {}", e))
+        })?;
+
+        // Check if the file is empty
+        if content.trim().is_empty() {
+            warn!("Configuration file is empty: {:?}", config_path);
+            return Ok(HashMap::new());
+        }
+
         let mut conf = Ini::new();
-        let _ = conf.load(config_path);
-
-        let remotes = conf.get_map_ref().clone();
-
-        debug!("Parsed {} remote sections", remotes.keys().count());
-        Ok(remotes)
+        match conf.read(content) {
+            Ok(_) => {
+                let remotes = conf.get_map_ref().clone();
+                debug!("Parsed {} remote sections", remotes.keys().count());
+                Ok(remotes)
+            }
+            Err(e) => {
+                warn!("Failed to parse rclone config: {}", e);
+                Err(SysError::RCloneConfigParse(format!(
+                    "Failed to parse configuration: {}",
+                    e
+                )))
+            }
+        }
     }
 
     /// Get the mount point for a remote with a given scope

@@ -673,6 +673,9 @@ pub(crate) fn update(app: &mut AppModel, message: Message) -> Task<Message> {
         Message::NetworkRemotesLoaded(result) => {
             return network::handle_network_message(app, NetworkMessage::RemotesLoaded(result));
         }
+        Message::RemoteConfigDialog(msg) => {
+            return network::handle_remote_config_dialog(app, msg);
+        }
     }
     Task::none()
 }

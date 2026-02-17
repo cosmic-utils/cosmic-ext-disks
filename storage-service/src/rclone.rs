@@ -28,10 +28,80 @@ impl RcloneHandler {
         Ok(Self { cli })
     }
 
+    /// Get the home directory for a specific UID
+    fn get_home_for_uid(uid: u32) -> Option<std::path::PathBuf> {
+        unsafe {
+            let pw = libc::getpwuid(uid);
+            if pw.is_null() {
+                tracing::warn!("Failed to get passwd entry for UID {}", uid);
+                return None;
+            }
+            let dir = std::ffi::CStr::from_ptr((*pw).pw_dir);
+            dir.to_str().ok().map(std::path::PathBuf::from)
+        }
+    }
+
     /// Get the config path for a scope, checking if it exists
-    fn get_existing_config_path(scope: ConfigScope) -> Option<std::path::PathBuf> {
-        let path = scope.config_path();
+    /// For User scope, uses the provided UID to find the correct home directory
+    fn get_existing_config_path(scope: ConfigScope, uid: Option<u32>) -> Option<std::path::PathBuf> {
+        let path = Self::get_config_path_for_uid(scope, uid);
         if path.exists() { Some(path) } else { None }
+    }
+
+    /// Get the config path for a scope with an optional UID
+    /// For User scope, uses the provided UID to find the correct home directory
+    fn get_config_path_for_uid(scope: ConfigScope, uid: Option<u32>) -> std::path::PathBuf {
+        match scope {
+            ConfigScope::User => {
+                if let Some(uid) = uid {
+                    Self::get_home_for_uid(uid)
+                        .map(|home| home.join(".config/rclone/rclone.conf"))
+                        .unwrap_or_else(|| scope.config_path())
+                } else {
+                    scope.config_path()
+                }
+            }
+            ConfigScope::System => scope.config_path(),
+        }
+    }
+
+    /// Get the mount point for a remote with an optional UID
+    fn get_mount_point_for_uid(remote_name: &str, scope: ConfigScope, uid: Option<u32>) -> std::path::PathBuf {
+        match scope {
+            ConfigScope::User => {
+                if let Some(uid) = uid {
+                    Self::get_home_for_uid(uid)
+                        .map(|home| home.join("mnt").join(remote_name))
+                        .unwrap_or_else(|| scope.mount_point(remote_name))
+                } else {
+                    scope.mount_point(remote_name)
+                }
+            }
+            ConfigScope::System => scope.mount_point(remote_name),
+        }
+    }
+
+    /// Get the caller UID from a message header
+    async fn get_caller_uid(connection: &Connection, header: &MessageHeader<'_>) -> zbus::fdo::Result<u32> {
+        let sender = header
+            .sender()
+            .ok_or_else(|| zbus::fdo::Error::Failed("No sender in message header".to_string()))?
+            .as_str()
+            .to_string();
+
+        let dbus_proxy = zbus::fdo::DBusProxy::new(connection)
+            .await
+            .map_err(|e| zbus::fdo::Error::Failed(format!("D-Bus connection error: {}", e)))?;
+
+        let bus_name: zbus::names::BusName = sender
+            .clone()
+            .try_into()
+            .map_err(|e| zbus::fdo::Error::Failed(format!("Invalid bus name: {}", e)))?;
+
+        dbus_proxy
+            .get_connection_unix_user(bus_name)
+            .await
+            .map_err(|e| zbus::fdo::Error::Failed(format!("Failed to get caller UID: {}", e)))
     }
 
     /// Convert scope string to ConfigScope enum
@@ -63,8 +133,8 @@ impl RcloneHandler {
         tracing::info!("Listing RClone remotes (UID {})", caller.uid);
 
         let mut remotes = Vec::new();
-        let user_config_path = Self::get_existing_config_path(ConfigScope::User);
-        let system_config_path = Self::get_existing_config_path(ConfigScope::System);
+        let user_config_path = Self::get_existing_config_path(ConfigScope::User, Some(caller.uid));
+        let system_config_path = Self::get_existing_config_path(ConfigScope::System, None);
 
         // Read user remotes
         if let Some(ref path) = user_config_path {
@@ -173,13 +243,8 @@ impl RcloneHandler {
         );
 
         let scope = Self::parse_scope(scope)?;
-        let config_path = scope.config_path();
-
-        if !config_path.exists() {
-            return Err(zbus::fdo::Error::Failed(
-                "Config file not found".to_string(),
-            ));
-        }
+        let config_path = Self::get_existing_config_path(scope, Some(caller.uid))
+            .ok_or_else(|| zbus::fdo::Error::Failed("Config file not found".to_string()))?;
 
         let config = self
             .cli
@@ -231,13 +296,8 @@ impl RcloneHandler {
         );
 
         let scope = Self::parse_scope(scope)?;
-        let config_path = scope.config_path();
-
-        if !config_path.exists() {
-            return Err(zbus::fdo::Error::Failed(
-                "Config file not found".to_string(),
-            ));
-        }
+        let config_path = Self::get_existing_config_path(scope, Some(caller.uid))
+            .ok_or_else(|| zbus::fdo::Error::Failed("Config file not found".to_string()))?;
 
         let (success, message, latency_ms) = self
             .cli
@@ -266,6 +326,7 @@ impl RcloneHandler {
         tracing::info!("Mounting remote {} (scope: {})", name, scope);
 
         let scope_enum = Self::parse_scope(scope)?;
+        let caller_uid = Self::get_caller_uid(connection, &header).await?;
 
         // For system scope, check polkit authorization
         if scope_enum == ConfigScope::System {
@@ -290,8 +351,8 @@ impl RcloneHandler {
             }
         }
 
-        let config_path = scope_enum.config_path();
-        let mount_point = scope_enum.mount_point(name);
+        let config_path = Self::get_config_path_for_uid(scope_enum, Some(caller_uid));
+        let mount_point = Self::get_mount_point_for_uid(name, scope_enum, Some(caller_uid));
 
         self.cli
             .mount(name, &mount_point, &config_path)
@@ -317,6 +378,7 @@ impl RcloneHandler {
         tracing::info!("Unmounting remote {} (scope: {})", name, scope);
 
         let scope_enum = Self::parse_scope(scope)?;
+        let caller_uid = Self::get_caller_uid(connection, &header).await?;
 
         // For system scope, check polkit authorization
         if scope_enum == ConfigScope::System {
@@ -341,7 +403,7 @@ impl RcloneHandler {
             }
         }
 
-        let mount_point = scope_enum.mount_point(name);
+        let mount_point = Self::get_mount_point_for_uid(name, scope_enum, Some(caller_uid));
 
         self.cli
             .unmount(&mount_point)
@@ -372,7 +434,7 @@ impl RcloneHandler {
         );
 
         let scope = Self::parse_scope(scope)?;
-        let mount_point = scope.mount_point(name);
+        let mount_point = Self::get_mount_point_for_uid(name, scope, Some(caller.uid));
 
         let status = if RCloneCli::is_mounted(&mount_point)
             .map_err(|e| zbus::fdo::Error::Failed(format!("Failed to check mount status: {}", e)))?
@@ -399,6 +461,7 @@ impl RcloneHandler {
         tracing::info!("Creating remote (scope: {})", scope);
 
         let scope_enum = Self::parse_scope(scope)?;
+        let caller_uid = Self::get_caller_uid(connection, &header).await?;
 
         // For system scope, check polkit authorization
         if scope_enum == ConfigScope::System {
@@ -426,7 +489,7 @@ impl RcloneHandler {
         let remote_config: RemoteConfig = serde_json::from_str(config)
             .map_err(|e| zbus::fdo::Error::Failed(format!("Invalid config JSON: {}", e)))?;
 
-        let config_path = scope_enum.config_path();
+        let config_path = Self::get_config_path_for_uid(scope_enum, Some(caller_uid));
 
         // Read existing config
         let mut existing = if config_path.exists() {
@@ -473,6 +536,7 @@ impl RcloneHandler {
         tracing::info!("Updating remote {} (scope: {})", name, scope);
 
         let scope_enum = Self::parse_scope(scope)?;
+        let caller_uid = Self::get_caller_uid(connection, &header).await?;
 
         // For system scope, check polkit authorization
         if scope_enum == ConfigScope::System {
@@ -500,7 +564,7 @@ impl RcloneHandler {
         let remote_config: RemoteConfig = serde_json::from_str(config)
             .map_err(|e| zbus::fdo::Error::Failed(format!("Invalid config JSON: {}", e)))?;
 
-        let config_path = scope_enum.config_path();
+        let config_path = Self::get_config_path_for_uid(scope_enum, Some(caller_uid));
 
         // Read existing config
         let mut existing = self
@@ -543,6 +607,7 @@ impl RcloneHandler {
         tracing::info!("Deleting remote {} (scope: {})", name, scope);
 
         let scope_enum = Self::parse_scope(scope)?;
+        let caller_uid = Self::get_caller_uid(connection, &header).await?;
 
         // For system scope, check polkit authorization
         if scope_enum == ConfigScope::System {
@@ -567,7 +632,7 @@ impl RcloneHandler {
             }
         }
 
-        let config_path = scope_enum.config_path();
+        let config_path = Self::get_config_path_for_uid(scope_enum, Some(caller_uid));
 
         // Read existing config
         let mut existing = self

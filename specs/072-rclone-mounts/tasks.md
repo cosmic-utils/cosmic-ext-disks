@@ -109,7 +109,7 @@
 - [x] T042 [US3] Implement `test_remote` D-Bus method in storage-service/src/rclone.rs with `rclone-test` polkit action
 - [x] T043 [US3] Add "Test Configuration" button to NetworkMountItem in storage-ui/src/ui/network/view.rs
 - [x] T044 [US3] Wire test button to D-Bus call in storage-ui
-- [ ] T045 [US3] Display test result dialog (success/failure with message) in storage-ui
+- [x] T045 [US3] Display test result dialog (success/failure with message) in storage-ui
 
 **Checkpoint**: User Story 3 complete - can test remote connectivity
 
@@ -127,11 +127,11 @@
 - [x] T047 [US4] Implement `create_remote` D-Bus method in storage-service/src/rclone.rs with `rclone-config` polkit action
 - [x] T048 [US4] Implement `update_remote` D-Bus method in storage-service/src/rclone.rs with `rclone-config` polkit action
 - [x] T049 [US4] Implement `delete_remote` D-Bus method in storage-service/src/rclone.rs with `rclone-config` polkit action
-- [ ] T050 [P] [US4] Create RemoteConfigDialog component in storage-ui/src/components/remote_config_dialog.rs
-- [ ] T051 [US4] Add "Add Remote" button to NetworkSection in storage-ui/src/sidebar/network_section.rs. This should be a plus icon on the same row as the section header.
-- [ ] T052 [US4] Add "Edit" and "Delete" context menu to NetworkMountItem in storage-ui
-- [ ] T053 [US4] Wire CRUD operations to D-Bus calls in storage-ui
-- [ ] T054 [US4] Add confirmation dialog for delete operation in storage-ui
+- [x] T050 [P] [US4] Create RemoteConfigDialog component in storage-ui/src/components/remote_config_dialog.rs
+- [x] T051 [US4] Add "Add Remote" button to NetworkSection in storage-ui/src/sidebar/network_section.rs. This should be a plus icon on the same row as the section header.
+- [x] T052 [US4] Add "Edit" and "Delete" context menu to NetworkMountItem in storage-ui
+- [x] T053 [US4] Wire CRUD operations to D-Bus calls in storage-ui
+- [x] T054 [US4] Add confirmation dialog for delete operation in storage-ui
 
 **Checkpoint**: User Story 4 complete - full CRUD for remote configurations
 
@@ -141,9 +141,9 @@
 
 **Purpose**: Error handling, edge cases, and finalization
 
-- [ ] T055 [P] Add error handling for missing rclone binary in storage-sys/src/rclone.rs
-- [ ] T056 [P] Add error handling for malformed rclone.conf in storage-sys/src/rclone.rs
-- [ ] T057 [P] Add user-friendly error messages in storage-ui for common failures
+- [x] T055 [P] Add error handling for missing rclone binary in storage-sys/src/rclone.rs
+- [x] T056 [P] Add error handling for malformed rclone.conf in storage-sys/src/rclone.rs
+- [x] T057 [P] Add user-friendly error messages in storage-ui for common failures
 - [ ] T058 Handle concurrent mount/unmount requests gracefully in storage-service/src/rclone.rs
 - [x] T059 Add empty state message when no remotes configured in storage-ui/src/sidebar/network_section.rs
 - [x] T060 Run `cargo clippy --workspace --all-features` and fix warnings
@@ -201,10 +201,10 @@
 | Phase 2: Foundational | T004-T020 (17) | 17 | Data models, CLI wrappers |
 | Phase 3: US1 (P1) | T021-T032 (12) | 12 | View Network Mounts |
 | Phase 4: US2 (P2) | T033-T040 (8) | 8 | Control Mount Daemon |
-| Phase 5: US3 (P3) | T041-T045 (5) | 4 | Test Configuration |
-| Phase 6: US4 (P4) | T046-T054 (9) | 4 | Manage Configuration |
-| Phase 7: Polish | T055-T063 (9) | 4 | Error handling, validation |
-| **Total** | **63 tasks** | **52** | **82% complete** |
+| Phase 5: US3 (P3) | T041-T045 (5) | 5 | Test Configuration |
+| Phase 6: US4 (P4) | T046-T054 (9) | 9 | Manage Configuration |
+| Phase 7: Polish | T055-T063 (9) | 7 | Error handling, validation |
+| **Total** | **63 tasks** | **61** | **97% complete** |
 
 ---
 

@@ -5,6 +5,7 @@ use crate::models::{UiDrive, UiVolume};
 use crate::ui::btrfs::btrfs_management_section;
 use crate::ui::dialogs::state::{DeletePartitionDialog, ShowDialog};
 use crate::ui::dialogs::view as dialogs;
+use crate::ui::network::NetworkMessage;
 use crate::ui::sidebar;
 use crate::ui::volumes::{DetailTab, VolumesControl, VolumesControlMessage, disk_header, helpers};
 use crate::utils::DiskSegmentKind;
@@ -223,6 +224,24 @@ pub(crate) fn dialog(app: &AppModel) -> Option<Element<'_, Message>> {
 
             crate::ui::dialogs::state::ShowDialog::Info { title, body } => {
                 Some(dialogs::info(title, body, Message::CloseDialog))
+            }
+
+            crate::ui::dialogs::state::ShowDialog::ConfirmDeleteRemote { name, scope } => {
+                let body = format!("Are you sure you want to delete the remote '{}'? This action cannot be undone.", name);
+                Some(dialogs::confirmation(
+                    "Delete Remote",
+                    body,
+                    Message::Network(NetworkMessage::ConfirmDeleteRemote {
+                        name: name.clone(),
+                        scope: *scope,
+                    }),
+                    Some(Message::CloseDialog),
+                    false,
+                ))
+            }
+
+            crate::ui::dialogs::state::ShowDialog::RemoteConfig(state) => {
+                Some(dialogs::remote_config(state.clone()))
             }
         },
         None => None,

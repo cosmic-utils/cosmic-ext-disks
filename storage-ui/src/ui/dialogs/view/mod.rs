@@ -4,6 +4,7 @@ mod disk;
 mod encryption;
 mod image;
 mod mount;
+mod network;
 mod partition;
 
 pub use btrfs::{create_snapshot, create_subvolume};
@@ -14,6 +15,7 @@ pub use encryption::{
 };
 pub use image::{attach_disk_image, image_operation, new_disk_image};
 pub use mount::{edit_mount_options, unmount_busy};
+pub use network::remote_config;
 pub use partition::{
     create_partition, edit_filesystem_label, edit_partition, format_partition, resize_partition,
 };

@@ -5,9 +5,11 @@
 use super::super::message::Message;
 use super::super::state::AppModel;
 use crate::client::RcloneClient;
+use crate::ui::dialogs::message::RemoteConfigDialogMessage;
+use crate::ui::dialogs::state::{RemoteConfigDialog, ShowDialog};
 use crate::ui::network::NetworkMessage;
 use cosmic::app::Task;
-use storage_common::rclone::{ConfigScope, MountStatus};
+use storage_common::rclone::{ConfigScope, MountStatus, SUPPORTED_REMOTE_TYPES};
 
 /// Handle network-related messages
 pub(crate) fn handle_network_message(app: &mut AppModel, message: NetworkMessage) -> Task<Message> {
@@ -148,7 +150,12 @@ pub(crate) fn handle_network_message(app: &mut AppModel, message: NetworkMessage
             Err(e) => {
                 app.network
                     .set_mount_status(&name, scope, MountStatus::Error(e.clone()));
-                app.network.set_error(&name, scope, Some(e));
+                app.network.set_error(&name, scope, Some(e.clone()));
+                // Show error dialog
+                app.dialog = Some(ShowDialog::Info {
+                    title: "Mount Failed".to_string(),
+                    body: format!("Failed to mount remote '{}': {}", name, e),
+                });
             }
         },
 
@@ -164,7 +171,12 @@ pub(crate) fn handle_network_message(app: &mut AppModel, message: NetworkMessage
             Err(e) => {
                 app.network
                     .set_mount_status(&name, scope, MountStatus::Error(e.clone()));
-                app.network.set_error(&name, scope, Some(e));
+                app.network.set_error(&name, scope, Some(e.clone()));
+                // Show error dialog
+                app.dialog = Some(ShowDialog::Info {
+                    title: "Unmount Failed".to_string(),
+                    body: format!("Failed to unmount remote '{}': {}", name, e),
+                });
             }
         },
 
@@ -205,11 +217,12 @@ pub(crate) fn handle_network_message(app: &mut AppModel, message: NetworkMessage
         }
 
         NetworkMessage::TestCompleted { name: _, result } => {
-            // TODO: Show result in a dialog
-            match result {
-                Ok(msg) => tracing::info!("Test result: {}", msg),
-                Err(e) => tracing::error!("Test failed: {}", e),
-            }
+            // Show test result in a dialog
+            let (title, body) = match result {
+                Ok(msg) => ("Connection Test".to_string(), msg),
+                Err(e) => ("Connection Test Failed".to_string(), e),
+            };
+            app.dialog = Some(ShowDialog::Info { title, body });
         }
 
         NetworkMessage::RefreshStatus { name, scope } => {
@@ -256,45 +269,57 @@ pub(crate) fn handle_network_message(app: &mut AppModel, message: NetworkMessage
         }
 
         NetworkMessage::OpenAddRemote => {
-            // TODO: Open add remote dialog
-            tracing::info!("Open add remote dialog");
+            // Open the add remote dialog
+            app.dialog = Some(ShowDialog::RemoteConfig(RemoteConfigDialog {
+                name: String::new(),
+                remote_type: "drive".to_string(),
+                remote_type_index: 0,
+                scope: ConfigScope::User,
+                is_edit: false,
+                original_name: None,
+                running: false,
+                error: None,
+            }));
         }
 
-        NetworkMessage::OpenEditRemote { name: _, scope: _ } => {
-            // TODO: Open edit remote dialog
-            tracing::info!("Open edit remote dialog");
+        NetworkMessage::OpenEditRemote { name, scope } => {
+            // Find the remote in state to get its type
+            let remote_type = app
+                .network
+                .get_mount(&name, scope)
+                .map(|m| m.config.remote_type.clone())
+                .unwrap_or_else(|| "drive".to_string());
+
+            let remote_type_index = SUPPORTED_REMOTE_TYPES
+                .iter()
+                .position(|&t| t == remote_type)
+                .unwrap_or(0);
+
+            // Open the edit remote dialog
+            app.dialog = Some(ShowDialog::RemoteConfig(RemoteConfigDialog {
+                name: name.clone(),
+                remote_type: remote_type.clone(),
+                remote_type_index,
+                scope,
+                is_edit: true,
+                original_name: Some(name.clone()),
+                running: false,
+                error: None,
+            }));
         }
 
         NetworkMessage::DeleteRemote { name, scope } => {
-            // TODO: Show confirmation dialog first
-            // For now, just delete directly
-            let name_for_task = name.clone();
-            return Task::perform(
-                async move {
-                    match RcloneClient::new().await {
-                        Ok(client) => {
-                            match client
-                                .delete_remote(&name_for_task, &scope.to_string())
-                                .await
-                            {
-                                Ok(()) => Ok(()),
-                                Err(e) => Err(e.to_string()),
-                            }
-                        }
-                        Err(e) => Err(e.to_string()),
-                    }
-                },
-                move |result| {
-                    Message::Network(NetworkMessage::DeleteCompleted {
-                        name: name.clone(),
-                        result,
-                    })
-                    .into()
-                },
-            );
+            // Show confirmation dialog before deleting
+            app.dialog = Some(ShowDialog::ConfirmDeleteRemote {
+                name,
+                scope,
+            });
         }
 
-        NetworkMessage::DeleteRemoteConfirmed { name, scope } => {
+        NetworkMessage::ConfirmDeleteRemote { name, scope } => {
+            // Close the dialog first
+            app.dialog = None;
+            // Then proceed with the actual delete
             let name_for_task = name.clone();
             return Task::perform(
                 async move {
@@ -335,12 +360,113 @@ pub(crate) fn handle_network_message(app: &mut AppModel, message: NetworkMessage
                 }
                 Err(e) => {
                     tracing::error!("Failed to delete remote {}: {}", name, e);
+                    // Show error dialog
+                    app.dialog = Some(ShowDialog::Info {
+                        title: "Delete Failed".to_string(),
+                        body: format!("Failed to delete remote '{}': {}", name, e),
+                    });
                 }
             }
         }
 
         NetworkMessage::Cancel => {
             // Cancel any pending operation
+        }
+    }
+
+    Task::none()
+}
+
+/// Handle remote config dialog messages
+pub(crate) fn handle_remote_config_dialog(
+    app: &mut AppModel,
+    message: RemoteConfigDialogMessage,
+) -> Task<Message> {
+    let dialog = match &mut app.dialog {
+        Some(ShowDialog::RemoteConfig(d)) => d,
+        _ => return Task::none(),
+    };
+
+    match message {
+        RemoteConfigDialogMessage::NameUpdate(name) => {
+            dialog.name = name;
+        }
+
+        RemoteConfigDialogMessage::RemoteTypeIndexUpdate(index) => {
+            dialog.remote_type_index = index;
+            if let Some(remote_type) = SUPPORTED_REMOTE_TYPES.get(index) {
+                dialog.remote_type = remote_type.to_string();
+            }
+        }
+
+        RemoteConfigDialogMessage::ScopeUpdate(index) => {
+            dialog.scope = match index {
+                0 => ConfigScope::User,
+                _ => ConfigScope::System,
+            };
+        }
+
+        RemoteConfigDialogMessage::Save => {
+            // Validate name
+            if dialog.name.trim().is_empty() {
+                dialog.error = Some("Remote name cannot be empty".to_string());
+                return Task::none();
+            }
+
+            let name = dialog.name.clone();
+            let remote_type = dialog.remote_type.clone();
+            let scope = dialog.scope;
+            let is_edit = dialog.is_edit;
+            let original_name = dialog.original_name.clone();
+
+            dialog.running = true;
+            dialog.error = None;
+
+            return Task::perform(
+                async move {
+                    let client = RcloneClient::new().await.map_err(|e| e.to_string())?;
+                    let config = storage_common::rclone::RemoteConfig::new(
+                        name.clone(),
+                        remote_type,
+                        scope,
+                    );
+
+                    if is_edit {
+                        // For edit, we need to delete the old remote and create a new one
+                        // if the name changed
+                        if let Some(original) = &original_name
+                            && original != &name
+                        {
+                            client.delete_remote(original, &scope.to_string()).await.map_err(|e| e.to_string())?;
+                        }
+                        client.update_remote(&name, &config).await.map_err(|e| e.to_string())?;
+                    } else {
+                        client.create_remote(&config).await.map_err(|e| e.to_string())?;
+                    }
+                    Ok(())
+                },
+                |result: Result<(), String>| {
+                    Message::RemoteConfigDialog(RemoteConfigDialogMessage::Complete(result)).into()
+                },
+            );
+        }
+
+        RemoteConfigDialogMessage::Cancel => {
+            app.dialog = None;
+        }
+
+        RemoteConfigDialogMessage::Complete(result) => {
+            dialog.running = false;
+            match result {
+                Ok(()) => {
+                    app.dialog = None;
+                    // Refresh the remote list
+                    return Task::done(Message::Network(NetworkMessage::LoadRemotes).into());
+                }
+                Err(e) => {
+                    dialog.error = Some(e);
+                }
+            }
         }
     }
 

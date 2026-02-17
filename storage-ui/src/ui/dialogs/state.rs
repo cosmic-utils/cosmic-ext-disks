@@ -27,6 +27,8 @@ pub enum ShowDialog {
     BtrfsCreateSubvolume(BtrfsCreateSubvolumeDialog),
     BtrfsCreateSnapshot(BtrfsCreateSnapshotDialog),
     Info { title: String, body: String },
+    ConfirmDeleteRemote { name: String, scope: storage_common::rclone::ConfigScope },
+    RemoteConfig(RemoteConfigDialog),
 }
 
 #[derive(Debug, Clone)]
@@ -232,5 +234,26 @@ pub struct BtrfsCreateSnapshotDialog {
     pub snapshot_name: String,
     pub read_only: bool,
     pub running: bool,
+    pub error: Option<String>,
+}
+
+/// Dialog for creating or editing an RClone remote configuration
+#[derive(Debug, Clone)]
+pub struct RemoteConfigDialog {
+    /// Remote name
+    pub name: String,
+    /// Remote type (drive, s3, dropbox, etc.)
+    pub remote_type: String,
+    /// Selected remote type index
+    pub remote_type_index: usize,
+    /// Configuration scope
+    pub scope: storage_common::rclone::ConfigScope,
+    /// Whether editing an existing remote
+    pub is_edit: bool,
+    /// Original name (for edit mode)
+    pub original_name: Option<String>,
+    /// Running state
+    pub running: bool,
+    /// Error message
     pub error: Option<String>,
 }

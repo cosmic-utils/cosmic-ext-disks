@@ -169,3 +169,13 @@ pub enum BtrfsCreateSnapshotMessage {
     Create,
     Cancel,
 }
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum RemoteConfigDialogMessage {
+    NameUpdate(String),
+    RemoteTypeIndexUpdate(usize),
+    ScopeUpdate(usize),
+    Save,
+    Cancel,
+    Complete(Result<(), String>),
+}
