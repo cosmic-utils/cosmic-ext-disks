@@ -7,6 +7,13 @@ license = "GPL-3.0-only"
 [dependencies]
 thiserror.workspace = true
 anyhow.workspace = true
+which.workspace = true
+configparser = "3.0"
+tokio.workspace = true
+tracing.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+storage-common.workspace = true
 
 [lib]
 name = "storage_sys"

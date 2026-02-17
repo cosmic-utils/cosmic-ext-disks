@@ -28,6 +28,7 @@ impl StorageService {
     async fn supported_features(&self) -> Vec<String> {
         vec![
             "btrfs".to_string(),
+            "rclone".to_string(),
             // Future: "partitions".to_string(),
             // Future: "lvm".to_string(),
             // Future: "smart".to_string(),

@@ -17,9 +17,9 @@
 
 **Purpose**: Add polkit actions and update crate dependencies
 
-- [ ] T001 Add 4 RClone polkit actions to data/polkit-1/actions/org.cosmic.ext.storage-service.policy (rclone-read, rclone-test, rclone-mount, rclone-config)
-- [ ] T002 [P] Add `ini` crate dependency to storage-sys/Cargo.toml for rclone.conf parsing
-- [ ] T003 [P] Add `which` crate dependency to storage-sys/Cargo.toml for rclone binary detection
+- [x] T001 Add 4 RClone polkit actions to data/polkit-1/actions/org.cosmic.ext.storage-service.policy (rclone-read, rclone-test, rclone-mount, rclone-config)
+- [x] T002 [P] Add `ini` crate dependency to storage-sys/Cargo.toml for rclone.conf parsing
+- [x] T003 [P] Add `which` crate dependency to storage-sys/Cargo.toml for rclone binary detection
 
 ---
 
@@ -29,26 +29,26 @@
 
 **CRITICAL**: No user story work can begin until this phase is complete
 
-- [ ] T004 [P] Create ConfigScope enum in storage-common/src/rclone.rs
-- [ ] T005 [P] Create MountStatus enum in storage-common/src/rclone.rs
-- [ ] T006 [P] Create MountType enum in storage-common/src/rclone.rs
-- [ ] T007 [P] Create RemoteConfig struct in storage-common/src/rclone.rs
-- [ ] T008 [P] Create NetworkMount struct in storage-common/src/rclone.rs
-- [ ] T009 [P] Create RemoteConfigList struct in storage-common/src/rclone.rs
-- [ ] T010 Create TestResult struct in storage-common/src/rclone.rs (for test_remote return)
-- [ ] T011 Create MountStatusResult struct in storage-common/src/rclone.rs (for get_mount_status return)
-- [ ] T012 Add `pub mod rclone;` and re-exports to storage-common/src/lib.rs
-- [ ] T013 [P] Add RCloneError variants to storage-sys/src/error.rs
-- [ ] T014 Create rclone module stub in storage-sys/src/lib.rs
-- [ ] T015 Create RCloneCli struct with `find_rclone_binary()` in storage-sys/src/rclone.rs
-- [ ] T016 Implement `list_remotes()` CLI wrapper in storage-sys/src/rclone.rs
-- [ ] T017 Implement `get_config_path()` for user/system scope in storage-sys/src/rclone.rs
-- [ ] T018 Implement `read_config()` parser in storage-sys/src/rclone.rs
-- [ ] T019 Implement `get_mount_point()` for user/system scope in storage-sys/src/rclone.rs
-- [ ] T020 Implement `is_mounted()` using mountpoint -q in storage-sys/src/rclone.rs
-- [ ] T021 [P] Create RcloneInterface D-Bus proxy trait in storage-ui/src/client/rclone.rs
-- [ ] T022 Create RcloneClient struct with all D-Bus methods in storage-ui/src/client/rclone.rs
-- [ ] T023 Add `pub mod rclone;` and `pub use RcloneClient` to storage-ui/src/client/mod.rs
+- [x] T004 [P] Create ConfigScope enum in storage-common/src/rclone.rs
+- [x] T005 [P] Create MountStatus enum in storage-common/src/rclone.rs
+- [x] T006 [P] Create MountType enum in storage-common/src/rclone.rs
+- [x] T007 [P] Create RemoteConfig struct in storage-common/src/rclone.rs
+- [x] T008 [P] Create NetworkMount struct in storage-common/src/rclone.rs
+- [x] T009 [P] Create RemoteConfigList struct in storage-common/src/rclone.rs
+- [x] T010 Create TestResult struct in storage-common/src/rclone.rs (for test_remote return)
+- [x] T011 Create MountStatusResult struct in storage-common/src/rclone.rs (for get_mount_status return)
+- [x] T012 Add `pub mod rclone;` and re-exports to storage-common/src/lib.rs
+- [x] T013 [P] Add RCloneError variants to storage-sys/src/error.rs
+- [x] T014 Create rclone module stub in storage-sys/src/lib.rs
+- [x] T015 Create RCloneCli struct with `find_rclone_binary()` in storage-sys/src/rclone.rs
+- [x] T016 Implement `list_remotes()` CLI wrapper in storage-sys/src/rclone.rs
+- [x] T017 Implement `get_config_path()` for user/system scope in storage-sys/src/rclone.rs
+- [x] T018 Implement `read_config()` parser in storage-sys/src/rclone.rs
+- [x] T019 Implement `get_mount_point()` for user/system scope in storage-sys/src/rclone.rs
+- [x] T020 Implement `is_mounted()` using mountpoint -q in storage-sys/src/rclone.rs
+- [x] T021 [P] Create RcloneInterface D-Bus proxy trait in storage-ui/src/client/rclone.rs
+- [x] T022 Create RcloneClient struct with all D-Bus methods in storage-ui/src/client/rclone.rs
+- [x] T023 Add `pub mod rclone;` and `pub use RcloneClient` to storage-ui/src/client/mod.rs
 
 **Checkpoint**: Foundation ready - user story implementation can now begin
 
@@ -62,14 +62,14 @@
 
 ### Implementation for User Story 1
 
-- [ ] T024 [US1] Create RcloneHandler struct in storage-service/src/rclone.rs
-- [ ] T025 [US1] Implement `list_remotes` D-Bus method in storage-service/src/rclone.rs with `rclone-read` polkit action
-- [ ] T026 [US1] Implement `get_remote` D-Bus method in storage-service/src/rclone.rs with `rclone-read` polkit action
-- [ ] T027 [US1] Implement `get_mount_status` D-Bus method in storage-service/src/rclone.rs with `rclone-read` polkit action
-- [ ] T028 [US1] Add `mount_changed` signal definition to RcloneHandler in storage-service/src/rclone.rs
-- [ ] T029 [US1] Implement `supported_remote_types` property in storage-service/src/rclone.rs
-- [ ] T030 [US1] Register RcloneHandler at /org/cosmic/ext/StorageService/rclone in storage-service/src/main.rs
-- [ ] T031 [US1] Add "rclone" to supported_features in storage-service/src/service.rs
+- [x] T024 [US1] Create RcloneHandler struct in storage-service/src/rclone.rs
+- [x] T025 [US1] Implement `list_remotes` D-Bus method in storage-service/src/rclone.rs with `rclone-read` polkit action
+- [x] T026 [US1] Implement `get_remote` D-Bus method in storage-service/src/rclone.rs with `rclone-read` polkit action
+- [x] T027 [US1] Implement `get_mount_status` D-Bus method in storage-service/src/rclone.rs with `rclone-read` polkit action
+- [x] T028 [US1] Add `mount_changed` signal definition to RcloneHandler in storage-service/src/rclone.rs
+- [x] T029 [US1] Implement `supported_remote_types` property in storage-service/src/rclone.rs
+- [x] T030 [US1] Register RcloneHandler at /org/cosmic/ext/StorageService/rclone in storage-service/src/main.rs
+- [x] T031 [US1] Add "rclone" to supported_features in storage-service/src/service.rs
 - [ ] T032 [P] [US1] Create NetworkMountItem component in storage-ui/src/components/network_mount_item.rs (displays name, status, scope badge)
 - [ ] T033 [US1] Create NetworkSection sidebar component in storage-ui/src/sidebar/network_section.rs
 - [ ] T034 [US1] Connect NetworkSection to RcloneClient in storage-ui

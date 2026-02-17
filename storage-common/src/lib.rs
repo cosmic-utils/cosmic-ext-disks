@@ -32,6 +32,7 @@ pub mod filesystem;
 pub mod lvm;
 pub mod partition;
 pub mod partition_types;
+pub mod rclone;
 pub mod smart;
 pub mod volume;
 
@@ -45,5 +46,6 @@ pub use filesystem::*;
 pub use lvm::*;
 pub use partition::*;
 pub use partition_types::*;
+pub use rclone::*;
 pub use smart::*;
 pub use volume::*;

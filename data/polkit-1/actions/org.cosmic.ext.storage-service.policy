@@ -350,4 +350,45 @@
       <allow_active>auth_admin</allow_active>  <!-- Always prompt for format -->
     </defaults>
   </action>
+
+  <!-- RClone Network Mount Operations -->
+  <action id="org.cosmic.ext.storage-service.rclone-read">
+    <description>Read RClone remote configurations</description>
+    <message>Authentication is required to read RClone configurations</message>
+    <defaults>
+      <allow_any>no</allow_any>
+      <allow_inactive>no</allow_inactive>
+      <allow_active>yes</allow_active>  <!-- No auth for read operations -->
+    </defaults>
+  </action>
+
+  <action id="org.cosmic.ext.storage-service.rclone-test">
+    <description>Test RClone remote connectivity</description>
+    <message>Authentication is required to test RClone remotes</message>
+    <defaults>
+      <allow_any>no</allow_any>
+      <allow_inactive>no</allow_inactive>
+      <allow_active>yes</allow_active>  <!-- No auth for test operations -->
+    </defaults>
+  </action>
+
+  <action id="org.cosmic.ext.storage-service.rclone-mount">
+    <description>Mount and unmount RClone remotes (system-wide)</description>
+    <message>Authentication is required to mount or unmount RClone remotes</message>
+    <defaults>
+      <allow_any>auth_admin</allow_any>
+      <allow_inactive>auth_admin</allow_inactive>
+      <allow_active>auth_admin_keep</allow_active>  <!-- Auth once, remember for session -->
+    </defaults>
+  </action>
+
+  <action id="org.cosmic.ext.storage-service.rclone-config">
+    <description>Modify RClone remote configurations (system-wide)</description>
+    <message>Authentication is required to modify RClone configurations</message>
+    <defaults>
+      <allow_any>auth_admin</allow_any>
+      <allow_inactive>auth_admin</allow_inactive>
+      <allow_active>auth_admin_keep</allow_active>  <!-- Auth once, remember for session -->
+    </defaults>
+  </action>
 </policyconfig>

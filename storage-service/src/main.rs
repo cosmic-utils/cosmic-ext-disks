@@ -19,6 +19,7 @@ mod luks;
 mod lvm;
 mod partitions;
 mod protected_paths;
+mod rclone;
 mod service;
 
 use btrfs::BtrfsHandler;
@@ -28,6 +29,7 @@ use image::ImageHandler;
 use luks::LuksHandler;
 use lvm::LVMHandler;
 use partitions::PartitionsHandler;
+use rclone::RcloneHandler;
 use service::StorageService;
 
 #[tokio::main]
@@ -57,7 +59,16 @@ async fn main() -> Result<()> {
     let disks_handler = DisksHandler::new().await?;
     let hotplug_manager = disks_handler.manager().clone();
 
-    let connection = ConnectionBuilder::system()?
+    // Create RcloneHandler (rclone binary must be installed)
+    let rclone_handler = match RcloneHandler::new() {
+        Ok(handler) => Some(handler),
+        Err(e) => {
+            tracing::warn!("RClone not available: {}. RClone features disabled.", e);
+            None
+        }
+    };
+
+    let mut connection_builder = ConnectionBuilder::system()?
         .name("org.cosmic.ext.StorageService")?
         .serve_at("/org/cosmic/ext/StorageService", StorageService::new())?
         .serve_at("/org/cosmic/ext/StorageService/btrfs", BtrfsHandler::new())?
@@ -72,19 +83,25 @@ async fn main() -> Result<()> {
         )?
         .serve_at("/org/cosmic/ext/StorageService/lvm", LVMHandler::new())?
         .serve_at("/org/cosmic/ext/StorageService/luks", LuksHandler::new())?
-        .serve_at("/org/cosmic/ext/StorageService/image", ImageHandler::new())?
-        .build()
-        .await?;
+        .serve_at("/org/cosmic/ext/StorageService/image", ImageHandler::new())?;
+
+    // Conditionally serve RClone interface if available
+    if let Some(handler) = rclone_handler {
+        connection_builder = connection_builder.serve_at("/org/cosmic/ext/StorageService/rclone", handler)?;
+    }
+
+    let connection = connection_builder.build().await?;
 
     tracing::info!("Service registered on D-Bus system bus");
-    tracing::info!("Filesystems interface at /org/cosmic/ext/StorageService/filesystems");
     tracing::info!("  - org.cosmic.ext.StorageService at /org/cosmic/ext/StorageService");
     tracing::info!("  - BTRFS interface at /org/cosmic/ext/StorageService/btrfs");
     tracing::info!("  - Disks interface at /org/cosmic/ext/StorageService/disks");
     tracing::info!("  - Partitions interface at /org/cosmic/ext/StorageService/partitions");
+    tracing::info!("  - Filesystems interface at /org/cosmic/ext/StorageService/filesystems");
     tracing::info!("  - LVM interface at /org/cosmic/ext/StorageService/lvm");
     tracing::info!("  - LUKS interface at /org/cosmic/ext/StorageService/luks");
     tracing::info!("  - Image interface at /org/cosmic/ext/StorageService/image");
+    tracing::info!("  - RClone interface at /org/cosmic/ext/StorageService/rclone");
 
     // Start disk hotplug monitoring
     disks::monitor_hotplug_events(
