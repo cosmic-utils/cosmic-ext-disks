@@ -6,11 +6,11 @@
 //! including listing remotes, mounting/unmounting, and configuration management.
 
 use storage_common::rclone::{
-    ConfigScope, MountStatus, MountStatusResult, RemoteConfig, RemoteConfigList,
-    SUPPORTED_REMOTE_TYPES, TestResult,
+    rclone_provider, supported_remote_types, ConfigScope, MountStatus, MountStatusResult,
+    RemoteConfig, RemoteConfigList, TestResult,
 };
 use storage_service_macros::authorized_interface;
-use storage_sys::RCloneCli;
+use storage_sys::{is_mount_on_boot_enabled, set_mount_on_boot, RCloneCli};
 use zbus::message::Header as MessageHeader;
 use zbus::object_server::SignalEmitter;
 use zbus::{Connection, interface};
@@ -110,6 +110,34 @@ impl RcloneHandler {
             .parse()
             .map_err(|e| zbus::fdo::Error::Failed(format!("Invalid scope: {}", e)))
     }
+
+    fn validate_remote_config(config: &RemoteConfig) -> Result<(), zbus::fdo::Error> {
+        config
+            .validate_name()
+            .map_err(|e| zbus::fdo::Error::Failed(e))?;
+
+        let provider = rclone_provider(&config.remote_type).ok_or_else(|| {
+            zbus::fdo::Error::Failed(format!(
+                "Unsupported remote type: {}",
+                config.remote_type
+            ))
+        })?;
+
+        for option in &provider.options {
+            if !option.required || option.is_hidden() {
+                continue;
+            }
+            let value = config.options.get(&option.name).map(|v| v.trim());
+            if value.is_none() || value == Some("") {
+                return Err(zbus::fdo::Error::Failed(format!(
+                    "Missing required field '{}' for {}",
+                    option.name, config.remote_type
+                )));
+            }
+        }
+
+        Ok(())
+    }
 }
 
 #[interface(name = "org.cosmic.ext.StorageService.Rclone")]
@@ -151,11 +179,14 @@ impl RcloneHandler {
                             .get("type")
                             .and_then(|v| v.clone())
                             .unwrap_or_else(|| "unknown".to_string());
-                        let has_secrets = options.keys().any(|k| {
-                            k.contains("token")
-                                || k.contains("secret")
-                                || k.contains("key")
-                                || k.contains("pass")
+                        let has_secrets = rclone_provider(&remote_type).is_some_and(|provider| {
+                            provider.options.iter().any(|option| {
+                                option.is_secure()
+                                    && options
+                                        .get(&option.name)
+                                        .and_then(|v| v.as_ref())
+                                        .is_some_and(|v| !v.trim().is_empty())
+                            })
                         });
 
                         remotes.push(RemoteConfig {
@@ -191,11 +222,14 @@ impl RcloneHandler {
                             .get("type")
                             .and_then(|v| v.clone())
                             .unwrap_or_else(|| "unknown".to_string());
-                        let has_secrets = options.keys().any(|k| {
-                            k.contains("token")
-                                || k.contains("secret")
-                                || k.contains("key")
-                                || k.contains("pass")
+                        let has_secrets = rclone_provider(&remote_type).is_some_and(|provider| {
+                            provider.options.iter().any(|option| {
+                                option.is_secure()
+                                    && options
+                                        .get(&option.name)
+                                        .and_then(|v| v.as_ref())
+                                        .is_some_and(|v| !v.trim().is_empty())
+                            })
                         });
 
                         remotes.push(RemoteConfig {
@@ -260,8 +294,14 @@ impl RcloneHandler {
             .get("type")
             .and_then(|v| v.clone())
             .unwrap_or_else(|| "unknown".to_string());
-        let has_secrets = options.keys().any(|k| {
-            k.contains("token") || k.contains("secret") || k.contains("key") || k.contains("pass")
+        let has_secrets = rclone_provider(&remote_type).is_some_and(|provider| {
+            provider.options.iter().any(|option| {
+                option.is_secure()
+                    && options
+                        .get(&option.name)
+                        .and_then(|v| v.as_ref())
+                        .is_some_and(|v| !v.trim().is_empty())
+            })
         });
 
         let remote = RemoteConfig {
@@ -355,7 +395,7 @@ impl RcloneHandler {
         let mount_point = Self::get_mount_point_for_uid(name, scope_enum, Some(caller_uid));
 
         self.cli
-            .mount(name, &mount_point, &config_path)
+            .mount(name, &mount_point, &config_path, scope_enum, Some(caller_uid))
             .map_err(|e| zbus::fdo::Error::Failed(format!("Mount failed: {}", e)))?;
 
         // Emit signal
@@ -450,6 +490,103 @@ impl RcloneHandler {
             .map_err(|e| zbus::fdo::Error::Failed(format!("Serialization error: {}", e)))
     }
 
+    /// Check if a remote is enabled to mount on boot
+    #[authorized_interface(action = "org.cosmic.ext.storage-service.rclone-read")]
+    async fn get_mount_on_boot(
+        &self,
+        #[zbus(connection)] connection: &Connection,
+        #[zbus(header)] header: MessageHeader<'_>,
+        name: &str,
+        scope: &str,
+    ) -> zbus::fdo::Result<bool> {
+        let scope_enum = Self::parse_scope(scope)?;
+        let caller_uid = Self::get_caller_uid(connection, &header).await?;
+        let home = if scope_enum == ConfigScope::User {
+            Self::get_home_for_uid(caller_uid)
+        } else {
+            None
+        };
+
+        is_mount_on_boot_enabled(
+            scope_enum,
+            name,
+            if scope_enum == ConfigScope::User {
+                Some(caller_uid)
+            } else {
+                None
+            },
+            home.as_deref(),
+        )
+        .map_err(|e| zbus::fdo::Error::Failed(format!("Failed to read mount on boot: {}", e)))
+    }
+
+    /// Enable or disable mount on boot
+    async fn set_mount_on_boot(
+        &self,
+        #[zbus(connection)] connection: &Connection,
+        #[zbus(header)] header: MessageHeader<'_>,
+        name: &str,
+        scope: &str,
+        enabled: bool,
+    ) -> zbus::fdo::Result<()> {
+        let scope_enum = Self::parse_scope(scope)?;
+        let caller_uid = Self::get_caller_uid(connection, &header).await?;
+
+        if scope_enum == ConfigScope::System {
+            let sender = header
+                .sender()
+                .ok_or_else(|| zbus::fdo::Error::Failed("No sender in message header".to_string()))?
+                .as_str()
+                .to_string();
+
+            let authorized = crate::auth::check_authorization(
+                connection,
+                &sender,
+                "org.cosmic.ext.storage-service.rclone-mount",
+            )
+            .await
+            .map_err(|e| zbus::fdo::Error::Failed(format!("Authorization check failed: {}", e)))?;
+
+            if !authorized {
+                return Err(zbus::fdo::Error::AccessDenied(
+                    "Not authorized for system-wide mount operations".to_string(),
+                ));
+            }
+        }
+
+        let home = if scope_enum == ConfigScope::User {
+            Self::get_home_for_uid(caller_uid)
+        } else {
+            None
+        };
+
+        let result = set_mount_on_boot(
+            scope_enum,
+            name,
+            enabled,
+            if scope_enum == ConfigScope::User {
+                Some(caller_uid)
+            } else {
+                None
+            },
+            home.as_deref(),
+        );
+
+        if let Err(ref err) = result {
+            tracing::error!(
+                ?err,
+                scope = ?scope_enum,
+                remote = name,
+                enabled,
+                caller_uid,
+                home = ?home,
+                "Failed to update mount on boot"
+            );
+        }
+
+        result.map_err(|e| zbus::fdo::Error::Failed(format!("Failed to update mount on boot: {}", e)))
+    }
+
     /// Create a new remote configuration
     async fn create_remote(
         &self,
@@ -489,6 +626,8 @@ impl RcloneHandler {
         let remote_config: RemoteConfig = serde_json::from_str(config)
             .map_err(|e| zbus::fdo::Error::Failed(format!("Invalid config JSON: {}", e)))?;
 
+        Self::validate_remote_config(&remote_config)?;
+
         let config_path = Self::get_config_path_for_uid(scope_enum, Some(caller_uid));
 
         // Read existing config
@@ -512,6 +651,9 @@ impl RcloneHandler {
         let mut options = std::collections::HashMap::new();
         options.insert("type".to_string(), Some(remote_config.remote_type.clone()));
         for (k, v) in &remote_config.options {
+            if k.eq_ignore_ascii_case("type") {
+                continue;
+            }
             options.insert(k.clone(), Some(v.clone()));
         }
         existing.insert(remote_config.name, options);
@@ -564,6 +706,8 @@ impl RcloneHandler {
         let remote_config: RemoteConfig = serde_json::from_str(config)
             .map_err(|e| zbus::fdo::Error::Failed(format!("Invalid config JSON: {}", e)))?;
 
+        Self::validate_remote_config(&remote_config)?;
+
         let config_path = Self::get_config_path_for_uid(scope_enum, Some(caller_uid));
 
         // Read existing config
@@ -584,6 +728,9 @@ impl RcloneHandler {
         let mut options = std::collections::HashMap::new();
         options.insert("type".to_string(), Some(remote_config.remote_type.clone()));
         for (k, v) in &remote_config.options {
+            if k.eq_ignore_ascii_case("type") {
+                continue;
+            }
             options.insert(k.clone(), Some(v.clone()));
         }
         existing.insert(name.to_string(), options);
@@ -658,9 +805,6 @@ impl RcloneHandler {
 
     /// Get list of supported remote types
     async fn supported_remote_types(&self) -> zbus::fdo::Result<Vec<String>> {
-        Ok(SUPPORTED_REMOTE_TYPES
-            .iter()
-            .map(|s| s.to_string())
-            .collect())
+        Ok(supported_remote_types().to_vec())
     }
 }

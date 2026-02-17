@@ -6,6 +6,7 @@ use crate::ui::btrfs::btrfs_management_section;
 use crate::ui::dialogs::state::{DeletePartitionDialog, ShowDialog};
 use crate::ui::dialogs::view as dialogs;
 use crate::ui::network::NetworkMessage;
+use crate::ui::network::view::network_main_view;
 use crate::ui::sidebar;
 use crate::ui::volumes::{DetailTab, VolumesControl, VolumesControlMessage, disk_header, helpers};
 use crate::utils::DiskSegmentKind;
@@ -240,9 +241,6 @@ pub(crate) fn dialog(app: &AppModel) -> Option<Element<'_, Message>> {
                 ))
             }
 
-            crate::ui::dialogs::state::ShowDialog::RemoteConfig(state) => {
-                Some(dialogs::remote_config(state.clone()))
-            }
         },
         None => None,
     }
@@ -296,6 +294,11 @@ pub(crate) fn context_drawer(
 
 /// Describes the interface based on the current state of the application model.
 pub(crate) fn view(app: &AppModel) -> Element<'_, Message> {
+    if app.network.editor.is_some() || app.network.selected.is_some() {
+        let controls_enabled = app.dialog.is_none();
+        return network_main_view(&app.network, controls_enabled).map(Message::Network);
+    }
+
     match app.nav.active_data::<UiDrive>() {
         None => widget::text::title1(fl!("no-disk-selected"))
             .apply(widget::container)

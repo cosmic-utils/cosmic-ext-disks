@@ -3,9 +3,10 @@ use crate::fl;
 use crate::ui::dialogs::message::{FormatDiskMessage, SmartDialogMessage};
 use crate::ui::dialogs::state::{FormatDiskDialog, SmartDataDialog};
 use cosmic::{
-    Element, iced_widget,
+    iced_widget,
     widget::text::{caption, caption_heading},
     widget::{button, dialog, dropdown},
+    Element,
 };
 
 pub fn format_disk<'a>(state: FormatDiskDialog) -> Element<'a, Message> {

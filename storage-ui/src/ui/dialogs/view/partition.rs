@@ -7,15 +7,16 @@ use crate::ui::dialogs::state::{
     CreatePartitionDialog, EditFilesystemLabelDialog, EditPartitionDialog, FormatPartitionDialog,
     ResizePartitionDialog,
 };
-use crate::utils::SizeUnit;
 use crate::utils::labelled_spinner;
+use crate::utils::SizeUnit;
 use cosmic::{
-    Element, Theme, iced, iced_widget,
+    iced, iced_widget,
     widget::text::caption,
     widget::{button, checkbox, container, dialog, divider, dropdown, slider, text, text_input},
+    Element, Theme,
 };
 use storage_common::{
-    COMMON_DOS_TYPES, COMMON_GPT_TYPES, FilesystemToolInfo, PartitionTypeInfo, bytes_to_pretty,
+    bytes_to_pretty, FilesystemToolInfo, PartitionTypeInfo, COMMON_DOS_TYPES, COMMON_GPT_TYPES,
 };
 
 /// Check if a filesystem tool is available from the tools list
@@ -504,11 +505,9 @@ pub fn edit_filesystem_label<'a>(state: EditFilesystemLabelDialog) -> Element<'a
         running,
     } = state;
 
-    let mut content = iced_widget::column![
-        text_input(fl!("filesystem-label"), label)
-            .label(fl!("filesystem-label"))
-            .on_input(|t| EditFilesystemLabelMessage::LabelUpdate(t).into()),
-    ]
+    let mut content = iced_widget::column![text_input(fl!("filesystem-label"), label)
+        .label(fl!("filesystem-label"))
+        .on_input(|t| EditFilesystemLabelMessage::LabelUpdate(t).into()),]
     .spacing(12);
 
     if running {

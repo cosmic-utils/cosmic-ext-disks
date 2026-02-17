@@ -33,6 +33,13 @@ trait RcloneInterface {
     /// Get current mount status for a remote
     async fn get_mount_status(&self, name: &str, scope: &str) -> zbus::Result<String>;
 
+    /// Check if a remote is set to mount on boot
+    async fn get_mount_on_boot(&self, name: &str, scope: &str) -> zbus::Result<bool>;
+
+    /// Enable or disable mount on boot
+    async fn set_mount_on_boot(&self, name: &str, scope: &str, enabled: bool)
+        -> zbus::Result<()>;
+
     /// Create a new remote configuration
     async fn create_remote(&self, config: &str, scope: &str) -> zbus::Result<()>;
 
@@ -109,6 +116,21 @@ impl RcloneClient {
         let json = self.proxy.get_mount_status(name, scope).await?;
         let status: MountStatusResult = serde_json::from_str(&json)?;
         Ok(status)
+    }
+
+    /// Check if a remote is set to mount on boot
+    pub async fn get_mount_on_boot(&self, name: &str, scope: &str) -> Result<bool, ClientError> {
+        Ok(self.proxy.get_mount_on_boot(name, scope).await?)
+    }
+
+    /// Enable or disable mount on boot
+    pub async fn set_mount_on_boot(
+        &self,
+        name: &str,
+        scope: &str,
+        enabled: bool,
+    ) -> Result<(), ClientError> {
+        Ok(self.proxy.set_mount_on_boot(name, scope, enabled).await?)
     }
 
     /// Create a new remote configuration

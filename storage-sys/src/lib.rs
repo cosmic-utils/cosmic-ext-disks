@@ -18,4 +18,4 @@ pub mod rclone;
 
 pub use error::{Result, SysError};
 pub use image::{copy_file_to_image, copy_image_to_file, open_for_backup, open_for_restore};
-pub use rclone::RCloneCli;
+pub use rclone::{is_mount_on_boot_enabled, set_mount_on_boot, RCloneCli};

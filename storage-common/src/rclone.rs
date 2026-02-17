@@ -8,6 +8,7 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::PathBuf;
+use std::sync::OnceLock;
 
 /// Defines whether a configuration is per-user or system-wide
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -177,6 +178,101 @@ impl RemoteConfig {
     }
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RcloneProviderOptionExample {
+    pub value: String,
+    pub help: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RcloneProviderOption {
+    pub name: String,
+    #[serde(default)]
+    pub help: String,
+    #[serde(default)]
+    pub required: bool,
+    #[serde(default)]
+    pub is_password: bool,
+    #[serde(default)]
+    pub sensitive: bool,
+    #[serde(default)]
+    pub advanced: bool,
+    #[serde(default)]
+    pub hide: i32,
+    #[serde(default, rename = "type")]
+    pub value_type: String,
+    #[serde(default, rename = "default")]
+    pub default_value: String,
+    #[serde(default)]
+    pub examples: Vec<RcloneProviderOptionExample>,
+    #[serde(default)]
+    pub provider: Option<String>,
+}
+
+impl RcloneProviderOption {
+    pub fn is_secure(&self) -> bool {
+        self.is_password || self.sensitive
+    }
+
+    pub fn is_hidden(&self) -> bool {
+        self.hide != 0
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RcloneProvider {
+    pub name: String,
+    #[serde(default)]
+    pub description: String,
+    #[serde(default)]
+    pub prefix: String,
+    #[serde(default)]
+    pub hide: bool,
+    #[serde(default)]
+    pub aliases: Vec<String>,
+    #[serde(default)]
+    pub options: Vec<RcloneProviderOption>,
+}
+
+const RCLONE_PROVIDERS_JSON: &str = include_str!("../../data/rclone/providers.json");
+
+static RCLONE_PROVIDERS: OnceLock<Vec<RcloneProvider>> = OnceLock::new();
+static RCLONE_PROVIDER_TYPES: OnceLock<Vec<String>> = OnceLock::new();
+
+pub fn rclone_providers() -> &'static [RcloneProvider] {
+    RCLONE_PROVIDERS
+        .get_or_init(|| serde_json::from_str(RCLONE_PROVIDERS_JSON).unwrap_or_default())
+        .as_slice()
+}
+
+pub fn supported_remote_types() -> &'static [String] {
+    RCLONE_PROVIDER_TYPES
+        .get_or_init(|| {
+            let mut types = Vec::new();
+            for provider in rclone_providers() {
+                types.push(provider.name.clone());
+                for alias in &provider.aliases {
+                    types.push(alias.clone());
+                }
+            }
+            types.sort_by(|a, b| a.to_lowercase().cmp(&b.to_lowercase()));
+            types.dedup_by(|a, b| a.eq_ignore_ascii_case(b));
+            types
+        })
+        .as_slice()
+}
+
+pub fn rclone_provider(remote_type: &str) -> Option<&'static RcloneProvider> {
+    let remote_type = remote_type.to_lowercase();
+    rclone_providers().iter().find(|provider| {
+        provider.name.eq_ignore_ascii_case(&remote_type)
+            || provider
+                .aliases
+                .iter()
+                .any(|alias| alias.eq_ignore_ascii_case(&remote_type))
+    })
+}
+
 /// Represents a mountable network storage resource with runtime state
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NetworkMount {
@@ -292,21 +388,3 @@ impl MountStatusResult {
         }
     }
 }
-
-/// List of supported RClone remote types
-pub const SUPPORTED_REMOTE_TYPES: &[&str] = &[
-    "drive",              // Google Drive
-    "s3",                 // Amazon S3
-    "dropbox",            // Dropbox
-    "onedrive",           // Microsoft OneDrive
-    "ftp",                // FTP
-    "sftp",               // SFTP
-    "webdav",             // WebDAV
-    "googlecloudstorage", // Google Cloud Storage
-    "azureblob",          // Azure Blob Storage
-    "b2",                 // Backblaze B2
-    "box",                // Box
-    "pcloud",             // pCloud
-    "yandex",             // Yandex Disk
-    "alias",              // Alias for testing
-];

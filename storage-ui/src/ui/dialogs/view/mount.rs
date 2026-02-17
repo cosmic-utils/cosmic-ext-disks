@@ -3,9 +3,10 @@ use crate::fl;
 use crate::ui::dialogs::message::{EditMountOptionsMessage, UnmountBusyMessage};
 use crate::ui::dialogs::state::{EditMountOptionsDialog, UnmountBusyDialog};
 use cosmic::{
-    Element, iced_widget,
+    iced_widget,
     widget::text::{caption, caption_heading},
     widget::{button, checkbox, dialog, dropdown, scrollable, text_input},
+    Element,
 };
 
 pub fn edit_mount_options<'a>(state: EditMountOptionsDialog) -> Element<'a, Message> {

@@ -3,7 +3,7 @@ use crate::models::UiDrive;
 use crate::ui::app::state::ContextPage;
 use crate::ui::dialogs::message::{
     AttachDiskImageDialogMessage, FormatDiskMessage, ImageOperationDialogMessage,
-    NewDiskImageDialogMessage, RemoteConfigDialogMessage, SmartDialogMessage, UnmountBusyMessage,
+    NewDiskImageDialogMessage, SmartDialogMessage, UnmountBusyMessage,
 };
 use crate::ui::dialogs::state::ShowDialog;
 use crate::ui::network::NetworkMessage;
@@ -141,7 +141,6 @@ pub enum Message {
     Network(NetworkMessage),
     LoadNetworkRemotes,
     NetworkRemotesLoaded(Result<Vec<storage_common::rclone::RemoteConfig>, String>),
-    RemoteConfigDialog(RemoteConfigDialogMessage),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -191,11 +190,5 @@ impl From<UnmountBusyMessage> for Message {
 impl From<NetworkMessage> for Message {
     fn from(val: NetworkMessage) -> Self {
         Message::Network(val)
-    }
-}
-
-impl From<RemoteConfigDialogMessage> for Message {
-    fn from(val: RemoteConfigDialogMessage) -> Self {
-        Message::RemoteConfigDialog(val)
     }
 }

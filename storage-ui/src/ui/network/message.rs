@@ -13,6 +13,54 @@ pub enum NetworkMessage {
     RemotesLoaded(Result<Vec<RemoteConfig>, String>),
     /// Select a remote in the sidebar
     SelectRemote { name: String, scope: ConfigScope },
+    /// Start creating a new remote
+    BeginCreateRemote,
+    /// Close the editor
+    CloseEditor,
+    /// Update remote name in editor
+    EditorNameChanged(String),
+    /// Update remote type in editor (by index)
+    EditorTypeIndexChanged(usize),
+    /// Update remote scope in editor
+    EditorScopeChanged(usize),
+    /// Update a remote option field
+    EditorFieldChanged { key: String, value: String },
+    /// Update the new custom option key
+    EditorNewOptionKeyChanged(String),
+    /// Update the new custom option value
+    EditorNewOptionValueChanged(String),
+    /// Add a custom option to the editor
+    EditorAddCustomOption,
+    /// Remove a custom option from the editor
+    EditorRemoveCustomOption { key: String },
+    /// Toggle advanced option visibility
+    EditorShowAdvanced(bool),
+    /// Toggle hidden option visibility
+    EditorShowHidden(bool),
+    /// Save remote configuration
+    SaveRemote,
+    /// Save completed
+    SaveCompleted(Result<(), String>),
+    /// Load mount-on-boot status for a remote
+    LoadMountOnBoot { name: String, scope: ConfigScope },
+    /// Mount-on-boot status loaded
+    MountOnBootLoaded {
+        name: String,
+        scope: ConfigScope,
+        result: Result<bool, String>,
+    },
+    /// Toggle mount-on-boot
+    ToggleMountOnBoot(bool),
+    /// Mount-on-boot updated
+    MountOnBootUpdated {
+        name: String,
+        scope: ConfigScope,
+        enabled: bool,
+        previous: bool,
+        result: Result<(), String>,
+    },
+    /// Open the mount path in file manager
+    OpenMountPath(String),
     /// Mount a remote
     MountRemote { name: String, scope: ConfigScope },
     /// Unmount a remote
@@ -46,10 +94,6 @@ pub enum NetworkMessage {
         scope: ConfigScope,
         mounted: bool,
     },
-    /// Open add remote dialog
-    OpenAddRemote,
-    /// Open edit remote dialog
-    OpenEditRemote { name: String, scope: ConfigScope },
     /// Delete remote (with confirmation)
     DeleteRemote { name: String, scope: ConfigScope },
     /// Confirm delete remote

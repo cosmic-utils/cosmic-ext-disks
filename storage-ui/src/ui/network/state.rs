@@ -51,12 +51,30 @@ pub struct NetworkState {
 
     /// Last error message
     pub error: Option<String>,
+
+    /// Active editor state
+    pub editor: Option<NetworkEditorState>,
 }
 
 impl NetworkState {
     /// Create new network state
     pub fn new() -> Self {
         Self::default()
+    }
+
+    /// Start editing a remote configuration
+    pub fn start_edit(&mut self, config: RemoteConfig) {
+        self.editor = Some(NetworkEditorState::from_config(config));
+    }
+
+    /// Start creating a new remote
+    pub fn start_create(&mut self, default_type: String) {
+        self.editor = Some(NetworkEditorState::new(default_type));
+    }
+
+    /// Close the editor
+    pub fn clear_editor(&mut self) {
+        self.editor = None;
     }
 
     /// Set remotes from loaded configuration
@@ -161,5 +179,63 @@ impl NetworkState {
             .collect();
         mounts.sort_by(|a, b| a.config.name.cmp(&b.config.name));
         mounts
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct NetworkEditorState {
+    pub name: String,
+    pub remote_type: String,
+    pub scope: ConfigScope,
+    pub options: HashMap<String, String>,
+    pub original_name: Option<String>,
+    pub original_scope: Option<ConfigScope>,
+    pub is_new: bool,
+    pub running: bool,
+    pub error: Option<String>,
+    pub new_option_key: String,
+    pub new_option_value: String,
+    pub show_advanced: bool,
+    pub show_hidden: bool,
+    pub mount_on_boot: Option<bool>,
+}
+
+impl NetworkEditorState {
+    pub fn new(default_type: String) -> Self {
+        Self {
+            name: String::new(),
+            remote_type: default_type,
+            scope: ConfigScope::User,
+            options: HashMap::new(),
+            original_name: None,
+            original_scope: None,
+            is_new: true,
+            running: false,
+            error: None,
+            new_option_key: String::new(),
+            new_option_value: String::new(),
+            show_advanced: false,
+            show_hidden: false,
+            mount_on_boot: None,
+        }
+    }
+
+    pub fn from_config(config: RemoteConfig) -> Self {
+        Self {
+            name: config.name.clone(),
+            remote_type: config.remote_type.clone(),
+            scope: config.scope,
+            options: config.options.clone(),
+            original_name: Some(config.name),
+            original_scope: Some(config.scope),
+            is_new: false,
+            running: false,
+            error: None,
+            new_option_key: String::new(),
+            new_option_value: String::new(),
+            show_advanced: false,
+            show_hidden: false,
+            mount_on_boot: None,
+        }
     }
 }

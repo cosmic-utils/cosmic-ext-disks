@@ -383,6 +383,8 @@ pub(crate) fn update(app: &mut AppModel, message: Message) -> Task<Message> {
 
         // Sidebar (custom treeview)
         Message::SidebarSelectDrive(block_path) => {
+            app.network.select(None, None);
+            app.network.clear_editor();
             app.sidebar.selected_child = None;
             if let Some(id) = app.sidebar.drive_entities.get(&block_path).copied() {
                 return on_nav_select(app, id);
@@ -392,6 +394,8 @@ pub(crate) fn update(app: &mut AppModel, message: Message) -> Task<Message> {
             app.sidebar.selected_child = None;
         }
         Message::SidebarSelectChild { device_path } => {
+            app.network.select(None, None);
+            app.network.clear_editor();
             app.sidebar.selected_child = Some(SidebarNodeKey::Volume(device_path.clone()));
 
             // Find which drive contains this volume node
@@ -672,9 +676,6 @@ pub(crate) fn update(app: &mut AppModel, message: Message) -> Task<Message> {
         }
         Message::NetworkRemotesLoaded(result) => {
             return network::handle_network_message(app, NetworkMessage::RemotesLoaded(result));
-        }
-        Message::RemoteConfigDialog(msg) => {
-            return network::handle_remote_config_dialog(app, msg);
         }
     }
     Task::none()

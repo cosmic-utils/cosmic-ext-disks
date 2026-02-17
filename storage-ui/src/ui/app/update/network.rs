@@ -5,11 +5,13 @@
 use super::super::message::Message;
 use super::super::state::AppModel;
 use crate::client::RcloneClient;
-use crate::ui::dialogs::message::RemoteConfigDialogMessage;
-use crate::ui::dialogs::state::{RemoteConfigDialog, ShowDialog};
+use crate::ui::dialogs::state::ShowDialog;
+use crate::ui::error::{log_error_and_show_dialog, UiErrorContext};
 use crate::ui::network::NetworkMessage;
 use cosmic::app::Task;
-use storage_common::rclone::{ConfigScope, MountStatus, SUPPORTED_REMOTE_TYPES};
+use storage_common::rclone::{
+    rclone_provider, supported_remote_types, ConfigScope, MountStatus, RemoteConfig,
+};
 
 /// Handle network-related messages
 pub(crate) fn handle_network_message(app: &mut AppModel, message: NetworkMessage) -> Task<Message> {
@@ -35,7 +37,20 @@ pub(crate) fn handle_network_message(app: &mut AppModel, message: NetworkMessage
             match result {
                 Ok(remotes) => {
                     app.network.rclone_available = true;
+                    let refresh_tasks: Vec<Task<Message>> = remotes
+                        .iter()
+                        .map(|remote| {
+                            Task::done(
+                                Message::Network(NetworkMessage::RefreshStatus {
+                                    name: remote.name.clone(),
+                                    scope: remote.scope,
+                                })
+                                .into(),
+                            )
+                        })
+                        .collect();
                     app.network.set_remotes(remotes);
+                    return Task::batch(refresh_tasks);
                 }
                 Err(e) => {
                     app.network.rclone_available = false;
@@ -45,7 +60,422 @@ pub(crate) fn handle_network_message(app: &mut AppModel, message: NetworkMessage
         }
 
         NetworkMessage::SelectRemote { name, scope } => {
-            app.network.select(Some(name), Some(scope));
+            app.network.select(Some(name.clone()), Some(scope));
+            if let Some(config) = app
+                .network
+                .get_mount(&name, scope)
+                .map(|m| m.config.clone())
+            {
+                app.network.start_edit(config);
+                if let Some(editor) = app.network.editor.as_mut() {
+                    editor.mount_on_boot = None;
+                }
+                let name_for_task = name.clone();
+                return Task::perform(
+                    async move {
+                        match RcloneClient::new().await {
+                            Ok(client) => client
+                                .get_mount_on_boot(&name_for_task, &scope.to_string())
+                                .await
+                                .map_err(|e| e.to_string()),
+                            Err(e) => Err(e.to_string()),
+                        }
+                    },
+                    move |result| {
+                        Message::Network(NetworkMessage::MountOnBootLoaded {
+                            name: name.clone(),
+                            scope,
+                            result,
+                        })
+                        .into()
+                    },
+                );
+            } else {
+                app.network.clear_editor();
+            }
+        }
+
+        NetworkMessage::BeginCreateRemote => {
+            let default_type = supported_remote_types()
+                .first()
+                .cloned()
+                .unwrap_or_else(|| "drive".to_string());
+            app.network.select(None, None);
+            app.network.start_create(default_type);
+        }
+
+        NetworkMessage::CloseEditor => {
+            app.network.select(None, None);
+            app.network.clear_editor();
+        }
+
+        NetworkMessage::EditorNameChanged(name) => {
+            if let Some(editor) = app.network.editor.as_mut() {
+                editor.name = name;
+                editor.error = None;
+            }
+        }
+
+        NetworkMessage::EditorTypeIndexChanged(index) => {
+            if let Some(editor) = app.network.editor.as_mut() {
+                if let Some(remote_type) = supported_remote_types().get(index) {
+                    editor.remote_type = remote_type.clone();
+                    editor.error = None;
+                }
+            }
+        }
+
+        NetworkMessage::EditorScopeChanged(index) => {
+            if let Some(editor) = app.network.editor.as_mut() {
+                editor.scope = match index {
+                    0 => ConfigScope::User,
+                    _ => ConfigScope::System,
+                };
+                editor.error = None;
+            }
+        }
+
+        NetworkMessage::EditorFieldChanged { key, value } => {
+            if let Some(editor) = app.network.editor.as_mut() {
+                editor.options.insert(key, value);
+                editor.error = None;
+            }
+        }
+
+        NetworkMessage::EditorNewOptionKeyChanged(value) => {
+            if let Some(editor) = app.network.editor.as_mut() {
+                editor.new_option_key = value;
+                editor.error = None;
+            }
+        }
+
+        NetworkMessage::EditorNewOptionValueChanged(value) => {
+            if let Some(editor) = app.network.editor.as_mut() {
+                editor.new_option_value = value;
+                editor.error = None;
+            }
+        }
+
+        NetworkMessage::EditorAddCustomOption => {
+            if let Some(editor) = app.network.editor.as_mut() {
+                let key = editor.new_option_key.trim().to_string();
+                if key.is_empty() {
+                    editor.error = Some("Option key cannot be empty".to_string());
+                    return Task::none();
+                }
+                if key.eq_ignore_ascii_case("type") {
+                    editor.error = Some("Option key cannot be 'type'".to_string());
+                    return Task::none();
+                }
+                if editor
+                    .options
+                    .keys()
+                    .any(|k| k.eq_ignore_ascii_case(&key))
+                {
+                    editor.error = Some("Option already exists".to_string());
+                    return Task::none();
+                }
+                editor
+                    .options
+                    .insert(key, editor.new_option_value.clone());
+                editor.new_option_key.clear();
+                editor.new_option_value.clear();
+                editor.error = None;
+            }
+        }
+
+        NetworkMessage::EditorRemoveCustomOption { key } => {
+            if let Some(editor) = app.network.editor.as_mut() {
+                editor.options.remove(&key);
+            }
+        }
+
+        NetworkMessage::EditorShowAdvanced(show) => {
+            if let Some(editor) = app.network.editor.as_mut() {
+                editor.show_advanced = show;
+            }
+        }
+
+        NetworkMessage::EditorShowHidden(show) => {
+            if let Some(editor) = app.network.editor.as_mut() {
+                editor.show_hidden = show;
+            }
+        }
+
+        NetworkMessage::SaveRemote => {
+            let (name, remote_type, scope, options, has_secrets, is_edit, original_name, original_scope) = {
+                let Some(editor) = app.network.editor.as_mut() else {
+                    return Task::none();
+                };
+
+                if editor.name.trim().is_empty() {
+                    editor.error = Some("Remote name cannot be empty".to_string());
+                    return Task::none();
+                }
+
+                let provider = rclone_provider(&editor.remote_type);
+                if provider.is_none() {
+                    editor.error = Some("Unsupported remote type".to_string());
+                    return Task::none();
+                }
+
+                if let Some(provider) = provider {
+                    for option in &provider.options {
+                        if !option.required || option.is_hidden() {
+                            continue;
+                        }
+                        let value = editor.options.get(&option.name).map(|v| v.trim());
+                        if value.is_none() || value == Some("") {
+                            editor.error = Some(format!(
+                                "Missing required field '{}'",
+                                option.name
+                            ));
+                            return Task::none();
+                        }
+                    }
+                }
+
+                let name = editor.name.clone();
+                let remote_type = editor.remote_type.clone();
+                let scope = editor.scope;
+                let options: std::collections::HashMap<String, String> = editor
+                    .options
+                    .iter()
+                    .filter(|(_, v)| !v.trim().is_empty())
+                    .map(|(k, v)| (k.clone(), v.clone()))
+                    .collect();
+
+                let has_secrets = provider.is_some_and(|provider| {
+                    provider
+                        .options
+                        .iter()
+                        .filter(|option| option.is_secure())
+                        .any(|option| {
+                            options
+                                .get(&option.name)
+                                .is_some_and(|value| !value.trim().is_empty())
+                        })
+                });
+
+                let is_edit = !editor.is_new;
+                let original_name = editor.original_name.clone();
+                let original_scope = editor.original_scope;
+
+                editor.running = true;
+                editor.error = None;
+
+                (
+                    name,
+                    remote_type,
+                    scope,
+                    options,
+                    has_secrets,
+                    is_edit,
+                    original_name,
+                    original_scope,
+                )
+            };
+
+            app.network.select(Some(name.clone()), Some(scope));
+
+            return Task::perform(
+                async move {
+                    let client = RcloneClient::new().await.map_err(|e| e.to_string())?;
+                    let config = RemoteConfig {
+                        name: name.clone(),
+                        remote_type,
+                        scope,
+                        options,
+                        has_secrets,
+                    };
+
+                    if is_edit {
+                        if let Some(original) = &original_name {
+                            let scope_changed = original_scope.is_some_and(|s| s != scope);
+                            if original != &name || scope_changed {
+                                client
+                                    .delete_remote(original, &original_scope.unwrap_or(scope).to_string())
+                                    .await
+                                    .map_err(|e| e.to_string())?;
+                                client
+                                    .create_remote(&config)
+                                    .await
+                                    .map_err(|e| e.to_string())?;
+                            } else {
+                                client
+                                    .update_remote(&name, &config)
+                                    .await
+                                    .map_err(|e| e.to_string())?;
+                            }
+                        } else {
+                            client
+                                .update_remote(&name, &config)
+                                .await
+                                .map_err(|e| e.to_string())?;
+                        }
+                    } else {
+                        client.create_remote(&config).await.map_err(|e| e.to_string())?;
+                    }
+                    Ok(())
+                },
+                |result| Message::Network(NetworkMessage::SaveCompleted(result)).into(),
+            );
+        }
+
+        NetworkMessage::SaveCompleted(result) => {
+            if let Some(editor) = app.network.editor.as_mut() {
+                editor.running = false;
+                match result {
+                    Ok(()) => {
+                        editor.error = None;
+                        editor.is_new = false;
+                        editor.original_name = Some(editor.name.clone());
+                        editor.original_scope = Some(editor.scope);
+                        editor.mount_on_boot = Some(false);
+                        let name = editor.name.clone();
+                        let scope = editor.scope;
+                        return Task::batch(vec![
+                            Task::done(Message::Network(NetworkMessage::LoadRemotes).into()),
+                            Task::done(
+                                Message::Network(NetworkMessage::LoadMountOnBoot { name, scope })
+                                    .into(),
+                            ),
+                        ]);
+                    }
+                    Err(e) => {
+                        editor.error = Some(e);
+                    }
+                }
+            }
+        }
+
+        NetworkMessage::LoadMountOnBoot { name, scope } => {
+            let name_for_task = name.clone();
+            return Task::perform(
+                async move {
+                    match RcloneClient::new().await {
+                        Ok(client) => client
+                            .get_mount_on_boot(&name_for_task, &scope.to_string())
+                            .await
+                            .map_err(|e| e.to_string()),
+                        Err(e) => Err(e.to_string()),
+                    }
+                },
+                move |result| {
+                    Message::Network(NetworkMessage::MountOnBootLoaded {
+                        name: name.clone(),
+                        scope,
+                        result,
+                    })
+                    .into()
+                },
+            );
+        }
+
+        NetworkMessage::MountOnBootLoaded { name, scope, result } => {
+            if app
+                .network
+                .selected
+                .as_ref()
+                .is_some_and(|(n, s)| n == &name && *s == scope)
+            {
+                if let Some(editor) = app.network.editor.as_mut() {
+                    match result {
+                        Ok(enabled) => {
+                            editor.mount_on_boot = Some(enabled);
+                        }
+                        Err(e) => {
+                            editor.mount_on_boot = Some(false);
+                            let ctx = UiErrorContext::new("rclone_mount_on_boot_status");
+                            return Task::done(
+                                log_error_and_show_dialog(
+                                    "Failed to read mount on boot status",
+                                    anyhow::anyhow!(e),
+                                    ctx,
+                                )
+                                .into(),
+                            );
+                        }
+                    }
+                }
+            }
+        }
+
+        NetworkMessage::ToggleMountOnBoot(enabled) => {
+            let Some(editor) = app.network.editor.as_mut() else {
+                return Task::none();
+            };
+            if editor.is_new {
+                return Task::none();
+            }
+            let Some((name, scope)) = app.network.selected.clone() else {
+                return Task::none();
+            };
+            let previous = editor.mount_on_boot.unwrap_or(false);
+            editor.running = true;
+            editor.error = None;
+            let name_for_task = name.clone();
+            return Task::perform(
+                async move {
+                    match RcloneClient::new().await {
+                        Ok(client) => client
+                            .set_mount_on_boot(&name_for_task, &scope.to_string(), enabled)
+                            .await
+                            .map_err(|e| e.to_string()),
+                        Err(e) => Err(e.to_string()),
+                    }
+                },
+                move |result| {
+                    Message::Network(NetworkMessage::MountOnBootUpdated {
+                        name: name.clone(),
+                        scope,
+                        enabled,
+                        previous,
+                        result,
+                    })
+                    .into()
+                },
+            );
+        }
+
+        NetworkMessage::MountOnBootUpdated {
+            name,
+            scope,
+            enabled,
+            previous,
+            result,
+        } => {
+            if app
+                .network
+                .selected
+                .as_ref()
+                .is_some_and(|(n, s)| n == &name && *s == scope)
+            {
+                if let Some(editor) = app.network.editor.as_mut() {
+                    editor.running = false;
+                    match result {
+                        Ok(()) => {
+                            editor.mount_on_boot = Some(enabled);
+                        }
+                        Err(e) => {
+                            editor.mount_on_boot = Some(previous);
+                            let ctx = UiErrorContext::new("rclone_mount_on_boot_update");
+                            return Task::done(
+                                log_error_and_show_dialog(
+                                    "Failed to update mount on boot",
+                                    anyhow::anyhow!(e),
+                                    ctx,
+                                )
+                                .into(),
+                            );
+                        }
+                    }
+                }
+            }
+        }
+
+        NetworkMessage::OpenMountPath(path) => {
+            return Task::done(Message::OpenPath(path).into());
         }
 
         NetworkMessage::MountRemote { name, scope } => {
@@ -268,46 +698,6 @@ pub(crate) fn handle_network_message(app: &mut AppModel, message: NetworkMessage
             app.network.set_mount_status(&name, scope, status);
         }
 
-        NetworkMessage::OpenAddRemote => {
-            // Open the add remote dialog
-            app.dialog = Some(ShowDialog::RemoteConfig(RemoteConfigDialog {
-                name: String::new(),
-                remote_type: "drive".to_string(),
-                remote_type_index: 0,
-                scope: ConfigScope::User,
-                is_edit: false,
-                original_name: None,
-                running: false,
-                error: None,
-            }));
-        }
-
-        NetworkMessage::OpenEditRemote { name, scope } => {
-            // Find the remote in state to get its type
-            let remote_type = app
-                .network
-                .get_mount(&name, scope)
-                .map(|m| m.config.remote_type.clone())
-                .unwrap_or_else(|| "drive".to_string());
-
-            let remote_type_index = SUPPORTED_REMOTE_TYPES
-                .iter()
-                .position(|&t| t == remote_type)
-                .unwrap_or(0);
-
-            // Open the edit remote dialog
-            app.dialog = Some(ShowDialog::RemoteConfig(RemoteConfigDialog {
-                name: name.clone(),
-                remote_type: remote_type.clone(),
-                remote_type_index,
-                scope,
-                is_edit: true,
-                original_name: Some(name.clone()),
-                running: false,
-                error: None,
-            }));
-        }
-
         NetworkMessage::DeleteRemote { name, scope } => {
             // Show confirmation dialog before deleting
             app.dialog = Some(ShowDialog::ConfirmDeleteRemote {
@@ -357,6 +747,15 @@ pub(crate) fn handle_network_message(app: &mut AppModel, message: NetworkMessage
                         .mounts
                         .remove(&(name.clone(), ConfigScope::System));
                     tracing::info!("Deleted remote: {}", name);
+                    if app
+                        .network
+                        .selected
+                        .as_ref()
+                        .is_some_and(|(n, _)| n == &name)
+                    {
+                        app.network.select(None, None);
+                        app.network.clear_editor();
+                    }
                 }
                 Err(e) => {
                     tracing::error!("Failed to delete remote {}: {}", name, e);
@@ -377,98 +776,4 @@ pub(crate) fn handle_network_message(app: &mut AppModel, message: NetworkMessage
     Task::none()
 }
 
-/// Handle remote config dialog messages
-pub(crate) fn handle_remote_config_dialog(
-    app: &mut AppModel,
-    message: RemoteConfigDialogMessage,
-) -> Task<Message> {
-    let dialog = match &mut app.dialog {
-        Some(ShowDialog::RemoteConfig(d)) => d,
-        _ => return Task::none(),
-    };
-
-    match message {
-        RemoteConfigDialogMessage::NameUpdate(name) => {
-            dialog.name = name;
-        }
-
-        RemoteConfigDialogMessage::RemoteTypeIndexUpdate(index) => {
-            dialog.remote_type_index = index;
-            if let Some(remote_type) = SUPPORTED_REMOTE_TYPES.get(index) {
-                dialog.remote_type = remote_type.to_string();
-            }
-        }
-
-        RemoteConfigDialogMessage::ScopeUpdate(index) => {
-            dialog.scope = match index {
-                0 => ConfigScope::User,
-                _ => ConfigScope::System,
-            };
-        }
-
-        RemoteConfigDialogMessage::Save => {
-            // Validate name
-            if dialog.name.trim().is_empty() {
-                dialog.error = Some("Remote name cannot be empty".to_string());
-                return Task::none();
-            }
-
-            let name = dialog.name.clone();
-            let remote_type = dialog.remote_type.clone();
-            let scope = dialog.scope;
-            let is_edit = dialog.is_edit;
-            let original_name = dialog.original_name.clone();
-
-            dialog.running = true;
-            dialog.error = None;
-
-            return Task::perform(
-                async move {
-                    let client = RcloneClient::new().await.map_err(|e| e.to_string())?;
-                    let config = storage_common::rclone::RemoteConfig::new(
-                        name.clone(),
-                        remote_type,
-                        scope,
-                    );
-
-                    if is_edit {
-                        // For edit, we need to delete the old remote and create a new one
-                        // if the name changed
-                        if let Some(original) = &original_name
-                            && original != &name
-                        {
-                            client.delete_remote(original, &scope.to_string()).await.map_err(|e| e.to_string())?;
-                        }
-                        client.update_remote(&name, &config).await.map_err(|e| e.to_string())?;
-                    } else {
-                        client.create_remote(&config).await.map_err(|e| e.to_string())?;
-                    }
-                    Ok(())
-                },
-                |result: Result<(), String>| {
-                    Message::RemoteConfigDialog(RemoteConfigDialogMessage::Complete(result)).into()
-                },
-            );
-        }
-
-        RemoteConfigDialogMessage::Cancel => {
-            app.dialog = None;
-        }
-
-        RemoteConfigDialogMessage::Complete(result) => {
-            dialog.running = false;
-            match result {
-                Ok(()) => {
-                    app.dialog = None;
-                    // Refresh the remote list
-                    return Task::done(Message::Network(NetworkMessage::LoadRemotes).into());
-                }
-                Err(e) => {
-                    dialog.error = Some(e);
-                }
-            }
-        }
-    }
-
-    Task::none()
-}
+// Remote config dialog handling removed in favor of main view editor

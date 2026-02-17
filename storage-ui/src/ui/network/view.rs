@@ -3,22 +3,12 @@
 //! View components for network mount management
 
 use super::message::NetworkMessage;
-use super::state::NetworkState;
+use super::state::{NetworkEditorState, NetworkState};
 use cosmic::cosmic_theme::palette::WithAlpha;
 use cosmic::iced::Length;
-use cosmic::widget::{self, icon};
-use cosmic::{Apply, Element};
-use storage_common::rclone::{ConfigScope, MountStatus};
-
-/// Icon for mount status
-fn mount_status_icon(status: &MountStatus) -> &'static str {
-    match status {
-        MountStatus::Mounted => "folder-remote-symbolic",
-        MountStatus::Unmounted => "folder-symbolic",
-        MountStatus::Mounting | MountStatus::Unmounting => "folder-download-symbolic",
-        MountStatus::Error(_) => "dialog-warning-symbolic",
-    }
-}
+use cosmic::widget::{self, button, dropdown, icon, text_input};
+use cosmic::{iced_widget, Apply, Element};
+use storage_common::rclone::{rclone_provider, supported_remote_types, ConfigScope, MountStatus};
 
 /// Icon for scope badge
 fn scope_icon(scope: ConfigScope) -> &'static str {
@@ -124,39 +114,21 @@ pub fn network_mount_item(
     // Extract all data needed before building UI
     let selected = state.is_selected(name, scope);
     let loading = mount.loading;
-    let is_mounted = mount.is_mounted();
-    let status = mount.status.clone();
     let config_name = mount.config.name.clone();
 
-    // Status icon
-    let status_icon = if loading {
-        widget::tooltip(
-            icon::from_name("folder-download-symbolic").size(16),
-            widget::text::body(if status == MountStatus::Mounting {
-                "Mounting..."
-            } else {
-                "Unmounting..."
-            }),
-            widget::tooltip::Position::FollowCursor,
-        )
-        .into()
-    } else {
-        icon::from_name(mount_status_icon(&status)).size(16).into()
-    };
-
     // Name text
-    let name_text = widget::text::body(config_name);
+    let name_text = widget::text::body(config_name).font(cosmic::font::semibold());
 
-    // Scope badge
-    let scope_badge = widget::tooltip(
-        icon::from_name(scope_icon(scope)).size(12),
+    // Scope icon (left aligned)
+    let scope_icon_widget = widget::tooltip(
+        icon::from_name(scope_icon(scope)).size(16),
         widget::text::body(scope_label(scope)),
         widget::tooltip::Position::FollowCursor,
     );
 
     // Main select button
     let mut select_button = widget::button::custom(
-        widget::Row::with_children(vec![status_icon, name_text.into(), scope_badge.into()])
+        widget::Row::with_children(vec![scope_icon_widget.into(), name_text.into()])
             .spacing(8)
             .align_y(cosmic::iced::Alignment::Center)
             .width(Length::Fill),
@@ -172,84 +144,10 @@ pub fn network_mount_item(
         });
     }
 
-    // Action buttons
-    let mut actions: Vec<Element<'static, NetworkMessage>> = Vec::new();
-
-    // Mount/Unmount button
-    if !loading {
-        let (action_msg, action_icon) = if is_mounted {
-            (
-                NetworkMessage::UnmountRemote {
-                    name: name.to_string(),
-                    scope,
-                },
-                "media-eject-symbolic",
-            )
-        } else {
-            (
-                NetworkMessage::MountRemote {
-                    name: name.to_string(),
-                    scope,
-                },
-                "folder-download-symbolic",
-            )
-        };
-
-        let mut action_btn =
-            widget::button::custom(icon::from_name(action_icon).size(16)).padding(4);
-        action_btn = action_btn.class(transparent_button_class(selected));
-        if controls_enabled {
-            action_btn = action_btn.on_press(action_msg);
-        }
-        actions.push(action_btn.into());
-
-        // Test configuration button
-        let mut test_btn = widget::button::custom(
-            icon::from_name("network-wireless-signal-excellent-symbolic").size(16),
-        )
-        .padding(4);
-        test_btn = test_btn.class(transparent_button_class(selected));
-        if controls_enabled {
-            test_btn = test_btn.on_press(NetworkMessage::TestRemote {
-                name: name.to_string(),
-                scope,
-            });
-        }
-        actions.push(test_btn.into());
-
-        // Edit configuration button
-        let mut edit_btn =
-            widget::button::custom(icon::from_name("document-edit-symbolic").size(16)).padding(4);
-        edit_btn = edit_btn.class(transparent_button_class(selected));
-        if controls_enabled {
-            edit_btn = edit_btn.on_press(NetworkMessage::OpenEditRemote {
-                name: name.to_string(),
-                scope,
-            });
-        }
-        actions.push(edit_btn.into());
-
-        // Delete configuration button
-        let mut delete_btn =
-            widget::button::custom(icon::from_name("user-trash-symbolic").size(16)).padding(4);
-        delete_btn = delete_btn.class(transparent_button_class(selected));
-        if controls_enabled {
-            delete_btn = delete_btn.on_press(NetworkMessage::DeleteRemote {
-                name: name.to_string(),
-                scope,
-            });
-        }
-        actions.push(delete_btn.into());
-    }
-
-    // Spacing for action row
-    let action_row = widget::Row::with_children(actions).spacing(4);
-
     // Compose the row
     let row = widget::Row::with_children(vec![
         widget::Space::new(20, 0).into(), // Indent to match drive tree
         select_button.into(),
-        action_row.into(),
     ])
     .spacing(8)
     .align_y(cosmic::iced::Alignment::Center)
@@ -258,27 +156,25 @@ pub fn network_mount_item(
     row_container(row, selected, controls_enabled)
 }
 
-/// Section header for sidebar with optional add button
+/// Section header for sidebar
 fn section_header(label: &str, controls_enabled: bool) -> Element<'static, NetworkMessage> {
     let label_widget = widget::text::caption_heading(label.to_string());
 
+    let mut children: Vec<Element<'static, NetworkMessage>> = vec![label_widget.into()];
+
     if controls_enabled {
-        // Add button with plus icon
         let add_btn = widget::button::custom(icon::from_name("list-add-symbolic").size(14))
             .padding(2)
             .class(cosmic::theme::Button::Link)
-            .on_press(NetworkMessage::OpenAddRemote);
-
-        widget::Row::with_children(vec![label_widget.into(), widget::Space::new(Length::Fill, 0).into(), add_btn.into()])
-            .padding([8, 12, 4, 12])
-            .align_y(cosmic::iced::Alignment::Center)
-            .into()
-    } else {
-        label_widget
-            .apply(widget::container)
-            .padding([8, 12, 4, 12])
-            .into()
+            .on_press(NetworkMessage::BeginCreateRemote);
+        children.push(widget::Space::new(Length::Fill, 0).into());
+        children.push(add_btn.into());
     }
+
+    widget::Row::with_children(children)
+        .padding([8, 12, 4, 12])
+        .align_y(cosmic::iced::Alignment::Center)
+        .into()
 }
 
 /// Render the Network section for the sidebar
@@ -288,7 +184,7 @@ pub fn network_section(
 ) -> Element<'static, NetworkMessage> {
     let mut children: Vec<Element<'static, NetworkMessage>> = Vec::new();
 
-    // Header with add button
+    // Header
     children.push(section_header("Network", controls_enabled));
 
     // Loading state
@@ -343,5 +239,467 @@ pub fn network_section(
     widget::column::with_children(children)
         .spacing(2)
         .width(Length::Fill)
+        .into()
+}
+
+fn field_placeholder(option: &storage_common::rclone::RcloneProviderOption) -> String {
+    if let Some(example) = option.examples.first() {
+        return example.value.clone();
+    }
+    if !option.default_value.is_empty() {
+        return option.default_value.clone();
+    }
+    String::new()
+}
+
+fn status_label(status: &MountStatus) -> &'static str {
+    match status {
+        MountStatus::Mounted => "Mounted",
+        MountStatus::Unmounted => "Unmounted",
+        MountStatus::Mounting => "Mounting",
+        MountStatus::Unmounting => "Unmounting",
+        MountStatus::Error(_) => "Error",
+    }
+}
+
+fn action_button(
+    icon_name: &'static str,
+    label: &'static str,
+    message: Option<NetworkMessage>,
+    enabled: bool,
+) -> Element<'static, NetworkMessage> {
+    let mut button = widget::button::icon(icon::from_name(icon_name).size(16));
+    if enabled {
+        if let Some(message) = message {
+            button = button.on_press(message);
+        }
+    }
+    widget::tooltip(
+        button,
+        widget::text(label),
+        widget::tooltip::Position::Bottom,
+    )
+    .into()
+}
+
+fn status_badge(text: String, running: bool, unsaved: bool) -> Element<'static, NetworkMessage> {
+    use cosmic::iced_widget::container;
+
+    let badge = widget::text::caption(text);
+
+    widget::container(badge)
+        .style(move |theme| {
+            let mut color = theme.cosmic().background.component.on.with_alpha(0.6);
+            if running {
+                color = theme.cosmic().accent_color();
+            } else if unsaved {
+                color = theme.cosmic().warning_color();
+            }
+
+            container::Style {
+                text_color: Some(color.into()),
+                ..Default::default()
+            }
+        })
+        .into()
+}
+
+fn editor_header(
+    editor: &NetworkEditorState,
+    selected_mount: Option<&super::state::NetworkMountState>,
+    controls_enabled: bool,
+) -> Element<'static, NetworkMessage> {
+    let title = if editor.name.trim().is_empty() {
+        "New Remote".to_string()
+    } else {
+        editor.name.clone()
+    };
+
+    let status_text = selected_mount
+        .map(|m| status_label(&m.status).to_string())
+        .unwrap_or_else(|| "Not saved".to_string());
+    let unsaved = editor.is_new || selected_mount.is_none();
+    let status_badge = status_badge(status_text, editor.running, unsaved);
+
+    let can_control =
+        selected_mount.is_some_and(|m| !m.loading) && controls_enabled && !editor.running;
+    let is_mounted = selected_mount.map(|m| m.is_mounted()).unwrap_or(false);
+
+    let mut actions: Vec<Element<'static, NetworkMessage>> = Vec::new();
+
+    if let Some(mount) = selected_mount {
+        actions.push(action_button(
+            "media-playback-start-symbolic",
+            "Start",
+            Some(NetworkMessage::MountRemote {
+                name: mount.config.name.clone(),
+                scope: mount.config.scope,
+            }),
+            can_control && !is_mounted,
+        ));
+
+        actions.push(action_button(
+            "media-playback-stop-symbolic",
+            "Stop",
+            Some(NetworkMessage::UnmountRemote {
+                name: mount.config.name.clone(),
+                scope: mount.config.scope,
+            }),
+            can_control && is_mounted,
+        ));
+
+        actions.push(action_button(
+            "view-refresh-symbolic",
+            "Restart",
+            Some(NetworkMessage::RestartRemote {
+                name: mount.config.name.clone(),
+                scope: mount.config.scope,
+            }),
+            can_control,
+        ));
+
+        actions.push(action_button(
+            "emblem-system-symbolic",
+            "Test",
+            Some(NetworkMessage::TestRemote {
+                name: mount.config.name.clone(),
+                scope: mount.config.scope,
+            }),
+            can_control,
+        ));
+    } else {
+        actions.push(action_button(
+            "media-playback-start-symbolic",
+            "Start",
+            None,
+            false,
+        ));
+        actions.push(action_button(
+            "media-playback-stop-symbolic",
+            "Stop",
+            None,
+            false,
+        ));
+        actions.push(action_button(
+            "view-refresh-symbolic",
+            "Restart",
+            None,
+            false,
+        ));
+        actions.push(action_button("emblem-system-symbolic", "Test", None, false));
+    }
+
+    actions.push(action_button(
+        "document-save-symbolic",
+        if editor.is_new { "Create" } else { "Save" },
+        Some(NetworkMessage::SaveRemote),
+        controls_enabled && !editor.running,
+    ));
+
+    if !editor.is_new {
+        let delete_message = selected_mount.map(|mount| NetworkMessage::DeleteRemote {
+            name: mount.config.name.clone(),
+            scope: mount.config.scope,
+        });
+        actions.push(action_button(
+            "edit-delete-symbolic",
+            "Delete",
+            delete_message,
+            controls_enabled && !editor.running && selected_mount.is_some(),
+        ));
+    }
+
+    let actions_row = widget::Row::from_vec(actions)
+        .spacing(4)
+        .align_y(cosmic::iced::Alignment::Center)
+        .apply(widget::container)
+        .padding([0, 10, 0, 0]);
+
+    iced_widget::row![
+        widget::text::title2(title),
+        widget::Space::new(Length::Fill, 0),
+        status_badge,
+        actions_row
+    ]
+    .spacing(12)
+    .align_y(cosmic::iced::Alignment::Center)
+    .into()
+}
+
+fn editor_form(
+    editor: &NetworkEditorState,
+    provider: Option<&storage_common::rclone::RcloneProvider>,
+    controls_enabled: bool,
+) -> Element<'static, NetworkMessage> {
+    let remote_types: Vec<String> = supported_remote_types().to_vec();
+    let remote_type_index = remote_types
+        .iter()
+        .position(|t| t.eq_ignore_ascii_case(&editor.remote_type))
+        .unwrap_or(0);
+
+    let scopes = vec!["User".to_string(), "System".to_string()];
+    let scope_index = match editor.scope {
+        ConfigScope::User => 0,
+        ConfigScope::System => 1,
+    };
+
+    let mut form = iced_widget::column![
+        widget::text::caption("Remote Name"),
+        text_input("Enter remote name", editor.name.clone())
+            .label("Name")
+            .on_input(|value| NetworkMessage::EditorNameChanged(value)),
+        widget::text::caption("Remote Type"),
+        dropdown(remote_types, Some(remote_type_index), |idx| {
+            NetworkMessage::EditorTypeIndexChanged(idx)
+        })
+        .width(Length::Fill),
+        widget::text::caption("Configuration Scope"),
+        dropdown(scopes, Some(scope_index), |idx| {
+            NetworkMessage::EditorScopeChanged(idx)
+        })
+        .width(Length::Fill)
+    ]
+    .spacing(10);
+
+    if let Some(provider) = provider {
+        let mut basic = Vec::new();
+        let mut advanced = Vec::new();
+        let mut hidden = Vec::new();
+
+        for option in &provider.options {
+            let option_name = option.name.clone();
+            let value = editor
+                .options
+                .get(&option_name)
+                .cloned()
+                .unwrap_or_default();
+
+            let label = if option.required {
+                format!("{} *", option_name)
+            } else {
+                option_name.clone()
+            };
+
+            let placeholder = field_placeholder(option);
+            let input = if option.is_secure() {
+                text_input::secure_input(placeholder, value.clone(), None, true)
+                    .label(label)
+                    .on_input(move |v| NetworkMessage::EditorFieldChanged {
+                        key: option_name.clone(),
+                        value: v,
+                    })
+            } else {
+                text_input(placeholder, value.clone())
+                    .label(label)
+                    .on_input(move |v| NetworkMessage::EditorFieldChanged {
+                        key: option_name.clone(),
+                        value: v,
+                    })
+            };
+
+            let help: Option<Element<'static, NetworkMessage>> = if option.help.trim().is_empty() {
+                None
+            } else {
+                Some(widget::text::caption(option.help.trim().to_string()).into())
+            };
+
+            let mut field_column = iced_widget::column![input].spacing(4);
+            if let Some(help) = help {
+                field_column = field_column.push(help);
+            }
+
+            let target = if option.is_hidden() {
+                &mut hidden
+            } else if option.advanced {
+                &mut advanced
+            } else {
+                &mut basic
+            };
+
+            target.push(field_column.into());
+        }
+
+        if !basic.is_empty() {
+            form = form.push(widget::text::caption_heading("Required & Common Options"));
+            form = form.push(widget::column::with_children(basic).spacing(8));
+        }
+
+        if !advanced.is_empty() {
+            form = form.push(
+                widget::checkbox("Show advanced options", editor.show_advanced)
+                    .on_toggle(NetworkMessage::EditorShowAdvanced),
+            );
+            if editor.show_advanced {
+                form = form.push(widget::column::with_children(advanced).spacing(8));
+            }
+        }
+
+        if !hidden.is_empty() {
+            form = form.push(
+                widget::checkbox("Show internal options", editor.show_hidden)
+                    .on_toggle(NetworkMessage::EditorShowHidden),
+            );
+            if editor.show_hidden {
+                form = form.push(widget::column::with_children(hidden).spacing(8));
+            }
+        }
+    }
+
+    let provider_option_names: Vec<String> = provider
+        .map(|p| p.options.iter().map(|o| o.name.clone()).collect())
+        .unwrap_or_default();
+    let mut custom_keys: Vec<String> = editor
+        .options
+        .keys()
+        .filter(|k| {
+            !provider_option_names
+                .iter()
+                .any(|p| p.eq_ignore_ascii_case(k))
+        })
+        .cloned()
+        .collect();
+    custom_keys.sort();
+
+    if !custom_keys.is_empty() {
+        let custom_rows: Vec<Element<'static, NetworkMessage>> = custom_keys
+            .iter()
+            .map(|key| {
+                let key_name = key.clone();
+                let key_for_input = key_name.clone();
+                let key_for_remove = key_name.clone();
+                let value = editor.options.get(&key_name).cloned().unwrap_or_default();
+                let mut row = iced_widget::row![text_input("", value)
+                    .label(key_name.clone())
+                    .on_input(move |v| NetworkMessage::EditorFieldChanged {
+                        key: key_for_input.clone(),
+                        value: v,
+                    })
+                    .width(Length::Fill),]
+                .spacing(6)
+                .align_y(cosmic::iced::Alignment::Center);
+
+                if controls_enabled {
+                    let remove_btn = button::standard("Remove").on_press(
+                        NetworkMessage::EditorRemoveCustomOption {
+                            key: key_for_remove.clone(),
+                        },
+                    );
+                    row = row.push(remove_btn);
+                }
+
+                row.into()
+            })
+            .collect();
+
+        form = form.push(widget::text::caption_heading("Additional Options"));
+        form = form.push(widget::column::with_children(custom_rows).spacing(6));
+    }
+
+    let mut custom_add_row = iced_widget::row![
+        text_input("Key", editor.new_option_key.clone())
+            .label("Option")
+            .on_input(|v| NetworkMessage::EditorNewOptionKeyChanged(v))
+            .width(Length::Fill),
+        text_input("Value", editor.new_option_value.clone())
+            .label("Value")
+            .on_input(|v| NetworkMessage::EditorNewOptionValueChanged(v))
+            .width(Length::Fill),
+    ]
+    .spacing(8)
+    .align_y(cosmic::iced::Alignment::Center);
+
+    if controls_enabled {
+        let add_btn =
+            button::standard("Add Option").on_press(NetworkMessage::EditorAddCustomOption);
+        custom_add_row = custom_add_row.push(add_btn);
+    }
+
+    form = form.push(widget::text::caption_heading("Add Custom Option"));
+    form = form.push(custom_add_row);
+
+    form.into()
+}
+
+pub fn network_main_view(
+    state: &NetworkState,
+    controls_enabled: bool,
+) -> Element<'static, NetworkMessage> {
+    let Some(editor) = &state.editor else {
+        let mut empty = iced_widget::column![
+            widget::text::title2("Network Mounts"),
+            widget::text::body("Select a remote from the sidebar or create a new one."),
+        ]
+        .spacing(10)
+        .width(Length::Fill);
+
+        if controls_enabled {
+            empty = empty
+                .push(button::standard("New Remote").on_press(NetworkMessage::BeginCreateRemote));
+        }
+
+        return widget::container(empty)
+            .padding(20)
+            .width(Length::Fill)
+            .height(Length::Fill)
+            .into();
+    };
+
+    let selected_mount = state
+        .selected
+        .as_ref()
+        .and_then(|(name, scope)| state.get_mount(name, *scope));
+
+    let provider = rclone_provider(&editor.remote_type);
+
+    let form = editor_form(editor, provider, controls_enabled);
+    let form = widget::container(form).width(Length::Fill).max_width(720);
+
+    let mut layout = iced_widget::column![editor_header(editor, selected_mount, controls_enabled)]
+        .spacing(16)
+        .width(Length::Fill);
+
+    if let Some(mount) = selected_mount {
+        if mount.is_mounted() {
+            let mount_point = mount.config.mount_point().to_string_lossy().to_string();
+            let mount_row = iced_widget::row![
+                widget::text::caption("Mounted at:"),
+                widget::button::link(mount_point.clone())
+                    .padding(0)
+                    .on_press(NetworkMessage::OpenMountPath(mount_point))
+            ]
+            .spacing(4)
+            .align_y(cosmic::iced::Alignment::Center);
+            layout = layout.push(mount_row);
+        } else {
+            layout = layout.push(widget::text::caption("Not mounted"));
+        }
+    }
+
+    if !editor.is_new {
+        let checked = editor.mount_on_boot.unwrap_or(false);
+        let mut mount_on_boot = widget::checkbox("Mount on boot", checked);
+        if controls_enabled && !editor.running && editor.mount_on_boot.is_some() {
+            mount_on_boot = mount_on_boot.on_toggle(NetworkMessage::ToggleMountOnBoot);
+        }
+        layout = layout.push(mount_on_boot);
+    }
+
+    layout = layout.push(form);
+
+    if editor.running {
+        layout = layout.push(widget::text::caption("Saving configuration..."));
+    }
+
+    if let Some(error) = &editor.error {
+        layout = layout.push(widget::text::caption(error.clone()));
+    }
+
+    widget::scrollable(layout)
+        .width(Length::Fill)
+        .height(Length::Fill)
+        .apply(widget::container)
+        .padding(20)
+        .width(Length::Fill)
+        .height(Length::Fill)
         .into()
 }

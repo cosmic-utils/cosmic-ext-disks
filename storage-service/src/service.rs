@@ -29,9 +29,12 @@ impl StorageService {
         vec![
             "btrfs".to_string(),
             "rclone".to_string(),
-            // Future: "partitions".to_string(),
-            // Future: "lvm".to_string(),
-            // Future: "smart".to_string(),
+            "disks".to_string(),
+            "partitions".to_string(),
+            "filesystems".to_string(),
+            "lvm".to_string(),
+            "luks".to_string(),
+            "image".to_string(),
         ]
     }
 }

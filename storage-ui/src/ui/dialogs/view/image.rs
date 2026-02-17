@@ -9,11 +9,11 @@ use crate::ui::dialogs::state::{
 };
 use crate::utils::labelled_spinner;
 use cosmic::{
-    Element,
     iced::{Alignment, Length},
     iced_widget,
     widget::text::caption,
     widget::{button, dialog},
+    Element,
 };
 use storage_common::bytes_to_pretty;
 
