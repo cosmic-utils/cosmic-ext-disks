@@ -19,6 +19,7 @@ Recommended:
  - `ntfs-3g` / `ntfsprogs` - NTFS Support
  - `exfatprogs` - exFAT Support
  - `dosfstools` - FAT32 Support
+ - `rclone` - SMB, FTP, S3, etc. mount support
 
  Optional: 
  - `xfsprogs` - XFS Support - Untested but "should" work
@@ -41,7 +42,7 @@ This single command builds the workspace, installs development policies (D-Bus +
 ```bash
 just build              # Build workspace only
 just dev                # Build, start service, run UI (stops service on exit)
-just service             # Start service attached
+just service            # Start service attached
 just service-bg         # Start service in background only
 just app                # Start UI only (assumes service is running)
 just stop-service       # Stop the storage service
