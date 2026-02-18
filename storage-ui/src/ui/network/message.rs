@@ -13,7 +13,7 @@ pub enum NetworkMessage {
     RemotesLoaded(Result<Vec<RemoteConfig>, String>),
     /// Select a remote in the sidebar
     SelectRemote { name: String, scope: ConfigScope },
-    /// Start creating a new remote
+    /// Start creating a new remote (opens wizard)
     BeginCreateRemote,
     /// Close the editor
     CloseEditor,
@@ -37,10 +37,34 @@ pub enum NetworkMessage {
     EditorShowAdvanced(bool),
     /// Toggle hidden option visibility
     EditorShowHidden(bool),
+    /// Toggle a section expander in the editor
+    EditorToggleSection(String),
     /// Save remote configuration
     SaveRemote,
     /// Save completed
     SaveCompleted(Result<(), String>),
+
+    // -- Wizard messages --
+    /// User selected a provider type in the wizard grid
+    WizardSelectType(String),
+    /// User clicked "Advanced..." to switch to the full editor
+    WizardAdvanced,
+    /// Wizard name field changed
+    WizardSetName(String),
+    /// Wizard scope dropdown changed
+    WizardSetScope(usize),
+    /// Wizard field changed (connection or auth step)
+    WizardFieldChanged { key: String, value: String },
+    /// Advance to next wizard step
+    WizardNext,
+    /// Go back to previous wizard step
+    WizardBack,
+    /// Create remote from wizard (final step)
+    WizardCreate,
+    /// Cancel and close the wizard
+    WizardCancel,
+    /// Wizard create completed (with name and scope on success)
+    WizardCreateCompleted(Result<(String, ConfigScope), String>),
     /// Load mount-on-boot status for a remote
     LoadMountOnBoot { name: String, scope: ConfigScope },
     /// Mount-on-boot status loaded

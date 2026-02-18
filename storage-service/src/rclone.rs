@@ -195,6 +195,7 @@ impl RcloneHandler {
                             scope: ConfigScope::User,
                             options: options
                                 .into_iter()
+                                .filter(|(k, _)| k != "type")
                                 .filter_map(|(k, v)| v.map(|v| (k, v)))
                                 .collect(),
                             has_secrets,
@@ -238,6 +239,7 @@ impl RcloneHandler {
                             scope: ConfigScope::System,
                             options: options
                                 .into_iter()
+                                .filter(|(k, _)| k != "type")
                                 .filter_map(|(k, v)| v.map(|v| (k, v)))
                                 .collect(),
                             has_secrets,

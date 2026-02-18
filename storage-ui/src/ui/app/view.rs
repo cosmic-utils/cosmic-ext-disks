@@ -294,7 +294,10 @@ pub(crate) fn context_drawer(
 
 /// Describes the interface based on the current state of the application model.
 pub(crate) fn view(app: &AppModel) -> Element<'_, Message> {
-    if app.network.editor.is_some() || app.network.selected.is_some() {
+    if app.network.wizard.is_some()
+        || app.network.editor.is_some()
+        || app.network.selected.is_some()
+    {
         let controls_enabled = app.dialog.is_none();
         return network_main_view(&app.network, controls_enabled).map(Message::Network);
     }

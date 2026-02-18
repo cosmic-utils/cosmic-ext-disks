@@ -207,6 +207,9 @@ pub struct RcloneProviderOption {
     pub examples: Vec<RcloneProviderOptionExample>,
     #[serde(default)]
     pub provider: Option<String>,
+    /// UI section grouping (authentication, connection, security, storage, transfers, behavior, other)
+    #[serde(default)]
+    pub section: String,
 }
 
 impl RcloneProviderOption {
@@ -216,6 +219,20 @@ impl RcloneProviderOption {
 
     pub fn is_hidden(&self) -> bool {
         self.hide != 0
+    }
+
+    /// Get display name for the section
+    pub fn section_display_name(&self) -> &'static str {
+        match self.section.as_str() {
+            "authentication" => "Authentication",
+            "connection" => "Connection",
+            "security" => "Security",
+            "storage" => "Storage",
+            "transfers" => "Transfers",
+            "behavior" => "Behavior",
+            "other" => "Other",
+            _ => "Other",
+        }
     }
 }
 

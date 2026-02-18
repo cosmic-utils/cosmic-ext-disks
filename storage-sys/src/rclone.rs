@@ -17,6 +17,42 @@ use storage_common::ConfigScope;
 use tracing::{debug, info, warn};
 use which::which;
 
+/// Unescape octal sequences in /proc/mounts paths (e.g. `\040` -> ` `)
+fn unescape_mount_path(s: &str) -> String {
+    let mut result = String::with_capacity(s.len());
+    let mut chars = s.chars();
+    while let Some(c) = chars.next() {
+        if c == '\\' {
+            // Try to read 3 octal digits
+            let mut octal = String::with_capacity(3);
+            for _ in 0..3 {
+                if let Some(&next) = chars.as_str().as_bytes().first() {
+                    if (b'0'..=b'7').contains(&next) {
+                        octal.push(next as char);
+                        chars.next();
+                    } else {
+                        break;
+                    }
+                }
+            }
+            if octal.len() == 3 {
+                if let Ok(byte) = u8::from_str_radix(&octal, 8) {
+                    result.push(byte as char);
+                } else {
+                    result.push('\\');
+                    result.push_str(&octal);
+                }
+            } else {
+                result.push('\\');
+                result.push_str(&octal);
+            }
+        } else {
+            result.push(c);
+        }
+    }
+    result
+}
+
 /// RClone CLI wrapper for low-level operations
 pub struct RCloneCli {
     /// Path to the rclone binary
@@ -119,20 +155,55 @@ impl RCloneCli {
     }
 
     /// Check if a mount point is currently mounted
+    ///
+    /// Uses two approaches:
+    /// 1. The `mountpoint -q` command (works for local mounts visible in current namespace)
+    /// 2. Fallback: parsing `/proc/mounts` which shows all mounts system-wide, including
+    ///    FUSE mounts created by user systemd units that may not be visible via `mountpoint`
+    ///    when checked from a root service context.
     pub fn is_mounted(mount_point: &PathBuf) -> Result<bool> {
         debug!("Checking if {:?} is mounted", mount_point);
 
-        if !mount_point.exists() {
-            return Ok(false);
+        // Canonicalize the path for comparison, but fall back to the original if it
+        // doesn't exist on disk yet (the mount point directory may not have been created)
+        let canonical = mount_point
+            .canonicalize()
+            .unwrap_or_else(|_| mount_point.clone());
+
+        // First try: `mountpoint -q` is the most reliable for accessible paths
+        if canonical.exists() {
+            let output = Command::new("mountpoint")
+                .arg("-q")
+                .arg(&canonical)
+                .output()
+                .map_err(|e| {
+                    SysError::OperationFailed(format!("Failed to run mountpoint: {}", e))
+                })?;
+            if output.status.success() {
+                return Ok(true);
+            }
         }
 
-        let output = Command::new("mountpoint")
-            .arg("-q")
-            .arg(mount_point)
-            .output()
-            .map_err(|e| SysError::OperationFailed(format!("Failed to run mountpoint: {}", e)))?;
+        // Fallback: check /proc/mounts directly. This catches FUSE mounts that may
+        // be in a different mount namespace or not visible to `mountpoint` when run as root.
+        let mount_path_str = canonical.to_string_lossy();
+        if let Ok(mounts) = std::fs::read_to_string("/proc/mounts") {
+            for line in mounts.lines() {
+                // /proc/mounts format: device mountpoint fstype options dump pass
+                let mut fields = line.split_whitespace();
+                if let Some(_device) = fields.next() {
+                    if let Some(mp) = fields.next() {
+                        // Unescape octal sequences in mount paths (e.g. \040 for space)
+                        let unescaped = unescape_mount_path(mp);
+                        if unescaped == mount_path_str.as_ref() {
+                            return Ok(true);
+                        }
+                    }
+                }
+            }
+        }
 
-        Ok(output.status.success())
+        Ok(false)
     }
 
     /// Mount a remote using `rclone mount`

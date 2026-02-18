@@ -2,7 +2,7 @@
 
 //! State for network mount management
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use storage_common::rclone::{ConfigScope, MountStatus, RemoteConfig};
 
 /// Runtime state of a network mount
@@ -34,6 +34,226 @@ impl NetworkMountState {
     }
 }
 
+/// Wizard step for guided remote creation
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum WizardStep {
+    /// Step 1: Pick provider type from grid
+    SelectType,
+    /// Step 2: Name the remote and pick scope
+    NameAndScope,
+    /// Step 3: Connection settings (host, port, endpoint, etc.)
+    Connection,
+    /// Step 4: Authentication settings (user, pass, key, etc.)
+    Authentication,
+    /// Step 5: Review summary and create
+    Review,
+}
+
+impl WizardStep {
+    /// Get the step number (1-based)
+    pub fn number(&self) -> usize {
+        match self {
+            WizardStep::SelectType => 1,
+            WizardStep::NameAndScope => 2,
+            WizardStep::Connection => 3,
+            WizardStep::Authentication => 4,
+            WizardStep::Review => 5,
+        }
+    }
+
+    /// Total number of steps
+    pub fn total() -> usize {
+        5
+    }
+
+    /// Get display label for the step
+    pub fn label(&self) -> &'static str {
+        match self {
+            WizardStep::SelectType => "Select Type",
+            WizardStep::NameAndScope => "Name & Scope",
+            WizardStep::Connection => "Connection",
+            WizardStep::Authentication => "Authentication",
+            WizardStep::Review => "Review",
+        }
+    }
+}
+
+/// Quick-setup provider definition for the wizard type selection grid
+pub struct QuickSetupProvider {
+    /// rclone type name (e.g. "s3", "ftp")
+    pub type_name: &'static str,
+    /// Display label (e.g. "Amazon S3")
+    pub label: &'static str,
+    /// Short description
+    pub description: &'static str,
+    /// FreeDesktop icon name
+    pub icon: &'static str,
+}
+
+/// List of providers shown in the wizard quick-setup grid
+pub const QUICK_SETUP_PROVIDERS: &[QuickSetupProvider] = &[
+    QuickSetupProvider {
+        type_name: "s3",
+        label: "Amazon S3",
+        description: "S3 compatible storage",
+        icon: "network-server-symbolic",
+    },
+    QuickSetupProvider {
+        type_name: "ftp",
+        label: "FTP",
+        description: "File Transfer Protocol",
+        icon: "network-server-symbolic",
+    },
+    QuickSetupProvider {
+        type_name: "sftp",
+        label: "SSH / SFTP",
+        description: "Secure file transfer",
+        icon: "network-server-symbolic",
+    },
+    QuickSetupProvider {
+        type_name: "smb",
+        label: "SMB / CIFS",
+        description: "Windows file sharing",
+        icon: "network-workgroup-symbolic",
+    },
+    QuickSetupProvider {
+        type_name: "drive",
+        label: "Google Drive",
+        description: "Cloud storage by Google",
+        icon: "folder-remote-symbolic",
+    },
+    QuickSetupProvider {
+        type_name: "dropbox",
+        label: "Dropbox",
+        description: "Cloud storage by Dropbox",
+        icon: "folder-remote-symbolic",
+    },
+    QuickSetupProvider {
+        type_name: "onedrive",
+        label: "OneDrive",
+        description: "Cloud storage by Microsoft",
+        icon: "folder-remote-symbolic",
+    },
+    QuickSetupProvider {
+        type_name: "webdav",
+        label: "WebDAV",
+        description: "Web-based file access",
+        icon: "network-server-symbolic",
+    },
+    QuickSetupProvider {
+        type_name: "b2",
+        label: "Backblaze B2",
+        description: "Cloud object storage",
+        icon: "network-server-symbolic",
+    },
+    QuickSetupProvider {
+        type_name: "protondrive",
+        label: "Proton Drive",
+        description: "Encrypted cloud storage",
+        icon: "folder-remote-symbolic",
+    },
+];
+
+/// State for the creation wizard
+#[derive(Debug, Clone)]
+pub struct NetworkWizardState {
+    /// Current wizard step
+    pub step: WizardStep,
+    /// Selected remote type
+    pub remote_type: String,
+    /// Remote name
+    pub name: String,
+    /// Configuration scope
+    pub scope: ConfigScope,
+    /// Options filled in during wizard steps
+    pub options: HashMap<String, String>,
+    /// Error message if any
+    pub error: Option<String>,
+    /// Whether a save operation is in progress
+    pub running: bool,
+}
+
+impl NetworkWizardState {
+    /// Create a new wizard starting at the type selection step
+    pub fn new() -> Self {
+        Self {
+            step: WizardStep::SelectType,
+            remote_type: String::new(),
+            name: String::new(),
+            scope: ConfigScope::User,
+            options: HashMap::new(),
+            error: None,
+            running: false,
+        }
+    }
+
+    /// Check if we can advance to the next step
+    pub fn can_advance(&self) -> bool {
+        match self.step {
+            WizardStep::SelectType => !self.remote_type.is_empty(),
+            WizardStep::NameAndScope => {
+                !self.name.is_empty()
+                    && self
+                        .name
+                        .chars()
+                        .all(|c| c.is_alphanumeric() || c == '-' || c == '_')
+            }
+            WizardStep::Connection => true, // Connection fields are optional for some providers
+            WizardStep::Authentication => true, // Auth fields are optional for OAuth providers
+            WizardStep::Review => !self.running,
+        }
+    }
+
+    /// Advance to the next step
+    pub fn next_step(&mut self) {
+        self.error = None;
+        self.step = match self.step {
+            WizardStep::SelectType => WizardStep::NameAndScope,
+            WizardStep::NameAndScope => WizardStep::Connection,
+            WizardStep::Connection => WizardStep::Authentication,
+            WizardStep::Authentication => WizardStep::Review,
+            WizardStep::Review => WizardStep::Review, // No next from review
+        };
+    }
+
+    /// Go back to the previous step
+    pub fn prev_step(&mut self) {
+        self.error = None;
+        self.step = match self.step {
+            WizardStep::SelectType => WizardStep::SelectType, // No prev from first
+            WizardStep::NameAndScope => WizardStep::SelectType,
+            WizardStep::Connection => WizardStep::NameAndScope,
+            WizardStep::Authentication => WizardStep::Connection,
+            WizardStep::Review => WizardStep::Authentication,
+        };
+    }
+}
+
+/// Ordered list of sections for display
+pub const SECTION_ORDER: &[&str] = &[
+    "authentication",
+    "connection",
+    "security",
+    "storage",
+    "transfers",
+    "behavior",
+    "other",
+];
+
+/// Get display name for a section ID
+pub fn section_display_name(section: &str) -> &'static str {
+    match section {
+        "authentication" => "Authentication",
+        "connection" => "Connection",
+        "security" => "Security",
+        "storage" => "Storage",
+        "transfers" => "Transfers",
+        "behavior" => "Behavior",
+        "other" => "Other",
+        _ => "Other",
+    }
+}
+
 /// State for the network section of the sidebar
 #[derive(Debug, Default)]
 pub struct NetworkState {
@@ -52,8 +272,11 @@ pub struct NetworkState {
     /// Last error message
     pub error: Option<String>,
 
-    /// Active editor state
+    /// Active editor state (for viewing/editing existing remotes)
     pub editor: Option<NetworkEditorState>,
+
+    /// Active wizard state (for guided creation of new remotes)
+    pub wizard: Option<NetworkWizardState>,
 }
 
 impl NetworkState {
@@ -75,6 +298,36 @@ impl NetworkState {
     /// Close the editor
     pub fn clear_editor(&mut self) {
         self.editor = None;
+    }
+
+    /// Start the creation wizard
+    pub fn start_wizard(&mut self) {
+        self.editor = None;
+        self.wizard = Some(NetworkWizardState::new());
+    }
+
+    /// Close the wizard
+    pub fn clear_wizard(&mut self) {
+        self.wizard = None;
+    }
+
+    /// Convert wizard state to editor state (for "Advanced..." flow)
+    pub fn wizard_to_editor(&mut self) {
+        if let Some(wizard) = self.wizard.take() {
+            let remote_type = if wizard.remote_type.is_empty() {
+                storage_common::rclone::supported_remote_types()
+                    .first()
+                    .cloned()
+                    .unwrap_or_default()
+            } else {
+                wizard.remote_type
+            };
+            let mut editor = NetworkEditorState::new(remote_type);
+            editor.name = wizard.name;
+            editor.scope = wizard.scope;
+            editor.options = wizard.options;
+            self.editor = Some(editor);
+        }
     }
 
     /// Set remotes from loaded configuration
@@ -198,9 +451,19 @@ pub struct NetworkEditorState {
     pub show_advanced: bool,
     pub show_hidden: bool,
     pub mount_on_boot: Option<bool>,
+    /// Which sections are currently expanded in the editor
+    pub expanded_sections: HashSet<String>,
 }
 
 impl NetworkEditorState {
+    /// Default sections to expand in a new editor
+    fn default_expanded_sections() -> HashSet<String> {
+        let mut set = HashSet::new();
+        set.insert("authentication".to_string());
+        set.insert("connection".to_string());
+        set
+    }
+
     pub fn new(default_type: String) -> Self {
         Self {
             name: String::new(),
@@ -217,6 +480,7 @@ impl NetworkEditorState {
             show_advanced: false,
             show_hidden: false,
             mount_on_boot: None,
+            expanded_sections: Self::default_expanded_sections(),
         }
     }
 
@@ -236,6 +500,7 @@ impl NetworkEditorState {
             show_advanced: false,
             show_hidden: false,
             mount_on_boot: None,
+            expanded_sections: Self::default_expanded_sections(),
         }
     }
 }

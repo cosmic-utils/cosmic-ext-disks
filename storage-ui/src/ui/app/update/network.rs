@@ -96,12 +96,9 @@ pub(crate) fn handle_network_message(app: &mut AppModel, message: NetworkMessage
         }
 
         NetworkMessage::BeginCreateRemote => {
-            let default_type = supported_remote_types()
-                .first()
-                .cloned()
-                .unwrap_or_else(|| "drive".to_string());
             app.network.select(None, None);
-            app.network.start_create(default_type);
+            app.network.clear_editor();
+            app.network.start_wizard();
         }
 
         NetworkMessage::CloseEditor => {
@@ -199,6 +196,186 @@ pub(crate) fn handle_network_message(app: &mut AppModel, message: NetworkMessage
         NetworkMessage::EditorShowHidden(show) => {
             if let Some(editor) = app.network.editor.as_mut() {
                 editor.show_hidden = show;
+            }
+        }
+
+        NetworkMessage::EditorToggleSection(section) => {
+            if let Some(editor) = app.network.editor.as_mut() {
+                if editor.expanded_sections.contains(&section) {
+                    editor.expanded_sections.remove(&section);
+                } else {
+                    editor.expanded_sections.insert(section);
+                }
+            }
+        }
+
+        // ── Wizard messages ─────────────────────────────────────────
+
+        NetworkMessage::WizardSelectType(type_name) => {
+            if let Some(wizard) = app.network.wizard.as_mut() {
+                wizard.remote_type = type_name;
+                wizard.error = None;
+            }
+        }
+
+        NetworkMessage::WizardAdvanced => {
+            // Switch from wizard to full editor mode
+            app.network.wizard_to_editor();
+        }
+
+        NetworkMessage::WizardSetName(name) => {
+            if let Some(wizard) = app.network.wizard.as_mut() {
+                wizard.name = name;
+                wizard.error = None;
+            }
+        }
+
+        NetworkMessage::WizardSetScope(index) => {
+            if let Some(wizard) = app.network.wizard.as_mut() {
+                wizard.scope = match index {
+                    0 => ConfigScope::User,
+                    _ => ConfigScope::System,
+                };
+                wizard.error = None;
+            }
+        }
+
+        NetworkMessage::WizardFieldChanged { key, value } => {
+            if let Some(wizard) = app.network.wizard.as_mut() {
+                wizard.options.insert(key, value);
+                wizard.error = None;
+            }
+        }
+
+        NetworkMessage::WizardNext => {
+            if let Some(wizard) = app.network.wizard.as_mut() {
+                if wizard.can_advance() {
+                    wizard.next_step();
+                }
+            }
+        }
+
+        NetworkMessage::WizardBack => {
+            if let Some(wizard) = app.network.wizard.as_mut() {
+                wizard.prev_step();
+            }
+        }
+
+        NetworkMessage::WizardCreate => {
+            // Extract wizard data and create the remote
+            let wizard_data = {
+                let Some(wizard) = app.network.wizard.as_mut() else {
+                    return Task::none();
+                };
+
+                if wizard.name.trim().is_empty() {
+                    wizard.error = Some("Remote name cannot be empty".to_string());
+                    return Task::none();
+                }
+
+                let provider = rclone_provider(&wizard.remote_type);
+                if provider.is_none() {
+                    wizard.error = Some("Unsupported remote type".to_string());
+                    return Task::none();
+                }
+
+                // Validate required fields
+                if let Some(provider) = provider {
+                    for option in &provider.options {
+                        if !option.required || option.is_hidden() {
+                            continue;
+                        }
+                        let value = wizard.options.get(&option.name).map(|v| v.trim());
+                        if value.is_none() || value == Some("") {
+                            wizard.error = Some(format!(
+                                "Missing required field '{}'",
+                                option.name
+                            ));
+                            return Task::none();
+                        }
+                    }
+                }
+
+                let name = wizard.name.clone();
+                let remote_type = wizard.remote_type.clone();
+                let scope = wizard.scope;
+                let options: std::collections::HashMap<String, String> = wizard
+                    .options
+                    .iter()
+                    .filter(|(_, v)| !v.trim().is_empty())
+                    .map(|(k, v)| (k.clone(), v.clone()))
+                    .collect();
+
+                let has_secrets = provider.is_some_and(|provider| {
+                    provider
+                        .options
+                        .iter()
+                        .filter(|option| option.is_secure())
+                        .any(|option| {
+                            options
+                                .get(&option.name)
+                                .is_some_and(|value| !value.trim().is_empty())
+                        })
+                });
+
+                wizard.running = true;
+                wizard.error = None;
+
+                (name, remote_type, scope, options, has_secrets)
+            };
+
+            let (name, remote_type, scope, options, has_secrets) = wizard_data;
+            app.network.select(Some(name.clone()), Some(scope));
+
+            return Task::perform(
+                async move {
+                    let client = RcloneClient::new().await.map_err(|e| e.to_string())?;
+                    let config = RemoteConfig {
+                        name: name.clone(),
+                        remote_type,
+                        scope,
+                        options,
+                        has_secrets,
+                    };
+                    client.create_remote(&config).await.map_err(|e| e.to_string())?;
+                    Ok(config)
+                },
+                |result| {
+                    Message::Network(NetworkMessage::WizardCreateCompleted(
+                        result.map(|c| (c.name, c.scope)),
+                    ))
+                    .into()
+                },
+            );
+        }
+
+        NetworkMessage::WizardCancel => {
+            app.network.clear_wizard();
+        }
+
+        NetworkMessage::WizardCreateCompleted(result) => {
+            match result {
+                Ok((name, scope)) => {
+                    // Close wizard and store the name/scope to select after reload
+                    app.network.clear_wizard();
+                    app.network.select(Some(name.clone()), Some(scope));
+                    // Reload remotes first; the SelectRemote will be dispatched
+                    // after the RemotesLoaded message repopulates the state
+                    return Task::done(Message::Network(NetworkMessage::LoadRemotes).into())
+                        .chain(Task::done(
+                            Message::Network(NetworkMessage::SelectRemote {
+                                name,
+                                scope,
+                            })
+                            .into(),
+                        ));
+                }
+                Err(e) => {
+                    if let Some(wizard) = app.network.wizard.as_mut() {
+                        wizard.running = false;
+                        wizard.error = Some(e);
+                    }
+                }
             }
         }
 
