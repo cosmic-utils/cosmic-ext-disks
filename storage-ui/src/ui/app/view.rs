@@ -228,7 +228,10 @@ pub(crate) fn dialog(app: &AppModel) -> Option<Element<'_, Message>> {
             }
 
             crate::ui::dialogs::state::ShowDialog::ConfirmDeleteRemote { name, scope } => {
-                let body = format!("Are you sure you want to delete the remote '{}'? This action cannot be undone.", name);
+                let body = format!(
+                    "Are you sure you want to delete the remote '{}'? This action cannot be undone.",
+                    name
+                );
                 Some(dialogs::confirmation(
                     "Delete Remote",
                     body,
@@ -240,7 +243,6 @@ pub(crate) fn dialog(app: &AppModel) -> Option<Element<'_, Message>> {
                     false,
                 ))
             }
-
         },
         None => None,
     }

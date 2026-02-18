@@ -1,8 +1,8 @@
 use crate::app::Message;
 use crate::fl;
 use cosmic::{
-    widget::{button, dialog},
     Element,
+    widget::{button, dialog},
 };
 use std::borrow::Cow;
 

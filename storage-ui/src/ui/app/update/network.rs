@@ -6,11 +6,11 @@ use super::super::message::Message;
 use super::super::state::AppModel;
 use crate::client::RcloneClient;
 use crate::ui::dialogs::state::ShowDialog;
-use crate::ui::error::{log_error_and_show_dialog, UiErrorContext};
+use crate::ui::error::{UiErrorContext, log_error_and_show_dialog};
 use crate::ui::network::NetworkMessage;
 use cosmic::app::Task;
 use storage_common::rclone::{
-    rclone_provider, supported_remote_types, ConfigScope, MountStatus, RemoteConfig,
+    ConfigScope, MountStatus, RemoteConfig, rclone_provider, supported_remote_types,
 };
 
 /// Handle network-related messages
@@ -101,11 +101,6 @@ pub(crate) fn handle_network_message(app: &mut AppModel, message: NetworkMessage
             app.network.start_wizard();
         }
 
-        NetworkMessage::CloseEditor => {
-            app.network.select(None, None);
-            app.network.clear_editor();
-        }
-
         NetworkMessage::EditorNameChanged(name) => {
             if let Some(editor) = app.network.editor.as_mut() {
                 editor.name = name;
@@ -114,11 +109,11 @@ pub(crate) fn handle_network_message(app: &mut AppModel, message: NetworkMessage
         }
 
         NetworkMessage::EditorTypeIndexChanged(index) => {
-            if let Some(editor) = app.network.editor.as_mut() {
-                if let Some(remote_type) = supported_remote_types().get(index) {
-                    editor.remote_type = remote_type.clone();
-                    editor.error = None;
-                }
+            if let Some(editor) = app.network.editor.as_mut()
+                && let Some(remote_type) = supported_remote_types().get(index)
+            {
+                editor.remote_type = remote_type.clone();
+                editor.error = None;
             }
         }
 
@@ -164,17 +159,11 @@ pub(crate) fn handle_network_message(app: &mut AppModel, message: NetworkMessage
                     editor.error = Some("Option key cannot be 'type'".to_string());
                     return Task::none();
                 }
-                if editor
-                    .options
-                    .keys()
-                    .any(|k| k.eq_ignore_ascii_case(&key))
-                {
+                if editor.options.keys().any(|k| k.eq_ignore_ascii_case(&key)) {
                     editor.error = Some("Option already exists".to_string());
                     return Task::none();
                 }
-                editor
-                    .options
-                    .insert(key, editor.new_option_value.clone());
+                editor.options.insert(key, editor.new_option_value.clone());
                 editor.new_option_key.clear();
                 editor.new_option_value.clear();
                 editor.error = None;
@@ -210,7 +199,6 @@ pub(crate) fn handle_network_message(app: &mut AppModel, message: NetworkMessage
         }
 
         // ── Wizard messages ─────────────────────────────────────────
-
         NetworkMessage::WizardSelectType(type_name) => {
             if let Some(wizard) = app.network.wizard.as_mut() {
                 wizard.remote_type = type_name;
@@ -248,10 +236,10 @@ pub(crate) fn handle_network_message(app: &mut AppModel, message: NetworkMessage
         }
 
         NetworkMessage::WizardNext => {
-            if let Some(wizard) = app.network.wizard.as_mut() {
-                if wizard.can_advance() {
-                    wizard.next_step();
-                }
+            if let Some(wizard) = app.network.wizard.as_mut()
+                && wizard.can_advance()
+            {
+                wizard.next_step();
             }
         }
 
@@ -287,10 +275,8 @@ pub(crate) fn handle_network_message(app: &mut AppModel, message: NetworkMessage
                         }
                         let value = wizard.options.get(&option.name).map(|v| v.trim());
                         if value.is_none() || value == Some("") {
-                            wizard.error = Some(format!(
-                                "Missing required field '{}'",
-                                option.name
-                            ));
+                            wizard.error =
+                                Some(format!("Missing required field '{}'", option.name));
                             return Task::none();
                         }
                     }
@@ -337,7 +323,10 @@ pub(crate) fn handle_network_message(app: &mut AppModel, message: NetworkMessage
                         options,
                         has_secrets,
                     };
-                    client.create_remote(&config).await.map_err(|e| e.to_string())?;
+                    client
+                        .create_remote(&config)
+                        .await
+                        .map_err(|e| e.to_string())?;
                     Ok(config)
                 },
                 |result| {
@@ -361,14 +350,11 @@ pub(crate) fn handle_network_message(app: &mut AppModel, message: NetworkMessage
                     app.network.select(Some(name.clone()), Some(scope));
                     // Reload remotes first; the SelectRemote will be dispatched
                     // after the RemotesLoaded message repopulates the state
-                    return Task::done(Message::Network(NetworkMessage::LoadRemotes).into())
-                        .chain(Task::done(
-                            Message::Network(NetworkMessage::SelectRemote {
-                                name,
-                                scope,
-                            })
-                            .into(),
-                        ));
+                    return Task::done(Message::Network(NetworkMessage::LoadRemotes).into()).chain(
+                        Task::done(
+                            Message::Network(NetworkMessage::SelectRemote { name, scope }).into(),
+                        ),
+                    );
                 }
                 Err(e) => {
                     if let Some(wizard) = app.network.wizard.as_mut() {
@@ -380,7 +366,16 @@ pub(crate) fn handle_network_message(app: &mut AppModel, message: NetworkMessage
         }
 
         NetworkMessage::SaveRemote => {
-            let (name, remote_type, scope, options, has_secrets, is_edit, original_name, original_scope) = {
+            let (
+                name,
+                remote_type,
+                scope,
+                options,
+                has_secrets,
+                is_edit,
+                original_name,
+                original_scope,
+            ) = {
                 let Some(editor) = app.network.editor.as_mut() else {
                     return Task::none();
                 };
@@ -403,10 +398,8 @@ pub(crate) fn handle_network_message(app: &mut AppModel, message: NetworkMessage
                         }
                         let value = editor.options.get(&option.name).map(|v| v.trim());
                         if value.is_none() || value == Some("") {
-                            editor.error = Some(format!(
-                                "Missing required field '{}'",
-                                option.name
-                            ));
+                            editor.error =
+                                Some(format!("Missing required field '{}'", option.name));
                             return Task::none();
                         }
                     }
@@ -471,7 +464,10 @@ pub(crate) fn handle_network_message(app: &mut AppModel, message: NetworkMessage
                             let scope_changed = original_scope.is_some_and(|s| s != scope);
                             if original != &name || scope_changed {
                                 client
-                                    .delete_remote(original, &original_scope.unwrap_or(scope).to_string())
+                                    .delete_remote(
+                                        original,
+                                        &original_scope.unwrap_or(scope).to_string(),
+                                    )
                                     .await
                                     .map_err(|e| e.to_string())?;
                                 client
@@ -491,7 +487,10 @@ pub(crate) fn handle_network_message(app: &mut AppModel, message: NetworkMessage
                                 .map_err(|e| e.to_string())?;
                         }
                     } else {
-                        client.create_remote(&config).await.map_err(|e| e.to_string())?;
+                        client
+                            .create_remote(&config)
+                            .await
+                            .map_err(|e| e.to_string())?;
                     }
                     Ok(())
                 },
@@ -549,30 +548,33 @@ pub(crate) fn handle_network_message(app: &mut AppModel, message: NetworkMessage
             );
         }
 
-        NetworkMessage::MountOnBootLoaded { name, scope, result } => {
+        NetworkMessage::MountOnBootLoaded {
+            name,
+            scope,
+            result,
+        } => {
             if app
                 .network
                 .selected
                 .as_ref()
                 .is_some_and(|(n, s)| n == &name && *s == scope)
+                && let Some(editor) = app.network.editor.as_mut()
             {
-                if let Some(editor) = app.network.editor.as_mut() {
-                    match result {
-                        Ok(enabled) => {
-                            editor.mount_on_boot = Some(enabled);
-                        }
-                        Err(e) => {
-                            editor.mount_on_boot = Some(false);
-                            let ctx = UiErrorContext::new("rclone_mount_on_boot_status");
-                            return Task::done(
-                                log_error_and_show_dialog(
-                                    "Failed to read mount on boot status",
-                                    anyhow::anyhow!(e),
-                                    ctx,
-                                )
-                                .into(),
-                            );
-                        }
+                match result {
+                    Ok(enabled) => {
+                        editor.mount_on_boot = Some(enabled);
+                    }
+                    Err(e) => {
+                        editor.mount_on_boot = Some(false);
+                        let ctx = UiErrorContext::new("rclone_mount_on_boot_status");
+                        return Task::done(
+                            log_error_and_show_dialog(
+                                "Failed to read mount on boot status",
+                                anyhow::anyhow!(e),
+                                ctx,
+                            )
+                            .into(),
+                        );
                     }
                 }
             }
@@ -627,25 +629,24 @@ pub(crate) fn handle_network_message(app: &mut AppModel, message: NetworkMessage
                 .selected
                 .as_ref()
                 .is_some_and(|(n, s)| n == &name && *s == scope)
+                && let Some(editor) = app.network.editor.as_mut()
             {
-                if let Some(editor) = app.network.editor.as_mut() {
-                    editor.running = false;
-                    match result {
-                        Ok(()) => {
-                            editor.mount_on_boot = Some(enabled);
-                        }
-                        Err(e) => {
-                            editor.mount_on_boot = Some(previous);
-                            let ctx = UiErrorContext::new("rclone_mount_on_boot_update");
-                            return Task::done(
-                                log_error_and_show_dialog(
-                                    "Failed to update mount on boot",
-                                    anyhow::anyhow!(e),
-                                    ctx,
-                                )
-                                .into(),
-                            );
-                        }
+                editor.running = false;
+                match result {
+                    Ok(()) => {
+                        editor.mount_on_boot = Some(enabled);
+                    }
+                    Err(e) => {
+                        editor.mount_on_boot = Some(previous);
+                        let ctx = UiErrorContext::new("rclone_mount_on_boot_update");
+                        return Task::done(
+                            log_error_and_show_dialog(
+                                "Failed to update mount on boot",
+                                anyhow::anyhow!(e),
+                                ctx,
+                            )
+                            .into(),
+                        );
                     }
                 }
             }
@@ -877,10 +878,7 @@ pub(crate) fn handle_network_message(app: &mut AppModel, message: NetworkMessage
 
         NetworkMessage::DeleteRemote { name, scope } => {
             // Show confirmation dialog before deleting
-            app.dialog = Some(ShowDialog::ConfirmDeleteRemote {
-                name,
-                scope,
-            });
+            app.dialog = Some(ShowDialog::ConfirmDeleteRemote { name, scope });
         }
 
         NetworkMessage::ConfirmDeleteRemote { name, scope } => {
@@ -943,10 +941,6 @@ pub(crate) fn handle_network_message(app: &mut AppModel, message: NetworkMessage
                     });
                 }
             }
-        }
-
-        NetworkMessage::Cancel => {
-            // Cancel any pending operation
         }
     }
 

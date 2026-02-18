@@ -4,15 +4,15 @@
 
 use super::message::NetworkMessage;
 use super::state::{
-    NetworkEditorState, NetworkState, NetworkWizardState, WizardStep, QUICK_SETUP_PROVIDERS,
-    SECTION_ORDER,
+    NetworkEditorState, NetworkState, NetworkWizardState, QUICK_SETUP_PROVIDERS, SECTION_ORDER,
+    WizardStep,
 };
 use cosmic::cosmic_theme::palette::WithAlpha;
 use cosmic::iced::Length;
 use cosmic::widget::{self, button, dropdown, icon, text_input};
-use cosmic::{iced_widget, Apply, Element};
+use cosmic::{Apply, Element, iced_widget};
 use std::collections::BTreeMap;
-use storage_common::rclone::{rclone_provider, supported_remote_types, ConfigScope, MountStatus};
+use storage_common::rclone::{ConfigScope, MountStatus, rclone_provider, supported_remote_types};
 
 // ─── Sidebar helpers ─────────────────────────────────────────────────────────
 
@@ -296,10 +296,8 @@ fn action_button(
     enabled: bool,
 ) -> Element<'static, NetworkMessage> {
     let mut button = widget::button::icon(icon::from_name(icon_name).size(16));
-    if enabled {
-        if let Some(message) = message {
-            button = button.on_press(message);
-        }
+    if enabled && let Some(message) = message {
+        button = button.on_press(message);
     }
     widget::tooltip(
         button,
@@ -546,7 +544,7 @@ fn editor_form(
     let mut form = iced_widget::column![
         text_input("Enter remote name", editor.name.clone())
             .label("Remote Name")
-            .on_input(|value| NetworkMessage::EditorNameChanged(value)),
+            .on_input(NetworkMessage::EditorNameChanged),
         widget::text::caption("Remote Type"),
         dropdown(remote_types, Some(remote_type_index), |idx| {
             NetworkMessage::EditorTypeIndexChanged(idx)
@@ -625,7 +623,7 @@ fn editor_form(
                 .push(option);
         }
 
-        for (_order, (section_id, options)) in &sections {
+        for (section_id, options) in sections.values() {
             let display_name = super::state::section_display_name(section_id);
             let expanded = editor.expanded_sections.contains(*section_id);
             let field_count = options.len();
@@ -716,11 +714,11 @@ fn editor_form(
         iced_widget::row![
             text_input("Key", editor.new_option_key.clone())
                 .label("Option")
-                .on_input(|v| NetworkMessage::EditorNewOptionKeyChanged(v))
+                .on_input(NetworkMessage::EditorNewOptionKeyChanged)
                 .width(Length::Fill),
             text_input("Value", editor.new_option_value.clone())
                 .label("Value")
-                .on_input(|v| NetworkMessage::EditorNewOptionValueChanged(v))
+                .on_input(NetworkMessage::EditorNewOptionValueChanged)
                 .width(Length::Fill),
             // Wrap button in a column with top padding to align with the input boxes
             // (the text_inputs have a label above them that adds ~20px)
@@ -1010,7 +1008,7 @@ fn wizard_name_scope(wizard: &NetworkWizardState) -> Element<'static, NetworkMes
         widget::Space::new(0, 8),
         text_input("my-remote", wizard.name.clone())
             .label("Remote Name")
-            .on_input(|v| NetworkMessage::WizardSetName(v)),
+            .on_input(NetworkMessage::WizardSetName),
         widget::text::caption("Use only letters, numbers, dashes, and underscores.".to_string()),
         widget::Space::new(0, 4),
         widget::text::caption("Configuration Scope"),
@@ -1168,18 +1166,18 @@ fn wizard_review(wizard: &NetworkWizardState) -> Element<'static, NetworkMessage
     // Show configured options (non-empty only)
     if let Some(provider) = provider {
         for option in &provider.options {
-            if let Some(value) = wizard.options.get(&option.name) {
-                if !value.is_empty() {
-                    let display_value = if option.is_secure() {
-                        "********".to_string()
-                    } else {
-                        value.clone()
-                    };
-                    summary = summary.push(summary_row(
-                        &pretty_field_name(&option.name),
-                        &display_value,
-                    ));
-                }
+            if let Some(value) = wizard.options.get(&option.name)
+                && !value.is_empty()
+            {
+                let display_value = if option.is_secure() {
+                    "********".to_string()
+                } else {
+                    value.clone()
+                };
+                summary = summary.push(summary_row(
+                    &pretty_field_name(&option.name),
+                    &display_value,
+                ));
             }
         }
     }

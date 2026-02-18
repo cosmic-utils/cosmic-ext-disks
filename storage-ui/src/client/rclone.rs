@@ -37,8 +37,7 @@ trait RcloneInterface {
     async fn get_mount_on_boot(&self, name: &str, scope: &str) -> zbus::Result<bool>;
 
     /// Enable or disable mount on boot
-    async fn set_mount_on_boot(&self, name: &str, scope: &str, enabled: bool)
-        -> zbus::Result<()>;
+    async fn set_mount_on_boot(&self, name: &str, scope: &str, enabled: bool) -> zbus::Result<()>;
 
     /// Create a new remote configuration
     async fn create_remote(&self, config: &str, scope: &str) -> zbus::Result<()>;

@@ -272,7 +272,7 @@ pub fn supported_remote_types() -> &'static [String] {
                     types.push(alias.clone());
                 }
             }
-            types.sort_by(|a, b| a.to_lowercase().cmp(&b.to_lowercase()));
+            types.sort_by_key(|a| a.to_lowercase());
             types.dedup_by(|a, b| a.eq_ignore_ascii_case(b));
             types
         })

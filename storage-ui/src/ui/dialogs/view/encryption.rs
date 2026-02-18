@@ -7,10 +7,9 @@ use crate::ui::dialogs::state::{
     ChangePassphraseDialog, EditEncryptionOptionsDialog, TakeOwnershipDialog, UnlockEncryptedDialog,
 };
 use cosmic::{
-    iced_widget,
+    Element, iced_widget,
     widget::text::caption,
     widget::{button, checkbox, dialog, text_input},
-    Element,
 };
 
 pub fn take_ownership<'a>(state: TakeOwnershipDialog) -> Element<'a, Message> {
@@ -194,13 +193,12 @@ pub fn edit_encryption_options<'a>(state: EditEncryptionOptionsDialog) -> Elemen
 }
 
 pub fn unlock_encrypted<'a>(state: UnlockEncryptedDialog) -> Element<'a, Message> {
-    let mut content =
-        iced_widget::column![
-            text_input::secure_input("", state.passphrase.clone(), None, true)
-                .label(fl!("passphrase"))
-                .on_input(|v| UnlockMessage::PassphraseUpdate(v).into()),
-        ]
-        .spacing(12);
+    let mut content = iced_widget::column![
+        text_input::secure_input("", state.passphrase.clone(), None, true)
+            .label(fl!("passphrase"))
+            .on_input(|v| UnlockMessage::PassphraseUpdate(v).into()),
+    ]
+    .spacing(12);
 
     if let Some(err) = state.error.as_ref() {
         content = content.push(caption(err.clone()));

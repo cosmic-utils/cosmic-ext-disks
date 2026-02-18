@@ -15,8 +15,6 @@ pub enum NetworkMessage {
     SelectRemote { name: String, scope: ConfigScope },
     /// Start creating a new remote (opens wizard)
     BeginCreateRemote,
-    /// Close the editor
-    CloseEditor,
     /// Update remote name in editor
     EditorNameChanged(String),
     /// Update remote type in editor (by index)
@@ -107,6 +105,7 @@ pub enum NetworkMessage {
     TestRemote { name: String, scope: ConfigScope },
     /// Test result received
     TestCompleted {
+        #[allow(dead_code)]
         name: String,
         result: Result<String, String>,
     },
@@ -127,6 +126,4 @@ pub enum NetworkMessage {
         name: String,
         result: Result<(), String>,
     },
-    /// Cancel current operation / close dialog
-    Cancel,
 }

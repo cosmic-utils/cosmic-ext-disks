@@ -6,11 +6,11 @@
 //! including listing remotes, mounting/unmounting, and configuration management.
 
 use storage_common::rclone::{
-    rclone_provider, supported_remote_types, ConfigScope, MountStatus, MountStatusResult,
-    RemoteConfig, RemoteConfigList, TestResult,
+    ConfigScope, MountStatus, MountStatusResult, RemoteConfig, RemoteConfigList, TestResult,
+    rclone_provider, supported_remote_types,
 };
 use storage_service_macros::authorized_interface;
-use storage_sys::{is_mount_on_boot_enabled, set_mount_on_boot, RCloneCli};
+use storage_sys::{RCloneCli, is_mount_on_boot_enabled, set_mount_on_boot};
 use zbus::message::Header as MessageHeader;
 use zbus::object_server::SignalEmitter;
 use zbus::{Connection, interface};
@@ -43,7 +43,10 @@ impl RcloneHandler {
 
     /// Get the config path for a scope, checking if it exists
     /// For User scope, uses the provided UID to find the correct home directory
-    fn get_existing_config_path(scope: ConfigScope, uid: Option<u32>) -> Option<std::path::PathBuf> {
+    fn get_existing_config_path(
+        scope: ConfigScope,
+        uid: Option<u32>,
+    ) -> Option<std::path::PathBuf> {
         let path = Self::get_config_path_for_uid(scope, uid);
         if path.exists() { Some(path) } else { None }
     }
@@ -66,7 +69,11 @@ impl RcloneHandler {
     }
 
     /// Get the mount point for a remote with an optional UID
-    fn get_mount_point_for_uid(remote_name: &str, scope: ConfigScope, uid: Option<u32>) -> std::path::PathBuf {
+    fn get_mount_point_for_uid(
+        remote_name: &str,
+        scope: ConfigScope,
+        uid: Option<u32>,
+    ) -> std::path::PathBuf {
         match scope {
             ConfigScope::User => {
                 if let Some(uid) = uid {
@@ -82,7 +89,10 @@ impl RcloneHandler {
     }
 
     /// Get the caller UID from a message header
-    async fn get_caller_uid(connection: &Connection, header: &MessageHeader<'_>) -> zbus::fdo::Result<u32> {
+    async fn get_caller_uid(
+        connection: &Connection,
+        header: &MessageHeader<'_>,
+    ) -> zbus::fdo::Result<u32> {
         let sender = header
             .sender()
             .ok_or_else(|| zbus::fdo::Error::Failed("No sender in message header".to_string()))?
@@ -112,15 +122,10 @@ impl RcloneHandler {
     }
 
     fn validate_remote_config(config: &RemoteConfig) -> Result<(), zbus::fdo::Error> {
-        config
-            .validate_name()
-            .map_err(|e| zbus::fdo::Error::Failed(e))?;
+        config.validate_name().map_err(zbus::fdo::Error::Failed)?;
 
         let provider = rclone_provider(&config.remote_type).ok_or_else(|| {
-            zbus::fdo::Error::Failed(format!(
-                "Unsupported remote type: {}",
-                config.remote_type
-            ))
+            zbus::fdo::Error::Failed(format!("Unsupported remote type: {}", config.remote_type))
         })?;
 
         for option in &provider.options {
@@ -397,7 +402,13 @@ impl RcloneHandler {
         let mount_point = Self::get_mount_point_for_uid(name, scope_enum, Some(caller_uid));
 
         self.cli
-            .mount(name, &mount_point, &config_path, scope_enum, Some(caller_uid))
+            .mount(
+                name,
+                &mount_point,
+                &config_path,
+                scope_enum,
+                Some(caller_uid),
+            )
             .map_err(|e| zbus::fdo::Error::Failed(format!("Mount failed: {}", e)))?;
 
         // Emit signal
@@ -586,7 +597,8 @@ impl RcloneHandler {
             );
         }
 
-        result.map_err(|e| zbus::fdo::Error::Failed(format!("Failed to update mount on boot: {}", e)))
+        result
+            .map_err(|e| zbus::fdo::Error::Failed(format!("Failed to update mount on boot: {}", e)))
     }
 
     /// Create a new remote configuration
