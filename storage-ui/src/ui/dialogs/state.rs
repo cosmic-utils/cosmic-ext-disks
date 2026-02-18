@@ -26,7 +26,14 @@ pub enum ShowDialog {
     UnmountBusy(UnmountBusyDialog),
     BtrfsCreateSubvolume(BtrfsCreateSubvolumeDialog),
     BtrfsCreateSnapshot(BtrfsCreateSnapshotDialog),
-    Info { title: String, body: String },
+    Info {
+        title: String,
+        body: String,
+    },
+    ConfirmDeleteRemote {
+        name: String,
+        scope: storage_common::rclone::ConfigScope,
+    },
 }
 
 #[derive(Debug, Clone)]

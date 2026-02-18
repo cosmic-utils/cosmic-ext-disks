@@ -11,6 +11,7 @@ pub mod image;
 pub mod luks;
 pub mod lvm;
 pub mod partitions;
+pub mod rclone;
 
 pub use btrfs::BtrfsClient;
 pub use disks::DisksClient;
@@ -18,3 +19,6 @@ pub use filesystems::FilesystemsClient;
 pub use image::ImageClient;
 pub use luks::LuksClient;
 pub use partitions::PartitionsClient;
+// TODO: Remove when UI integration uses this
+#[allow(unused_imports)]
+pub use rclone::RcloneClient;

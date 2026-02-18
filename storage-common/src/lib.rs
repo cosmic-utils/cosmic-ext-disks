@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-only
 
-//! Canonical domain models for COSMIC storage management
+//! Canonical domain models for COSMIC Ext Storage management
 //!
 //! This crate defines the single source of truth for all storage domain types.
 //! These models are used throughout the stack:
@@ -32,6 +32,7 @@ pub mod filesystem;
 pub mod lvm;
 pub mod partition;
 pub mod partition_types;
+pub mod rclone;
 pub mod smart;
 pub mod volume;
 
@@ -45,5 +46,6 @@ pub use filesystem::*;
 pub use lvm::*;
 pub use partition::*;
 pub use partition_types::*;
+pub use rclone::*;
 pub use smart::*;
 pub use volume::*;

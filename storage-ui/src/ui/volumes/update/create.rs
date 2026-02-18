@@ -213,6 +213,12 @@ pub(super) fn create_message(
         ShowDialog::Info { .. } => {
             tracing::warn!("create message received while an info dialog is open; ignoring");
         }
+
+        ShowDialog::ConfirmDeleteRemote { .. } => {
+            tracing::warn!(
+                "create message received while a delete confirmation dialog is open; ignoring"
+            );
+        }
     }
 
     // Preserve behavior: no fallthrough action here.

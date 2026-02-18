@@ -5,6 +5,8 @@ use crate::models::{UiDrive, UiVolume};
 use crate::ui::btrfs::btrfs_management_section;
 use crate::ui::dialogs::state::{DeletePartitionDialog, ShowDialog};
 use crate::ui::dialogs::view as dialogs;
+use crate::ui::network::NetworkMessage;
+use crate::ui::network::view::network_main_view;
 use crate::ui::sidebar;
 use crate::ui::volumes::{DetailTab, VolumesControl, VolumesControlMessage, disk_header, helpers};
 use crate::utils::DiskSegmentKind;
@@ -224,6 +226,23 @@ pub(crate) fn dialog(app: &AppModel) -> Option<Element<'_, Message>> {
             crate::ui::dialogs::state::ShowDialog::Info { title, body } => {
                 Some(dialogs::info(title, body, Message::CloseDialog))
             }
+
+            crate::ui::dialogs::state::ShowDialog::ConfirmDeleteRemote { name, scope } => {
+                let body = format!(
+                    "Are you sure you want to delete the remote '{}'? This action cannot be undone.",
+                    name
+                );
+                Some(dialogs::confirmation(
+                    "Delete Remote",
+                    body,
+                    Message::Network(NetworkMessage::ConfirmDeleteRemote {
+                        name: name.clone(),
+                        scope: *scope,
+                    }),
+                    Some(Message::CloseDialog),
+                    false,
+                ))
+            }
         },
         None => None,
     }
@@ -237,7 +256,7 @@ pub(crate) fn nav_bar(app: &AppModel) -> Option<Element<'_, cosmic::Action<Messa
 
     let controls_enabled = app.dialog.is_none();
 
-    let mut nav = sidebar::view::sidebar(&app.nav, &app.sidebar, controls_enabled)
+    let mut nav = sidebar::view::sidebar(&app.nav, &app.sidebar, &app.network, controls_enabled)
         .map(Into::into)
         .apply(widget::container)
         .padding(8)
@@ -277,6 +296,14 @@ pub(crate) fn context_drawer(
 
 /// Describes the interface based on the current state of the application model.
 pub(crate) fn view(app: &AppModel) -> Element<'_, Message> {
+    if app.network.wizard.is_some()
+        || app.network.editor.is_some()
+        || app.network.selected.is_some()
+    {
+        let controls_enabled = app.dialog.is_none();
+        return network_main_view(&app.network, controls_enabled).map(Message::Network);
+    }
+
     match app.nav.active_data::<UiDrive>() {
         None => widget::text::title1(fl!("no-disk-selected"))
             .apply(widget::container)

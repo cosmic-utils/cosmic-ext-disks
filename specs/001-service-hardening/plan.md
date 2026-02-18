@@ -5,7 +5,7 @@
 
 ## Summary
 
-This feature addresses performance issues in the COSMIC storage application by implementing persistent D-Bus connections at **TWO layers**:
+This feature addresses performance issues in the COSMIC Ext Storage application by implementing persistent D-Bus connections at **TWO layers**:
 
 1. **Layer 1 (storage-ui → storage-service)**: The UI app currently creates a new D-Bus connection for each client instance. We will implement a shared connection pool.
 

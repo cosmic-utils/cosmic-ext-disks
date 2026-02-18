@@ -1,5 +1,6 @@
 use crate::app::Message;
 use crate::models::{UiDrive, UiVolume};
+use crate::ui::network::{NetworkState, view::network_section};
 use crate::ui::sidebar::state::{SidebarNodeKey, SidebarState};
 use cosmic::cosmic_theme::palette::WithAlpha;
 use cosmic::iced::Length;
@@ -395,6 +396,7 @@ fn push_volume_tree(
 pub(crate) fn sidebar(
     app_nav: &cosmic::widget::nav_bar::Model,
     sidebar: &SidebarState,
+    network: &NetworkState,
     controls_enabled: bool,
 ) -> Element<'static, Message> {
     let active_drive = sidebar.active_drive_block_path(app_nav);
@@ -466,6 +468,11 @@ pub(crate) fn sidebar(
     add_section(&mut rows, Section::Internal, internal);
     add_section(&mut rows, Section::External, external);
     add_section(&mut rows, Section::Images, images);
+
+    // Network section (RClone, Samba, FTP)
+    if network.rclone_available || !network.mounts.is_empty() {
+        rows.push(network_section(network, controls_enabled).map(Message::Network));
+    }
 
     // Image operations buttons at bottom - reduced size with wrapping for 50/50 layout
     let image_buttons = widget::row::with_capacity(2)

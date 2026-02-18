@@ -4,6 +4,7 @@ use crate::config::Config;
 use crate::fl;
 use crate::ui::app::message::Message;
 use crate::ui::dialogs::state::ShowDialog;
+use crate::ui::network::NetworkState;
 use crate::ui::sidebar::SidebarState;
 use cosmic::ApplicationExt;
 use cosmic::app::{Core, Task};
@@ -39,6 +40,9 @@ pub struct AppModel {
 
     /// Cached filesystem tool availability from service
     pub(crate) filesystem_tools: Vec<FilesystemToolInfo>,
+
+    /// Network mounts state (RClone, Samba, FTP)
+    pub(crate) network: NetworkState,
 }
 
 impl AppModel {
