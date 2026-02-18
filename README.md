@@ -41,6 +41,7 @@ This single command builds the workspace, installs development policies (D-Bus +
 ```bash
 just build              # Build workspace only
 just dev                # Build, start service, run UI (stops service on exit)
+just service             # Start service attached
 just service-bg         # Start service in background only
 just app                # Start UI only (assumes service is running)
 just stop-service       # Stop the storage service
@@ -57,20 +58,27 @@ just clippy             # Run linter
    - **Deferred until v0.2**: ATA Drive settings
 - 🎯 Performance improvements
 - 🎯 LVM/Logical container support
-- 🎯 Detailed Usage - Think "windirstat".
-- ⌛ BTRFS support 
+- ⌛ Detailed Usage - Think "windirstat"
+- ⌛ BTRFS support - Partial implementation complete.
   - Subvolumes Management
   - Snapshot Management & Scheduling
   - Optional Usage breakdown (requires enablement of quotas)
 - ⌛ New UI
    - **Deferred**: Modal dialog windows blocked by upstream libcosmic limitations
-- 🎯 Rclone configuration
-- 🎯 Samba/ftp configuration 
-- Testing of as many disk types and partition/disk schemes as possible.
+   - Settings pane is a mess still
+   - Create/Format partition dialog rework planned.
+   - General polish and cleanup required.
+- ✅ Rclone configuration
+   - Setup wizard for common mount types
+   - Mount on boot option
+   - Supports all providers/types
+   - Supports System & User mounts
+   - 🎯 Brand icons
 - ✅ Automatic "Resource Busy" resolution on unmount
    - List processes that are holding the mount open, and give you the option to kill them.
 - ⌛ Detection for required packages:
-    - Help text under the settings pane explaining missing packages
+    - rclone detection missing currenty.
+- 🎯 Full test of all drive, volume, and mount types. 
 - 🎯 Documentation - Docs/Readme/Code comments & summaries
 - 🎯 Packaging for package managers/flathub 
 
