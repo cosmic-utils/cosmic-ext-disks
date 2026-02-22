@@ -78,6 +78,11 @@ pub(crate) fn subscription(app: &AppModel) -> Subscription<Message> {
                 let Ok(mut unmounted) = fs_client.proxy().receive_unmounted().await else {
                     return;
                 };
+                let Ok(mut usage_scan_progress) =
+                    fs_client.proxy().receive_usage_scan_progress().await
+                else {
+                    return;
+                };
                 let Ok(mut container_created) =
                     luks_client.proxy().receive_container_created().await
                 else {
@@ -97,6 +102,17 @@ pub(crate) fn subscription(app: &AppModel) -> Subscription<Message> {
                         _ = formatted.next() => { _ = output.send(Message::DriveAdded(String::new())).await; }
                         _ = mounted.next() => { _ = output.send(Message::DriveAdded(String::new())).await; }
                         _ = unmounted.next() => { _ = output.send(Message::DriveAdded(String::new())).await; }
+                        item = usage_scan_progress.next() => {
+                            if let Some(signal) = item
+                                && let Ok(args) = signal.args()
+                            {
+                                _ = output.send(Message::UsageScanProgress {
+                                    scan_id: args.scan_id.to_string(),
+                                    processed_bytes: args.processed_bytes,
+                                    estimated_total_bytes: args.estimated_total_bytes,
+                                }).await;
+                            }
+                        }
                         _ = container_created.next() => { _ = output.send(Message::DriveAdded(String::new())).await; }
                         _ = container_unlocked.next() => { _ = output.send(Message::DriveAdded(String::new())).await; }
                         _ = container_locked.next() => { _ = output.send(Message::DriveAdded(String::new())).await; }

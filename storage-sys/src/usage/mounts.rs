@@ -52,6 +52,7 @@ const EXCLUDED_FS_TYPES: &[&str] = &[
 #[derive(Debug, Clone, Copy)]
 pub struct MountUsageEstimate {
     pub used_bytes: u64,
+    pub free_bytes: u64,
     pub mounts_counted: usize,
     pub mounts_failed: usize,
 }
@@ -144,6 +145,7 @@ pub fn estimate_used_bytes_for_mounts(mounts: &[PathBuf]) -> MountUsageEstimate 
     let mut seen_devices = BTreeSet::new();
     let mut estimate = MountUsageEstimate {
         used_bytes: 0,
+        free_bytes: 0,
         mounts_counted: 0,
         mounts_failed: 0,
     };
@@ -159,9 +161,10 @@ pub fn estimate_used_bytes_for_mounts(mounts: &[PathBuf]) -> MountUsageEstimate 
             continue;
         }
 
-        match used_bytes_for_mount(mount) {
-            Ok(used) => {
+        match used_and_free_bytes_for_mount(mount) {
+            Ok((used, free)) => {
                 estimate.used_bytes = estimate.used_bytes.saturating_add(used);
+                estimate.free_bytes = estimate.free_bytes.saturating_add(free);
                 estimate.mounts_counted += 1;
             }
             Err(_) => {
@@ -173,7 +176,7 @@ pub fn estimate_used_bytes_for_mounts(mounts: &[PathBuf]) -> MountUsageEstimate 
     estimate
 }
 
-fn used_bytes_for_mount(mount: &Path) -> Result<u64, UsageScanError> {
+fn used_and_free_bytes_for_mount(mount: &Path) -> Result<(u64, u64), UsageScanError> {
     let mount_bytes = mount.as_os_str().as_bytes();
     let mount_cstr = CString::new(mount_bytes)
         .map_err(|_| UsageScanError::InvalidMountInfoLine("mount path contains NUL byte".into()))?;
@@ -185,15 +188,22 @@ fn used_bytes_for_mount(mount: &Path) -> Result<u64, UsageScanError> {
     }
 
     let stat = unsafe { stat.assume_init() };
-    Ok(used_bytes_from_fields(
+    Ok((
+        used_bytes_from_fields(
         stat.f_blocks,
         stat.f_bfree,
         stat.f_frsize,
+        ),
+        free_bytes_from_fields(stat.f_bavail, stat.f_frsize),
     ))
 }
 
 fn used_bytes_from_fields(blocks: u64, bfree: u64, frsize: u64) -> u64 {
     blocks.saturating_sub(bfree).saturating_mul(frsize)
+}
+
+fn free_bytes_from_fields(bavail: u64, frsize: u64) -> u64 {
+    bavail.saturating_mul(frsize)
 }
 
 fn is_non_local_fs_type(fs_type: &str) -> bool {

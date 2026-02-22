@@ -6,9 +6,11 @@
 //! including formatting, mounting, unmounting, and process management.
 
 use std::path::Path;
+use std::sync::mpsc;
+use std::time::Duration;
 use storage_common::{
     CheckResult, FilesystemInfo, FilesystemToolInfo, FormatOptions, MountOptions,
-    MountOptionsSettings, UnmountResult,
+    MountOptionsSettings, UnmountResult, UsageScanResult,
 };
 use storage_dbus::DiskManager;
 use storage_service_macros::authorized_interface;
@@ -121,6 +123,15 @@ impl FilesystemsHandler {
     async fn unmounted(
         signal_ctxt: &zbus::object_server::SignalEmitter<'_>,
         device: &str,
+    ) -> zbus::Result<()>;
+
+    /// Signal emitted during usage scan with processed and estimated total bytes.
+    #[zbus(signal)]
+    async fn usage_scan_progress(
+        signal_ctxt: &zbus::object_server::SignalEmitter<'_>,
+        scan_id: &str,
+        processed_bytes: u64,
+        estimated_total_bytes: u64,
     ) -> zbus::Result<()>;
 
     /// List all filesystems on the system
@@ -748,6 +759,93 @@ impl FilesystemsHandler {
         let json = serde_json::to_string(&usage).map_err(|e| {
             tracing::error!("Failed to serialize usage: {e}");
             zbus::fdo::Error::Failed(format!("Failed to serialize: {e}"))
+        })?;
+
+        Ok(json)
+    }
+
+    /// Run a global local-mount usage scan and return category/top-file results.
+    ///
+    /// Emits `usage_scan_progress` while the scan is running.
+    ///
+    /// Authorization: org.cosmic.ext.storage-service.filesystem-read (allow_active)
+    #[authorized_interface(action = "org.cosmic.ext.storage-service.filesystem-read")]
+    async fn get_usage_scan(
+        &self,
+        #[zbus(connection)] _connection: &Connection,
+        #[zbus(header)] _header: MessageHeader<'_>,
+        #[zbus(signal_context)] signal_ctx: zbus::object_server::SignalEmitter<'_>,
+        scan_id: String,
+        top_files_per_category: u32,
+    ) -> zbus::fdo::Result<String> {
+        tracing::info!(
+            "Starting usage scan id={} top_files_per_category={} (UID {})",
+            scan_id,
+            top_files_per_category,
+            caller.uid
+        );
+
+        let mounts = storage_sys::usage::mounts::discover_local_mounts_under(Path::new("/"))
+            .map_err(|e| zbus::fdo::Error::Failed(format!("Failed to discover mounts: {e}")))?;
+
+        let estimate = storage_sys::usage::mounts::estimate_used_bytes_for_mounts(&mounts);
+        let estimated_total_bytes = estimate.used_bytes.max(1);
+        let scan_config = storage_sys::usage::ScanConfig {
+            threads: None,
+            top_files_per_category: top_files_per_category as usize,
+        };
+
+        let (progress_tx, progress_rx) = mpsc::channel::<u64>();
+        let scan_mounts = mounts.clone();
+        let scan_task = tokio::task::spawn_blocking(move || {
+            storage_sys::usage::scan_paths_with_progress(&scan_mounts, &scan_config, Some(progress_tx))
+        });
+
+        let mut processed_bytes = 0_u64;
+
+        loop {
+            while let Ok(delta) = progress_rx.try_recv() {
+                processed_bytes = processed_bytes.saturating_add(delta);
+            }
+
+            let _ = Self::usage_scan_progress(
+                &signal_ctx,
+                &scan_id,
+                processed_bytes,
+                estimated_total_bytes,
+            )
+            .await;
+
+            if scan_task.is_finished() {
+                break;
+            }
+
+            tokio::time::sleep(Duration::from_millis(120)).await;
+        }
+
+        while let Ok(delta) = progress_rx.try_recv() {
+            processed_bytes = processed_bytes.saturating_add(delta);
+        }
+
+        let mut scan_result = scan_task
+            .await
+            .map_err(|e| zbus::fdo::Error::Failed(format!("Usage scan join error: {e}")))?
+            .map_err(|e| zbus::fdo::Error::Failed(format!("Usage scan failed: {e}")))?;
+
+        scan_result.total_free_bytes = estimate.free_bytes;
+
+        let final_processed = processed_bytes.max(scan_result.total_bytes);
+        let _ = Self::usage_scan_progress(
+            &signal_ctx,
+            &scan_id,
+            final_processed,
+            estimated_total_bytes,
+        )
+        .await;
+
+        let json = serde_json::to_string::<UsageScanResult>(&scan_result).map_err(|e| {
+            tracing::error!("Failed to serialize usage scan result: {e}");
+            zbus::fdo::Error::Failed(format!("Failed to serialize usage scan result: {e}"))
         })?;
 
         Ok(json)

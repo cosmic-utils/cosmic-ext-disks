@@ -5,7 +5,7 @@ use crate::client::connection::shared_connection;
 use crate::client::error::ClientError;
 use storage_common::{
     FilesystemInfo, FilesystemToolInfo, FilesystemUsage, MountOptionsSettings, ProcessInfo,
-    UnmountResult,
+    UnmountResult, UsageScanResult,
 };
 use zbus::proxy;
 
@@ -63,6 +63,10 @@ pub trait FilesystemsInterface {
     /// Get filesystem usage statistics
     async fn get_usage(&self, mount_point: &str) -> zbus::Result<String>;
 
+    /// Run a global usage scan and return categorized usage with top files.
+    async fn get_usage_scan(&self, scan_id: &str, top_files_per_category: u32)
+    -> zbus::Result<String>;
+
     /// Get persistent mount options (fstab) for a device
     async fn get_mount_options(&self, device: &str) -> zbus::Result<String>;
 
@@ -103,6 +107,15 @@ pub trait FilesystemsInterface {
     /// Signal emitted when filesystem is unmounted
     #[zbus(signal)]
     async fn unmounted(&self, device_or_mount: &str) -> zbus::Result<()>;
+
+    /// Signal emitted during usage scan with processed and estimated total bytes.
+    #[zbus(signal)]
+    async fn usage_scan_progress(
+        &self,
+        scan_id: &str,
+        processed_bytes: u64,
+        estimated_total_bytes: u64,
+    ) -> zbus::Result<()>;
 }
 
 /// Client for filesystem operations
@@ -230,6 +243,22 @@ impl FilesystemsClient {
         let usage: FilesystemUsage = serde_json::from_str(&json)
             .map_err(|e| ClientError::ParseError(format!("Failed to parse usage stats: {}", e)))?;
         Ok(usage)
+    }
+
+    /// Run a global usage scan and return categorized usage with top files.
+    pub async fn get_usage_scan(
+        &self,
+        scan_id: &str,
+        top_files_per_category: u32,
+    ) -> Result<UsageScanResult, ClientError> {
+        let json = self
+            .proxy
+            .get_usage_scan(scan_id, top_files_per_category)
+            .await?;
+        let result: UsageScanResult = serde_json::from_str(&json).map_err(|e| {
+            ClientError::ParseError(format!("Failed to parse usage scan result: {}", e))
+        })?;
+        Ok(result)
     }
 
     /// Get persistent mount options (fstab) for a device

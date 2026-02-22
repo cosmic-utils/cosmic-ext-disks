@@ -12,11 +12,12 @@ use crate::ui::volumes::{DetailTab, VolumesControl, VolumesControlMessage, disk_
 use crate::utils::DiskSegmentKind;
 use crate::views::settings::settings;
 use cosmic::app::context_drawer as cosmic_context_drawer;
+use cosmic::iced::Color;
 use cosmic::iced::Length;
 use cosmic::iced::alignment::{Alignment, Horizontal, Vertical};
 use cosmic::widget::{self, Space, icon};
 use cosmic::{Apply, Element, iced_widget};
-use storage_common::{VolumeInfo, VolumeKind, bytes_to_pretty};
+use storage_common::{UsageCategory, VolumeInfo, VolumeKind, bytes_to_pretty};
 
 /// Custom button style for header tabs with accent color background.
 fn tab_button_class(active: bool) -> cosmic::theme::Button {
@@ -97,20 +98,30 @@ pub(crate) fn header_center(app: &AppModel) -> Vec<Element<'_, Message>> {
             false
         };
 
+        let active_tab = volumes_control.detail_tab;
+
+        // Volume tab
+        let is_active = active_tab == DetailTab::VolumeInfo;
+        let mut volume_tab = widget::button::text(fl!("volume")).class(tab_button_class(is_active));
+        if !is_active {
+            volume_tab = volume_tab.on_press(Message::VolumesMessage(
+                VolumesControlMessage::SelectDetailTab(DetailTab::VolumeInfo),
+            ));
+        }
+
+        // Usage tab
+        let is_active = active_tab == DetailTab::Usage;
+        let mut usage_tab = widget::button::text("Usage").class(tab_button_class(is_active));
+        if !is_active {
+            usage_tab = usage_tab.on_press(Message::VolumesMessage(
+                VolumesControlMessage::SelectDetailTab(DetailTab::Usage),
+            ));
+        }
+
+        elements.push(volume_tab.into());
+        elements.push(usage_tab.into());
+
         if has_btrfs {
-            let active_tab = volumes_control.detail_tab;
-
-            // Volume tab
-            let is_active = active_tab == DetailTab::VolumeInfo;
-            let mut volume_tab =
-                widget::button::text(fl!("volume")).class(tab_button_class(is_active));
-            if !is_active {
-                volume_tab = volume_tab.on_press(Message::VolumesMessage(
-                    VolumesControlMessage::SelectDetailTab(DetailTab::VolumeInfo),
-                ));
-            }
-
-            // BTRFS tab
             let is_active = active_tab == DetailTab::BtrfsManagement;
             let mut btrfs_tab =
                 widget::button::text(fl!("btrfs")).class(tab_button_class(is_active));
@@ -119,8 +130,6 @@ pub(crate) fn header_center(app: &AppModel) -> Vec<Element<'_, Message>> {
                     VolumesControlMessage::SelectDetailTab(DetailTab::BtrfsManagement),
                 ));
             }
-
-            elements.push(volume_tab.into());
             elements.push(btrfs_tab.into());
         }
     }
@@ -324,6 +333,17 @@ pub(crate) fn view(app: &AppModel) -> Element<'_, Message> {
                     .into();
             };
 
+            if volumes_control.detail_tab == DetailTab::Usage {
+                return widget::scrollable(
+                    widget::container(usage_tab_view(volumes_control))
+                        .padding(20)
+                        .width(Length::Fill),
+                )
+                .width(Length::Fill)
+                .height(Length::Fill)
+                .into();
+            }
+
             let Some(segment) = volumes_control
                 .segments
                 .get(volumes_control.selected_segment)
@@ -439,8 +459,9 @@ fn volume_detail_view<'a>(
     };
 
     // Build the tab content based on selected tab
-    let tab_content: Element<'a, Message> =
-        if has_btrfs && volumes_control.detail_tab == DetailTab::BtrfsManagement {
+    let tab_content: Element<'a, Message> = if volumes_control.detail_tab == DetailTab::Usage {
+        usage_tab_view(volumes_control)
+    } else if has_btrfs && volumes_control.detail_tab == DetailTab::BtrfsManagement {
             // BTRFS Management tab
             if let Some(btrfs_state) = &volumes_control.btrfs_state {
                 if let Some(volume) = &segment.volume {
@@ -464,6 +485,237 @@ fn volume_detail_view<'a>(
 
     // Return the tab content directly (tabs are now in header)
     tab_content
+}
+
+fn usage_category_button_class(index: usize, active: bool) -> cosmic::theme::Button {
+    cosmic::theme::Button::Custom {
+        active: Box::new(move |_focused, theme| {
+            usage_category_button_style(index, active, theme)
+        }),
+        disabled: Box::new(move |theme| usage_category_button_style(index, active, theme)),
+        hovered: Box::new(move |_focused, theme| {
+            usage_category_button_style(index, active, theme)
+        }),
+        pressed: Box::new(move |_focused, theme| {
+            usage_category_button_style(index, active, theme)
+        }),
+    }
+}
+
+fn usage_category_button_style(
+    index: usize,
+    active: bool,
+    theme: &cosmic::theme::Theme,
+) -> cosmic::widget::button::Style {
+    let base_color = crate::ui::volumes::usage_pie::segment_color(index);
+    let text_color = if active {
+        Color::WHITE
+    } else {
+        base_color
+    };
+
+    cosmic::widget::button::Style {
+        shadow_offset: Default::default(),
+        background: if active {
+            Some(cosmic::iced::Background::Color(base_color))
+        } else {
+            None
+        },
+        overlay: None,
+        border_radius: theme.cosmic().corner_radii.radius_s.into(),
+        border_width: 1.0,
+        border_color: base_color,
+        outline_width: 0.0,
+        outline_color: Color::TRANSPARENT,
+        icon_color: Some(text_color),
+        text_color: Some(text_color),
+    }
+}
+
+fn usage_tab_view<'a>(volumes_control: &'a VolumesControl) -> Element<'a, Message> {
+    let usage_state = &volumes_control.usage_state;
+
+    if usage_state.loading {
+        let fraction = if usage_state.progress_estimated_total_bytes > 0 {
+            (usage_state.progress_processed_bytes as f64
+                / usage_state.progress_estimated_total_bytes as f64)
+                .clamp(0.0, 1.0) as f32
+        } else {
+            0.0
+        };
+
+        let processed = bytes_to_pretty(&usage_state.progress_processed_bytes, false);
+        let total = bytes_to_pretty(&usage_state.progress_estimated_total_bytes.max(1), false);
+
+        return iced_widget::column![
+            widget::text("Scanning disk usage...").size(16),
+            iced_widget::progress_bar(0.0..=1.0, fraction).width(Length::Fill),
+            widget::text::caption(format!("{} / {}", processed, total)),
+        ]
+        .spacing(10)
+        .into();
+    }
+
+    if let Some(error) = &usage_state.error {
+        return iced_widget::column![
+            widget::text("Usage scan failed").size(16),
+            widget::text::caption(error.clone()),
+        ]
+        .spacing(8)
+        .into();
+    }
+
+    let Some(scan_result) = &usage_state.result else {
+        return widget::text("Usage scan not started").into();
+    };
+
+    let used_total_bytes: u64 = scan_result.categories.iter().map(|category| category.bytes).sum();
+    let unused_bytes = scan_result.total_free_bytes;
+    let total_bytes_for_bar = used_total_bytes.saturating_add(unused_bytes).max(1);
+    let totals_line = format!(
+        "{} / {} ({})",
+        bytes_to_pretty(&used_total_bytes, false),
+        bytes_to_pretty(&total_bytes_for_bar, false),
+        bytes_to_pretty(&unused_bytes, false)
+    );
+
+    let non_zero_categories: Vec<_> = scan_result
+        .categories
+        .iter()
+        .filter(|category| category.bytes > 0)
+        .collect();
+
+    let segmented_bar: Element<'a, Message> = if non_zero_categories.is_empty() && unused_bytes == 0 {
+        widget::container(widget::Space::new(Length::Fill, Length::Fixed(18.0)))
+            .class(cosmic::style::Container::List)
+            .into()
+    } else {
+        let row_with_categories = non_zero_categories.into_iter().fold(
+            iced_widget::row!().spacing(0).width(Length::Fill),
+            |row, category| {
+                let portion = ((category.bytes as f64 / total_bytes_for_bar as f64) * 1000.0)
+                    .round()
+                    .max(1.0) as u16;
+                let color = UsageCategory::ALL
+                    .iter()
+                    .position(|candidate| *candidate == category.category)
+                    .map(crate::ui::volumes::usage_pie::segment_color)
+                    .unwrap_or(crate::ui::volumes::usage_pie::segment_color(0));
+                row.push(
+                    widget::container(widget::Space::new(Length::Fill, Length::Fixed(18.0)))
+                        .style(move |_theme: &cosmic::Theme| iced_widget::container::Style {
+                            background: Some(cosmic::iced::Background::Color(color)),
+                            ..Default::default()
+                        })
+                        .width(Length::FillPortion(portion)),
+                )
+            },
+        );
+
+        if unused_bytes > 0 {
+            let unused_portion = ((unused_bytes as f64 / total_bytes_for_bar as f64) * 1000.0)
+                .round()
+                .max(1.0) as u16;
+            row_with_categories
+                .push(
+                    widget::container(widget::Space::new(Length::Fill, Length::Fixed(18.0)))
+                        .style(move |theme: &cosmic::Theme| iced_widget::container::Style {
+                            background: Some(cosmic::iced::Background::Color(
+                                theme.cosmic().background.component.divider.into(),
+                            )),
+                            ..Default::default()
+                        })
+                        .width(Length::FillPortion(unused_portion)),
+                )
+                .into()
+        } else {
+            row_with_categories.into()
+        }
+    };
+
+    let category_tabs = UsageCategory::ALL.chunks(3).fold(
+        iced_widget::column!().spacing(8),
+        |column, category_chunk| {
+            let row = category_chunk.iter().fold(iced_widget::row!().spacing(8), |row, category| {
+                let index = UsageCategory::ALL
+                    .iter()
+                    .position(|candidate| candidate == category)
+                    .unwrap_or(0);
+                let is_active = *category == usage_state.selected_category;
+                let category_total = scan_result
+                    .categories
+                    .iter()
+                    .find(|entry| entry.category == *category)
+                    .map(|entry| entry.bytes)
+                    .unwrap_or(0);
+                let tab_text = widget::text(format!(
+                    "{} ({})",
+                    category.as_str(),
+                    bytes_to_pretty(&category_total, false)
+                ))
+                .size(12);
+
+                let mut button = widget::button::custom(tab_text)
+                    .class(usage_category_button_class(index, is_active));
+                if !is_active {
+                    button = button.on_press(Message::UsageCategorySelected(*category));
+                }
+                row.push(button)
+            });
+
+            column.push(row)
+        },
+    );
+
+    let selected_files = scan_result
+        .top_files_by_category
+        .iter()
+        .find(|entry| entry.category == usage_state.selected_category)
+        .map(|entry| entry.files.as_slice())
+        .unwrap_or(&[]);
+
+    let file_rows = selected_files
+        .iter()
+        .fold(iced_widget::column!().spacing(6), |column, file| {
+            let full_path = file.path.display().to_string();
+            let filename = file
+                .path
+                .file_name()
+                .and_then(|name| name.to_str())
+                .map(|name| name.to_string())
+                .unwrap_or_else(|| full_path.clone());
+
+            column.push(
+                iced_widget::row![
+                    widget::container(widget::tooltip(
+                        widget::text::caption(filename).width(Length::Fill),
+                        widget::text::caption(full_path),
+                        widget::tooltip::Position::Bottom,
+                    ))
+                    .width(Length::Fill),
+                    widget::text::caption(bytes_to_pretty(&file.bytes, false))
+                        .width(Length::Shrink),
+                ]
+                .spacing(12)
+                .align_y(Alignment::Center),
+            )
+        });
+
+    iced_widget::column![
+        segmented_bar,
+        widget::text::caption(totals_line),
+        Space::new(0, 8),
+        category_tabs,
+        iced_widget::row![
+            widget::text::caption("Filename").width(Length::Fill),
+            widget::text::caption("Size"),
+        ]
+        .spacing(12),
+        widget::scrollable(widget::container(file_rows).padding([4, 0]))
+            .height(Length::Fixed(260.0)),
+    ]
+    .spacing(12)
+    .into()
 }
 
 /// Aggregate children's used space for LUKS containers

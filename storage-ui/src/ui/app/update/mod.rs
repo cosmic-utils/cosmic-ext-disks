@@ -125,6 +125,71 @@ pub(crate) fn update(app: &mut AppModel, message: Message) -> Task<Message> {
         Message::FilesystemToolsLoaded(tools) => {
             app.filesystem_tools = tools;
         }
+        Message::UsageScanLoad {
+            scan_id,
+            top_files_per_category,
+        } => {
+            return Task::perform(
+                async move {
+                    let result = match FilesystemsClient::new().await {
+                        Ok(client) => client
+                            .get_usage_scan(&scan_id, top_files_per_category)
+                            .await
+                            .map_err(|e| e.to_string()),
+                        Err(e) => Err(e.to_string()),
+                    };
+
+                    Message::UsageScanLoaded {
+                        scan_id,
+                        result,
+                    }
+                },
+                |msg| msg.into(),
+            );
+        }
+        Message::UsageScanLoaded { scan_id, result } => {
+            if let Some(volumes_control) = app.nav.active_data_mut::<VolumesControl>()
+                && volumes_control
+                    .usage_state
+                    .active_scan_id
+                    .as_ref()
+                    .is_some_and(|active| active == &scan_id)
+            {
+                volumes_control.usage_state.loading = false;
+                volumes_control.usage_state.active_scan_id = None;
+                match result {
+                    Ok(scan_result) => {
+                        volumes_control.usage_state.result = Some(scan_result);
+                        volumes_control.usage_state.error = None;
+                    }
+                    Err(error) => {
+                        volumes_control.usage_state.error = Some(error);
+                        volumes_control.usage_state.result = None;
+                    }
+                }
+            }
+        }
+        Message::UsageScanProgress {
+            scan_id,
+            processed_bytes,
+            estimated_total_bytes,
+        } => {
+            if let Some(volumes_control) = app.nav.active_data_mut::<VolumesControl>()
+                && volumes_control
+                    .usage_state
+                    .active_scan_id
+                    .as_ref()
+                    .is_some_and(|active| active == &scan_id)
+            {
+                volumes_control.usage_state.progress_processed_bytes = processed_bytes;
+                volumes_control.usage_state.progress_estimated_total_bytes = estimated_total_bytes;
+            }
+        }
+        Message::UsageCategorySelected(category) => {
+            if let Some(volumes_control) = app.nav.active_data_mut::<VolumesControl>() {
+                volumes_control.usage_state.selected_category = category;
+            }
+        }
         Message::ToggleShowReserved(show_reserved) => {
             app.config.show_reserved = show_reserved;
 
@@ -296,7 +361,7 @@ pub(crate) fn update(app: &mut AppModel, message: Message) -> Task<Message> {
             let saved_state = app
                 .nav
                 .active_data::<VolumesControl>()
-                .map(|v| (v.detail_tab, v.btrfs_state.clone()));
+                .map(|v| (v.detail_tab, v.btrfs_state.clone(), v.usage_state.clone()));
 
             // Update drives while preserving child volume selection
             let task = nav::update_nav(app, drive_models, None);
@@ -324,9 +389,10 @@ pub(crate) fn update(app: &mut AppModel, message: Message) -> Task<Message> {
                     }
 
                     // Restore preserved tab selection and BTRFS state
-                    if let Some((saved_tab, saved_btrfs)) = saved_state {
+                    if let Some((saved_tab, saved_btrfs, saved_usage)) = saved_state {
                         control.detail_tab = saved_tab;
                         control.btrfs_state = saved_btrfs;
+                        control.usage_state = saved_usage;
 
                         // Refresh BTRFS data if on BTRFS tab
                         if saved_tab == crate::ui::volumes::DetailTab::BtrfsManagement

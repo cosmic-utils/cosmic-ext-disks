@@ -34,6 +34,7 @@ pub mod partition;
 pub mod partition_types;
 pub mod rclone;
 pub mod smart;
+pub mod usage_scan;
 pub mod volume;
 
 // Re-export all public types
@@ -48,4 +49,5 @@ pub use partition::*;
 pub use partition_types::*;
 pub use rclone::*;
 pub use smart::*;
+pub use usage_scan::*;
 pub use volume::*;

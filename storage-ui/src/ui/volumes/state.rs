@@ -5,7 +5,8 @@ use crate::{
     utils::{DiskSegmentKind, PartitionExtent, SegmentAnomaly, compute_disk_segments},
 };
 use storage_common::{
-    ByteRange, CreatePartitionInfo, FilesystemToolInfo, PartitionInfo, VolumeInfo,
+    ByteRange, CreatePartitionInfo, FilesystemToolInfo, PartitionInfo, UsageCategory,
+    UsageScanResult, VolumeInfo,
 };
 
 /// Which detail tab is active below the drive header
@@ -13,7 +14,33 @@ use storage_common::{
 pub enum DetailTab {
     #[default]
     VolumeInfo,
+    Usage,
     BtrfsManagement,
+}
+
+#[derive(Debug, Clone)]
+pub struct UsageTabState {
+    pub loading: bool,
+    pub progress_processed_bytes: u64,
+    pub progress_estimated_total_bytes: u64,
+    pub active_scan_id: Option<String>,
+    pub result: Option<UsageScanResult>,
+    pub selected_category: UsageCategory,
+    pub error: Option<String>,
+}
+
+impl Default for UsageTabState {
+    fn default() -> Self {
+        Self {
+            loading: false,
+            progress_processed_bytes: 0,
+            progress_estimated_total_bytes: 0,
+            active_scan_id: None,
+            result: None,
+            selected_category: UsageCategory::Documents,
+            error: None,
+        }
+    }
 }
 
 pub struct VolumesControl {
@@ -39,6 +66,8 @@ pub struct VolumesControl {
     pub detail_tab: DetailTab,
     /// Cached filesystem tool availability from service
     pub filesystem_tools: Vec<FilesystemToolInfo>,
+    /// Usage tab state for global categorized usage scan
+    pub usage_state: UsageTabState,
 }
 
 #[derive(Clone, Debug)]
@@ -383,6 +412,7 @@ impl VolumesControl {
             btrfs_state: None,
             detail_tab: DetailTab::default(),
             filesystem_tools,
+            usage_state: UsageTabState::default(),
         }
     }
 
@@ -436,6 +466,7 @@ impl VolumesControl {
         self.selected_segment = 0;
         self.selected_volume = None;
         self.btrfs_state = None;
+        self.usage_state = UsageTabState::default();
         if let Some(first) = self.segments.first_mut() {
             first.state = true;
         }

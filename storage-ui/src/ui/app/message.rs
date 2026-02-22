@@ -8,7 +8,7 @@ use crate::ui::dialogs::message::{
 use crate::ui::dialogs::state::ShowDialog;
 use crate::ui::network::NetworkMessage;
 use crate::ui::volumes::VolumesControlMessage;
-use storage_common::FilesystemToolInfo;
+use storage_common::{FilesystemToolInfo, UsageCategory, UsageScanResult};
 
 /// Messages emitted by the application and its widgets.
 #[derive(Debug, Clone)]
@@ -35,6 +35,20 @@ pub enum Message {
     StandbyNow,
     Wakeup,
     FilesystemToolsLoaded(Vec<FilesystemToolInfo>),
+    UsageScanLoad {
+        scan_id: String,
+        top_files_per_category: u32,
+    },
+    UsageScanLoaded {
+        scan_id: String,
+        result: Result<UsageScanResult, String>,
+    },
+    UsageScanProgress {
+        scan_id: String,
+        processed_bytes: u64,
+        estimated_total_bytes: u64,
+    },
+    UsageCategorySelected(UsageCategory),
 
     // Sidebar (custom treeview)
     SidebarSelectDrive(String),
