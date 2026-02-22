@@ -87,7 +87,7 @@ impl CallerAccess {
     fn can_read(&self, metadata: &fs::Metadata) -> bool {
         let mode = metadata.permissions().mode();
         if metadata.uid() == self.uid {
-            return mode & 0o400 != 0;
+            return true;
         }
 
         if self.gids.binary_search(&metadata.gid()).is_ok() {
@@ -545,7 +545,7 @@ mod tests {
     }
 
     #[test]
-    fn default_scan_filters_out_files_not_readable_by_caller() {
+    fn default_scan_includes_caller_owned_files_even_without_owner_read_bit() {
         let temp = TempDir::new();
         let readable = temp.path.join("readable.rs");
         let unreadable = temp.path.join("unreadable.rs");
@@ -559,8 +559,8 @@ mod tests {
         let result = scan_paths(std::slice::from_ref(&temp.path), &ScanConfig::default())
             .expect("scan should succeed");
 
-        assert_eq!(result.total_bytes, 10);
-        assert_eq!(result.files_scanned, 1);
+        assert_eq!(result.total_bytes, 30);
+        assert_eq!(result.files_scanned, 2);
 
         let include_all = scan_paths(
             std::slice::from_ref(&temp.path),
