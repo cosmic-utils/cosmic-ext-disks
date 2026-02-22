@@ -4,7 +4,7 @@ use std::cmp::Ordering;
 use std::collections::BinaryHeap;
 use std::collections::BTreeMap;
 use std::fs;
-use std::os::unix::fs::MetadataExt;
+use std::os::unix::fs::{MetadataExt, PermissionsExt};
 use std::path::{Path, PathBuf};
 use std::sync::mpsc::Sender;
 use std::time::Instant;
@@ -55,6 +55,51 @@ struct LocalStats {
     files_scanned: u64,
     dirs_scanned: u64,
     skipped_errors: u64,
+}
+
+#[derive(Debug, Clone)]
+struct CallerAccess {
+    uid: u32,
+    gids: Vec<u32>,
+}
+
+impl CallerAccess {
+    fn current() -> Self {
+        let uid = unsafe { libc::geteuid() };
+        let mut gids = vec![unsafe { libc::getegid() }];
+
+        let group_count = unsafe { libc::getgroups(0, std::ptr::null_mut()) };
+        if group_count > 0 {
+            let mut groups = vec![0 as libc::gid_t; group_count as usize];
+            let read_count = unsafe { libc::getgroups(group_count, groups.as_mut_ptr()) };
+            if read_count > 0 {
+                groups.truncate(read_count as usize);
+                gids.extend(groups);
+            }
+        }
+
+        gids.sort_unstable();
+        gids.dedup();
+
+        Self { uid, gids }
+    }
+
+    fn can_read(&self, metadata: &fs::Metadata) -> bool {
+        let mode = metadata.permissions().mode();
+        if metadata.uid() == self.uid {
+            return mode & 0o400 != 0;
+        }
+
+        if self.gids.binary_search(&metadata.gid()).is_ok() {
+            return mode & 0o040 != 0;
+        }
+
+        mode & 0o004 != 0
+    }
+}
+
+fn should_include_file(metadata: &fs::Metadata, caller_access: &CallerAccess, show_all_files: bool) -> bool {
+    show_all_files || caller_access.can_read(metadata)
 }
 
 impl LocalStats {
@@ -155,6 +200,8 @@ pub fn scan_paths_with_progress(
         .build()
         .map_err(|error| UsageScanError::ThreadPoolBuild(error.to_string()))?;
 
+    let caller_access = CallerAccess::current();
+
     let root_stats: Vec<LocalStats> = pool.install(|| {
         roots
             .par_iter()
@@ -162,6 +209,8 @@ pub fn scan_paths_with_progress(
                 scan_single_root(
                     root.as_path(),
                     config.top_files_per_category,
+                    config.show_all_files,
+                    caller_access.clone(),
                     progress_tx.clone(),
                 )
             })
@@ -233,6 +282,8 @@ pub fn scan_paths_with_progress(
 fn scan_single_root(
     root: &Path,
     top_files_per_category: usize,
+    show_all_files: bool,
+    caller_access: CallerAccess,
     progress_tx: Option<Sender<u64>>,
 ) -> LocalStats {
     let mut stats = LocalStats::default();
@@ -284,6 +335,10 @@ fn scan_single_root(
             };
 
             if metadata.is_file() {
+                if !should_include_file(&metadata, &caller_access, show_all_files) {
+                    continue;
+                }
+
                 let file_bytes = metadata.len();
                 stats.add_file(&path, file_bytes, top_files_per_category);
 
@@ -316,6 +371,7 @@ fn scan_single_root(
 #[cfg(test)]
 mod tests {
     use std::fs;
+    use std::os::unix::fs::PermissionsExt;
     use std::path::PathBuf;
     use std::sync::mpsc;
     use std::sync::atomic::{AtomicU64, Ordering};
@@ -400,6 +456,7 @@ mod tests {
             &ScanConfig {
                 threads: None,
                 top_files_per_category: 20,
+                show_all_files: false,
             },
         )
         .expect("scan should succeed");
@@ -429,6 +486,7 @@ mod tests {
             &ScanConfig {
                 threads: None,
                 top_files_per_category: 3,
+                show_all_files: false,
             },
         )
         .expect("scan should succeed");
@@ -484,5 +542,40 @@ mod tests {
 
         let emitted: u64 = rx.try_iter().sum();
         assert_eq!(emitted, result.total_bytes);
+    }
+
+    #[test]
+    fn default_scan_filters_out_files_not_readable_by_caller() {
+        let temp = TempDir::new();
+        let readable = temp.path.join("readable.rs");
+        let unreadable = temp.path.join("unreadable.rs");
+
+        fs::write(&readable, vec![b'a'; 10]).expect("write readable file");
+        fs::write(&unreadable, vec![b'a'; 20]).expect("write unreadable file");
+
+        fs::set_permissions(&unreadable, fs::Permissions::from_mode(0o000))
+            .expect("make file unreadable");
+
+        let result = scan_paths(std::slice::from_ref(&temp.path), &ScanConfig::default())
+            .expect("scan should succeed");
+
+        assert_eq!(result.total_bytes, 10);
+        assert_eq!(result.files_scanned, 1);
+
+        let include_all = scan_paths(
+            std::slice::from_ref(&temp.path),
+            &ScanConfig {
+                threads: None,
+                top_files_per_category: 20,
+                show_all_files: true,
+            },
+        )
+        .expect("scan should succeed");
+
+        assert_eq!(include_all.total_bytes, 30);
+        assert_eq!(include_all.files_scanned, 2);
+
+        fs::set_permissions(&unreadable, fs::Permissions::from_mode(0o600))
+            .expect("restore permissions for cleanup");
     }
 }

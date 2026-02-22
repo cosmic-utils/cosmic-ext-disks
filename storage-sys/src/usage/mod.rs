@@ -24,6 +24,9 @@ pub fn scan_local_mounts(root: &Path, config: &ScanConfig) -> Result<ScanResult,
     scan_paths(&roots, config)
 }
 
+/// Same as `scan_local_mounts`, emitting byte-progress deltas while scanning.
+///
+/// Honors `ScanConfig::show_all_files` for scanner-side caller visibility filtering.
 pub fn scan_local_mounts_with_progress(
     root: &Path,
     config: &ScanConfig,

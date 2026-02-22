@@ -10,6 +10,7 @@ pub type ScanResult = storage_common::UsageScanResult;
 pub struct ScanConfig {
     pub threads: Option<usize>,
     pub top_files_per_category: usize,
+    pub show_all_files: bool,
 }
 
 impl Default for ScanConfig {
@@ -17,6 +18,7 @@ impl Default for ScanConfig {
         Self {
             threads: None,
             top_files_per_category: 20,
+            show_all_files: false,
         }
     }
 }
