@@ -6,6 +6,7 @@ use std::collections::BTreeMap;
 use std::fs;
 use std::os::unix::fs::MetadataExt;
 use std::path::{Path, PathBuf};
+use std::sync::mpsc::Sender;
 use std::time::Instant;
 
 use rayon::prelude::*;
@@ -16,6 +17,8 @@ use super::error::UsageScanError;
 use super::types::{
     Category, CategoryTopFiles, CategoryTotal, ScanConfig, ScanResult, TopFileEntry,
 };
+
+const PROGRESS_EMIT_BYTES_STEP: u64 = 8 * 1024 * 1024;
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 struct HeapEntry {
@@ -118,6 +121,14 @@ impl LocalStats {
 }
 
 pub fn scan_paths(roots: &[PathBuf], config: &ScanConfig) -> Result<ScanResult, UsageScanError> {
+    scan_paths_with_progress(roots, config, None)
+}
+
+pub fn scan_paths_with_progress(
+    roots: &[PathBuf],
+    config: &ScanConfig,
+    progress_tx: Option<Sender<u64>>,
+) -> Result<ScanResult, UsageScanError> {
     let started = Instant::now();
     let mounts_scanned = roots.len();
 
@@ -146,7 +157,13 @@ pub fn scan_paths(roots: &[PathBuf], config: &ScanConfig) -> Result<ScanResult, 
     let root_stats: Vec<LocalStats> = pool.install(|| {
         roots
             .par_iter()
-            .map(|root| scan_single_root(root.as_path(), config.top_files_per_category))
+            .map(|root| {
+                scan_single_root(
+                    root.as_path(),
+                    config.top_files_per_category,
+                    progress_tx.clone(),
+                )
+            })
             .collect()
     });
 
@@ -211,8 +228,13 @@ pub fn scan_paths(roots: &[PathBuf], config: &ScanConfig) -> Result<ScanResult, 
     })
 }
 
-fn scan_single_root(root: &Path, top_files_per_category: usize) -> LocalStats {
+fn scan_single_root(
+    root: &Path,
+    top_files_per_category: usize,
+    progress_tx: Option<Sender<u64>>,
+) -> LocalStats {
     let mut stats = LocalStats::default();
+    let mut pending_progress_bytes = 0_u64;
 
     let root_metadata = match fs::symlink_metadata(root) {
         Ok(metadata) => metadata,
@@ -260,13 +282,29 @@ fn scan_single_root(root: &Path, top_files_per_category: usize) -> LocalStats {
             };
 
             if metadata.is_file() {
-                stats.add_file(&path, metadata.len(), top_files_per_category);
+                let file_bytes = metadata.len();
+                stats.add_file(&path, file_bytes, top_files_per_category);
+
+                pending_progress_bytes = pending_progress_bytes.saturating_add(file_bytes);
+                if pending_progress_bytes >= PROGRESS_EMIT_BYTES_STEP {
+                    if let Some(tx) = &progress_tx {
+                        let _ = tx.send(pending_progress_bytes);
+                    }
+                    pending_progress_bytes = 0;
+                }
+
                 continue;
             }
 
             if metadata.is_dir() && metadata.dev() == root_dev {
                 stack.push(path);
             }
+        }
+    }
+
+    if pending_progress_bytes > 0 {
+        if let Some(tx) = &progress_tx {
+            let _ = tx.send(pending_progress_bytes);
         }
     }
 
@@ -277,6 +315,7 @@ fn scan_single_root(root: &Path, top_files_per_category: usize) -> LocalStats {
 mod tests {
     use std::fs;
     use std::path::PathBuf;
+    use std::sync::mpsc;
     use std::sync::atomic::{AtomicU64, Ordering};
 
     use super::*;
@@ -424,5 +463,24 @@ mod tests {
         assert_eq!(code_top.files[0].bytes, 12);
         assert!(code_top.files[1].path.ends_with("a.rs"));
         assert!(code_top.files[2].path.ends_with("b.rs"));
+    }
+
+    #[test]
+    fn scanner_emits_progress_deltas_for_processed_bytes() {
+        let temp = TempDir::new();
+        fs::write(temp.path.join("a.rs"), vec![b'a'; 10]).expect("write file");
+        fs::write(temp.path.join("b.rs"), vec![b'a'; 20]).expect("write file");
+        fs::write(temp.path.join("c.rs"), vec![b'a'; 30]).expect("write file");
+
+        let (tx, rx) = mpsc::channel();
+        let result = scan_paths_with_progress(
+            std::slice::from_ref(&temp.path),
+            &ScanConfig::default(),
+            Some(tx),
+        )
+        .expect("scan should succeed");
+
+        let emitted: u64 = rx.try_iter().sum();
+        assert_eq!(emitted, result.total_bytes);
     }
 }

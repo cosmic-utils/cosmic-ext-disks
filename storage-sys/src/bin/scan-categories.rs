@@ -1,10 +1,17 @@
 // SPDX-License-Identifier: GPL-3.0-only
 
 use std::path::PathBuf;
+use std::sync::mpsc;
+use std::thread;
+use std::time::{Duration, Instant};
 
 use anyhow::Result;
 use clap::Parser;
-use storage_sys::usage::{scan_local_mounts, scan_paths, ScanConfig};
+use storage_sys::usage::mounts::{discover_local_mounts_under, estimate_used_bytes_for_mounts};
+use storage_sys::usage::progress::{
+    compute_progress_percent, format_bytes,
+};
+use storage_sys::usage::{scan_paths, scan_paths_with_progress, ScanConfig};
 
 #[derive(Debug, Parser)]
 #[command(name = "scan-categories")]
@@ -30,11 +37,55 @@ fn main() -> Result<()> {
         top_files_per_category: args.top_files_per_category,
     };
 
-    let result = if args.root == PathBuf::from("/") {
-        scan_local_mounts(&args.root, &config)?
+    let roots = if args.root == PathBuf::from("/") {
+        discover_local_mounts_under(&args.root)?
     } else {
-        scan_paths(std::slice::from_ref(&args.root), &config)?
+        vec![args.root.clone()]
     };
+
+    let progress_enabled = !args.json;
+    let denominator_estimate = estimate_used_bytes_for_mounts(&roots);
+
+    let (progress_tx, progress_rx) = mpsc::channel::<u64>();
+
+    let progress_handle = if progress_enabled {
+        let total_used_bytes = denominator_estimate.used_bytes;
+        Some(thread::spawn(move || {
+            let mut bytes_processed = 0_u64;
+            let render_interval = Duration::from_millis(250);
+            let mut last_render = Instant::now() - render_interval;
+
+            loop {
+                match progress_rx.recv_timeout(Duration::from_millis(100)) {
+                    Ok(delta) => {
+                        bytes_processed = bytes_processed.saturating_add(delta);
+                    }
+                    Err(mpsc::RecvTimeoutError::Timeout) => {}
+                    Err(mpsc::RecvTimeoutError::Disconnected) => break,
+                }
+
+                if last_render.elapsed() >= render_interval {
+                    print_progress_line(bytes_processed, total_used_bytes, false);
+                    last_render = Instant::now();
+                }
+            }
+
+            print_progress_line(bytes_processed, total_used_bytes, true);
+            println!();
+        }))
+    } else {
+        None
+    };
+
+    let result = if progress_enabled {
+        scan_paths_with_progress(&roots, &config, Some(progress_tx))?
+    } else {
+        scan_paths(&roots, &config)?
+    };
+
+    if let Some(handle) = progress_handle {
+        let _ = handle.join();
+    }
 
     if args.json {
         println!("{}", serde_json::to_string_pretty(&result)?);
@@ -92,4 +143,24 @@ fn main() -> Result<()> {
     }
 
     Ok(())
+}
+
+fn print_progress_line(
+    bytes_processed: u64,
+    estimated_total_used_bytes: u64,
+    force_complete: bool,
+) {
+    let percent = if force_complete {
+        100.0
+    } else {
+        compute_progress_percent(bytes_processed, estimated_total_used_bytes)
+    };
+
+    print!(
+        "\rEstimated progress: {:>5.1}% | {} processed",
+        percent,
+        format_bytes(bytes_processed)
+    );
+
+    let _ = std::io::Write::flush(&mut std::io::stdout());
 }
