@@ -15,6 +15,7 @@
 pub mod error;
 pub mod image;
 pub mod rclone;
+pub mod usage;
 
 pub use error::{Result, SysError};
 pub use image::{copy_file_to_image, copy_image_to_file, open_for_backup, open_for_restore};
