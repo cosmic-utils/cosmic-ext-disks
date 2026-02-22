@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 
+use std::cmp::Ordering;
+use std::collections::BinaryHeap;
 use std::collections::BTreeMap;
 use std::fs;
 use std::os::unix::fs::MetadataExt;
@@ -11,11 +13,41 @@ use rayon::ThreadPoolBuilder;
 
 use super::classifier::classify_path;
 use super::error::UsageScanError;
-use super::types::{Category, CategoryTotal, ScanConfig, ScanResult};
+use super::types::{
+    Category, CategoryTopFiles, CategoryTotal, ScanConfig, ScanResult, TopFileEntry,
+};
+
+#[derive(Debug, Clone, Eq, PartialEq)]
+struct HeapEntry {
+    path: PathBuf,
+    bytes: u64,
+}
+
+impl HeapEntry {
+    fn better_than(&self, other: &Self) -> bool {
+        self.bytes > other.bytes || (self.bytes == other.bytes && self.path < other.path)
+    }
+}
+
+impl Ord for HeapEntry {
+    fn cmp(&self, other: &Self) -> Ordering {
+        other
+            .bytes
+            .cmp(&self.bytes)
+            .then_with(|| self.path.cmp(&other.path))
+    }
+}
+
+impl PartialOrd for HeapEntry {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
 
 #[derive(Default)]
 struct LocalStats {
     bytes_by_category: BTreeMap<Category, u64>,
+    top_files_by_category: BTreeMap<Category, BinaryHeap<HeapEntry>>,
     total_bytes: u64,
     files_scanned: u64,
     dirs_scanned: u64,
@@ -23,15 +55,51 @@ struct LocalStats {
 }
 
 impl LocalStats {
-    fn add_file(&mut self, path: &Path, bytes: u64) {
+    fn add_file(&mut self, path: &Path, bytes: u64, top_files_per_category: usize) {
         self.total_bytes += bytes;
         self.files_scanned += 1;
 
         let category = classify_path(path);
         *self.bytes_by_category.entry(category).or_insert(0) += bytes;
+        self.consider_top_file(
+            category,
+            HeapEntry {
+                path: path.to_path_buf(),
+                bytes,
+            },
+            top_files_per_category,
+        );
     }
 
-    fn merge(&mut self, other: LocalStats) {
+    fn consider_top_file(
+        &mut self,
+        category: Category,
+        candidate: HeapEntry,
+        top_files_per_category: usize,
+    ) {
+        if top_files_per_category == 0 {
+            return;
+        }
+
+        let heap = self
+            .top_files_by_category
+            .entry(category)
+            .or_default();
+
+        if heap.len() < top_files_per_category {
+            heap.push(candidate);
+            return;
+        }
+
+        if let Some(worst) = heap.peek() {
+            if candidate.better_than(worst) {
+                heap.pop();
+                heap.push(candidate);
+            }
+        }
+    }
+
+    fn merge(&mut self, other: LocalStats, top_files_per_category: usize) {
         self.total_bytes += other.total_bytes;
         self.files_scanned += other.files_scanned;
         self.dirs_scanned += other.dirs_scanned;
@@ -39,6 +107,12 @@ impl LocalStats {
 
         for (category, bytes) in other.bytes_by_category {
             *self.bytes_by_category.entry(category).or_insert(0) += bytes;
+        }
+
+        for (category, files) in other.top_files_by_category {
+            for file in files {
+                self.consider_top_file(category, file, top_files_per_category);
+            }
         }
     }
 }
@@ -50,6 +124,7 @@ pub fn scan_paths(roots: &[PathBuf], config: &ScanConfig) -> Result<ScanResult, 
     if roots.is_empty() {
         return Ok(ScanResult {
             categories: Vec::new(),
+            top_files_by_category: Vec::new(),
             total_bytes: 0,
             files_scanned: 0,
             dirs_scanned: 0,
@@ -71,13 +146,13 @@ pub fn scan_paths(roots: &[PathBuf], config: &ScanConfig) -> Result<ScanResult, 
     let root_stats: Vec<LocalStats> = pool.install(|| {
         roots
             .par_iter()
-            .map(|root| scan_single_root(root.as_path()))
+            .map(|root| scan_single_root(root.as_path(), config.top_files_per_category))
             .collect()
     });
 
     let mut combined = LocalStats::default();
     for stats in root_stats {
-        combined.merge(stats);
+        combined.merge(stats, config.top_files_per_category);
     }
 
     let mut categories: Vec<CategoryTotal> = Category::ALL
@@ -95,8 +170,38 @@ pub fn scan_paths(roots: &[PathBuf], config: &ScanConfig) -> Result<ScanResult, 
             .then_with(|| left.category.cmp(&right.category))
     });
 
+    let top_files_by_category: Vec<CategoryTopFiles> = Category::ALL
+        .iter()
+        .map(|category| {
+            let mut files: Vec<TopFileEntry> = combined
+                .top_files_by_category
+                .remove(category)
+                .unwrap_or_default()
+                .into_vec()
+                .into_iter()
+                .map(|entry| TopFileEntry {
+                    path: entry.path,
+                    bytes: entry.bytes,
+                })
+                .collect();
+
+            files.sort_by(|left, right| {
+                right
+                    .bytes
+                    .cmp(&left.bytes)
+                    .then_with(|| left.path.cmp(&right.path))
+            });
+
+            CategoryTopFiles {
+                category: *category,
+                files,
+            }
+        })
+        .collect();
+
     Ok(ScanResult {
         categories,
+        top_files_by_category,
         total_bytes: combined.total_bytes,
         files_scanned: combined.files_scanned,
         dirs_scanned: combined.dirs_scanned,
@@ -106,7 +211,7 @@ pub fn scan_paths(roots: &[PathBuf], config: &ScanConfig) -> Result<ScanResult, 
     })
 }
 
-fn scan_single_root(root: &Path) -> LocalStats {
+fn scan_single_root(root: &Path, top_files_per_category: usize) -> LocalStats {
     let mut stats = LocalStats::default();
 
     let root_metadata = match fs::symlink_metadata(root) {
@@ -155,7 +260,7 @@ fn scan_single_root(root: &Path) -> LocalStats {
             };
 
             if metadata.is_file() {
-                stats.add_file(&path, metadata.len());
+                stats.add_file(&path, metadata.len(), top_files_per_category);
                 continue;
             }
 
@@ -230,5 +335,94 @@ mod tests {
         assert_eq!(images, 20);
         assert_eq!(documents, 30);
         assert_eq!(result.total_bytes, 60);
+
+        let code_top = result
+            .top_files_by_category
+            .iter()
+            .find(|entry| entry.category == Category::Code)
+            .expect("code top files should exist");
+        assert_eq!(code_top.files.len(), 1);
+        assert_eq!(code_top.files[0].bytes, 10);
+    }
+
+    #[test]
+    fn keeps_only_top_twenty_per_category() {
+        let temp = TempDir::new();
+
+        for size in 1_u8..=25 {
+            let path = temp.path.join(format!("f{size:02}.rs"));
+            fs::write(path, vec![b'a'; size as usize]).expect("write file");
+        }
+
+        let result = scan_paths(
+            std::slice::from_ref(&temp.path),
+            &ScanConfig {
+                threads: None,
+                top_files_per_category: 20,
+            },
+        )
+        .expect("scan should succeed");
+
+        let code_top = result
+            .top_files_by_category
+            .iter()
+            .find(|entry| entry.category == Category::Code)
+            .expect("code top files should exist");
+
+        assert_eq!(code_top.files.len(), 20);
+        assert_eq!(code_top.files.first().expect("has first").bytes, 25);
+        assert_eq!(code_top.files.last().expect("has last").bytes, 6);
+    }
+
+    #[test]
+    fn top_files_limit_is_configurable() {
+        let temp = TempDir::new();
+
+        for size in 1_u8..=8 {
+            let path = temp.path.join(format!("f{size:02}.rs"));
+            fs::write(path, vec![b'a'; size as usize]).expect("write file");
+        }
+
+        let result = scan_paths(
+            std::slice::from_ref(&temp.path),
+            &ScanConfig {
+                threads: None,
+                top_files_per_category: 3,
+            },
+        )
+        .expect("scan should succeed");
+
+        let code_top = result
+            .top_files_by_category
+            .iter()
+            .find(|entry| entry.category == Category::Code)
+            .expect("code top files should exist");
+
+        assert_eq!(code_top.files.len(), 3);
+        assert_eq!(code_top.files[0].bytes, 8);
+        assert_eq!(code_top.files[1].bytes, 7);
+        assert_eq!(code_top.files[2].bytes, 6);
+    }
+
+    #[test]
+    fn top_files_sorted_desc_then_path_for_ties() {
+        let temp = TempDir::new();
+
+        fs::write(temp.path.join("a.rs"), vec![b'a'; 10]).expect("write file a");
+        fs::write(temp.path.join("b.rs"), vec![b'a'; 10]).expect("write file b");
+        fs::write(temp.path.join("z.rs"), vec![b'a'; 12]).expect("write file z");
+
+        let result = scan_paths(std::slice::from_ref(&temp.path), &ScanConfig::default())
+            .expect("scan should succeed");
+
+        let code_top = result
+            .top_files_by_category
+            .iter()
+            .find(|entry| entry.category == Category::Code)
+            .expect("code top files should exist");
+
+        assert_eq!(code_top.files[0].bytes, 12);
+        assert!(code_top.files[1].path.ends_with("a.rs"));
+        assert!(code_top.files[2].path.ends_with("b.rs"));
     }
 }

@@ -18,12 +18,16 @@ struct Args {
 
     #[arg(long)]
     threads: Option<usize>,
+
+    #[arg(long, default_value_t = 20)]
+    top_files_per_category: usize,
 }
 
 fn main() -> Result<()> {
     let args = Args::parse();
     let config = ScanConfig {
         threads: args.threads,
+        top_files_per_category: args.top_files_per_category,
     };
 
     let result = if args.root == PathBuf::from("/") {
@@ -65,6 +69,27 @@ fn main() -> Result<()> {
         result.mounts_scanned,
         result.elapsed_ms
     );
+
+    println!();
+    for category_top in &result.top_files_by_category {
+        println!(
+            "Top {} largest files - {}",
+            config.top_files_per_category,
+            category_top.category.as_str()
+        );
+
+        if category_top.files.is_empty() {
+            println!("  (no files)");
+            println!();
+            continue;
+        }
+
+        for (index, file) in category_top.files.iter().enumerate() {
+            println!("  {:>2}. {:>14} {}", index + 1, file.bytes, file.path.display());
+        }
+
+        println!();
+    }
 
     Ok(())
 }

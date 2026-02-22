@@ -9,7 +9,9 @@ pub mod types;
 pub use classifier::classify_path;
 pub use error::UsageScanError;
 pub use scanner::scan_paths;
-pub use types::{Category, CategoryTotal, ScanConfig, ScanResult};
+pub use types::{
+    Category, CategoryTopFiles, CategoryTotal, ScanConfig, ScanResult, TopFileEntry,
+};
 
 use std::path::Path;
 

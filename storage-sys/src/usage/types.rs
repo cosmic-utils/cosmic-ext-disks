@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 
+use std::path::PathBuf;
+
 use serde::Serialize;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize)]
@@ -47,20 +49,37 @@ pub struct CategoryTotal {
     pub bytes: u64,
 }
 
+#[derive(Debug, Clone, Serialize)]
+pub struct TopFileEntry {
+    pub path: PathBuf,
+    pub bytes: u64,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct CategoryTopFiles {
+    pub category: Category,
+    pub files: Vec<TopFileEntry>,
+}
+
 #[derive(Debug, Clone)]
 pub struct ScanConfig {
     pub threads: Option<usize>,
+    pub top_files_per_category: usize,
 }
 
 impl Default for ScanConfig {
     fn default() -> Self {
-        Self { threads: None }
+        Self {
+            threads: None,
+            top_files_per_category: 20,
+        }
     }
 }
 
 #[derive(Debug, Clone, Serialize)]
 pub struct ScanResult {
     pub categories: Vec<CategoryTotal>,
+    pub top_files_by_category: Vec<CategoryTopFiles>,
     pub total_bytes: u64,
     pub files_scanned: u64,
     pub dirs_scanned: u64,
