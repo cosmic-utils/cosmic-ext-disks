@@ -35,6 +35,8 @@ fn main() -> Result<()> {
     let config = ScanConfig {
         threads: args.threads,
         top_files_per_category: args.top_files_per_category,
+        show_all_files: false,
+        caller_uid: None,
     };
 
     let roots = if args.root == PathBuf::from("/") {

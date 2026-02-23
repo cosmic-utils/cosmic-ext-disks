@@ -793,6 +793,8 @@ impl FilesystemsHandler {
         let scan_config = storage_sys::usage::ScanConfig {
             threads: None,
             top_files_per_category: top_files_per_category as usize,
+            show_all_files: false,
+            caller_uid: Some(caller.uid),
         };
 
         let (progress_tx, progress_rx) = mpsc::channel::<u64>();

@@ -11,6 +11,7 @@ pub struct ScanConfig {
     pub threads: Option<usize>,
     pub top_files_per_category: usize,
     pub show_all_files: bool,
+    pub caller_uid: Option<u32>,
 }
 
 impl Default for ScanConfig {
@@ -19,6 +20,7 @@ impl Default for ScanConfig {
             threads: None,
             top_files_per_category: 20,
             show_all_files: false,
+            caller_uid: None,
         }
     }
 }
