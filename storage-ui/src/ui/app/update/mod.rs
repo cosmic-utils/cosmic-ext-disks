@@ -24,6 +24,9 @@ use cosmic::cosmic_config::CosmicConfigEntry;
 use cosmic::dialog::file_chooser;
 use cosmic::widget::nav_bar;
 
+const USAGE_TOP_FILES_MIN: u32 = 1;
+const USAGE_TOP_FILES_MAX: u32 = 1000;
+
 /// Recursively search for a volume child by device_path
 #[allow(dead_code)]
 fn find_volume_child_recursive<'a>(
@@ -205,7 +208,8 @@ pub(crate) fn update(app: &mut AppModel, message: Message) -> Task<Message> {
         }
         Message::UsageTopFilesPerCategoryChanged(top_files_per_category) => {
             if let Some(volumes_control) = app.nav.active_data_mut::<VolumesControl>() {
-                volumes_control.usage_state.top_files_per_category = top_files_per_category.max(1);
+                volumes_control.usage_state.top_files_per_category =
+                    top_files_per_category.clamp(USAGE_TOP_FILES_MIN, USAGE_TOP_FILES_MAX);
             }
         }
         Message::UsageRefreshRequested => {
@@ -310,9 +314,15 @@ pub(crate) fn update(app: &mut AppModel, message: Message) -> Task<Message> {
         Message::UsageDeleteCompleted { result } => {
             if let Some(volumes_control) = app.nav.active_data_mut::<VolumesControl>() {
                 volumes_control.usage_state.deleting = false;
-                if result.is_ok() {
-                    volumes_control.usage_state.selected_paths.clear();
-                    volumes_control.usage_state.selection_anchor_index = None;
+                match result {
+                    Ok(_) => {
+                        volumes_control.usage_state.selected_paths.clear();
+                        volumes_control.usage_state.selection_anchor_index = None;
+                        volumes_control.usage_state.error = None;
+                    }
+                    Err(error) => {
+                        volumes_control.usage_state.error = Some(error);
+                    }
                 }
             }
         }
