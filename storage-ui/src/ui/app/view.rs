@@ -676,6 +676,12 @@ fn usage_tab_view<'a>(volumes_control: &'a VolumesControl) -> Element<'a, Messag
         .map(|entry| entry.files.as_slice())
         .unwrap_or(&[]);
 
+    let selected_path_set: std::collections::HashSet<&str> = usage_state
+        .selected_paths
+        .iter()
+        .map(String::as_str)
+        .collect();
+
     let selected_count = usage_state.selected_paths.len();
 
     let mut delete_button = widget::button::destructive("Delete");
@@ -701,8 +707,8 @@ fn usage_tab_view<'a>(volumes_control: &'a VolumesControl) -> Element<'a, Messag
     .on_input(|value| {
         value
             .parse::<u32>()
-            .map(Message::UsageTopFilesPerCategoryChanged)
-            .unwrap_or(Message::None)
+            .map(|parsed| Message::UsageTopFilesPerCategoryChanged(parsed.clamp(1, 1000)))
+            .unwrap_or(Message::UsageTopFilesPerCategoryChanged(1))
     });
 
     let action_bar = iced_widget::row![
@@ -722,10 +728,7 @@ fn usage_tab_view<'a>(volumes_control: &'a VolumesControl) -> Element<'a, Messag
         .enumerate()
         .fold(iced_widget::column!().spacing(6), |column, (index, file)| {
             let full_path = file.path.display().to_string();
-            let selected = usage_state
-                .selected_paths
-                .iter()
-                .any(|path| path == &full_path);
+            let selected = selected_path_set.contains(full_path.as_str());
             let filename = file
                 .path
                 .file_name()
