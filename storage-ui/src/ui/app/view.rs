@@ -12,10 +12,12 @@ use crate::ui::volumes::{DetailTab, VolumesControl, VolumesControlMessage, disk_
 use crate::utils::DiskSegmentKind;
 use crate::views::settings::settings;
 use cosmic::app::context_drawer as cosmic_context_drawer;
+use cosmic::cosmic_theme::palette::WithAlpha;
 use cosmic::iced::Color;
 use cosmic::iced::Length;
+use cosmic::iced::mouse;
 use cosmic::iced::alignment::{Alignment, Horizontal, Vertical};
-use cosmic::widget::{self, Space, icon};
+use cosmic::widget::{self, Space, icon, text_input};
 use cosmic::{Apply, Element, iced_widget};
 use storage_common::{UsageCategory, VolumeInfo, VolumeKind, bytes_to_pretty};
 
@@ -674,10 +676,56 @@ fn usage_tab_view<'a>(volumes_control: &'a VolumesControl) -> Element<'a, Messag
         .map(|entry| entry.files.as_slice())
         .unwrap_or(&[]);
 
+    let selected_count = usage_state.selected_paths.len();
+
+    let mut delete_button = widget::button::destructive("Delete");
+    if selected_count > 0 && !usage_state.deleting {
+        delete_button = delete_button.on_press(Message::UsageDeleteStart);
+    }
+
+    let mut clear_selection_button = widget::button::standard("Clear Selection");
+    if selected_count > 0 {
+        clear_selection_button = clear_selection_button.on_press(Message::UsageSelectionClear);
+    }
+
+    let refresh_button = widget::button::standard("Refresh").on_press(Message::UsageRefreshRequested);
+
+    let mut show_all_files_toggle = widget::checkbox("Show All Files", usage_state.show_all_files);
+    show_all_files_toggle = show_all_files_toggle.on_toggle(Message::UsageShowAllFilesToggled);
+
+    let top_files_input = text_input(
+        "1-1000",
+        usage_state.top_files_per_category.to_string(),
+    )
+    .width(Length::Fixed(100.0))
+    .on_input(|value| {
+        value
+            .parse::<u32>()
+            .map(Message::UsageTopFilesPerCategoryChanged)
+            .unwrap_or(Message::None)
+    });
+
+    let action_bar = iced_widget::row![
+        show_all_files_toggle,
+        delete_button,
+        clear_selection_button,
+        widget::text::caption("Number of files"),
+        top_files_input,
+        refresh_button,
+        widget::text::caption(format!("Selected: {}", selected_count)),
+    ]
+    .spacing(10)
+    .align_y(Alignment::Center);
+
     let file_rows = selected_files
         .iter()
-        .fold(iced_widget::column!().spacing(6), |column, file| {
+        .enumerate()
+        .fold(iced_widget::column!().spacing(6), |column, (index, file)| {
             let full_path = file.path.display().to_string();
+            let selected = usage_state
+                .selected_paths
+                .iter()
+                .any(|path| path == &full_path);
             let filename = file
                 .path
                 .file_name()
@@ -685,11 +733,11 @@ fn usage_tab_view<'a>(volumes_control: &'a VolumesControl) -> Element<'a, Messag
                 .map(|name| name.to_string())
                 .unwrap_or_else(|| full_path.clone());
 
-            column.push(
+            let row_content = widget::container(
                 iced_widget::row![
                     widget::container(widget::tooltip(
                         widget::text::caption(filename).width(Length::Fill),
-                        widget::text::caption(full_path),
+                        widget::text::caption(full_path.clone()),
                         widget::tooltip::Position::Bottom,
                     ))
                     .width(Length::Fill),
@@ -699,12 +747,55 @@ fn usage_tab_view<'a>(volumes_control: &'a VolumesControl) -> Element<'a, Messag
                 .spacing(12)
                 .align_y(Alignment::Center),
             )
+            .padding([6, 8])
+            .width(Length::Fill)
+            .class(cosmic::style::Container::custom(move |theme| {
+                use cosmic::iced::{Border, Shadow};
+
+                let cosmic = theme.cosmic();
+                let accent = cosmic.accent_color();
+
+                cosmic::iced_widget::container::Style {
+                    icon_color: if selected { Some(accent.into()) } else { None },
+                    text_color: if selected { Some(accent.into()) } else { None },
+                    background: if selected {
+                        Some(cosmic::iced::Background::Color(accent.with_alpha(0.14).into()))
+                    } else {
+                        None
+                    },
+                    border: Border {
+                        radius: cosmic.corner_radii.radius_s.into(),
+                        width: if selected { 1.0 } else { 0.0 },
+                        color: if selected {
+                            accent.into()
+                        } else {
+                            Color::TRANSPARENT
+                        },
+                    },
+                    shadow: Shadow::default(),
+                }
+            }));
+
+            column.push(
+                widget::mouse_area(row_content)
+                    .interaction(mouse::Interaction::Pointer)
+                    .on_press(Message::UsageSelectionSingle {
+                        path: full_path.clone(),
+                        index,
+                    })
+                    .on_right_press(Message::UsageSelectionCtrl {
+                        path: full_path,
+                        index,
+                    })
+                    .on_middle_press(Message::UsageSelectionShift { index }),
+            )
         });
 
     iced_widget::column![
         segmented_bar,
         widget::text::caption(totals_line),
         Space::new(0, 8),
+        action_bar,
         category_tabs,
         iced_widget::row![
             widget::text::caption("Filename").width(Length::Fill),
