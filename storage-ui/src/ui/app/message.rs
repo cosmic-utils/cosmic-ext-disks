@@ -8,7 +8,7 @@ use crate::ui::dialogs::message::{
 use crate::ui::dialogs::state::ShowDialog;
 use crate::ui::network::NetworkMessage;
 use crate::ui::volumes::VolumesControlMessage;
-use storage_common::{FilesystemToolInfo, UsageCategory, UsageScanResult};
+use storage_common::{FilesystemToolInfo, UsageCategory, UsageDeleteResult, UsageScanResult};
 
 /// Messages emitted by the application and its widgets.
 #[derive(Debug, Clone)]
@@ -49,6 +49,25 @@ pub enum Message {
         estimated_total_bytes: u64,
     },
     UsageCategorySelected(UsageCategory),
+    UsageShowAllFilesToggled(bool),
+    UsageTopFilesPerCategoryChanged(u32),
+    UsageRefreshRequested,
+    UsageSelectionSingle {
+        path: String,
+        index: usize,
+    },
+    UsageSelectionCtrl {
+        path: String,
+        index: usize,
+    },
+    UsageSelectionShift {
+        index: usize,
+    },
+    UsageSelectionClear,
+    UsageDeleteStart,
+    UsageDeleteCompleted {
+        result: Result<UsageDeleteResult, String>,
+    },
 
     // Sidebar (custom treeview)
     SidebarSelectDrive(String),

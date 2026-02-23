@@ -129,11 +129,17 @@ pub(crate) fn update(app: &mut AppModel, message: Message) -> Task<Message> {
             scan_id,
             top_files_per_category,
         } => {
+            let show_all_files = app
+                .nav
+                .active_data::<VolumesControl>()
+                .map(|volumes_control| volumes_control.usage_state.show_all_files)
+                .unwrap_or(false);
+
             return Task::perform(
                 async move {
                     let result = match FilesystemsClient::new().await {
                         Ok(client) => client
-                            .get_usage_scan(&scan_id, top_files_per_category, false)
+                            .get_usage_scan(&scan_id, top_files_per_category, show_all_files)
                             .await
                             .map_err(|e| e.to_string()),
                         Err(e) => Err(e.to_string()),
@@ -188,6 +194,126 @@ pub(crate) fn update(app: &mut AppModel, message: Message) -> Task<Message> {
         Message::UsageCategorySelected(category) => {
             if let Some(volumes_control) = app.nav.active_data_mut::<VolumesControl>() {
                 volumes_control.usage_state.selected_category = category;
+                volumes_control.usage_state.selected_paths.clear();
+                volumes_control.usage_state.selection_anchor_index = None;
+            }
+        }
+        Message::UsageShowAllFilesToggled(show_all_files) => {
+            if let Some(volumes_control) = app.nav.active_data_mut::<VolumesControl>() {
+                volumes_control.usage_state.show_all_files = show_all_files;
+            }
+        }
+        Message::UsageTopFilesPerCategoryChanged(top_files_per_category) => {
+            if let Some(volumes_control) = app.nav.active_data_mut::<VolumesControl>() {
+                volumes_control.usage_state.top_files_per_category = top_files_per_category.max(1);
+            }
+        }
+        Message::UsageRefreshRequested => {
+            if let Some(volumes_control) = app.nav.active_data_mut::<VolumesControl>() {
+                if volumes_control.usage_state.loading {
+                    return Task::none();
+                }
+
+                let scan_id = format!(
+                    "usage-{}",
+                    std::time::SystemTime::now()
+                        .duration_since(std::time::UNIX_EPOCH)
+                        .map(|duration| duration.as_millis())
+                        .unwrap_or(0)
+                );
+
+                volumes_control.usage_state.loading = true;
+                volumes_control.usage_state.progress_processed_bytes = 0;
+                volumes_control.usage_state.progress_estimated_total_bytes = 0;
+                volumes_control.usage_state.active_scan_id = Some(scan_id.clone());
+                volumes_control.usage_state.error = None;
+                volumes_control.usage_state.result = None;
+                volumes_control.usage_state.selected_paths.clear();
+                volumes_control.usage_state.selection_anchor_index = None;
+
+                return Task::done(cosmic::Action::App(Message::UsageScanLoad {
+                    scan_id,
+                    top_files_per_category: volumes_control.usage_state.top_files_per_category,
+                }));
+            }
+        }
+        Message::UsageSelectionSingle { path, index } => {
+            if let Some(volumes_control) = app.nav.active_data_mut::<VolumesControl>() {
+                volumes_control.usage_state.selected_paths = vec![path];
+                volumes_control.usage_state.selection_anchor_index = Some(index);
+            }
+        }
+        Message::UsageSelectionCtrl { path, index } => {
+            if let Some(volumes_control) = app.nav.active_data_mut::<VolumesControl>() {
+                if let Some(existing_index) = volumes_control
+                    .usage_state
+                    .selected_paths
+                    .iter()
+                    .position(|selected_path| selected_path == &path)
+                {
+                    volumes_control.usage_state.selected_paths.remove(existing_index);
+                } else {
+                    volumes_control.usage_state.selected_paths.push(path);
+                }
+                volumes_control.usage_state.selection_anchor_index = Some(index);
+            }
+        }
+        Message::UsageSelectionShift { index } => {
+            if let Some(volumes_control) = app.nav.active_data_mut::<VolumesControl>() {
+                let paths: Vec<String> = volumes_control
+                    .usage_state
+                    .result
+                    .as_ref()
+                    .and_then(|result| {
+                        result
+                            .top_files_by_category
+                            .iter()
+                            .find(|entry| entry.category == volumes_control.usage_state.selected_category)
+                    })
+                    .map(|entry| {
+                        entry
+                            .files
+                            .iter()
+                            .map(|file_entry| file_entry.path.to_string_lossy().to_string())
+                            .collect()
+                    })
+                    .unwrap_or_default();
+
+                if paths.is_empty() {
+                    return Task::none();
+                }
+
+                let clamped_index = index.min(paths.len().saturating_sub(1));
+                let anchor_index = volumes_control
+                    .usage_state
+                    .selection_anchor_index
+                    .unwrap_or(clamped_index)
+                    .min(paths.len().saturating_sub(1));
+                let start = anchor_index.min(clamped_index);
+                let end = anchor_index.max(clamped_index);
+
+                volumes_control.usage_state.selected_paths = paths[start..=end].to_vec();
+                volumes_control.usage_state.selection_anchor_index = Some(anchor_index);
+            }
+        }
+        Message::UsageSelectionClear => {
+            if let Some(volumes_control) = app.nav.active_data_mut::<VolumesControl>() {
+                volumes_control.usage_state.selected_paths.clear();
+                volumes_control.usage_state.selection_anchor_index = None;
+            }
+        }
+        Message::UsageDeleteStart => {
+            if let Some(volumes_control) = app.nav.active_data_mut::<VolumesControl>() {
+                volumes_control.usage_state.deleting = true;
+            }
+        }
+        Message::UsageDeleteCompleted { result } => {
+            if let Some(volumes_control) = app.nav.active_data_mut::<VolumesControl>() {
+                volumes_control.usage_state.deleting = false;
+                if result.is_ok() {
+                    volumes_control.usage_state.selected_paths.clear();
+                    volumes_control.usage_state.selection_anchor_index = None;
+                }
             }
         }
         Message::ToggleShowReserved(show_reserved) => {

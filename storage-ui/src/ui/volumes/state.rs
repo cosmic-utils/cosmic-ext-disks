@@ -26,6 +26,13 @@ pub struct UsageTabState {
     pub active_scan_id: Option<String>,
     pub result: Option<UsageScanResult>,
     pub selected_category: UsageCategory,
+    pub show_all_files: bool,
+    #[allow(dead_code)]
+    pub show_all_files_authorized_for_session: bool,
+    pub top_files_per_category: u32,
+    pub selected_paths: Vec<String>,
+    pub selection_anchor_index: Option<usize>,
+    pub deleting: bool,
     pub error: Option<String>,
 }
 
@@ -38,6 +45,12 @@ impl Default for UsageTabState {
             active_scan_id: None,
             result: None,
             selected_category: UsageCategory::Documents,
+            show_all_files: false,
+            show_all_files_authorized_for_session: false,
+            top_files_per_category: 20,
+            selected_paths: Vec::new(),
+            selection_anchor_index: None,
+            deleting: false,
             error: None,
         }
     }
