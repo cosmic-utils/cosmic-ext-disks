@@ -37,6 +37,7 @@ fn main() -> Result<()> {
         top_files_per_category: args.top_files_per_category,
         show_all_files: false,
         caller_uid: None,
+        caller_gids: None,
     };
 
     let roots = if args.root == PathBuf::from("/") {

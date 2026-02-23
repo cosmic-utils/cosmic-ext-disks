@@ -64,14 +64,17 @@ struct CallerAccess {
 }
 
 impl CallerAccess {
-    fn from_config(caller_uid: Option<u32>) -> Self {
+    fn from_config(caller_uid: Option<u32>, caller_gids: Option<&[u32]>) -> Self {
         let process_uid = unsafe { libc::geteuid() };
         let uid = caller_uid.unwrap_or(process_uid);
 
         if caller_uid.is_some() && uid != process_uid {
+            let mut gids = caller_gids.map_or_else(Vec::new, |gids| gids.to_vec());
+            gids.sort_unstable();
+            gids.dedup();
             return Self {
                 uid,
-                gids: Vec::new(),
+                gids,
             };
         }
 
@@ -209,7 +212,7 @@ pub fn scan_paths_with_progress(
         .build()
         .map_err(|error| UsageScanError::ThreadPoolBuild(error.to_string()))?;
 
-    let caller_access = CallerAccess::from_config(config.caller_uid);
+    let caller_access = CallerAccess::from_config(config.caller_uid, config.caller_gids.as_deref());
 
     let root_stats: Vec<LocalStats> = pool.install(|| {
         roots
@@ -467,6 +470,7 @@ mod tests {
                 top_files_per_category: 20,
                 show_all_files: false,
                 caller_uid: None,
+                caller_gids: None,
             },
         )
         .expect("scan should succeed");
@@ -498,6 +502,7 @@ mod tests {
                 top_files_per_category: 3,
                 show_all_files: false,
                 caller_uid: None,
+                caller_gids: None,
             },
         )
         .expect("scan should succeed");
@@ -580,6 +585,7 @@ mod tests {
                 top_files_per_category: 20,
                 show_all_files: true,
                 caller_uid: None,
+                caller_gids: None,
             },
         )
         .expect("scan should succeed");

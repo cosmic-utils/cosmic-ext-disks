@@ -5,7 +5,7 @@ use crate::client::connection::shared_connection;
 use crate::client::error::ClientError;
 use storage_common::{
     FilesystemInfo, FilesystemToolInfo, FilesystemUsage, MountOptionsSettings, ProcessInfo,
-    UnmountResult, UsageScanResult,
+    UnmountResult, UsageDeleteResult, UsageScanResult,
 };
 use zbus::proxy;
 
@@ -64,8 +64,15 @@ pub trait FilesystemsInterface {
     async fn get_usage(&self, mount_point: &str) -> zbus::Result<String>;
 
     /// Run a global usage scan and return categorized usage with top files.
-    async fn get_usage_scan(&self, scan_id: &str, top_files_per_category: u32)
-    -> zbus::Result<String>;
+    async fn get_usage_scan(
+        &self,
+        scan_id: &str,
+        top_files_per_category: u32,
+        show_all_files: bool,
+    ) -> zbus::Result<String>;
+
+    /// Delete selected usage files and return per-path outcomes.
+    async fn delete_usage_files(&self, paths_json: &str) -> zbus::Result<String>;
 
     /// Get persistent mount options (fstab) for a device
     async fn get_mount_options(&self, device: &str) -> zbus::Result<String>;
@@ -250,13 +257,28 @@ impl FilesystemsClient {
         &self,
         scan_id: &str,
         top_files_per_category: u32,
+        show_all_files: bool,
     ) -> Result<UsageScanResult, ClientError> {
         let json = self
             .proxy
-            .get_usage_scan(scan_id, top_files_per_category)
+            .get_usage_scan(scan_id, top_files_per_category, show_all_files)
             .await?;
         let result: UsageScanResult = serde_json::from_str(&json).map_err(|e| {
             ClientError::ParseError(format!("Failed to parse usage scan result: {}", e))
+        })?;
+        Ok(result)
+    }
+
+    /// Delete selected usage files and return structured result.
+    #[allow(dead_code)]
+    pub async fn delete_usage_files(&self, paths: &[String]) -> Result<UsageDeleteResult, ClientError> {
+        let paths_json = serde_json::to_string(paths).map_err(|e| {
+            ClientError::ParseError(format!("Failed to serialize usage delete request: {}", e))
+        })?;
+
+        let json = self.proxy.delete_usage_files(&paths_json).await?;
+        let result: UsageDeleteResult = serde_json::from_str(&json).map_err(|e| {
+            ClientError::ParseError(format!("Failed to parse usage delete result: {}", e))
         })?;
         Ok(result)
     }

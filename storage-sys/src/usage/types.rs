@@ -12,6 +12,7 @@ pub struct ScanConfig {
     pub top_files_per_category: usize,
     pub show_all_files: bool,
     pub caller_uid: Option<u32>,
+    pub caller_gids: Option<Vec<u32>>,
 }
 
 impl Default for ScanConfig {
@@ -21,6 +22,7 @@ impl Default for ScanConfig {
             top_files_per_category: 20,
             show_all_files: false,
             caller_uid: None,
+            caller_gids: None,
         }
     }
 }

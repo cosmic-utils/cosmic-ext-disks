@@ -133,7 +133,7 @@ pub(crate) fn update(app: &mut AppModel, message: Message) -> Task<Message> {
                 async move {
                     let result = match FilesystemsClient::new().await {
                         Ok(client) => client
-                            .get_usage_scan(&scan_id, top_files_per_category)
+                            .get_usage_scan(&scan_id, top_files_per_category, false)
                             .await
                             .map_err(|e| e.to_string()),
                         Err(e) => Err(e.to_string()),
