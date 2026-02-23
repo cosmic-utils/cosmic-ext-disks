@@ -119,21 +119,31 @@ fn resolve_caller_groups(uid: u32, username: Option<&str>) -> Vec<u32> {
         return current_process_groups();
     }
 
-    let (primary_gid, username_cstr) = unsafe {
-        let passwd = libc::getpwuid(uid);
-        if passwd.is_null() {
-            tracing::warn!("Failed to resolve passwd entry for UID {}", uid);
-            return Vec::new();
-        }
+    let mut pwd = std::mem::MaybeUninit::<libc::passwd>::uninit();
+    let mut pwd_ptr: *mut libc::passwd = std::ptr::null_mut();
+    let mut buffer = vec![0_u8; 4096];
 
-        let primary_gid = (*passwd).pw_gid;
-        let username_cstr = if let Some(name) = username {
-            CString::new(name).ok()
-        } else {
-            Some(CStr::from_ptr((*passwd).pw_name).to_owned())
-        };
+    let lookup_result = unsafe {
+        libc::getpwuid_r(
+            uid,
+            pwd.as_mut_ptr(),
+            buffer.as_mut_ptr() as *mut libc::c_char,
+            buffer.len(),
+            &mut pwd_ptr,
+        )
+    };
 
-        (primary_gid, username_cstr)
+    if lookup_result != 0 || pwd_ptr.is_null() {
+        tracing::warn!("Failed to resolve passwd entry for UID {}", uid);
+        return Vec::new();
+    }
+
+    let passwd = unsafe { pwd.assume_init() };
+    let primary_gid = passwd.pw_gid;
+    let username_cstr = if let Some(name) = username {
+        CString::new(name).ok()
+    } else {
+        unsafe { Some(CStr::from_ptr(passwd.pw_name).to_owned()) }
     };
 
     let Some(username_cstr) = username_cstr else {
@@ -197,6 +207,25 @@ fn is_owned_tree(path: &Path, uid: u32) -> std::io::Result<bool> {
     }
 
     Ok(true)
+}
+
+fn caller_can_unlink(path: &Path, uid: u32, caller_gids: &[u32]) -> std::io::Result<bool> {
+    let Some(parent) = path.parent() else {
+        return Ok(false);
+    };
+
+    let metadata = fs::symlink_metadata(parent)?;
+    let mode = metadata.mode();
+
+    if metadata.uid() == uid {
+        return Ok(mode & 0o300 == 0o300);
+    }
+
+    if caller_gids.contains(&metadata.gid()) {
+        return Ok(mode & 0o030 == 0o030);
+    }
+
+    Ok(mode & 0o003 == 0o003)
 }
 
 #[interface(name = "org.cosmic.ext.StorageService.Filesystems")]
@@ -978,6 +1007,8 @@ impl FilesystemsHandler {
         #[zbus(header)] _header: MessageHeader<'_>,
         paths_json: String,
     ) -> zbus::fdo::Result<String> {
+        let caller_groups = resolve_caller_groups(caller.uid, caller.username.as_deref());
+
         let paths: Vec<String> = serde_json::from_str(&paths_json).map_err(|e| {
             zbus::fdo::Error::Failed(format!("Failed to parse paths payload: {e}"))
         })?;
@@ -1014,6 +1045,44 @@ impl FilesystemsHandler {
                 continue;
             }
 
+            let metadata = match fs::symlink_metadata(path) {
+                Ok(metadata) => metadata,
+                Err(error) => {
+                    result.failed.push(UsageDeleteFailure {
+                        path: path_str,
+                        reason: error.to_string(),
+                    });
+                    continue;
+                }
+            };
+
+            if !metadata.is_file() {
+                result.failed.push(UsageDeleteFailure {
+                    path: path_str,
+                    reason: "Only regular files can be deleted".to_string(),
+                });
+                continue;
+            }
+
+            match caller_can_unlink(path, caller.uid, &caller_groups) {
+                Ok(true) => {}
+                Ok(false) => {
+                    result.failed.push(UsageDeleteFailure {
+                        path: path_str,
+                        reason: "Permission denied: caller cannot unlink file in parent directory"
+                            .to_string(),
+                    });
+                    continue;
+                }
+                Err(error) => {
+                    result.failed.push(UsageDeleteFailure {
+                        path: path_str,
+                        reason: error.to_string(),
+                    });
+                    continue;
+                }
+            }
+
             match is_owned_tree(path, caller.uid) {
                 Ok(true) => {}
                 Ok(false) => {
@@ -1032,11 +1101,7 @@ impl FilesystemsHandler {
                 }
             }
 
-            let delete_result = if path.is_dir() {
-                fs::remove_dir_all(path)
-            } else {
-                fs::remove_file(path)
-            };
+            let delete_result = fs::remove_file(path);
 
             match delete_result {
                 Ok(()) => result.deleted.push(path_str),
