@@ -95,9 +95,24 @@ pub fn settings<'a>(
     let show_reserved_toggle = widget::checkbox("Show Reserved Space", config.show_reserved)
         .on_toggle(Message::ToggleShowReserved);
 
+    let parallelism_options = vec![
+        fl!("usage-parallelism-low"),
+        fl!("usage-parallelism-balanced"),
+        fl!("usage-parallelism-high"),
+    ];
+
+    let usage_parallelism_dropdown = widget::dropdown(
+        parallelism_options,
+        Some(config.usage_scan_parallelism.to_index()),
+        Message::UsageScanParallelismChanged,
+    )
+    .width(cosmic::iced::Length::Fill);
+
     let settings_section = widget::column()
         .push(settings_title)
         .push(show_reserved_toggle)
+        .push(widget::text::caption(fl!("usage-scan-parallelism-label")))
+        .push(usage_parallelism_dropdown)
         .spacing(space_s);
 
     // Combine sections

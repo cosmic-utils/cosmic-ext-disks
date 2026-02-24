@@ -418,7 +418,7 @@ mod tests {
             .collect();
 
         assert!(
-            reserved_segments.len() >= 1,
+            !reserved_segments.is_empty(),
             "Should have at least one reserved segment"
         );
 

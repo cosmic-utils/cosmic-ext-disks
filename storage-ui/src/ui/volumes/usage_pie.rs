@@ -7,7 +7,7 @@ use storage_common::bytes_to_pretty;
 use crate::app::Message;
 
 /// Color palette for disk pie chart segments.
-const SEGMENT_COLORS: [Color; 8] = [
+const SEGMENT_COLORS: [Color; 10] = [
     Color {
         r: 0.267,
         g: 0.557,
@@ -56,6 +56,18 @@ const SEGMENT_COLORS: [Color; 8] = [
         b: 0.557,
         a: 1.0,
     }, // Pink
+    Color {
+        r: 0.451,
+        g: 0.486,
+        b: 0.914,
+        a: 1.0,
+    }, // Indigo
+    Color {
+        r: 0.663,
+        g: 0.792,
+        b: 0.255,
+        a: 1.0,
+    }, // Lime
 ];
 
 /// Returns the color for a given segment index.

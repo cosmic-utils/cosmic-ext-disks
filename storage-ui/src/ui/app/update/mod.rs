@@ -5,6 +5,8 @@ mod nav;
 mod network;
 mod smart;
 
+use std::collections::HashSet;
+
 use super::APP_ID;
 use super::message::{ImagePathPickerKind, Message};
 use super::state::AppModel;
@@ -23,6 +25,50 @@ use cosmic::app::Task;
 use cosmic::cosmic_config::CosmicConfigEntry;
 use cosmic::dialog::file_chooser;
 use cosmic::widget::nav_bar;
+use storage_common::{UsageCategory, UsageScanParallelismPreset};
+
+const USAGE_TOP_FILES_MIN: u32 = 1;
+const USAGE_TOP_FILES_MAX: u32 = 1000;
+
+fn visible_usage_categories(result: &storage_common::UsageScanResult) -> Vec<UsageCategory> {
+    result
+        .categories
+        .iter()
+        .filter(|entry| entry.bytes > 0)
+        .map(|entry| entry.category)
+        .collect()
+}
+
+fn usage_filtered_file_paths(state: &crate::ui::volumes::state::UsageTabState) -> Vec<String> {
+    let Some(result) = &state.result else {
+        return Vec::new();
+    };
+
+    let selected: HashSet<UsageCategory> = state.selected_categories.iter().copied().collect();
+
+    let mut files: Vec<(u64, String)> = result
+        .categories
+        .iter()
+        .filter(|entry| entry.bytes > 0 && selected.contains(&entry.category))
+        .flat_map(|entry| {
+            result
+                .top_files_by_category
+                .iter()
+                .find(|top| top.category == entry.category)
+                .into_iter()
+                .flat_map(|top| top.files.iter())
+        })
+        .map(|file| (file.bytes, file.path.to_string_lossy().to_string()))
+        .collect();
+
+    files.sort_by(|(left_bytes, left_path), (right_bytes, right_path)| {
+        right_bytes
+            .cmp(left_bytes)
+            .then_with(|| left_path.cmp(right_path))
+    });
+
+    files.into_iter().map(|(_, path)| path).collect()
+}
 
 /// Recursively search for a volume child by device_path
 #[allow(dead_code)]
@@ -125,6 +171,578 @@ pub(crate) fn update(app: &mut AppModel, message: Message) -> Task<Message> {
         Message::FilesystemToolsLoaded(tools) => {
             app.filesystem_tools = tools;
         }
+        Message::UsageScanLoad {
+            scan_id,
+            top_files_per_category,
+            mount_points,
+            show_all_files,
+            parallelism_preset,
+        } => {
+            return Task::perform(
+                async move {
+                    let result = match FilesystemsClient::new().await {
+                        Ok(client) => client
+                            .get_usage_scan(
+                                &scan_id,
+                                top_files_per_category,
+                                &mount_points,
+                                show_all_files,
+                                parallelism_preset,
+                            )
+                            .await
+                            .map_err(|e| e.to_string()),
+                        Err(e) => Err(e.to_string()),
+                    };
+
+                    Message::UsageScanLoaded { scan_id, result }
+                },
+                |msg| msg.into(),
+            );
+        }
+        Message::UsageScanLoaded { scan_id, result } => {
+            if let Some(volumes_control) = app.nav.active_data_mut::<VolumesControl>()
+                && volumes_control
+                    .usage_state
+                    .active_scan_id
+                    .as_ref()
+                    .is_some_and(|active| active == &scan_id)
+            {
+                volumes_control.usage_state.loading = false;
+                volumes_control.usage_state.active_scan_id = None;
+                volumes_control.usage_state.operation_status = None;
+                match result {
+                    Ok(scan_result) => {
+                        let visible_categories = visible_usage_categories(&scan_result);
+                        volumes_control.usage_state.result = Some(scan_result);
+                        volumes_control.usage_state.selected_categories = visible_categories;
+                        volumes_control.usage_state.error = None;
+                    }
+                    Err(error) => {
+                        volumes_control.usage_state.error = Some(error);
+                        volumes_control.usage_state.result = None;
+                    }
+                }
+            }
+        }
+        Message::UsageScanProgress {
+            scan_id,
+            processed_bytes,
+            estimated_total_bytes,
+        } => {
+            if let Some(volumes_control) = app.nav.active_data_mut::<VolumesControl>()
+                && volumes_control
+                    .usage_state
+                    .active_scan_id
+                    .as_ref()
+                    .is_some_and(|active| active == &scan_id)
+            {
+                volumes_control.usage_state.progress_processed_bytes = processed_bytes;
+                volumes_control.usage_state.progress_estimated_total_bytes = estimated_total_bytes;
+            }
+        }
+        Message::UsageCategoryFilterToggled(category) => {
+            if let Some(volumes_control) = app.nav.active_data_mut::<VolumesControl>() {
+                let selected_categories = &mut volumes_control.usage_state.selected_categories;
+                if let Some(index) = selected_categories
+                    .iter()
+                    .position(|selected| selected == &category)
+                {
+                    if selected_categories.len() > 1 {
+                        selected_categories.remove(index);
+                    }
+                } else {
+                    selected_categories.push(category);
+                }
+                volumes_control.usage_state.selected_paths.clear();
+                volumes_control.usage_state.selection_anchor_index = None;
+            }
+        }
+        Message::UsageShowAllFilesToggled(show_all_files) => {
+            if let Some(volumes_control) = app.nav.active_data_mut::<VolumesControl>() {
+                if !show_all_files {
+                    volumes_control.usage_state.show_all_files = false;
+                    return Task::done(cosmic::Action::App(Message::UsageRefreshRequested));
+                }
+
+                if volumes_control
+                    .usage_state
+                    .show_all_files_authorized_for_session
+                {
+                    volumes_control.usage_state.show_all_files = true;
+                    return Task::done(cosmic::Action::App(Message::UsageRefreshRequested));
+                }
+
+                volumes_control.usage_state.show_all_files = false;
+
+                return Task::perform(
+                    async move {
+                        let result = match FilesystemsClient::new().await {
+                            Ok(client) => client
+                                .authorize_usage_show_all_files()
+                                .await
+                                .map(|_| ())
+                                .map_err(|e| e.to_string()),
+                            Err(e) => Err(e.to_string()),
+                        };
+
+                        Message::UsageShowAllFilesAuthCompleted { result }
+                    },
+                    |msg| msg.into(),
+                );
+            }
+        }
+        Message::UsageShowAllFilesAuthCompleted { result } => {
+            if let Some(volumes_control) = app.nav.active_data_mut::<VolumesControl>() {
+                match result {
+                    Ok(()) => {
+                        volumes_control
+                            .usage_state
+                            .show_all_files_authorized_for_session = true;
+                        volumes_control.usage_state.show_all_files = true;
+                        volumes_control.usage_state.error = None;
+                        return Task::done(cosmic::Action::App(Message::UsageRefreshRequested));
+                    }
+                    Err(error) => {
+                        volumes_control.usage_state.show_all_files = false;
+                        volumes_control.usage_state.error = Some(error);
+                    }
+                }
+            }
+        }
+        Message::UsageTopFilesPerCategoryChanged(top_files_per_category) => {
+            if let Some(volumes_control) = app.nav.active_data_mut::<VolumesControl>() {
+                volumes_control.usage_state.top_files_per_category =
+                    top_files_per_category.clamp(USAGE_TOP_FILES_MIN, USAGE_TOP_FILES_MAX);
+            }
+        }
+        Message::UsageRefreshRequested => {
+            if let Some(volumes_control) = app.nav.active_data_mut::<VolumesControl>() {
+                if volumes_control.usage_state.loading {
+                    return Task::none();
+                }
+
+                if volumes_control.usage_state.scan_mount_points.is_empty() {
+                    return Task::done(cosmic::Action::App(Message::UsageConfigureRequested));
+                }
+
+                let scan_id = format!(
+                    "usage-{}",
+                    std::time::SystemTime::now()
+                        .duration_since(std::time::UNIX_EPOCH)
+                        .map(|duration| duration.as_millis())
+                        .unwrap_or(0)
+                );
+
+                let mount_points = volumes_control.usage_state.scan_mount_points.clone();
+                let show_all_files = volumes_control.usage_state.show_all_files;
+                let parallelism_preset = volumes_control.usage_state.scan_parallelism_preset;
+
+                volumes_control.usage_state.loading = true;
+                volumes_control.usage_state.progress_processed_bytes = 0;
+                volumes_control.usage_state.progress_estimated_total_bytes = 0;
+                volumes_control.usage_state.active_scan_id = Some(scan_id.clone());
+                volumes_control.usage_state.error = None;
+                volumes_control.usage_state.operation_status = None;
+                volumes_control.usage_state.result = None;
+                volumes_control.usage_state.selected_paths.clear();
+                volumes_control.usage_state.selection_anchor_index = None;
+
+                return Task::done(cosmic::Action::App(Message::UsageScanLoad {
+                    scan_id,
+                    top_files_per_category: volumes_control.usage_state.top_files_per_category,
+                    mount_points,
+                    show_all_files,
+                    parallelism_preset,
+                }));
+            }
+        }
+        Message::UsageConfigureRequested => {
+            if let Some(volumes_control) = app.nav.active_data_mut::<VolumesControl>() {
+                if volumes_control.usage_state.loading {
+                    return Task::none();
+                }
+
+                volumes_control.usage_state.wizard_open = true;
+                volumes_control.usage_state.wizard_loading_mounts = true;
+                volumes_control.usage_state.wizard_error = None;
+                volumes_control.usage_state.wizard_show_all_files =
+                    volumes_control.usage_state.show_all_files;
+                volumes_control.usage_state.wizard_parallelism_preset =
+                    if volumes_control.usage_state.scan_mount_points.is_empty() {
+                        app.config.usage_scan_parallelism
+                    } else {
+                        volumes_control.usage_state.scan_parallelism_preset
+                    };
+
+                return Task::perform(
+                    async move {
+                        let result = match FilesystemsClient::new().await {
+                            Ok(client) => client
+                                .list_usage_mount_points()
+                                .await
+                                .map_err(|e| e.to_string()),
+                            Err(e) => Err(e.to_string()),
+                        };
+
+                        Message::UsageWizardMountPointsLoaded { result }
+                    },
+                    |msg| msg.into(),
+                );
+            }
+        }
+        Message::UsageWizardMountPointsLoaded { result } => {
+            if let Some(volumes_control) = app.nav.active_data_mut::<VolumesControl>() {
+                volumes_control.usage_state.wizard_loading_mounts = false;
+                match result {
+                    Ok(mut mount_points) => {
+                        mount_points.sort_unstable();
+                        mount_points.dedup();
+                        volumes_control.usage_state.wizard_mount_points = mount_points.clone();
+                        volumes_control.usage_state.wizard_selected_mount_points =
+                            if volumes_control.usage_state.scan_mount_points.is_empty() {
+                                mount_points
+                            } else {
+                                volumes_control
+                                    .usage_state
+                                    .scan_mount_points
+                                    .iter()
+                                    .filter(|mount| mount_points.contains(mount))
+                                    .cloned()
+                                    .collect()
+                            };
+                        volumes_control.usage_state.wizard_error = None;
+                    }
+                    Err(error) => {
+                        volumes_control.usage_state.wizard_mount_points.clear();
+                        volumes_control
+                            .usage_state
+                            .wizard_selected_mount_points
+                            .clear();
+                        volumes_control.usage_state.wizard_error = Some(error);
+                    }
+                }
+            }
+        }
+        Message::UsageWizardMountToggled {
+            mount_point,
+            selected,
+        } => {
+            if let Some(volumes_control) = app.nav.active_data_mut::<VolumesControl>() {
+                if selected {
+                    if !volumes_control
+                        .usage_state
+                        .wizard_selected_mount_points
+                        .iter()
+                        .any(|mount| mount == &mount_point)
+                    {
+                        volumes_control
+                            .usage_state
+                            .wizard_selected_mount_points
+                            .push(mount_point);
+                    }
+                } else {
+                    volumes_control
+                        .usage_state
+                        .wizard_selected_mount_points
+                        .retain(|mount| mount != &mount_point);
+                }
+            }
+        }
+        Message::UsageWizardShowAllFilesToggled(show_all_files) => {
+            if let Some(volumes_control) = app.nav.active_data_mut::<VolumesControl>() {
+                volumes_control.usage_state.wizard_show_all_files = show_all_files;
+            }
+        }
+        Message::UsageWizardParallelismChanged(index) => {
+            let preset = UsageScanParallelismPreset::from_index(index);
+
+            if let Some(volumes_control) = app.nav.active_data_mut::<VolumesControl>() {
+                volumes_control.usage_state.wizard_parallelism_preset = preset;
+                volumes_control.usage_state.scan_parallelism_preset = preset;
+            }
+
+            app.config.usage_scan_parallelism = preset;
+            if let Ok(helper) = cosmic::cosmic_config::Config::new(APP_ID, Config::VERSION) {
+                let _ = app.config.write_entry(&helper);
+            }
+        }
+        Message::UsageWizardCancel => {
+            if let Some(volumes_control) = app.nav.active_data_mut::<VolumesControl>() {
+                volumes_control.usage_state.wizard_open = false;
+                volumes_control.usage_state.wizard_loading_mounts = false;
+                volumes_control.usage_state.wizard_error = None;
+            }
+        }
+        Message::UsageWizardStartScan => {
+            if let Some(volumes_control) = app.nav.active_data_mut::<VolumesControl>() {
+                if volumes_control.usage_state.wizard_loading_mounts {
+                    return Task::none();
+                }
+
+                if volumes_control
+                    .usage_state
+                    .wizard_selected_mount_points
+                    .is_empty()
+                {
+                    volumes_control.usage_state.wizard_error =
+                        Some(fl!("usage-select-at-least-one-mount-point"));
+                    return Task::none();
+                }
+
+                if volumes_control.usage_state.wizard_show_all_files
+                    && !volumes_control
+                        .usage_state
+                        .show_all_files_authorized_for_session
+                {
+                    return Task::perform(
+                        async move {
+                            let result = match FilesystemsClient::new().await {
+                                Ok(client) => client
+                                    .authorize_usage_show_all_files()
+                                    .await
+                                    .map(|_| ())
+                                    .map_err(|e| e.to_string()),
+                                Err(e) => Err(e.to_string()),
+                            };
+
+                            Message::UsageWizardShowAllFilesAuthCompleted { result }
+                        },
+                        |msg| msg.into(),
+                    );
+                }
+
+                let scan_id = format!(
+                    "usage-{}",
+                    std::time::SystemTime::now()
+                        .duration_since(std::time::UNIX_EPOCH)
+                        .map(|duration| duration.as_millis())
+                        .unwrap_or(0)
+                );
+
+                let mount_points = volumes_control
+                    .usage_state
+                    .wizard_selected_mount_points
+                    .clone();
+                let show_all_files = volumes_control.usage_state.wizard_show_all_files;
+                let parallelism_preset = volumes_control.usage_state.wizard_parallelism_preset;
+
+                volumes_control.usage_state.wizard_open = false;
+                volumes_control.usage_state.wizard_loading_mounts = false;
+                volumes_control.usage_state.wizard_error = None;
+                volumes_control.usage_state.show_all_files = show_all_files;
+                volumes_control.usage_state.scan_mount_points = mount_points.clone();
+                volumes_control.usage_state.scan_parallelism_preset = parallelism_preset;
+
+                volumes_control.usage_state.loading = true;
+                volumes_control.usage_state.progress_processed_bytes = 0;
+                volumes_control.usage_state.progress_estimated_total_bytes = 0;
+                volumes_control.usage_state.active_scan_id = Some(scan_id.clone());
+                volumes_control.usage_state.error = None;
+                volumes_control.usage_state.operation_status = None;
+                volumes_control.usage_state.result = None;
+                volumes_control.usage_state.selected_paths.clear();
+                volumes_control.usage_state.selection_anchor_index = None;
+
+                return Task::done(cosmic::Action::App(Message::UsageScanLoad {
+                    scan_id,
+                    top_files_per_category: volumes_control.usage_state.top_files_per_category,
+                    mount_points,
+                    show_all_files,
+                    parallelism_preset,
+                }));
+            }
+        }
+        Message::UsageWizardShowAllFilesAuthCompleted { result } => {
+            if let Some(volumes_control) = app.nav.active_data_mut::<VolumesControl>() {
+                match result {
+                    Ok(()) => {
+                        volumes_control
+                            .usage_state
+                            .show_all_files_authorized_for_session = true;
+                        volumes_control.usage_state.wizard_error = None;
+                        return Task::done(cosmic::Action::App(Message::UsageWizardStartScan));
+                    }
+                    Err(error) => {
+                        volumes_control.usage_state.wizard_error = Some(error);
+                    }
+                }
+            }
+        }
+        Message::UsageSelectionSingle { path, index } => {
+            if let Some(volumes_control) = app.nav.active_data_mut::<VolumesControl>() {
+                volumes_control.usage_state.selected_paths = vec![path];
+                volumes_control.usage_state.selection_anchor_index = Some(index);
+            }
+        }
+        Message::UsageSelectionCtrl { path, index } => {
+            if let Some(volumes_control) = app.nav.active_data_mut::<VolumesControl>() {
+                if let Some(existing_index) = volumes_control
+                    .usage_state
+                    .selected_paths
+                    .iter()
+                    .position(|selected_path| selected_path == &path)
+                {
+                    volumes_control
+                        .usage_state
+                        .selected_paths
+                        .remove(existing_index);
+                } else {
+                    volumes_control.usage_state.selected_paths.push(path);
+                }
+                volumes_control.usage_state.selection_anchor_index = Some(index);
+            }
+        }
+        Message::UsageSelectionShift { index } => {
+            if let Some(volumes_control) = app.nav.active_data_mut::<VolumesControl>() {
+                let paths = usage_filtered_file_paths(&volumes_control.usage_state);
+
+                if paths.is_empty() {
+                    return Task::none();
+                }
+
+                let clamped_index = index.min(paths.len().saturating_sub(1));
+                let anchor_index = volumes_control
+                    .usage_state
+                    .selection_anchor_index
+                    .unwrap_or(clamped_index)
+                    .min(paths.len().saturating_sub(1));
+                let start = anchor_index.min(clamped_index);
+                let end = anchor_index.max(clamped_index);
+
+                volumes_control.usage_state.selected_paths = paths[start..=end].to_vec();
+                volumes_control.usage_state.selection_anchor_index = Some(anchor_index);
+            }
+        }
+        Message::UsageSelectionModifiersChanged(modifiers) => {
+            if let Some(volumes_control) = app.nav.active_data_mut::<VolumesControl>() {
+                volumes_control.usage_state.selection_modifiers = modifiers;
+            }
+        }
+        Message::UsageSelectionClear => {
+            if let Some(volumes_control) = app.nav.active_data_mut::<VolumesControl>() {
+                volumes_control.usage_state.selected_paths.clear();
+                volumes_control.usage_state.selection_anchor_index = None;
+            }
+        }
+        Message::UsageDeleteStart => {
+            if let Some(volumes_control) = app.nav.active_data_mut::<VolumesControl>() {
+                if volumes_control.usage_state.deleting
+                    || volumes_control.usage_state.selected_paths.is_empty()
+                {
+                    return Task::none();
+                }
+
+                volumes_control.usage_state.deleting = true;
+                volumes_control.usage_state.operation_status = None;
+                let selected_paths = volumes_control.usage_state.selected_paths.clone();
+
+                return Task::perform(
+                    async move {
+                        let result = match FilesystemsClient::new().await {
+                            Ok(client) => client
+                                .delete_usage_files(&selected_paths)
+                                .await
+                                .map_err(|e| e.to_string()),
+                            Err(e) => Err(e.to_string()),
+                        };
+
+                        Message::UsageDeleteCompleted { result }
+                    },
+                    |msg| msg.into(),
+                );
+            }
+        }
+        Message::UsageDeleteCompleted { result } => {
+            if let Some(volumes_control) = app.nav.active_data_mut::<VolumesControl>() {
+                volumes_control.usage_state.deleting = false;
+                match result {
+                    Ok(delete_result) => {
+                        let deleted_paths: HashSet<String> =
+                            delete_result.deleted.iter().cloned().collect();
+
+                        if !deleted_paths.is_empty()
+                            && let Some(scan_result) = volumes_control.usage_state.result.as_mut()
+                        {
+                            let mut removed_by_category: std::collections::BTreeMap<
+                                storage_common::UsageCategory,
+                                u64,
+                            > = std::collections::BTreeMap::new();
+
+                            for category_entry in &mut scan_result.top_files_by_category {
+                                let mut removed_bytes = 0_u64;
+                                category_entry.files.retain(|file| {
+                                    let path = file.path.to_string_lossy();
+                                    if deleted_paths.contains(path.as_ref()) {
+                                        removed_bytes = removed_bytes.saturating_add(file.bytes);
+                                        false
+                                    } else {
+                                        true
+                                    }
+                                });
+
+                                if removed_bytes > 0 {
+                                    removed_by_category
+                                        .entry(category_entry.category)
+                                        .and_modify(|bytes| {
+                                            *bytes = bytes.saturating_add(removed_bytes)
+                                        })
+                                        .or_insert(removed_bytes);
+                                }
+                            }
+
+                            for category_total in &mut scan_result.categories {
+                                if let Some(removed_bytes) =
+                                    removed_by_category.get(&category_total.category)
+                                {
+                                    category_total.bytes =
+                                        category_total.bytes.saturating_sub(*removed_bytes);
+                                }
+                            }
+
+                            let removed_total: u64 = removed_by_category.values().copied().sum();
+                            if removed_total > 0 {
+                                scan_result.total_bytes =
+                                    scan_result.total_bytes.saturating_sub(removed_total);
+                            }
+
+                            let failed_paths: HashSet<String> = delete_result
+                                .failed
+                                .iter()
+                                .map(|failure| failure.path.clone())
+                                .collect();
+
+                            volumes_control
+                                .usage_state
+                                .selected_paths
+                                .retain(|path| failed_paths.contains(path));
+
+                            let current_category_paths =
+                                usage_filtered_file_paths(&volumes_control.usage_state);
+
+                            volumes_control.usage_state.selection_anchor_index =
+                                volumes_control.usage_state.selected_paths.first().and_then(
+                                    |first_selected| {
+                                        current_category_paths
+                                            .iter()
+                                            .position(|path| path == first_selected)
+                                    },
+                                );
+                        }
+
+                        volumes_control.usage_state.error = None;
+                        volumes_control.usage_state.operation_status = Some(fl!(
+                            "usage-delete-summary",
+                            deleted = delete_result.deleted.len(),
+                            failed = delete_result.failed.len(),
+                        ));
+                    }
+                    Err(error) => {
+                        volumes_control.usage_state.error = Some(error);
+                        volumes_control.usage_state.operation_status = None;
+                    }
+                }
+            }
+        }
         Message::ToggleShowReserved(show_reserved) => {
             app.config.show_reserved = show_reserved;
 
@@ -136,6 +754,19 @@ pub(crate) fn update(app: &mut AppModel, message: Message) -> Task<Message> {
             // Update the active volumes control if one is selected
             if let Some(volumes_control) = app.nav.active_data_mut::<VolumesControl>() {
                 volumes_control.set_show_reserved(show_reserved);
+            }
+        }
+        Message::UsageScanParallelismChanged(index) => {
+            let preset = UsageScanParallelismPreset::from_index(index);
+            app.config.usage_scan_parallelism = preset;
+
+            if let Some(volumes_control) = app.nav.active_data_mut::<VolumesControl>() {
+                volumes_control.usage_state.wizard_parallelism_preset = preset;
+                volumes_control.usage_state.scan_parallelism_preset = preset;
+            }
+
+            if let Ok(helper) = cosmic::cosmic_config::Config::new(APP_ID, Config::VERSION) {
+                let _ = app.config.write_entry(&helper);
             }
         }
         Message::OpenImagePathPicker(kind) => {
@@ -296,7 +927,7 @@ pub(crate) fn update(app: &mut AppModel, message: Message) -> Task<Message> {
             let saved_state = app
                 .nav
                 .active_data::<VolumesControl>()
-                .map(|v| (v.detail_tab, v.btrfs_state.clone()));
+                .map(|v| (v.detail_tab, v.btrfs_state.clone(), v.usage_state.clone()));
 
             // Update drives while preserving child volume selection
             let task = nav::update_nav(app, drive_models, None);
@@ -324,9 +955,10 @@ pub(crate) fn update(app: &mut AppModel, message: Message) -> Task<Message> {
                     }
 
                     // Restore preserved tab selection and BTRFS state
-                    if let Some((saved_tab, saved_btrfs)) = saved_state {
+                    if let Some((saved_tab, saved_btrfs, saved_usage)) = saved_state {
                         control.detail_tab = saved_tab;
                         control.btrfs_state = saved_btrfs;
+                        control.usage_state = saved_usage;
 
                         // Refresh BTRFS data if on BTRFS tab
                         if saved_tab == crate::ui::volumes::DetailTab::BtrfsManagement

@@ -5,6 +5,7 @@ use crate::ui::dialogs::message::ImageOperationDialogMessage;
 use cosmic::Application;
 use cosmic::iced::Subscription;
 use cosmic::iced::futures::{SinkExt, StreamExt};
+use cosmic::iced::{Event, event, keyboard};
 use std::time::Duration;
 
 use super::state::AppModel;
@@ -23,6 +24,12 @@ pub(crate) fn subscription(app: &AppModel) -> Subscription<Message> {
     struct DiskEventSubscription;
 
     let mut subs: Vec<Subscription<Message>> = vec![
+        event::listen_with(|event, _, _| match event {
+            Event::Keyboard(keyboard::Event::ModifiersChanged(modifiers)) => {
+                Some(Message::UsageSelectionModifiersChanged(modifiers))
+            }
+            _ => None,
+        }),
         // Disk hotplug: subscribe to storage-service disk_added/disk_removed and refresh nav.
         Subscription::run_with_id(
             std::any::TypeId::of::<DiskEventSubscription>(),
@@ -78,6 +85,11 @@ pub(crate) fn subscription(app: &AppModel) -> Subscription<Message> {
                 let Ok(mut unmounted) = fs_client.proxy().receive_unmounted().await else {
                     return;
                 };
+                let Ok(mut usage_scan_progress) =
+                    fs_client.proxy().receive_usage_scan_progress().await
+                else {
+                    return;
+                };
                 let Ok(mut container_created) =
                     luks_client.proxy().receive_container_created().await
                 else {
@@ -97,6 +109,17 @@ pub(crate) fn subscription(app: &AppModel) -> Subscription<Message> {
                         _ = formatted.next() => { _ = output.send(Message::DriveAdded(String::new())).await; }
                         _ = mounted.next() => { _ = output.send(Message::DriveAdded(String::new())).await; }
                         _ = unmounted.next() => { _ = output.send(Message::DriveAdded(String::new())).await; }
+                        item = usage_scan_progress.next() => {
+                            if let Some(signal) = item
+                                && let Ok(args) = signal.args()
+                            {
+                                _ = output.send(Message::UsageScanProgress {
+                                    scan_id: args.scan_id.to_string(),
+                                    processed_bytes: args.processed_bytes,
+                                    estimated_total_bytes: args.estimated_total_bytes,
+                                }).await;
+                            }
+                        }
                         _ = container_created.next() => { _ = output.send(Message::DriveAdded(String::new())).await; }
                         _ = container_unlocked.next() => { _ = output.send(Message::DriveAdded(String::new())).await; }
                         _ = container_locked.next() => { _ = output.send(Message::DriveAdded(String::new())).await; }

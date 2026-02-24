@@ -80,19 +80,19 @@ default:
 
 # Build all workspace crates
 build:
-    cargo build --workspace
+    cargo build --workspace --locked
 
 # Build all crates in release mode
 build-release:
-    cargo build --workspace --release
+    cargo build --workspace --release --locked
 
 # Run tests for all crates
 test:
-    cargo test --workspace
+    cargo test --workspace --all-features --locked
 
 # Run clippy for all crates
 clippy:
-    cargo clippy --workspace -- -D warnings
+    cargo clippy --workspace --all-features --locked -- -D warnings
 
 # Format all code
 fmt:

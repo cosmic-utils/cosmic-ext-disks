@@ -5,7 +5,7 @@ use crate::client::connection::shared_connection;
 use crate::client::error::ClientError;
 use storage_common::{
     FilesystemInfo, FilesystemToolInfo, FilesystemUsage, MountOptionsSettings, ProcessInfo,
-    UnmountResult,
+    UnmountResult, UsageDeleteResult, UsageScanParallelismPreset, UsageScanResult,
 };
 use zbus::proxy;
 
@@ -63,6 +63,25 @@ pub trait FilesystemsInterface {
     /// Get filesystem usage statistics
     async fn get_usage(&self, mount_point: &str) -> zbus::Result<String>;
 
+    /// Run a global usage scan and return categorized usage with top files.
+    async fn get_usage_scan(
+        &self,
+        scan_id: &str,
+        top_files_per_category: u32,
+        mount_points_json: &str,
+        show_all_files: bool,
+        parallelism_preset: &str,
+    ) -> zbus::Result<String>;
+
+    /// List local mount points available for usage scans.
+    async fn list_usage_mount_points(&self) -> zbus::Result<String>;
+
+    /// Delete selected usage files and return per-path outcomes.
+    async fn delete_usage_files(&self, paths_json: &str) -> zbus::Result<String>;
+
+    /// Authorize session usage of Show All Files.
+    async fn authorize_usage_show_all_files(&self) -> zbus::Result<bool>;
+
     /// Get persistent mount options (fstab) for a device
     async fn get_mount_options(&self, device: &str) -> zbus::Result<String>;
 
@@ -103,6 +122,15 @@ pub trait FilesystemsInterface {
     /// Signal emitted when filesystem is unmounted
     #[zbus(signal)]
     async fn unmounted(&self, device_or_mount: &str) -> zbus::Result<()>;
+
+    /// Signal emitted during usage scan with processed and estimated total bytes.
+    #[zbus(signal)]
+    async fn usage_scan_progress(
+        &self,
+        scan_id: &str,
+        processed_bytes: u64,
+        estimated_total_bytes: u64,
+    ) -> zbus::Result<()>;
 }
 
 /// Client for filesystem operations
@@ -230,6 +258,64 @@ impl FilesystemsClient {
         let usage: FilesystemUsage = serde_json::from_str(&json)
             .map_err(|e| ClientError::ParseError(format!("Failed to parse usage stats: {}", e)))?;
         Ok(usage)
+    }
+
+    /// Run a global usage scan and return categorized usage with top files.
+    pub async fn get_usage_scan(
+        &self,
+        scan_id: &str,
+        top_files_per_category: u32,
+        mount_points: &[String],
+        show_all_files: bool,
+        parallelism_preset: UsageScanParallelismPreset,
+    ) -> Result<UsageScanResult, ClientError> {
+        let mount_points_json = serde_json::to_string(mount_points).map_err(|e| {
+            ClientError::ParseError(format!("Failed to serialize mount points: {}", e))
+        })?;
+
+        let json = self
+            .proxy
+            .get_usage_scan(
+                scan_id,
+                top_files_per_category,
+                &mount_points_json,
+                show_all_files,
+                parallelism_preset.as_str(),
+            )
+            .await?;
+        let result: UsageScanResult = serde_json::from_str(&json).map_err(|e| {
+            ClientError::ParseError(format!("Failed to parse usage scan result: {}", e))
+        })?;
+        Ok(result)
+    }
+
+    /// Delete selected usage files and return structured result.
+    #[allow(dead_code)]
+    pub async fn delete_usage_files(
+        &self,
+        paths: &[String],
+    ) -> Result<UsageDeleteResult, ClientError> {
+        let paths_json = serde_json::to_string(paths).map_err(|e| {
+            ClientError::ParseError(format!("Failed to serialize usage delete request: {}", e))
+        })?;
+
+        let json = self.proxy.delete_usage_files(&paths_json).await?;
+        let result: UsageDeleteResult = serde_json::from_str(&json).map_err(|e| {
+            ClientError::ParseError(format!("Failed to parse usage delete result: {}", e))
+        })?;
+        Ok(result)
+    }
+
+    /// List local mount points available for usage scans.
+    pub async fn list_usage_mount_points(&self) -> Result<Vec<String>, ClientError> {
+        let json = self.proxy.list_usage_mount_points().await?;
+        serde_json::from_str::<Vec<String>>(&json)
+            .map_err(|e| ClientError::ParseError(format!("Failed to parse mount points: {}", e)))
+    }
+
+    /// Request authorization for Show All Files session toggle.
+    pub async fn authorize_usage_show_all_files(&self) -> Result<bool, ClientError> {
+        Ok(self.proxy.authorize_usage_show_all_files().await?)
     }
 
     /// Get persistent mount options (fstab) for a device

@@ -5,7 +5,8 @@ use crate::{
     utils::{DiskSegmentKind, PartitionExtent, SegmentAnomaly, compute_disk_segments},
 };
 use storage_common::{
-    ByteRange, CreatePartitionInfo, FilesystemToolInfo, PartitionInfo, VolumeInfo,
+    ByteRange, CreatePartitionInfo, FilesystemToolInfo, PartitionInfo, UsageCategory,
+    UsageScanParallelismPreset, UsageScanResult, VolumeInfo,
 };
 
 /// Which detail tab is active below the drive header
@@ -13,7 +14,68 @@ use storage_common::{
 pub enum DetailTab {
     #[default]
     VolumeInfo,
+    Usage,
     BtrfsManagement,
+}
+
+#[derive(Debug, Clone)]
+pub struct UsageTabState {
+    pub loading: bool,
+    pub progress_processed_bytes: u64,
+    pub progress_estimated_total_bytes: u64,
+    pub active_scan_id: Option<String>,
+    pub result: Option<UsageScanResult>,
+    pub selected_categories: Vec<UsageCategory>,
+    pub show_all_files: bool,
+    #[allow(dead_code)]
+    pub show_all_files_authorized_for_session: bool,
+    pub top_files_per_category: u32,
+    pub selected_paths: Vec<String>,
+    pub selection_anchor_index: Option<usize>,
+    pub selection_modifiers: cosmic::iced::keyboard::Modifiers,
+    pub deleting: bool,
+    pub error: Option<String>,
+    pub operation_status: Option<String>,
+    pub wizard_open: bool,
+    pub wizard_loading_mounts: bool,
+    pub wizard_mount_points: Vec<String>,
+    pub wizard_selected_mount_points: Vec<String>,
+    pub wizard_show_all_files: bool,
+    pub wizard_parallelism_preset: UsageScanParallelismPreset,
+    pub wizard_error: Option<String>,
+    pub scan_mount_points: Vec<String>,
+    pub scan_parallelism_preset: UsageScanParallelismPreset,
+}
+
+impl Default for UsageTabState {
+    fn default() -> Self {
+        Self {
+            loading: false,
+            progress_processed_bytes: 0,
+            progress_estimated_total_bytes: 0,
+            active_scan_id: None,
+            result: None,
+            selected_categories: UsageCategory::ALL.to_vec(),
+            show_all_files: false,
+            show_all_files_authorized_for_session: false,
+            top_files_per_category: 20,
+            selected_paths: Vec::new(),
+            selection_anchor_index: None,
+            selection_modifiers: cosmic::iced::keyboard::Modifiers::default(),
+            deleting: false,
+            error: None,
+            operation_status: None,
+            wizard_open: false,
+            wizard_loading_mounts: false,
+            wizard_mount_points: Vec::new(),
+            wizard_selected_mount_points: Vec::new(),
+            wizard_show_all_files: false,
+            wizard_parallelism_preset: UsageScanParallelismPreset::Balanced,
+            wizard_error: None,
+            scan_mount_points: Vec::new(),
+            scan_parallelism_preset: UsageScanParallelismPreset::Balanced,
+        }
+    }
 }
 
 pub struct VolumesControl {
@@ -39,6 +101,8 @@ pub struct VolumesControl {
     pub detail_tab: DetailTab,
     /// Cached filesystem tool availability from service
     pub filesystem_tools: Vec<FilesystemToolInfo>,
+    /// Usage tab state for global categorized usage scan
+    pub usage_state: UsageTabState,
 }
 
 #[derive(Clone, Debug)]
@@ -383,6 +447,7 @@ impl VolumesControl {
             btrfs_state: None,
             detail_tab: DetailTab::default(),
             filesystem_tools,
+            usage_state: UsageTabState::default(),
         }
     }
 
@@ -436,6 +501,7 @@ impl VolumesControl {
         self.selected_segment = 0;
         self.selected_volume = None;
         self.btrfs_state = None;
+        self.usage_state = UsageTabState::default();
         if let Some(first) = self.segments.first_mut() {
             first.state = true;
         }

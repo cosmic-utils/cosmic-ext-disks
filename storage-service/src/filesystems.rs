@@ -5,10 +5,17 @@
 //! This module provides D-Bus methods for managing filesystems,
 //! including formatting, mounting, unmounting, and process management.
 
-use std::path::Path;
+use std::collections::HashSet;
+use std::ffi::{CStr, CString};
+use std::fs;
+use std::os::unix::fs::MetadataExt;
+use std::path::{Path, PathBuf};
+use std::sync::mpsc;
+use std::time::Duration;
 use storage_common::{
     CheckResult, FilesystemInfo, FilesystemToolInfo, FormatOptions, MountOptions,
-    MountOptionsSettings, UnmountResult,
+    MountOptionsSettings, UnmountResult, UsageCategory, UsageDeleteFailure, UsageDeleteResult,
+    UsageScanParallelismPreset, UsageScanResult,
 };
 use storage_dbus::DiskManager;
 use storage_service_macros::authorized_interface;
@@ -90,6 +97,165 @@ impl FilesystemsHandler {
     }
 }
 
+fn current_process_groups() -> Vec<u32> {
+    let mut gids = vec![unsafe { libc::getegid() } as u32];
+
+    let group_count = unsafe { libc::getgroups(0, std::ptr::null_mut()) };
+    if group_count > 0 {
+        let mut groups = vec![0 as libc::gid_t; group_count as usize];
+        let read_count = unsafe { libc::getgroups(group_count, groups.as_mut_ptr()) };
+        if read_count > 0 {
+            groups.truncate(read_count as usize);
+            gids.extend(groups);
+        }
+    }
+
+    gids.sort_unstable();
+    gids.dedup();
+    gids
+}
+
+fn resolve_caller_groups(uid: u32, username: Option<&str>) -> Vec<u32> {
+    let process_uid = unsafe { libc::geteuid() } as u32;
+    if uid == process_uid {
+        return current_process_groups();
+    }
+
+    let mut pwd = std::mem::MaybeUninit::<libc::passwd>::uninit();
+    let mut pwd_ptr: *mut libc::passwd = std::ptr::null_mut();
+    let mut buffer = vec![0_u8; 4096];
+
+    let lookup_result = unsafe {
+        libc::getpwuid_r(
+            uid,
+            pwd.as_mut_ptr(),
+            buffer.as_mut_ptr() as *mut libc::c_char,
+            buffer.len(),
+            &mut pwd_ptr,
+        )
+    };
+
+    if lookup_result != 0 || pwd_ptr.is_null() {
+        tracing::warn!("Failed to resolve passwd entry for UID {}", uid);
+        return Vec::new();
+    }
+
+    let passwd = unsafe { pwd.assume_init() };
+    let primary_gid = passwd.pw_gid;
+    let username_cstr = if let Some(name) = username {
+        CString::new(name).ok()
+    } else {
+        unsafe { Some(CStr::from_ptr(passwd.pw_name).to_owned()) }
+    };
+
+    let Some(username_cstr) = username_cstr else {
+        tracing::warn!("Failed to construct username for UID {}", uid);
+        return vec![primary_gid];
+    };
+
+    let mut ngroups = 32_i32;
+    let mut groups = vec![0 as libc::gid_t; ngroups as usize];
+
+    let result = unsafe {
+        libc::getgrouplist(
+            username_cstr.as_ptr(),
+            primary_gid,
+            groups.as_mut_ptr(),
+            &mut ngroups,
+        )
+    };
+
+    if result == -1 {
+        if ngroups <= 0 {
+            return vec![primary_gid];
+        }
+
+        groups.resize(ngroups as usize, 0);
+        let retry = unsafe {
+            libc::getgrouplist(
+                username_cstr.as_ptr(),
+                primary_gid,
+                groups.as_mut_ptr(),
+                &mut ngroups,
+            )
+        };
+
+        if retry == -1 {
+            return vec![primary_gid];
+        }
+    }
+
+    groups.truncate(ngroups.max(0) as usize);
+    let mut gids: Vec<u32> = groups.into_iter().collect();
+    gids.push(primary_gid);
+    gids.sort_unstable();
+    gids.dedup();
+    gids
+}
+
+fn is_owned_tree(path: &Path, uid: u32) -> std::io::Result<bool> {
+    let metadata = fs::symlink_metadata(path)?;
+    if metadata.uid() != uid {
+        return Ok(false);
+    }
+
+    if metadata.is_dir() {
+        for entry in fs::read_dir(path)? {
+            let entry = entry?;
+            if !is_owned_tree(&entry.path(), uid)? {
+                return Ok(false);
+            }
+        }
+    }
+
+    Ok(true)
+}
+
+fn caller_can_unlink(path: &Path, uid: u32, caller_gids: &[u32]) -> std::io::Result<bool> {
+    let Some(parent) = path.parent() else {
+        return Ok(false);
+    };
+
+    let metadata = fs::symlink_metadata(parent)?;
+    let mode = metadata.mode();
+
+    if metadata.uid() == uid {
+        return Ok(mode & 0o300 == 0o300);
+    }
+
+    if caller_gids.contains(&metadata.gid()) {
+        return Ok(mode & 0o030 == 0o030);
+    }
+
+    Ok(mode & 0o003 == 0o003)
+}
+
+fn path_requires_admin_delete(path: &Path, caller_uid: u32, caller_gids: &[u32]) -> bool {
+    let metadata = match fs::symlink_metadata(path) {
+        Ok(metadata) => metadata,
+        Err(_) => return true,
+    };
+
+    if !metadata.is_file() {
+        return false;
+    }
+
+    if metadata.uid() != caller_uid {
+        return true;
+    }
+
+    !matches!(caller_can_unlink(path, caller_uid, caller_gids), Ok(true))
+}
+
+fn map_parallelism_threads(preset: UsageScanParallelismPreset, cpu_count: usize) -> usize {
+    let cpus = cpu_count.max(1);
+    match preset {
+        UsageScanParallelismPreset::Low => cpus.div_ceil(4).max(1),
+        UsageScanParallelismPreset::Balanced => cpus.div_ceil(2).max(1),
+        UsageScanParallelismPreset::High => cpus,
+    }
+}
+
 #[interface(name = "org.cosmic.ext.StorageService.Filesystems")]
 impl FilesystemsHandler {
     /// Signal emitted during format operation with progress (0-100)
@@ -121,6 +287,15 @@ impl FilesystemsHandler {
     async fn unmounted(
         signal_ctxt: &zbus::object_server::SignalEmitter<'_>,
         device: &str,
+    ) -> zbus::Result<()>;
+
+    /// Signal emitted during usage scan with processed and estimated total bytes.
+    #[zbus(signal)]
+    async fn usage_scan_progress(
+        signal_ctxt: &zbus::object_server::SignalEmitter<'_>,
+        scan_id: &str,
+        processed_bytes: u64,
+        estimated_total_bytes: u64,
     ) -> zbus::Result<()>;
 
     /// List all filesystems on the system
@@ -751,6 +926,398 @@ impl FilesystemsHandler {
         })?;
 
         Ok(json)
+    }
+
+    /// Run a global local-mount usage scan and return category/top-file results.
+    ///
+    /// Emits `usage_scan_progress` while the scan is running.
+    ///
+    /// Authorization: org.cosmic.ext.storage-service.filesystem-read (allow_active)
+    #[authorized_interface(action = "org.cosmic.ext.storage-service.filesystem-read")]
+    async fn get_usage_scan(
+        &self,
+        #[zbus(connection)] connection: &Connection,
+        #[zbus(header)] header: MessageHeader<'_>,
+        #[zbus(signal_context)] signal_ctx: zbus::object_server::SignalEmitter<'_>,
+        scan_id: String,
+        top_files_per_category: u32,
+        mount_points_json: String,
+        show_all_files: bool,
+        parallelism_preset: String,
+    ) -> zbus::fdo::Result<String> {
+        let parallelism_preset = parallelism_preset
+            .parse::<UsageScanParallelismPreset>()
+            .map_err(|_| {
+                zbus::fdo::Error::Failed("Invalid usage scan parallelism preset".to_string())
+            })?;
+        let cpu_count = std::thread::available_parallelism()
+            .map(|parallelism| parallelism.get())
+            .unwrap_or(1);
+        let scan_threads = map_parallelism_threads(parallelism_preset, cpu_count);
+
+        tracing::info!(
+            "Starting usage scan id={} top_files_per_category={} show_all_files={} preset={} threads={} (UID {})",
+            scan_id,
+            top_files_per_category,
+            show_all_files,
+            parallelism_preset.as_str(),
+            scan_threads,
+            caller.uid
+        );
+
+        let selected_mounts: Vec<String> =
+            serde_json::from_str(&mount_points_json).map_err(|e| {
+                zbus::fdo::Error::Failed(format!("Failed to parse mount points payload: {e}"))
+            })?;
+        if selected_mounts.is_empty() {
+            return Err(zbus::fdo::Error::Failed(
+                "At least one mount point must be selected".to_string(),
+            ));
+        }
+
+        let available_mounts =
+            storage_sys::usage::mounts::discover_local_mounts_under(Path::new("/"))
+                .map_err(|e| zbus::fdo::Error::Failed(format!("Failed to discover mounts: {e}")))?;
+        let allowed_mounts: HashSet<String> = available_mounts
+            .iter()
+            .map(|mount| mount.to_string_lossy().to_string())
+            .collect();
+
+        let mut mounts = Vec::new();
+        for mount in &selected_mounts {
+            let path = PathBuf::from(mount);
+            if !path.is_absolute() {
+                return Err(zbus::fdo::Error::Failed(
+                    "Selected mount points must be absolute paths".to_string(),
+                ));
+            }
+
+            if !allowed_mounts.contains(mount) {
+                return Err(zbus::fdo::Error::Failed(format!(
+                    "Selected mount point is not allowed: {mount}"
+                )));
+            }
+
+            mounts.push(path);
+        }
+
+        if mounts.is_empty() {
+            return Err(zbus::fdo::Error::Failed(
+                "At least one valid local mount point must be selected".to_string(),
+            ));
+        }
+
+        if show_all_files {
+            let sender = header
+                .sender()
+                .ok_or_else(|| zbus::fdo::Error::Failed("No sender in message header".to_string()))?
+                .as_str()
+                .to_string();
+
+            let authorized = crate::auth::check_authorization(
+                connection,
+                &sender,
+                "org.cosmic.ext.storage-service.filesystem-modify",
+            )
+            .await
+            .map_err(|e| zbus::fdo::Error::Failed(format!("Authorization check failed: {e}")))?;
+
+            if !authorized {
+                return Err(zbus::fdo::Error::AccessDenied(
+                    "Not authorized to list all files".to_string(),
+                ));
+            }
+        }
+
+        let estimate = storage_sys::usage::mounts::estimate_used_bytes_for_mounts(&mounts);
+        let estimated_total_bytes = estimate.used_bytes.max(1);
+        let scan_config = storage_sys::usage::ScanConfig {
+            threads: Some(scan_threads),
+            top_files_per_category: top_files_per_category as usize,
+            show_all_files,
+            caller_uid: Some(caller.uid),
+            caller_gids: Some(resolve_caller_groups(
+                caller.uid,
+                caller.username.as_deref(),
+            )),
+        };
+
+        let (progress_tx, progress_rx) = mpsc::channel::<u64>();
+        let scan_mounts = mounts.clone();
+        let scan_task = tokio::task::spawn_blocking(move || {
+            storage_sys::usage::scan_paths_with_progress(
+                &scan_mounts,
+                &scan_config,
+                Some(progress_tx),
+            )
+        });
+
+        let mut processed_bytes = 0_u64;
+
+        loop {
+            while let Ok(delta) = progress_rx.try_recv() {
+                processed_bytes = processed_bytes.saturating_add(delta);
+            }
+
+            let _ = Self::usage_scan_progress(
+                &signal_ctx,
+                &scan_id,
+                processed_bytes,
+                estimated_total_bytes,
+            )
+            .await;
+
+            if scan_task.is_finished() {
+                break;
+            }
+
+            tokio::time::sleep(Duration::from_millis(120)).await;
+        }
+
+        while let Ok(delta) = progress_rx.try_recv() {
+            processed_bytes = processed_bytes.saturating_add(delta);
+        }
+
+        let mut scan_result = scan_task
+            .await
+            .map_err(|e| zbus::fdo::Error::Failed(format!("Usage scan join error: {e}")))?
+            .map_err(|e| zbus::fdo::Error::Failed(format!("Usage scan failed: {e}")))?;
+
+        if !show_all_files {
+            for entry in &mut scan_result.categories {
+                if entry.category == UsageCategory::System
+                    || entry.category == UsageCategory::Packages
+                {
+                    entry.bytes = 0;
+                }
+            }
+
+            for entry in &mut scan_result.top_files_by_category {
+                if entry.category == UsageCategory::System
+                    || entry.category == UsageCategory::Packages
+                {
+                    entry.files.clear();
+                }
+            }
+
+            scan_result.categories.sort_by(|left, right| {
+                right
+                    .bytes
+                    .cmp(&left.bytes)
+                    .then_with(|| left.category.cmp(&right.category))
+            });
+
+            scan_result.total_bytes = scan_result.categories.iter().map(|entry| entry.bytes).sum();
+        }
+
+        scan_result.total_free_bytes = estimate.free_bytes;
+
+        let final_processed = processed_bytes.max(scan_result.total_bytes);
+        let _ = Self::usage_scan_progress(
+            &signal_ctx,
+            &scan_id,
+            final_processed,
+            estimated_total_bytes,
+        )
+        .await;
+
+        let json = serde_json::to_string::<UsageScanResult>(&scan_result).map_err(|e| {
+            tracing::error!("Failed to serialize usage scan result: {e}");
+            zbus::fdo::Error::Failed(format!("Failed to serialize usage scan result: {e}"))
+        })?;
+
+        Ok(json)
+    }
+
+    /// List local mount points available for usage scans.
+    ///
+    /// Authorization: org.cosmic.ext.storage-service.filesystem-read (allow_active)
+    #[authorized_interface(action = "org.cosmic.ext.storage-service.filesystem-read")]
+    async fn list_usage_mount_points(
+        &self,
+        #[zbus(connection)] _connection: &Connection,
+        #[zbus(header)] _header: MessageHeader<'_>,
+    ) -> zbus::fdo::Result<String> {
+        let mounts = storage_sys::usage::mounts::discover_local_mounts_under(Path::new("/"))
+            .map_err(|e| zbus::fdo::Error::Failed(format!("Failed to discover mounts: {e}")))?;
+
+        let mount_strings: Vec<String> = mounts
+            .into_iter()
+            .map(|mount| mount.to_string_lossy().to_string())
+            .collect();
+
+        serde_json::to_string(&mount_strings)
+            .map_err(|e| zbus::fdo::Error::Failed(format!("Failed to serialize mounts: {e}")))
+    }
+
+    /// Probe authorization for enabling Show All Files in the current session.
+    ///
+    /// Authorization: org.cosmic.ext.storage-service.filesystem-modify (auth_admin_keep)
+    #[authorized_interface(action = "org.cosmic.ext.storage-service.filesystem-modify")]
+    async fn authorize_usage_show_all_files(
+        &self,
+        #[zbus(connection)] _connection: &Connection,
+        #[zbus(header)] _header: MessageHeader<'_>,
+    ) -> zbus::fdo::Result<bool> {
+        Ok(true)
+    }
+
+    /// Delete selected usage paths.
+    ///
+    /// Args:
+    /// - paths_json: JSON-serialized Vec<String> of absolute paths.
+    ///
+    /// Returns: JSON UsageDeleteResult
+    ///
+    /// Authorization: org.cosmic.ext.storage-service.filesystem-mount (allow_active)
+    #[authorized_interface(action = "org.cosmic.ext.storage-service.filesystem-mount")]
+    async fn delete_usage_files(
+        &self,
+        #[zbus(connection)] connection: &Connection,
+        #[zbus(header)] header: MessageHeader<'_>,
+        paths_json: String,
+    ) -> zbus::fdo::Result<String> {
+        let caller_groups = resolve_caller_groups(caller.uid, caller.username.as_deref());
+
+        let paths: Vec<String> = serde_json::from_str(&paths_json)
+            .map_err(|e| zbus::fdo::Error::Failed(format!("Failed to parse paths payload: {e}")))?;
+
+        let mut result = UsageDeleteResult {
+            deleted: Vec::new(),
+            failed: Vec::new(),
+        };
+
+        let requires_admin = paths.iter().any(|path_str| {
+            let path = Path::new(path_str);
+            path.is_absolute()
+                && path != Path::new("/")
+                && path.exists()
+                && path_requires_admin_delete(path, caller.uid, &caller_groups)
+        });
+
+        let mut has_admin_authorization = false;
+        if requires_admin {
+            let sender = header
+                .sender()
+                .ok_or_else(|| zbus::fdo::Error::Failed("No sender in message header".to_string()))?
+                .as_str()
+                .to_string();
+
+            has_admin_authorization = crate::auth::check_authorization(
+                connection,
+                &sender,
+                "org.cosmic.ext.storage-service.filesystem-modify",
+            )
+            .await
+            .map_err(|e| zbus::fdo::Error::Failed(format!("Authorization check failed: {e}")))?;
+
+            if !has_admin_authorization {
+                return Err(zbus::fdo::Error::AccessDenied(
+                    "Not authorized to delete selected files".to_string(),
+                ));
+            }
+        }
+
+        for path_str in paths {
+            let path = Path::new(&path_str);
+
+            if !path.is_absolute() {
+                result.failed.push(UsageDeleteFailure {
+                    path: path_str,
+                    reason: "Path must be absolute".to_string(),
+                });
+                continue;
+            }
+
+            if path == Path::new("/") {
+                result.failed.push(UsageDeleteFailure {
+                    path: path_str,
+                    reason: "Refusing to delete root path".to_string(),
+                });
+                continue;
+            }
+
+            if !path.exists() {
+                result.failed.push(UsageDeleteFailure {
+                    path: path_str,
+                    reason: "Path does not exist".to_string(),
+                });
+                continue;
+            }
+
+            let metadata = match fs::symlink_metadata(path) {
+                Ok(metadata) => metadata,
+                Err(error) => {
+                    result.failed.push(UsageDeleteFailure {
+                        path: path_str,
+                        reason: error.to_string(),
+                    });
+                    continue;
+                }
+            };
+
+            if !metadata.is_file() {
+                result.failed.push(UsageDeleteFailure {
+                    path: path_str,
+                    reason: "Only regular files can be deleted".to_string(),
+                });
+                continue;
+            }
+
+            if !has_admin_authorization {
+                match caller_can_unlink(path, caller.uid, &caller_groups) {
+                    Ok(true) => {}
+                    Ok(false) => {
+                        result.failed.push(UsageDeleteFailure {
+                            path: path_str,
+                            reason:
+                                "Permission denied: caller cannot unlink file in parent directory"
+                                    .to_string(),
+                        });
+                        continue;
+                    }
+                    Err(error) => {
+                        result.failed.push(UsageDeleteFailure {
+                            path: path_str,
+                            reason: error.to_string(),
+                        });
+                        continue;
+                    }
+                }
+
+                match is_owned_tree(path, caller.uid) {
+                    Ok(true) => {}
+                    Ok(false) => {
+                        result.failed.push(UsageDeleteFailure {
+                            path: path_str,
+                            reason: "Permission denied: path is not owned by caller".to_string(),
+                        });
+                        continue;
+                    }
+                    Err(error) => {
+                        result.failed.push(UsageDeleteFailure {
+                            path: path_str,
+                            reason: error.to_string(),
+                        });
+                        continue;
+                    }
+                }
+            }
+
+            let delete_result = fs::remove_file(path);
+
+            match delete_result {
+                Ok(()) => result.deleted.push(path_str),
+                Err(error) => result.failed.push(UsageDeleteFailure {
+                    path: path_str,
+                    reason: error.to_string(),
+                }),
+            }
+        }
+
+        serde_json::to_string(&result).map_err(|e| {
+            zbus::fdo::Error::Failed(format!("Failed to serialize delete result: {e}"))
+        })
     }
 
     /// Get persistent mount options (fstab configuration) for a device

@@ -8,7 +8,10 @@ use crate::ui::dialogs::message::{
 use crate::ui::dialogs::state::ShowDialog;
 use crate::ui::network::NetworkMessage;
 use crate::ui::volumes::VolumesControlMessage;
-use storage_common::FilesystemToolInfo;
+use storage_common::{
+    FilesystemToolInfo, UsageCategory, UsageDeleteResult, UsageScanParallelismPreset,
+    UsageScanResult,
+};
 
 /// Messages emitted by the application and its widgets.
 #[derive(Debug, Clone)]
@@ -35,6 +38,61 @@ pub enum Message {
     StandbyNow,
     Wakeup,
     FilesystemToolsLoaded(Vec<FilesystemToolInfo>),
+    UsageScanLoad {
+        scan_id: String,
+        top_files_per_category: u32,
+        mount_points: Vec<String>,
+        show_all_files: bool,
+        parallelism_preset: UsageScanParallelismPreset,
+    },
+    UsageScanLoaded {
+        scan_id: String,
+        result: Result<UsageScanResult, String>,
+    },
+    UsageScanProgress {
+        scan_id: String,
+        processed_bytes: u64,
+        estimated_total_bytes: u64,
+    },
+    UsageCategoryFilterToggled(UsageCategory),
+    UsageShowAllFilesToggled(bool),
+    UsageShowAllFilesAuthCompleted {
+        result: Result<(), String>,
+    },
+    UsageTopFilesPerCategoryChanged(u32),
+    UsageRefreshRequested,
+    UsageConfigureRequested,
+    UsageWizardMountPointsLoaded {
+        result: Result<Vec<String>, String>,
+    },
+    UsageWizardMountToggled {
+        mount_point: String,
+        selected: bool,
+    },
+    UsageWizardShowAllFilesToggled(bool),
+    UsageWizardParallelismChanged(usize),
+    UsageWizardCancel,
+    UsageWizardStartScan,
+    UsageWizardShowAllFilesAuthCompleted {
+        result: Result<(), String>,
+    },
+    UsageSelectionSingle {
+        path: String,
+        index: usize,
+    },
+    UsageSelectionCtrl {
+        path: String,
+        index: usize,
+    },
+    UsageSelectionShift {
+        index: usize,
+    },
+    UsageSelectionModifiersChanged(cosmic::iced::keyboard::Modifiers),
+    UsageSelectionClear,
+    UsageDeleteStart,
+    UsageDeleteCompleted {
+        result: Result<UsageDeleteResult, String>,
+    },
 
     // Sidebar (custom treeview)
     SidebarSelectDrive(String),
@@ -65,6 +123,7 @@ pub enum Message {
     OpenImagePathPicker(ImagePathPickerKind),
     ImagePathPicked(ImagePathPickerKind, Option<String>),
     ToggleShowReserved(bool),
+    UsageScanParallelismChanged(usize),
 
     // BTRFS management
     BtrfsLoadSubvolumes {

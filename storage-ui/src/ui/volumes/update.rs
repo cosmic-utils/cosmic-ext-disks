@@ -26,6 +26,13 @@ impl VolumesControl {
             }
             VolumesControlMessage::SelectDetailTab(tab) => {
                 self.detail_tab = tab;
+                if tab == super::state::DetailTab::Usage
+                    && self.usage_state.result.is_none()
+                    && !self.usage_state.loading
+                {
+                    return Task::done(cosmic::Action::App(Message::UsageConfigureRequested));
+                }
+
                 // If switching to BTRFS tab, ensure data is loaded
                 if tab == super::state::DetailTab::BtrfsManagement
                     && let Some(btrfs_state) = &self.btrfs_state

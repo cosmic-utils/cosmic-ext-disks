@@ -7,6 +7,7 @@ use super::state::{
     NetworkEditorState, NetworkState, NetworkWizardState, QUICK_SETUP_PROVIDERS, SECTION_ORDER,
     WizardStep,
 };
+use crate::ui::wizard::{option_tile_grid, selectable_tile, wizard_action_row, wizard_shell};
 use cosmic::cosmic_theme::palette::WithAlpha;
 use cosmic::iced::Length;
 use cosmic::widget::{self, button, dropdown, icon, text_input};
@@ -872,47 +873,38 @@ fn wizard_progress(current: &WizardStep) -> Element<'static, NetworkMessage> {
 
 /// Navigation buttons for wizard (Back / Next / Create)
 fn wizard_nav(wizard: &NetworkWizardState) -> Element<'static, NetworkMessage> {
-    let mut nav: Vec<Element<'static, NetworkMessage>> = Vec::new();
-
-    // Cancel button (always present)
-    nav.push(
+    let left_actions = vec![
         button::standard("Cancel")
             .on_press(NetworkMessage::WizardCancel)
             .into(),
-    );
+    ];
 
-    nav.push(widget::Space::new(Length::Fill, 0).into());
+    let mut right_actions: Vec<Element<'static, NetworkMessage>> = Vec::new();
 
-    // Back button (not on first step)
     if wizard.step != WizardStep::SelectType {
-        nav.push(
+        right_actions.push(
             button::standard("Back")
                 .on_press(NetworkMessage::WizardBack)
                 .into(),
         );
     }
 
-    // Next / Create button
     let can_advance = wizard.can_advance();
     if wizard.step == WizardStep::Review {
         let mut create_btn = button::suggested("Create");
         if can_advance {
             create_btn = create_btn.on_press(NetworkMessage::WizardCreate);
         }
-        nav.push(create_btn.into());
+        right_actions.push(create_btn.into());
     } else {
         let mut next_btn = button::suggested("Next");
         if can_advance {
             next_btn = next_btn.on_press(NetworkMessage::WizardNext);
         }
-        nav.push(next_btn.into());
+        right_actions.push(next_btn.into());
     }
 
-    widget::Row::from_vec(nav)
-        .spacing(8)
-        .align_y(cosmic::iced::Alignment::Center)
-        .width(Length::Fill)
-        .into()
+    wizard_action_row(left_actions, right_actions)
 }
 
 /// Step 1: Type selection grid
@@ -932,22 +924,13 @@ fn wizard_select_type(wizard: &NetworkWizardState) -> Element<'static, NetworkMe
         .align_x(cosmic::iced::Alignment::Center)
         .width(Length::Fill);
 
-        let card = widget::button::custom(
-            widget::container(card_content)
-                .padding(16)
-                .width(Length::Fixed(150.0))
-                .height(Length::Fixed(120.0))
-                .align_x(cosmic::iced::alignment::Horizontal::Center)
-                .align_y(cosmic::iced::alignment::Vertical::Center),
-        )
-        .class(if is_selected {
-            cosmic::theme::Button::Suggested
-        } else {
-            cosmic::theme::Button::Standard
-        })
-        .on_press(NetworkMessage::WizardSelectType(type_name));
-
-        cards.push(card.into());
+        cards.push(selectable_tile(
+            card_content.into(),
+            is_selected,
+            Some(NetworkMessage::WizardSelectType(type_name)),
+            Length::Fixed(150.0),
+            Length::Fixed(120.0),
+        ));
     }
 
     // "Advanced..." card
@@ -960,21 +943,15 @@ fn wizard_select_type(wizard: &NetworkWizardState) -> Element<'static, NetworkMe
     .align_x(cosmic::iced::Alignment::Center)
     .width(Length::Fill);
 
-    let advanced_card = widget::button::custom(
-        widget::container(advanced_content)
-            .padding(16)
-            .width(Length::Fixed(150.0))
-            .height(Length::Fixed(120.0))
-            .align_x(cosmic::iced::alignment::Horizontal::Center)
-            .align_y(cosmic::iced::alignment::Vertical::Center),
-    )
-    .class(cosmic::theme::Button::Standard)
-    .on_press(NetworkMessage::WizardAdvanced);
+    cards.push(selectable_tile(
+        advanced_content.into(),
+        false,
+        Some(NetworkMessage::WizardAdvanced),
+        Length::Fixed(150.0),
+        Length::Fixed(120.0),
+    ));
 
-    cards.push(advanced_card.into());
-
-    // Wrap cards in a responsive grid using Wrap
-    let grid = widget::flex_row(cards).row_spacing(12).column_spacing(12);
+    let grid = option_tile_grid(cards);
 
     iced_widget::column![
         widget::text::title3("Choose a remote type"),
@@ -1232,24 +1209,7 @@ fn wizard_view(wizard: &NetworkWizardState) -> Element<'static, NetworkMessage> 
     .spacing(8)
     .width(Length::Fill);
 
-    let content = widget::scrollable(
-        widget::container(step_content)
-            .padding([8, 0])
-            .width(Length::Fill),
-    )
-    .width(Length::Fill)
-    .height(Length::Fill);
-
-    let layout = iced_widget::column![header, content, wizard_nav(wizard),]
-        .spacing(12)
-        .width(Length::Fill)
-        .height(Length::Fill);
-
-    widget::container(layout)
-        .padding(20)
-        .width(Length::Fill)
-        .height(Length::Fill)
-        .into()
+    wizard_shell(header.into(), step_content, wizard_nav(wizard))
 }
 
 // ─── Main view router ────────────────────────────────────────────────────────
