@@ -419,7 +419,7 @@ pub(crate) fn sidebar(
 
     let add_section =
         |rows: &mut Vec<Element<'static, Message>>, section: Section, drives: Vec<&UiDrive>| {
-            if drives.is_empty() {
+            if section != Section::Images && drives.is_empty() {
                 return;
             }
             rows.push(section_header(section.label()));
@@ -469,47 +469,34 @@ pub(crate) fn sidebar(
     add_section(&mut rows, Section::External, external);
     add_section(&mut rows, Section::Images, images);
 
+    // Image operations row belongs to the Images section and is always available.
+    let image_actions = widget::Row::with_children(vec![
+        widget::Space::new(Length::Fill, 0).into(),
+        widget::button::custom(widget::text::caption(crate::fl!("new-disk-image")))
+            .class(cosmic::theme::Button::Link)
+            .on_press(Message::NewDiskImage)
+            .padding([6, 8])
+            .into(),
+        widget::button::custom(widget::text::caption(crate::fl!("attach-disk-image")))
+            .class(cosmic::theme::Button::Link)
+            .on_press(Message::AttachDisk)
+            .padding([6, 8])
+            .into(),
+    ])
+    .spacing(6)
+    .padding([0, 12, 6, 12])
+    .align_y(cosmic::iced::Alignment::Center)
+    .width(Length::Fill);
+
+    rows.push(image_actions.into());
+
     // Network section (RClone, Samba, FTP)
     if network.rclone_available || !network.mounts.is_empty() {
         rows.push(network_section(network, controls_enabled).map(Message::Network));
     }
 
-    // Image operations buttons at bottom - reduced size with wrapping for 50/50 layout
-    let image_buttons = widget::row::with_capacity(2)
-        .push(
-            widget::button::custom(
-                widget::text::caption(crate::fl!("new-disk-image"))
-                    .width(Length::Fill)
-                    .center()
-                    .wrapping(cosmic::iced::widget::text::Wrapping::Word),
-            )
-            .class(cosmic::theme::Button::Link)
-            .on_press(Message::NewDiskImage)
-            .width(Length::Fill)
-            .padding(8),
-        )
-        .push(
-            widget::button::custom(
-                widget::text::caption(crate::fl!("attach-disk-image"))
-                    .width(Length::Fill)
-                    .center()
-                    .wrapping(cosmic::iced::widget::text::Wrapping::Word),
-            )
-            .class(cosmic::theme::Button::Link)
-            .on_press(Message::AttachDisk)
-            .width(Length::Fill)
-            .padding(8),
-        )
-        .spacing(5)
-        .padding([10, 10]);
-
     widget::container::Container::new(
-        widget::column::with_capacity(2)
-            .push(
-                widget::scrollable(widget::Column::with_children(rows).spacing(2))
-                    .height(Length::Fill),
-            )
-            .push(image_buttons),
+        widget::scrollable(widget::Column::with_children(rows).spacing(2)).height(Length::Fill),
     )
     .class(cosmic::style::Container::Card)
     .into()

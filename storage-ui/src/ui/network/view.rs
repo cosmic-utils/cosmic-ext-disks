@@ -3,6 +3,7 @@
 //! View components for network mount management
 
 use super::message::NetworkMessage;
+use super::icons::resolve_provider_icon;
 use super::state::{
     NetworkEditorState, NetworkState, NetworkWizardState, QUICK_SETUP_PROVIDERS, SECTION_ORDER,
     WizardStep,
@@ -127,15 +128,22 @@ pub fn network_mount_item(
     let name_text = widget::text::body(config_name).font(cosmic::font::semibold());
 
     // Scope icon (left aligned)
+    let provider_icon = resolve_provider_icon(&mount.config.remote_type);
+    let provider_icon_widget = icon::from_name(provider_icon.preferred_name()).size(16);
+
     let scope_icon_widget = widget::tooltip(
-        icon::from_name(scope_icon(scope)).size(16),
+        icon::from_name(scope_icon(scope)).size(14),
         widget::text::body(scope_label(scope)),
         widget::tooltip::Position::FollowCursor,
     );
 
     // Main select button
     let mut select_button = widget::button::custom(
-        widget::Row::with_children(vec![scope_icon_widget.into(), name_text.into()])
+        widget::Row::with_children(vec![
+            provider_icon_widget.into(),
+            name_text.into(),
+            scope_icon_widget.into(),
+        ])
             .spacing(8)
             .align_y(cosmic::iced::Alignment::Center)
             .width(Length::Fill),
@@ -914,9 +922,10 @@ fn wizard_select_type(wizard: &NetworkWizardState) -> Element<'static, NetworkMe
     for provider in QUICK_SETUP_PROVIDERS {
         let type_name = provider.type_name.to_string();
         let is_selected = wizard.remote_type == type_name;
+        let provider_icon = resolve_provider_icon(provider.type_name);
 
         let card_content = iced_widget::column![
-            icon::from_name(provider.icon).size(32),
+            icon::from_name(provider_icon.preferred_name()).size(32),
             widget::text::body(provider.label.to_string()).font(cosmic::font::semibold()),
             widget::text::caption(provider.description.to_string()),
         ]

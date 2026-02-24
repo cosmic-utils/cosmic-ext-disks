@@ -5,6 +5,7 @@
 //! Provides components for managing RClone and future network mounts
 //! (Samba, FTP) in the sidebar.
 
+mod icons;
 mod message;
 mod state;
 pub(crate) mod view;

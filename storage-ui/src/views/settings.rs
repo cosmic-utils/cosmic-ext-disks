@@ -18,7 +18,7 @@ pub fn settings<'a>(
         ..
     } = theme::active().cosmic().spacing;
 
-    // About section (keep existing content)
+    // About section
     let icon = widget::svg(widget::svg::Handle::from_memory(APP_ICON));
     let title = widget::text::title3(fl!("app-title"));
 
@@ -26,23 +26,15 @@ pub fn settings<'a>(
     let short_hash: String = hash.chars().take(7).collect();
     let date = env!("VERGEN_GIT_COMMIT_DATE");
 
-    let link = widget::button::link(REPOSITORY)
-        .on_press(Message::OpenRepositoryUrl)
+    let commit_caption = fl!("git-description", hash = short_hash.as_str(), date = date);
+    let commit_link = widget::button::link(commit_caption.clone())
+        .on_press(Message::LaunchUrl(format!("{REPOSITORY}/commits/{hash}")))
         .padding(0);
 
     let mut about_section = widget::column()
         .push(icon)
         .push(title)
-        .push(link)
-        .push(
-            widget::button::link(fl!(
-                "git-description",
-                hash = short_hash.as_str(),
-                date = date
-            ))
-            .on_press(Message::LaunchUrl(format!("{REPOSITORY}/commits/{hash}")))
-            .padding(0),
-        )
+        .push(widget::text::caption("Storage and filesystem management"))
         .align_x(Alignment::Center)
         .spacing(space_xxs);
 
@@ -115,11 +107,23 @@ pub fn settings<'a>(
         .push(usage_parallelism_dropdown)
         .spacing(space_s);
 
+    let repo_footer = widget::row::with_capacity(3)
+        .push(widget::Space::new(cosmic::iced::Length::Fill, 0))
+        .push(commit_link)
+        .push(
+            widget::button::icon(widget::icon::from_name("web-github-symbolic"))
+                .on_press(Message::OpenRepositoryUrl),
+        )
+        .spacing(space_xxs)
+        .align_y(Alignment::Center);
+
     // Combine sections
     widget::column()
         .push(about_section)
         .push(widget::divider::horizontal::default())
         .push(settings_section)
+        .push(widget::divider::horizontal::default())
+        .push(repo_footer)
         .spacing(space_m)
         .into()
 }

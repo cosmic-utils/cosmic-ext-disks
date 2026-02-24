@@ -86,8 +86,6 @@ pub struct QuickSetupProvider {
     pub label: &'static str,
     /// Short description
     pub description: &'static str,
-    /// FreeDesktop icon name
-    pub icon: &'static str,
 }
 
 /// List of providers shown in the wizard quick-setup grid
@@ -96,61 +94,51 @@ pub const QUICK_SETUP_PROVIDERS: &[QuickSetupProvider] = &[
         type_name: "s3",
         label: "Amazon S3",
         description: "S3 compatible storage",
-        icon: "network-server-symbolic",
     },
     QuickSetupProvider {
         type_name: "ftp",
         label: "FTP",
         description: "File Transfer Protocol",
-        icon: "network-server-symbolic",
     },
     QuickSetupProvider {
         type_name: "sftp",
         label: "SSH / SFTP",
         description: "Secure file transfer",
-        icon: "network-server-symbolic",
     },
     QuickSetupProvider {
         type_name: "smb",
         label: "SMB / CIFS",
         description: "Windows file sharing",
-        icon: "network-workgroup-symbolic",
     },
     QuickSetupProvider {
         type_name: "drive",
         label: "Google Drive",
         description: "Cloud storage by Google",
-        icon: "folder-remote-symbolic",
     },
     QuickSetupProvider {
         type_name: "dropbox",
         label: "Dropbox",
         description: "Cloud storage by Dropbox",
-        icon: "folder-remote-symbolic",
     },
     QuickSetupProvider {
         type_name: "onedrive",
         label: "OneDrive",
         description: "Cloud storage by Microsoft",
-        icon: "folder-remote-symbolic",
     },
     QuickSetupProvider {
         type_name: "webdav",
         label: "WebDAV",
         description: "Web-based file access",
-        icon: "network-server-symbolic",
     },
     QuickSetupProvider {
         type_name: "b2",
         label: "Backblaze B2",
         description: "Cloud object storage",
-        icon: "network-server-symbolic",
     },
     QuickSetupProvider {
         type_name: "protondrive",
         label: "Proton Drive",
         description: "Encrypted cloud storage",
-        icon: "folder-remote-symbolic",
     },
 ];
 
