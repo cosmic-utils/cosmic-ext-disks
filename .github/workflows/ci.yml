@@ -33,7 +33,7 @@ jobs:
         run: sudo apt install libxkbcommon-dev
 
       - name: Run tests
-        run: cargo test --workspace --all-features
+        run: cargo test --workspace --all-features --locked
 
   clippy:
     name: Clippy on ${{ matrix.os }}
@@ -52,7 +52,7 @@ jobs:
         run: sudo apt install libxkbcommon-dev
 
       - name: Run clippy
-        run: cargo clippy --workspace --all-features
+        run: cargo clippy --workspace --all-features --locked
 
   fmt:
     name: Rustfmt

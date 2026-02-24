@@ -90,11 +90,11 @@ jobs:
 
       - name: Run tests
         if: steps.pr_check.outputs.exists != 'true'
-        run: cargo test --workspace --all-features
+        run: cargo test --workspace --all-features --locked
 
       - name: Run clippy
         if: steps.pr_check.outputs.exists != 'true'
-        run: cargo clippy --workspace --all-features
+        run: cargo clippy --workspace --all-features --locked
 
       - name: Commit version bump
         if: steps.pr_check.outputs.exists != 'true'

@@ -18,9 +18,9 @@ jobs:
       - name: install system deps
         run: sudo apt install libxkbcommon-dev
       - name: Run tests
-        run: cargo test --workspace --all-features
+        run: cargo test --workspace --all-features --locked
       - name: Run clippy
-        run: cargo clippy --workspace --all-features
+        run: cargo clippy --workspace --all-features --locked
       - name: Run rustfmt
         run: cargo fmt --all --check --verbose
 
@@ -76,7 +76,7 @@ jobs:
           test -z "$(git status --porcelain)"
 
       - name: Build
-        run: cargo build --workspace --release
+        run: cargo build --workspace --release --locked
 
       - name: Publish cosmic-ext-storage-dbus
         env:
