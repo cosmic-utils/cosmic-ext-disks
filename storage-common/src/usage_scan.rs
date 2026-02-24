@@ -1,4 +1,5 @@
 use std::path::PathBuf;
+use std::str::FromStr;
 
 use serde::{Deserialize, Serialize};
 
@@ -33,15 +34,6 @@ impl UsageScanParallelismPreset {
         }
     }
 
-    pub fn from_str(value: &str) -> Option<Self> {
-        match value {
-            "low" => Some(UsageScanParallelismPreset::Low),
-            "balanced" => Some(UsageScanParallelismPreset::Balanced),
-            "high" => Some(UsageScanParallelismPreset::High),
-            _ => None,
-        }
-    }
-
     pub fn to_index(self) -> usize {
         match self {
             UsageScanParallelismPreset::Low => 0,
@@ -55,6 +47,19 @@ impl UsageScanParallelismPreset {
             0 => UsageScanParallelismPreset::Low,
             2 => UsageScanParallelismPreset::High,
             _ => UsageScanParallelismPreset::Balanced,
+        }
+    }
+}
+
+impl FromStr for UsageScanParallelismPreset {
+    type Err = ();
+
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        match value {
+            "low" => Ok(UsageScanParallelismPreset::Low),
+            "balanced" => Ok(UsageScanParallelismPreset::Balanced),
+            "high" => Ok(UsageScanParallelismPreset::High),
+            _ => Err(()),
         }
     }
 }

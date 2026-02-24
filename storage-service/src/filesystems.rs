@@ -105,7 +105,7 @@ fn current_process_groups() -> Vec<u32> {
         let read_count = unsafe { libc::getgroups(group_count, groups.as_mut_ptr()) };
         if read_count > 0 {
             groups.truncate(read_count as usize);
-            gids.extend(groups.into_iter().map(|gid| gid as u32));
+            gids.extend(groups);
         }
     }
 
@@ -149,7 +149,7 @@ fn resolve_caller_groups(uid: u32, username: Option<&str>) -> Vec<u32> {
 
     let Some(username_cstr) = username_cstr else {
         tracing::warn!("Failed to construct username for UID {}", uid);
-        return vec![primary_gid as u32];
+        return vec![primary_gid];
     };
 
     let mut ngroups = 32_i32;
@@ -166,7 +166,7 @@ fn resolve_caller_groups(uid: u32, username: Option<&str>) -> Vec<u32> {
 
     if result == -1 {
         if ngroups <= 0 {
-            return vec![primary_gid as u32];
+            return vec![primary_gid];
         }
 
         groups.resize(ngroups as usize, 0);
@@ -180,13 +180,13 @@ fn resolve_caller_groups(uid: u32, username: Option<&str>) -> Vec<u32> {
         };
 
         if retry == -1 {
-            return vec![primary_gid as u32];
+            return vec![primary_gid];
         }
     }
 
     groups.truncate(ngroups.max(0) as usize);
-    let mut gids: Vec<u32> = groups.into_iter().map(|gid| gid as u32).collect();
-    gids.push(primary_gid as u32);
+    let mut gids: Vec<u32> = groups.into_iter().collect();
+    gids.push(primary_gid);
     gids.sort_unstable();
     gids.dedup();
     gids
@@ -944,8 +944,9 @@ impl FilesystemsHandler {
         show_all_files: bool,
         parallelism_preset: String,
     ) -> zbus::fdo::Result<String> {
-        let parallelism_preset = UsageScanParallelismPreset::from_str(&parallelism_preset)
-            .ok_or_else(|| {
+        let parallelism_preset = parallelism_preset
+            .parse::<UsageScanParallelismPreset>()
+            .map_err(|_| {
                 zbus::fdo::Error::Failed("Invalid usage scan parallelism preset".to_string())
             })?;
         let cpu_count = std::thread::available_parallelism()

@@ -38,7 +38,7 @@ fn main() -> Result<()> {
         caller_gids: None,
     };
 
-    let roots = if args.root == PathBuf::from("/") {
+    let roots = if args.root == std::path::Path::new("/") {
         discover_local_mounts_under(&args.root)?
     } else {
         vec![args.root.clone()]
