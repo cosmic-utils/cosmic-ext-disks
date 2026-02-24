@@ -23,6 +23,8 @@ jobs:
 
       - run: rustup update
       - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: workspace-${{ runner.os }}
 
       - name: install system deps
         run: sudo apt install libxkbcommon-dev libbtrfsutil-dev
