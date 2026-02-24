@@ -5,3 +5,4 @@ pub(crate) mod error;
 pub(crate) mod network;
 pub(crate) mod sidebar;
 pub(crate) mod volumes;
+pub(crate) mod wizard;

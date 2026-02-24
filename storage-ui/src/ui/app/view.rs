@@ -8,6 +8,7 @@ use crate::ui::dialogs::view as dialogs;
 use crate::ui::network::NetworkMessage;
 use crate::ui::network::view::network_main_view;
 use crate::ui::sidebar;
+use crate::ui::wizard::{option_tile_grid, selectable_tile, wizard_action_row, wizard_shell};
 use crate::ui::volumes::{DetailTab, VolumesControl, VolumesControlMessage, disk_header, helpers};
 use crate::utils::DiskSegmentKind;
 use crate::views::settings::settings;
@@ -336,14 +337,11 @@ pub(crate) fn view(app: &AppModel) -> Element<'_, Message> {
             };
 
             if volumes_control.detail_tab == DetailTab::Usage {
-                return widget::scrollable(
-                    widget::container(usage_tab_view(volumes_control))
-                        .padding(20)
-                        .width(Length::Fill),
-                )
-                .width(Length::Fill)
-                .height(Length::Fill)
-                .into();
+                return widget::container(usage_tab_view(volumes_control))
+                    .padding(20)
+                    .width(Length::Fill)
+                    .height(Length::Fill)
+                    .into();
             }
 
             let Some(segment) = volumes_control
@@ -549,13 +547,30 @@ fn usage_tab_view<'a>(volumes_control: &'a VolumesControl) -> Element<'a, Messag
         let processed = bytes_to_pretty(&usage_state.progress_processed_bytes, false);
         let total = bytes_to_pretty(&usage_state.progress_estimated_total_bytes.max(1), false);
 
-        return iced_widget::column![
-            widget::text("Scanning disk usage...").size(16),
+        let loading = iced_widget::column![
+            iced_widget::row![
+                widget::text("Scanning disk usage...").size(16),
+                widget::Space::new(Length::Fill, 0),
+                widget::text::body(format!("{} / {}", processed, total)),
+            ]
+            .align_y(Alignment::Center)
+            .width(Length::Fill),
             iced_widget::progress_bar(0.0..=1.0, fraction).width(Length::Fill),
-            widget::text::caption(format!("{} / {}", processed, total)),
         ]
         .spacing(10)
-        .into();
+        .width(Length::Fill)
+        .max_width(560);
+
+        return widget::container(loading)
+            .width(Length::Fill)
+            .height(Length::Fill)
+            .align_x(Horizontal::Center)
+            .align_y(Vertical::Center)
+            .into();
+    }
+
+    if usage_state.wizard_open {
+        return usage_scan_wizard_view(usage_state);
     }
 
     if usage_state.result.is_none() && let Some(error) = &usage_state.error {
@@ -641,39 +656,39 @@ fn usage_tab_view<'a>(volumes_control: &'a VolumesControl) -> Element<'a, Messag
         }
     };
 
-    let category_tabs = UsageCategory::ALL.chunks(3).fold(
-        iced_widget::column!().spacing(8),
-        |column, category_chunk| {
-            let row = category_chunk.iter().fold(iced_widget::row!().spacing(8), |row, category| {
-                let index = UsageCategory::ALL
-                    .iter()
-                    .position(|candidate| candidate == category)
-                    .unwrap_or(0);
-                let is_active = *category == usage_state.selected_category;
-                let category_total = scan_result
-                    .categories
-                    .iter()
-                    .find(|entry| entry.category == *category)
-                    .map(|entry| entry.bytes)
-                    .unwrap_or(0);
-                let tab_text = widget::text(format!(
-                    "{} ({})",
-                    category.as_str(),
-                    bytes_to_pretty(&category_total, false)
-                ))
-                .size(12);
+    let category_buttons: Vec<Element<'a, Message>> = UsageCategory::ALL
+        .iter()
+        .map(|category| {
+            let index = UsageCategory::ALL
+                .iter()
+                .position(|candidate| candidate == category)
+                .unwrap_or(0);
+            let is_active = *category == usage_state.selected_category;
+            let category_total = scan_result
+                .categories
+                .iter()
+                .find(|entry| entry.category == *category)
+                .map(|entry| entry.bytes)
+                .unwrap_or(0);
+            let tab_text = widget::text(format!(
+                "{} ({})",
+                category.as_str(),
+                bytes_to_pretty(&category_total, false)
+            ))
+            .size(12);
 
-                let mut button = widget::button::custom(tab_text)
-                    .class(usage_category_button_class(index, is_active));
-                if !is_active {
-                    button = button.on_press(Message::UsageCategorySelected(*category));
-                }
-                row.push(button)
-            });
+            let mut button = widget::button::custom(tab_text).class(usage_category_button_class(index, is_active));
+            if !is_active {
+                button = button.on_press(Message::UsageCategorySelected(*category));
+            }
+            button.into()
+        })
+        .collect();
 
-            column.push(row)
-        },
-    );
+    let category_tabs = widget::flex_row(category_buttons)
+        .row_spacing(8)
+        .column_spacing(8)
+        .width(Length::Fill);
 
     let selected_files = scan_result
         .top_files_by_category
@@ -690,20 +705,35 @@ fn usage_tab_view<'a>(volumes_control: &'a VolumesControl) -> Element<'a, Messag
 
     let selected_count = usage_state.selected_paths.len();
 
-    let mut delete_button = widget::button::destructive("Delete");
-    if selected_count > 0 && !usage_state.deleting {
-        delete_button = delete_button.on_press(Message::UsageDeleteStart);
-    }
+    let refresh_button: Element<'a, Message> = widget::tooltip(
+        widget::button::icon(icon::from_name("view-refresh-symbolic").size(16))
+            .on_press(Message::UsageRefreshRequested),
+        widget::text("Refresh"),
+        widget::tooltip::Position::Bottom,
+    )
+    .into();
 
-    let mut clear_selection_button = widget::button::standard("Clear Selection");
+    let mut clear_selection_icon = widget::button::icon(icon::from_name("edit-clear-symbolic").size(16));
     if selected_count > 0 {
-        clear_selection_button = clear_selection_button.on_press(Message::UsageSelectionClear);
+        clear_selection_icon = clear_selection_icon.on_press(Message::UsageSelectionClear);
     }
+    let clear_selection_button: Element<'a, Message> = widget::tooltip(
+        clear_selection_icon,
+        widget::text("Clear Selection"),
+        widget::tooltip::Position::Bottom,
+    )
+    .into();
 
-    let refresh_button = widget::button::standard("Refresh").on_press(Message::UsageRefreshRequested);
-
-    let mut show_all_files_toggle = widget::checkbox("Show All Files", usage_state.show_all_files);
-    show_all_files_toggle = show_all_files_toggle.on_toggle(Message::UsageShowAllFilesToggled);
+    let mut delete_icon = widget::button::icon(icon::from_name("edit-delete-symbolic").size(16));
+    if selected_count > 0 && !usage_state.deleting {
+        delete_icon = delete_icon.on_press(Message::UsageDeleteStart);
+    }
+    let delete_button: Element<'a, Message> = widget::tooltip(
+        delete_icon,
+        widget::text("Delete"),
+        widget::tooltip::Position::Bottom,
+    )
+    .into();
 
     let top_files_input = text_input(
         "1-1000",
@@ -718,15 +748,16 @@ fn usage_tab_view<'a>(volumes_control: &'a VolumesControl) -> Element<'a, Messag
     });
 
     let action_bar = iced_widget::row![
-        show_all_files_toggle,
-        delete_button,
-        clear_selection_button,
         widget::text::caption("Number of files"),
         top_files_input,
         refresh_button,
-        widget::text::caption(format!("Selected: {}", selected_count)),
+        widget::Space::new(Length::Fill, 0),
+        widget::text::body(format!("Selected: {}", selected_count)),
+        clear_selection_button,
+        delete_button,
     ]
     .spacing(10)
+    .width(Length::Fill)
     .align_y(Alignment::Center);
 
     let file_rows = selected_files
@@ -745,12 +776,12 @@ fn usage_tab_view<'a>(volumes_control: &'a VolumesControl) -> Element<'a, Messag
             let row_content = widget::container(
                 iced_widget::row![
                     widget::container(widget::tooltip(
-                        widget::text::caption(filename).width(Length::Fill),
+                        widget::text::body(filename).width(Length::Fill),
                         widget::text::caption(full_path.clone()),
                         widget::tooltip::Position::Bottom,
                     ))
                     .width(Length::Fill),
-                    widget::text::caption(bytes_to_pretty(&file.bytes, false))
+                    widget::text::body(bytes_to_pretty(&file.bytes, false))
                         .width(Length::Shrink),
                 ]
                 .spacing(12)
@@ -799,24 +830,127 @@ fn usage_tab_view<'a>(volumes_control: &'a VolumesControl) -> Element<'a, Messag
     let mut content = iced_widget::column![
         segmented_bar,
         widget::text::caption(totals_line),
-        Space::new(0, 8),
-        action_bar,
         category_tabs,
+        Space::new(0, 4),
+        action_bar,
         iced_widget::row![
-            widget::text::caption("Filename").width(Length::Fill),
-            widget::text::caption("Size"),
+            widget::text("Filename")
+                .font(cosmic::font::semibold())
+                .width(Length::Fill),
+            widget::text("Size").font(cosmic::font::semibold()),
         ]
         .spacing(12),
         widget::scrollable(widget::container(file_rows).padding([4, 0]))
-            .height(Length::Fixed(260.0)),
+            .height(Length::Fill),
     ]
-    .spacing(12);
+    .spacing(12)
+    .width(Length::Fill)
+    .height(Length::Fill);
 
     if let Some(status) = status_line {
         content = content.push(widget::text::caption(status));
     }
 
     content.into()
+}
+
+fn usage_scan_wizard_view<'a>(
+    usage_state: &'a crate::ui::volumes::state::UsageTabState,
+) -> Element<'a, Message> {
+    let mut show_all_toggle = widget::checkbox("Show All Files", usage_state.wizard_show_all_files);
+    show_all_toggle = show_all_toggle.on_toggle(Message::UsageWizardShowAllFilesToggled);
+
+    let parallelism_options = vec![
+        "Low".to_string(),
+        "Balanced".to_string(),
+        "High".to_string(),
+    ];
+
+    let selected_parallelism_index = usage_state.wizard_parallelism_preset.to_index();
+    let parallelism_dropdown = widget::dropdown(
+        parallelism_options,
+        Some(selected_parallelism_index),
+        Message::UsageWizardParallelismChanged,
+    )
+    .width(Length::Fill);
+
+    let mount_tiles: Vec<Element<'a, Message>> = usage_state
+        .wizard_mount_points
+        .iter()
+        .cloned()
+        .map(|mount_point| {
+            let selected = usage_state
+                .wizard_selected_mount_points
+                .iter()
+                .any(|selected_mount| selected_mount == &mount_point);
+
+            let tile_content = iced_widget::column![
+                icon::from_name("drive-harddisk-symbolic").size(24),
+                widget::text::body(mount_point.clone()).font(cosmic::font::semibold()),
+                widget::text::caption(if selected { "Selected" } else { "Not selected" }),
+            ]
+            .spacing(6)
+            .align_x(Alignment::Center)
+            .width(Length::Fill);
+
+            selectable_tile(
+                tile_content.into(),
+                selected,
+                Some(Message::UsageWizardMountToggled {
+                    mount_point,
+                    selected: !selected,
+                }),
+                Length::Fixed(150.0),
+                Length::Fixed(120.0),
+            )
+        })
+        .collect();
+
+    let mut start_button = widget::button::standard("Start Scan");
+    if !usage_state.wizard_loading_mounts && !usage_state.wizard_selected_mount_points.is_empty() {
+        start_button = start_button.on_press(Message::UsageWizardStartScan);
+    }
+
+    let cancel_button = widget::button::standard("Cancel").on_press(Message::UsageWizardCancel);
+
+    let mut wizard = iced_widget::column![
+        widget::text::title3("Choose mount points"),
+        widget::text::body("Select one or more mount points to include in the scan."),
+        widget::Space::new(0, 8),
+    ]
+    .spacing(8)
+    .width(Length::Fill);
+
+    if usage_state.wizard_loading_mounts {
+        wizard = wizard.push(widget::text::caption("Loading mount points..."));
+    } else if usage_state.wizard_mount_points.is_empty() {
+        wizard = wizard.push(widget::text::caption("No mount points available."));
+    } else {
+        wizard = wizard.push(option_tile_grid(mount_tiles));
+    }
+
+    wizard = wizard
+        .push(widget::Space::new(0, 4))
+        .push(show_all_toggle)
+        .push(widget::text::caption("Parallelism"))
+        .push(parallelism_dropdown)
+        .width(Length::Fill)
+        .max_width(640);
+
+    if let Some(error) = &usage_state.wizard_error {
+        wizard = wizard.push(widget::text::caption(error.clone()));
+    }
+
+    let header = iced_widget::column![
+        widget::text::title2("Usage Scan Setup"),
+        widget::text::body("Choose scan scope and options before starting."),
+    ]
+    .spacing(8)
+    .width(Length::Fill);
+
+    let footer = wizard_action_row(vec![cancel_button.into()], vec![start_button.into()]);
+
+    wizard_shell(header.into(), wizard.into(), footer)
 }
 
 /// Aggregate children's used space for LUKS containers
