@@ -114,7 +114,7 @@ pub(crate) fn header_center(app: &AppModel) -> Vec<Element<'_, Message>> {
 
         // Usage tab
         let is_active = active_tab == DetailTab::Usage;
-        let mut usage_tab = widget::button::text("Usage").class(tab_button_class(is_active));
+        let mut usage_tab = widget::button::text(fl!("usage")).class(tab_button_class(is_active));
         if !is_active {
             usage_tab = usage_tab.on_press(Message::VolumesMessage(
                 VolumesControlMessage::SelectDetailTab(DetailTab::Usage),
@@ -939,9 +939,9 @@ fn usage_scan_wizard_view<'a>(
     show_all_toggle = show_all_toggle.on_toggle(Message::UsageWizardShowAllFilesToggled);
 
     let parallelism_options = vec![
-        "Low".to_string(),
-        "Balanced".to_string(),
-        "High".to_string(),
+        fl!("usage-parallelism-low"),
+        fl!("usage-parallelism-balanced"),
+        fl!("usage-parallelism-high"),
     ];
 
     let selected_parallelism_index = usage_state.wizard_parallelism_preset.to_index();

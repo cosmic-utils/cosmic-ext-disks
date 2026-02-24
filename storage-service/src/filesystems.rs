@@ -5,6 +5,7 @@
 //! This module provides D-Bus methods for managing filesystems,
 //! including formatting, mounting, unmounting, and process management.
 
+use std::collections::HashSet;
 use std::ffi::{CStr, CString};
 use std::fs;
 use std::os::unix::fs::MetadataExt;
@@ -974,15 +975,35 @@ impl FilesystemsHandler {
             ));
         }
 
-        let mounts: Vec<PathBuf> = selected_mounts
+        let available_mounts =
+            storage_sys::usage::mounts::discover_local_mounts_under(Path::new("/"))
+                .map_err(|e| zbus::fdo::Error::Failed(format!("Failed to discover mounts: {e}")))?;
+        let allowed_mounts: HashSet<String> = available_mounts
             .iter()
-            .map(PathBuf::from)
-            .filter(|path| path.is_absolute())
+            .map(|mount| mount.to_string_lossy().to_string())
             .collect();
+
+        let mut mounts = Vec::new();
+        for mount in &selected_mounts {
+            let path = PathBuf::from(mount);
+            if !path.is_absolute() {
+                return Err(zbus::fdo::Error::Failed(
+                    "Selected mount points must be absolute paths".to_string(),
+                ));
+            }
+
+            if !allowed_mounts.contains(mount) {
+                return Err(zbus::fdo::Error::Failed(format!(
+                    "Selected mount point is not allowed: {mount}"
+                )));
+            }
+
+            mounts.push(path);
+        }
 
         if mounts.is_empty() {
             return Err(zbus::fdo::Error::Failed(
-                "Selected mount points must be absolute paths".to_string(),
+                "At least one valid local mount point must be selected".to_string(),
             ));
         }
 
@@ -1085,6 +1106,8 @@ impl FilesystemsHandler {
                     .cmp(&left.bytes)
                     .then_with(|| left.category.cmp(&right.category))
             });
+
+            scan_result.total_bytes = scan_result.categories.iter().map(|entry| entry.bytes).sum();
         }
 
         scan_result.total_free_bytes = estimate.free_bytes;

@@ -26,7 +26,6 @@ pub(super) fn segment_selected(
         control.selected_segment = index;
         control.selected_volume = None;
         control.detail_tab = DetailTab::VolumeInfo;
-        control.usage_state = super::super::state::UsageTabState::default();
         control.segments.iter_mut().for_each(|s| s.state = false);
         if let Some(segment) = control.segments.get_mut(index) {
             segment.state = true;
@@ -127,7 +126,6 @@ pub(super) fn select_volume(
         control.selected_segment = segment_index;
         control.selected_volume = Some(device_path.clone());
         control.detail_tab = DetailTab::VolumeInfo;
-        control.usage_state = super::super::state::UsageTabState::default();
         control.segments.iter_mut().for_each(|s| s.state = false);
         if let Some(segment) = control.segments.get_mut(segment_index) {
             segment.state = true;

@@ -96,9 +96,9 @@ pub fn settings<'a>(
         .on_toggle(Message::ToggleShowReserved);
 
     let parallelism_options = vec![
-        "Low".to_string(),
-        "Balanced".to_string(),
-        "High".to_string(),
+        fl!("usage-parallelism-low"),
+        fl!("usage-parallelism-balanced"),
+        fl!("usage-parallelism-high"),
     ];
 
     let usage_parallelism_dropdown = widget::dropdown(
@@ -111,7 +111,7 @@ pub fn settings<'a>(
     let settings_section = widget::column()
         .push(settings_title)
         .push(show_reserved_toggle)
-        .push(widget::text::caption("Scan Parallelism"))
+        .push(widget::text::caption(fl!("usage-scan-parallelism-label")))
         .push(usage_parallelism_dropdown)
         .spacing(space_s);
 

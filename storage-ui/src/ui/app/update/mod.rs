@@ -762,6 +762,7 @@ pub(crate) fn update(app: &mut AppModel, message: Message) -> Task<Message> {
 
             if let Some(volumes_control) = app.nav.active_data_mut::<VolumesControl>() {
                 volumes_control.usage_state.wizard_parallelism_preset = preset;
+                volumes_control.usage_state.scan_parallelism_preset = preset;
             }
 
             if let Ok(helper) = cosmic::cosmic_config::Config::new(APP_ID, Config::VERSION) {

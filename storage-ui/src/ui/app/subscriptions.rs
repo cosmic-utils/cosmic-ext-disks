@@ -28,12 +28,6 @@ pub(crate) fn subscription(app: &AppModel) -> Subscription<Message> {
             Event::Keyboard(keyboard::Event::ModifiersChanged(modifiers)) => {
                 Some(Message::UsageSelectionModifiersChanged(modifiers))
             }
-            Event::Keyboard(keyboard::Event::KeyPressed { modifiers, .. }) => {
-                Some(Message::UsageSelectionModifiersChanged(modifiers))
-            }
-            Event::Keyboard(keyboard::Event::KeyReleased { modifiers, .. }) => {
-                Some(Message::UsageSelectionModifiersChanged(modifiers))
-            }
             _ => None,
         }),
         // Disk hotplug: subscribe to storage-service disk_added/disk_removed and refresh nav.

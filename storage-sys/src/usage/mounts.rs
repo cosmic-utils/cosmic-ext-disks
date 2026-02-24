@@ -211,7 +211,7 @@ fn is_non_local_fs_type(fs_type: &str) -> bool {
 }
 
 fn unescape_mount_field(value: &str) -> String {
-    let mut output = String::with_capacity(value.len());
+    let mut output = Vec::with_capacity(value.len());
     let bytes = value.as_bytes();
     let mut index = 0;
 
@@ -224,17 +224,17 @@ fn unescape_mount_field(value: &str) -> String {
         {
             let octal = &value[index + 1..index + 4];
             if let Ok(num) = u8::from_str_radix(octal, 8) {
-                output.push(num as char);
+                output.push(num);
                 index += 4;
                 continue;
             }
         }
 
-        output.push(bytes[index] as char);
+        output.push(bytes[index]);
         index += 1;
     }
 
-    output
+    String::from_utf8_lossy(&output).into_owned()
 }
 
 #[cfg(test)]
