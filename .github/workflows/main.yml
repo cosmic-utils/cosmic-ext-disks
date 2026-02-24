@@ -16,7 +16,7 @@ jobs:
       - run: rustup update
       - uses: Swatinem/rust-cache@v2
       - name: install system deps
-        run: sudo apt install libxkbcommon-dev
+        run: sudo apt install libxkbcommon-dev libbtrfsutil-dev
       - name: Run tests
         run: cargo test --workspace --all-features --locked
       - name: Run clippy
@@ -36,7 +36,7 @@ jobs:
       - run: rustup update
       - uses: Swatinem/rust-cache@v2
       - name: install system deps
-        run: sudo apt install libxkbcommon-dev
+        run: sudo apt install libxkbcommon-dev libbtrfsutil-dev
 
       - name: Extract version from tag
         run: |
