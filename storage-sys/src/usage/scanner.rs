@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-only
 
 use std::cmp::Ordering;
-use std::collections::BinaryHeap;
 use std::collections::BTreeMap;
+use std::collections::BinaryHeap;
 use std::fs;
 use std::os::unix::fs::{MetadataExt, PermissionsExt};
 use std::path::{Path, PathBuf};
@@ -72,10 +72,7 @@ impl CallerAccess {
             let mut gids = caller_gids.map_or_else(Vec::new, |gids| gids.to_vec());
             gids.sort_unstable();
             gids.dedup();
-            return Self {
-                uid,
-                gids,
-            };
+            return Self { uid, gids };
         }
 
         let mut gids = vec![unsafe { libc::getegid() }];
@@ -110,7 +107,11 @@ impl CallerAccess {
     }
 }
 
-fn should_include_file(metadata: &fs::Metadata, caller_access: &CallerAccess, show_all_files: bool) -> bool {
+fn should_include_file(
+    metadata: &fs::Metadata,
+    caller_access: &CallerAccess,
+    show_all_files: bool,
+) -> bool {
     show_all_files || caller_access.can_read(metadata)
 }
 
@@ -141,10 +142,7 @@ impl LocalStats {
             return;
         }
 
-        let heap = self
-            .top_files_by_category
-            .entry(category)
-            .or_default();
+        let heap = self.top_files_by_category.entry(category).or_default();
 
         if heap.len() < top_files_per_category {
             heap.push(candidate);
@@ -385,8 +383,8 @@ mod tests {
     use std::fs;
     use std::os::unix::fs::PermissionsExt;
     use std::path::PathBuf;
-    use std::sync::mpsc;
     use std::sync::atomic::{AtomicU64, Ordering};
+    use std::sync::mpsc;
 
     use super::*;
 

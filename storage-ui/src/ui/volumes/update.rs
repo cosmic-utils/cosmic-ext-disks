@@ -30,23 +30,7 @@ impl VolumesControl {
                     && self.usage_state.result.is_none()
                     && !self.usage_state.loading
                 {
-                    let scan_id = format!(
-                        "usage-{}",
-                        std::time::SystemTime::now()
-                            .duration_since(std::time::UNIX_EPOCH)
-                            .map(|duration| duration.as_millis())
-                            .unwrap_or(0)
-                    );
-                    self.usage_state.loading = true;
-                    self.usage_state.progress_processed_bytes = 0;
-                    self.usage_state.progress_estimated_total_bytes = 0;
-                    self.usage_state.active_scan_id = Some(scan_id.clone());
-                    self.usage_state.error = None;
-
-                    return Task::done(cosmic::Action::App(Message::UsageScanLoad {
-                        scan_id,
-                        top_files_per_category: 20,
-                    }));
+                    return Task::done(cosmic::Action::App(Message::UsageRefreshRequested));
                 }
 
                 // If switching to BTRFS tab, ensure data is loaded

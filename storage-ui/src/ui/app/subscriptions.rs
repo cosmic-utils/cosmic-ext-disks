@@ -4,8 +4,8 @@ use crate::config::Config;
 use crate::ui::dialogs::message::ImageOperationDialogMessage;
 use cosmic::Application;
 use cosmic::iced::Subscription;
-use cosmic::iced::{Event, event, keyboard};
 use cosmic::iced::futures::{SinkExt, StreamExt};
+use cosmic::iced::{Event, event, keyboard};
 use std::time::Duration;
 
 use super::state::AppModel;

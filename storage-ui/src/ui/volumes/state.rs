@@ -6,7 +6,7 @@ use crate::{
 };
 use storage_common::{
     ByteRange, CreatePartitionInfo, FilesystemToolInfo, PartitionInfo, UsageCategory,
-    UsageScanResult, VolumeInfo,
+    UsageScanParallelismPreset, UsageScanResult, VolumeInfo,
 };
 
 /// Which detail tab is active below the drive header
@@ -36,6 +36,13 @@ pub struct UsageTabState {
     pub deleting: bool,
     pub error: Option<String>,
     pub operation_status: Option<String>,
+    pub wizard_open: bool,
+    pub wizard_loading_mounts: bool,
+    pub wizard_mount_points: Vec<String>,
+    pub wizard_selected_mount_points: Vec<String>,
+    pub wizard_show_all_files: bool,
+    pub wizard_parallelism_preset: UsageScanParallelismPreset,
+    pub wizard_error: Option<String>,
 }
 
 impl Default for UsageTabState {
@@ -56,6 +63,13 @@ impl Default for UsageTabState {
             deleting: false,
             error: None,
             operation_status: None,
+            wizard_open: false,
+            wizard_loading_mounts: false,
+            wizard_mount_points: Vec::new(),
+            wizard_selected_mount_points: Vec::new(),
+            wizard_show_all_files: false,
+            wizard_parallelism_preset: UsageScanParallelismPreset::Balanced,
+            wizard_error: None,
         }
     }
 }

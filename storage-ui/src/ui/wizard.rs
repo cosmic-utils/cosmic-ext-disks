@@ -53,7 +53,10 @@ pub(crate) fn wizard_action_row<'a, Message: Clone + 'static>(
 pub(crate) fn option_tile_grid<'a, Message: Clone + 'static>(
     tiles: Vec<Element<'a, Message>>,
 ) -> Element<'a, Message> {
-    widget::flex_row(tiles).row_spacing(12).column_spacing(12).into()
+    widget::flex_row(tiles)
+        .row_spacing(12)
+        .column_spacing(12)
+        .into()
 }
 
 pub(crate) fn selectable_tile<'a, Message: Clone + 'static>(

@@ -68,9 +68,13 @@ pub trait FilesystemsInterface {
         &self,
         scan_id: &str,
         top_files_per_category: u32,
+        mount_points_json: &str,
         show_all_files: bool,
         parallelism_preset: &str,
     ) -> zbus::Result<String>;
+
+    /// List local mount points available for usage scans.
+    async fn list_usage_mount_points(&self) -> zbus::Result<String>;
 
     /// Delete selected usage files and return per-path outcomes.
     async fn delete_usage_files(&self, paths_json: &str) -> zbus::Result<String>;
@@ -261,14 +265,20 @@ impl FilesystemsClient {
         &self,
         scan_id: &str,
         top_files_per_category: u32,
+        mount_points: &[String],
         show_all_files: bool,
         parallelism_preset: UsageScanParallelismPreset,
     ) -> Result<UsageScanResult, ClientError> {
+        let mount_points_json = serde_json::to_string(mount_points).map_err(|e| {
+            ClientError::ParseError(format!("Failed to serialize mount points: {}", e))
+        })?;
+
         let json = self
             .proxy
             .get_usage_scan(
                 scan_id,
                 top_files_per_category,
+                &mount_points_json,
                 show_all_files,
                 parallelism_preset.as_str(),
             )
@@ -281,7 +291,10 @@ impl FilesystemsClient {
 
     /// Delete selected usage files and return structured result.
     #[allow(dead_code)]
-    pub async fn delete_usage_files(&self, paths: &[String]) -> Result<UsageDeleteResult, ClientError> {
+    pub async fn delete_usage_files(
+        &self,
+        paths: &[String],
+    ) -> Result<UsageDeleteResult, ClientError> {
         let paths_json = serde_json::to_string(paths).map_err(|e| {
             ClientError::ParseError(format!("Failed to serialize usage delete request: {}", e))
         })?;
@@ -291,6 +304,13 @@ impl FilesystemsClient {
             ClientError::ParseError(format!("Failed to parse usage delete result: {}", e))
         })?;
         Ok(result)
+    }
+
+    /// List local mount points available for usage scans.
+    pub async fn list_usage_mount_points(&self) -> Result<Vec<String>, ClientError> {
+        let json = self.proxy.list_usage_mount_points().await?;
+        serde_json::from_str::<Vec<String>>(&json)
+            .map_err(|e| ClientError::ParseError(format!("Failed to parse mount points: {}", e)))
     }
 
     /// Request authorization for Show All Files session toggle.

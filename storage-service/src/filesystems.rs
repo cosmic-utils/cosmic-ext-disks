@@ -8,7 +8,7 @@
 use std::ffi::{CStr, CString};
 use std::fs;
 use std::os::unix::fs::MetadataExt;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::mpsc;
 use std::time::Duration;
 use storage_common::{
@@ -940,6 +940,7 @@ impl FilesystemsHandler {
         #[zbus(signal_context)] signal_ctx: zbus::object_server::SignalEmitter<'_>,
         scan_id: String,
         top_files_per_category: u32,
+        mount_points_json: String,
         show_all_files: bool,
         parallelism_preset: String,
     ) -> zbus::fdo::Result<String> {
@@ -961,6 +962,28 @@ impl FilesystemsHandler {
             scan_threads,
             caller.uid
         );
+
+        let selected_mounts: Vec<String> =
+            serde_json::from_str(&mount_points_json).map_err(|e| {
+                zbus::fdo::Error::Failed(format!("Failed to parse mount points payload: {e}"))
+            })?;
+        if selected_mounts.is_empty() {
+            return Err(zbus::fdo::Error::Failed(
+                "At least one mount point must be selected".to_string(),
+            ));
+        }
+
+        let mounts: Vec<PathBuf> = selected_mounts
+            .iter()
+            .map(PathBuf::from)
+            .filter(|path| path.is_absolute())
+            .collect();
+
+        if mounts.is_empty() {
+            return Err(zbus::fdo::Error::Failed(
+                "Selected mount points must be absolute paths".to_string(),
+            ));
+        }
 
         if show_all_files {
             let sender = header
@@ -984,9 +1007,6 @@ impl FilesystemsHandler {
             }
         }
 
-        let mounts = storage_sys::usage::mounts::discover_local_mounts_under(Path::new("/"))
-            .map_err(|e| zbus::fdo::Error::Failed(format!("Failed to discover mounts: {e}")))?;
-
         let estimate = storage_sys::usage::mounts::estimate_used_bytes_for_mounts(&mounts);
         let estimated_total_bytes = estimate.used_bytes.max(1);
         let scan_config = storage_sys::usage::ScanConfig {
@@ -994,13 +1014,20 @@ impl FilesystemsHandler {
             top_files_per_category: top_files_per_category as usize,
             show_all_files,
             caller_uid: Some(caller.uid),
-            caller_gids: Some(resolve_caller_groups(caller.uid, caller.username.as_deref())),
+            caller_gids: Some(resolve_caller_groups(
+                caller.uid,
+                caller.username.as_deref(),
+            )),
         };
 
         let (progress_tx, progress_rx) = mpsc::channel::<u64>();
         let scan_mounts = mounts.clone();
         let scan_task = tokio::task::spawn_blocking(move || {
-            storage_sys::usage::scan_paths_with_progress(&scan_mounts, &scan_config, Some(progress_tx))
+            storage_sys::usage::scan_paths_with_progress(
+                &scan_mounts,
+                &scan_config,
+                Some(progress_tx),
+            )
         });
 
         let mut processed_bytes = 0_u64;
@@ -1053,6 +1080,27 @@ impl FilesystemsHandler {
         Ok(json)
     }
 
+    /// List local mount points available for usage scans.
+    ///
+    /// Authorization: org.cosmic.ext.storage-service.filesystem-read (allow_active)
+    #[authorized_interface(action = "org.cosmic.ext.storage-service.filesystem-read")]
+    async fn list_usage_mount_points(
+        &self,
+        #[zbus(connection)] _connection: &Connection,
+        #[zbus(header)] _header: MessageHeader<'_>,
+    ) -> zbus::fdo::Result<String> {
+        let mounts = storage_sys::usage::mounts::discover_local_mounts_under(Path::new("/"))
+            .map_err(|e| zbus::fdo::Error::Failed(format!("Failed to discover mounts: {e}")))?;
+
+        let mount_strings: Vec<String> = mounts
+            .into_iter()
+            .map(|mount| mount.to_string_lossy().to_string())
+            .collect();
+
+        serde_json::to_string(&mount_strings)
+            .map_err(|e| zbus::fdo::Error::Failed(format!("Failed to serialize mounts: {e}")))
+    }
+
     /// Probe authorization for enabling Show All Files in the current session.
     ///
     /// Authorization: org.cosmic.ext.storage-service.filesystem-modify (auth_admin_keep)
@@ -1082,9 +1130,8 @@ impl FilesystemsHandler {
     ) -> zbus::fdo::Result<String> {
         let caller_groups = resolve_caller_groups(caller.uid, caller.username.as_deref());
 
-        let paths: Vec<String> = serde_json::from_str(&paths_json).map_err(|e| {
-            zbus::fdo::Error::Failed(format!("Failed to parse paths payload: {e}"))
-        })?;
+        let paths: Vec<String> = serde_json::from_str(&paths_json)
+            .map_err(|e| zbus::fdo::Error::Failed(format!("Failed to parse paths payload: {e}")))?;
 
         let mut result = UsageDeleteResult {
             deleted: Vec::new(),
@@ -1219,8 +1266,9 @@ impl FilesystemsHandler {
             }
         }
 
-        serde_json::to_string(&result)
-            .map_err(|e| zbus::fdo::Error::Failed(format!("Failed to serialize delete result: {e}")))
+        serde_json::to_string(&result).map_err(|e| {
+            zbus::fdo::Error::Failed(format!("Failed to serialize delete result: {e}"))
+        })
     }
 
     /// Get persistent mount options (fstab configuration) for a device

@@ -134,14 +134,10 @@ pub(crate) fn update(app: &mut AppModel, message: Message) -> Task<Message> {
         Message::UsageScanLoad {
             scan_id,
             top_files_per_category,
+            mount_points,
+            show_all_files,
+            parallelism_preset,
         } => {
-            let show_all_files = app
-                .nav
-                .active_data::<VolumesControl>()
-                .map(|volumes_control| volumes_control.usage_state.show_all_files)
-                .unwrap_or(false);
-            let parallelism_preset = app.config.usage_scan_parallelism;
-
             return Task::perform(
                 async move {
                     let result = match FilesystemsClient::new().await {
@@ -149,6 +145,7 @@ pub(crate) fn update(app: &mut AppModel, message: Message) -> Task<Message> {
                             .get_usage_scan(
                                 &scan_id,
                                 top_files_per_category,
+                                &mount_points,
                                 show_all_files,
                                 parallelism_preset,
                             )
@@ -157,10 +154,7 @@ pub(crate) fn update(app: &mut AppModel, message: Message) -> Task<Message> {
                         Err(e) => Err(e.to_string()),
                     };
 
-                    Message::UsageScanLoaded {
-                        scan_id,
-                        result,
-                    }
+                    Message::UsageScanLoaded { scan_id, result }
                 },
                 |msg| msg.into(),
             );
@@ -249,7 +243,9 @@ pub(crate) fn update(app: &mut AppModel, message: Message) -> Task<Message> {
             if let Some(volumes_control) = app.nav.active_data_mut::<VolumesControl>() {
                 match result {
                     Ok(()) => {
-                        volumes_control.usage_state.show_all_files_authorized_for_session = true;
+                        volumes_control
+                            .usage_state
+                            .show_all_files_authorized_for_session = true;
                         volumes_control.usage_state.show_all_files = true;
                         volumes_control.usage_state.error = None;
                         return Task::done(cosmic::Action::App(Message::UsageRefreshRequested));
@@ -273,6 +269,139 @@ pub(crate) fn update(app: &mut AppModel, message: Message) -> Task<Message> {
                     return Task::none();
                 }
 
+                volumes_control.usage_state.wizard_open = true;
+                volumes_control.usage_state.wizard_loading_mounts = true;
+                volumes_control.usage_state.wizard_error = None;
+                volumes_control.usage_state.wizard_show_all_files =
+                    volumes_control.usage_state.show_all_files;
+                volumes_control.usage_state.wizard_parallelism_preset =
+                    app.config.usage_scan_parallelism;
+
+                return Task::perform(
+                    async move {
+                        let result = match FilesystemsClient::new().await {
+                            Ok(client) => client
+                                .list_usage_mount_points()
+                                .await
+                                .map_err(|e| e.to_string()),
+                            Err(e) => Err(e.to_string()),
+                        };
+
+                        Message::UsageWizardMountPointsLoaded { result }
+                    },
+                    |msg| msg.into(),
+                );
+            }
+        }
+        Message::UsageWizardMountPointsLoaded { result } => {
+            if let Some(volumes_control) = app.nav.active_data_mut::<VolumesControl>() {
+                volumes_control.usage_state.wizard_loading_mounts = false;
+                match result {
+                    Ok(mut mount_points) => {
+                        mount_points.sort_unstable();
+                        mount_points.dedup();
+                        volumes_control.usage_state.wizard_mount_points = mount_points.clone();
+                        volumes_control.usage_state.wizard_selected_mount_points = mount_points;
+                        volumes_control.usage_state.wizard_error = None;
+                    }
+                    Err(error) => {
+                        volumes_control.usage_state.wizard_mount_points.clear();
+                        volumes_control
+                            .usage_state
+                            .wizard_selected_mount_points
+                            .clear();
+                        volumes_control.usage_state.wizard_error = Some(error);
+                    }
+                }
+            }
+        }
+        Message::UsageWizardMountToggled {
+            mount_point,
+            selected,
+        } => {
+            if let Some(volumes_control) = app.nav.active_data_mut::<VolumesControl>() {
+                if selected {
+                    if !volumes_control
+                        .usage_state
+                        .wizard_selected_mount_points
+                        .iter()
+                        .any(|mount| mount == &mount_point)
+                    {
+                        volumes_control
+                            .usage_state
+                            .wizard_selected_mount_points
+                            .push(mount_point);
+                    }
+                } else {
+                    volumes_control
+                        .usage_state
+                        .wizard_selected_mount_points
+                        .retain(|mount| mount != &mount_point);
+                }
+            }
+        }
+        Message::UsageWizardShowAllFilesToggled(show_all_files) => {
+            if let Some(volumes_control) = app.nav.active_data_mut::<VolumesControl>() {
+                volumes_control.usage_state.wizard_show_all_files = show_all_files;
+            }
+        }
+        Message::UsageWizardParallelismChanged(index) => {
+            let preset = UsageScanParallelismPreset::from_index(index);
+
+            if let Some(volumes_control) = app.nav.active_data_mut::<VolumesControl>() {
+                volumes_control.usage_state.wizard_parallelism_preset = preset;
+            }
+
+            app.config.usage_scan_parallelism = preset;
+            if let Ok(helper) = cosmic::cosmic_config::Config::new(APP_ID, Config::VERSION) {
+                let _ = app.config.write_entry(&helper);
+            }
+        }
+        Message::UsageWizardCancel => {
+            if let Some(volumes_control) = app.nav.active_data_mut::<VolumesControl>() {
+                volumes_control.usage_state.wizard_open = false;
+                volumes_control.usage_state.wizard_loading_mounts = false;
+                volumes_control.usage_state.wizard_error = None;
+            }
+        }
+        Message::UsageWizardStartScan => {
+            if let Some(volumes_control) = app.nav.active_data_mut::<VolumesControl>() {
+                if volumes_control.usage_state.wizard_loading_mounts {
+                    return Task::none();
+                }
+
+                if volumes_control
+                    .usage_state
+                    .wizard_selected_mount_points
+                    .is_empty()
+                {
+                    volumes_control.usage_state.wizard_error =
+                        Some("Select at least one mount point".to_string());
+                    return Task::none();
+                }
+
+                if volumes_control.usage_state.wizard_show_all_files
+                    && !volumes_control
+                        .usage_state
+                        .show_all_files_authorized_for_session
+                {
+                    return Task::perform(
+                        async move {
+                            let result = match FilesystemsClient::new().await {
+                                Ok(client) => client
+                                    .authorize_usage_show_all_files()
+                                    .await
+                                    .map(|_| ())
+                                    .map_err(|e| e.to_string()),
+                                Err(e) => Err(e.to_string()),
+                            };
+
+                            Message::UsageWizardShowAllFilesAuthCompleted { result }
+                        },
+                        |msg| msg.into(),
+                    );
+                }
+
                 let scan_id = format!(
                     "usage-{}",
                     std::time::SystemTime::now()
@@ -280,6 +409,18 @@ pub(crate) fn update(app: &mut AppModel, message: Message) -> Task<Message> {
                         .map(|duration| duration.as_millis())
                         .unwrap_or(0)
                 );
+
+                let mount_points = volumes_control
+                    .usage_state
+                    .wizard_selected_mount_points
+                    .clone();
+                let show_all_files = volumes_control.usage_state.wizard_show_all_files;
+                let parallelism_preset = volumes_control.usage_state.wizard_parallelism_preset;
+
+                volumes_control.usage_state.wizard_open = false;
+                volumes_control.usage_state.wizard_loading_mounts = false;
+                volumes_control.usage_state.wizard_error = None;
+                volumes_control.usage_state.show_all_files = show_all_files;
 
                 volumes_control.usage_state.loading = true;
                 volumes_control.usage_state.progress_processed_bytes = 0;
@@ -294,7 +435,26 @@ pub(crate) fn update(app: &mut AppModel, message: Message) -> Task<Message> {
                 return Task::done(cosmic::Action::App(Message::UsageScanLoad {
                     scan_id,
                     top_files_per_category: volumes_control.usage_state.top_files_per_category,
+                    mount_points,
+                    show_all_files,
+                    parallelism_preset,
                 }));
+            }
+        }
+        Message::UsageWizardShowAllFilesAuthCompleted { result } => {
+            if let Some(volumes_control) = app.nav.active_data_mut::<VolumesControl>() {
+                match result {
+                    Ok(()) => {
+                        volumes_control
+                            .usage_state
+                            .show_all_files_authorized_for_session = true;
+                        volumes_control.usage_state.wizard_error = None;
+                        return Task::done(cosmic::Action::App(Message::UsageWizardStartScan));
+                    }
+                    Err(error) => {
+                        volumes_control.usage_state.wizard_error = Some(error);
+                    }
+                }
             }
         }
         Message::UsageSelectionSingle { path, index } => {
@@ -311,7 +471,10 @@ pub(crate) fn update(app: &mut AppModel, message: Message) -> Task<Message> {
                     .iter()
                     .position(|selected_path| selected_path == &path)
                 {
-                    volumes_control.usage_state.selected_paths.remove(existing_index);
+                    volumes_control
+                        .usage_state
+                        .selected_paths
+                        .remove(existing_index);
                 } else {
                     volumes_control.usage_state.selected_paths.push(path);
                 }
@@ -325,10 +488,9 @@ pub(crate) fn update(app: &mut AppModel, message: Message) -> Task<Message> {
                     .result
                     .as_ref()
                     .and_then(|result| {
-                        result
-                            .top_files_by_category
-                            .iter()
-                            .find(|entry| entry.category == volumes_control.usage_state.selected_category)
+                        result.top_files_by_category.iter().find(|entry| {
+                            entry.category == volumes_control.usage_state.selected_category
+                        })
                     })
                     .map(|entry| {
                         entry
@@ -448,8 +610,11 @@ pub(crate) fn update(app: &mut AppModel, message: Message) -> Task<Message> {
                                     scan_result.total_bytes.saturating_sub(removed_total);
                             }
 
-                            let failed_paths: HashSet<String> =
-                                delete_result.failed.iter().map(|failure| failure.path.clone()).collect();
+                            let failed_paths: HashSet<String> = delete_result
+                                .failed
+                                .iter()
+                                .map(|failure| failure.path.clone())
+                                .collect();
 
                             volumes_control
                                 .usage_state
@@ -471,15 +636,14 @@ pub(crate) fn update(app: &mut AppModel, message: Message) -> Task<Message> {
                                 })
                                 .unwrap_or_default();
 
-                            volumes_control.usage_state.selection_anchor_index = volumes_control
-                                .usage_state
-                                .selected_paths
-                                .first()
-                                .and_then(|first_selected| {
-                                    current_category_paths
-                                        .iter()
-                                        .position(|path| path == first_selected)
-                                });
+                            volumes_control.usage_state.selection_anchor_index =
+                                volumes_control.usage_state.selected_paths.first().and_then(
+                                    |first_selected| {
+                                        current_category_paths
+                                            .iter()
+                                            .position(|path| path == first_selected)
+                                    },
+                                );
                         }
 
                         volumes_control.usage_state.error = None;
@@ -510,7 +674,12 @@ pub(crate) fn update(app: &mut AppModel, message: Message) -> Task<Message> {
             }
         }
         Message::UsageScanParallelismChanged(index) => {
-            app.config.usage_scan_parallelism = UsageScanParallelismPreset::from_index(index);
+            let preset = UsageScanParallelismPreset::from_index(index);
+            app.config.usage_scan_parallelism = preset;
+
+            if let Some(volumes_control) = app.nav.active_data_mut::<VolumesControl>() {
+                volumes_control.usage_state.wizard_parallelism_preset = preset;
+            }
 
             if let Ok(helper) = cosmic::cosmic_config::Config::new(APP_ID, Config::VERSION) {
                 let _ = app.config.write_entry(&helper);

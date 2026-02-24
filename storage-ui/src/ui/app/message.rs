@@ -8,7 +8,10 @@ use crate::ui::dialogs::message::{
 use crate::ui::dialogs::state::ShowDialog;
 use crate::ui::network::NetworkMessage;
 use crate::ui::volumes::VolumesControlMessage;
-use storage_common::{FilesystemToolInfo, UsageCategory, UsageDeleteResult, UsageScanResult};
+use storage_common::{
+    FilesystemToolInfo, UsageCategory, UsageDeleteResult, UsageScanParallelismPreset,
+    UsageScanResult,
+};
 
 /// Messages emitted by the application and its widgets.
 #[derive(Debug, Clone)]
@@ -38,6 +41,9 @@ pub enum Message {
     UsageScanLoad {
         scan_id: String,
         top_files_per_category: u32,
+        mount_points: Vec<String>,
+        show_all_files: bool,
+        parallelism_preset: UsageScanParallelismPreset,
     },
     UsageScanLoaded {
         scan_id: String,
@@ -55,6 +61,20 @@ pub enum Message {
     },
     UsageTopFilesPerCategoryChanged(u32),
     UsageRefreshRequested,
+    UsageWizardMountPointsLoaded {
+        result: Result<Vec<String>, String>,
+    },
+    UsageWizardMountToggled {
+        mount_point: String,
+        selected: bool,
+    },
+    UsageWizardShowAllFilesToggled(bool),
+    UsageWizardParallelismChanged(usize),
+    UsageWizardCancel,
+    UsageWizardStartScan,
+    UsageWizardShowAllFilesAuthCompleted {
+        result: Result<(), String>,
+    },
     UsageSelectionSingle {
         path: String,
         index: usize,

@@ -151,7 +151,10 @@ mod tests {
         let json = serde_json::to_string(&request).expect("serialize request");
         let parsed: UsageScanRequest = serde_json::from_str(&json).expect("parse request");
         assert_eq!(parsed.scan_id, "scan-1");
-        assert_eq!(parsed.parallelism_preset, UsageScanParallelismPreset::Balanced);
+        assert_eq!(
+            parsed.parallelism_preset,
+            UsageScanParallelismPreset::Balanced
+        );
 
         let result = UsageDeleteResult {
             deleted: vec!["/tmp/a".into()],

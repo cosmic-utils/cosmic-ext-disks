@@ -189,11 +189,7 @@ fn used_and_free_bytes_for_mount(mount: &Path) -> Result<(u64, u64), UsageScanEr
 
     let stat = unsafe { stat.assume_init() };
     Ok((
-        used_bytes_from_fields(
-        stat.f_blocks,
-        stat.f_bfree,
-        stat.f_frsize,
-        ),
+        used_bytes_from_fields(stat.f_blocks, stat.f_bfree, stat.f_frsize),
         free_bytes_from_fields(stat.f_bavail, stat.f_frsize),
     ))
 }

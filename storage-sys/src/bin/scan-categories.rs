@@ -8,9 +8,7 @@ use std::time::{Duration, Instant};
 use anyhow::Result;
 use clap::Parser;
 use storage_sys::usage::mounts::{discover_local_mounts_under, estimate_used_bytes_for_mounts};
-use storage_sys::usage::progress::{
-    compute_progress_percent, format_bytes,
-};
+use storage_sys::usage::progress::{compute_progress_percent, format_bytes};
 use storage_sys::usage::{scan_paths, scan_paths_with_progress, ScanConfig};
 
 #[derive(Debug, Parser)]
@@ -139,7 +137,12 @@ fn main() -> Result<()> {
         }
 
         for (index, file) in category_top.files.iter().enumerate() {
-            println!("  {:>2}. {:>14} {}", index + 1, file.bytes, file.path.display());
+            println!(
+                "  {:>2}. {:>14} {}",
+                index + 1,
+                file.bytes,
+                file.path.display()
+            );
         }
 
         println!();

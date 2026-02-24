@@ -99,8 +99,7 @@ mod tests {
     use std::time::{Duration, Instant};
 
     use super::{
-        compute_eta, compute_eta_from_throughput, compute_progress_percent, ewma_update,
-        format_eta,
+        compute_eta, compute_eta_from_throughput, compute_progress_percent, ewma_update, format_eta,
     };
 
     #[test]

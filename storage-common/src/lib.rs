@@ -50,7 +50,8 @@ pub use partition_types::*;
 pub use rclone::*;
 pub use smart::*;
 pub use usage_scan::{
-	UsageCategory, UsageCategoryTopFiles, UsageCategoryTotal, UsageDeleteFailure, UsageDeleteResult,
-	UsageScanParallelismPreset, UsageScanRequest, UsageScanResult, UsageTopFileEntry,
+    UsageCategory, UsageCategoryTopFiles, UsageCategoryTotal, UsageDeleteFailure,
+    UsageDeleteResult, UsageScanParallelismPreset, UsageScanRequest, UsageScanResult,
+    UsageTopFileEntry,
 };
 pub use volume::*;

@@ -8,16 +8,16 @@ use crate::ui::dialogs::view as dialogs;
 use crate::ui::network::NetworkMessage;
 use crate::ui::network::view::network_main_view;
 use crate::ui::sidebar;
-use crate::ui::wizard::{option_tile_grid, selectable_tile, wizard_action_row, wizard_shell};
 use crate::ui::volumes::{DetailTab, VolumesControl, VolumesControlMessage, disk_header, helpers};
+use crate::ui::wizard::{option_tile_grid, selectable_tile, wizard_action_row, wizard_shell};
 use crate::utils::DiskSegmentKind;
 use crate::views::settings::settings;
 use cosmic::app::context_drawer as cosmic_context_drawer;
 use cosmic::cosmic_theme::palette::WithAlpha;
 use cosmic::iced::Color;
 use cosmic::iced::Length;
-use cosmic::iced::mouse;
 use cosmic::iced::alignment::{Alignment, Horizontal, Vertical};
+use cosmic::iced::mouse;
 use cosmic::widget::{self, Space, icon, text_input};
 use cosmic::{Apply, Element, iced_widget};
 use storage_common::{UsageCategory, VolumeInfo, VolumeKind, bytes_to_pretty};
@@ -462,26 +462,26 @@ fn volume_detail_view<'a>(
     let tab_content: Element<'a, Message> = if volumes_control.detail_tab == DetailTab::Usage {
         usage_tab_view(volumes_control)
     } else if has_btrfs && volumes_control.detail_tab == DetailTab::BtrfsManagement {
-            // BTRFS Management tab
-            if let Some(btrfs_state) = &volumes_control.btrfs_state {
-                if let Some(volume) = &segment.volume {
-                    btrfs_management_section(volume, btrfs_state)
-                } else {
-                    widget::text("No volume data available").into()
-                }
+        // BTRFS Management tab
+        if let Some(btrfs_state) = &volumes_control.btrfs_state {
+            if let Some(volume) = &segment.volume {
+                btrfs_management_section(volume, btrfs_state)
             } else {
-                widget::text("Initializing BTRFS state...").into()
+                widget::text("No volume data available").into()
             }
         } else {
-            // Volume Info tab (default)
-            if let Some(v) = selected_volume_node {
-                build_volume_node_info(v, volumes_control, segment, selected_volume)
-            } else if let Some(ref p) = segment.volume {
-                build_partition_info(p, selected_volume, volumes_control, segment)
-            } else {
-                build_free_space_info(segment, filesystem_tools)
-            }
-        };
+            widget::text("Initializing BTRFS state...").into()
+        }
+    } else {
+        // Volume Info tab (default)
+        if let Some(v) = selected_volume_node {
+            build_volume_node_info(v, volumes_control, segment, selected_volume)
+        } else if let Some(ref p) = segment.volume {
+            build_partition_info(p, selected_volume, volumes_control, segment)
+        } else {
+            build_free_space_info(segment, filesystem_tools)
+        }
+    };
 
     // Return the tab content directly (tabs are now in header)
     tab_content
@@ -489,16 +489,10 @@ fn volume_detail_view<'a>(
 
 fn usage_category_button_class(index: usize, active: bool) -> cosmic::theme::Button {
     cosmic::theme::Button::Custom {
-        active: Box::new(move |_focused, theme| {
-            usage_category_button_style(index, active, theme)
-        }),
+        active: Box::new(move |_focused, theme| usage_category_button_style(index, active, theme)),
         disabled: Box::new(move |theme| usage_category_button_style(index, active, theme)),
-        hovered: Box::new(move |_focused, theme| {
-            usage_category_button_style(index, active, theme)
-        }),
-        pressed: Box::new(move |_focused, theme| {
-            usage_category_button_style(index, active, theme)
-        }),
+        hovered: Box::new(move |_focused, theme| usage_category_button_style(index, active, theme)),
+        pressed: Box::new(move |_focused, theme| usage_category_button_style(index, active, theme)),
     }
 }
 
@@ -508,11 +502,7 @@ fn usage_category_button_style(
     theme: &cosmic::theme::Theme,
 ) -> cosmic::widget::button::Style {
     let base_color = crate::ui::volumes::usage_pie::segment_color(index);
-    let text_color = if active {
-        Color::WHITE
-    } else {
-        base_color
-    };
+    let text_color = if active { Color::WHITE } else { base_color };
 
     cosmic::widget::button::Style {
         shadow_offset: Default::default(),
@@ -573,7 +563,9 @@ fn usage_tab_view<'a>(volumes_control: &'a VolumesControl) -> Element<'a, Messag
         return usage_scan_wizard_view(usage_state);
     }
 
-    if usage_state.result.is_none() && let Some(error) = &usage_state.error {
+    if usage_state.result.is_none()
+        && let Some(error) = &usage_state.error
+    {
         return iced_widget::column![
             widget::text("Usage scan failed").size(16),
             widget::text::caption(error.clone()),
@@ -592,7 +584,11 @@ fn usage_tab_view<'a>(volumes_control: &'a VolumesControl) -> Element<'a, Messag
         usage_state.operation_status.clone()
     };
 
-    let used_total_bytes: u64 = scan_result.categories.iter().map(|category| category.bytes).sum();
+    let used_total_bytes: u64 = scan_result
+        .categories
+        .iter()
+        .map(|category| category.bytes)
+        .sum();
     let unused_bytes = scan_result.total_free_bytes;
     let total_bytes_for_bar = used_total_bytes.saturating_add(unused_bytes).max(1);
     let totals_line = format!(
@@ -608,7 +604,8 @@ fn usage_tab_view<'a>(volumes_control: &'a VolumesControl) -> Element<'a, Messag
         .filter(|category| category.bytes > 0)
         .collect();
 
-    let segmented_bar: Element<'a, Message> = if non_zero_categories.is_empty() && unused_bytes == 0 {
+    let segmented_bar: Element<'a, Message> = if non_zero_categories.is_empty() && unused_bytes == 0
+    {
         widget::container(widget::Space::new(Length::Fill, Length::Fixed(18.0)))
             .class(cosmic::style::Container::List)
             .into()
@@ -626,10 +623,12 @@ fn usage_tab_view<'a>(volumes_control: &'a VolumesControl) -> Element<'a, Messag
                     .unwrap_or(crate::ui::volumes::usage_pie::segment_color(0));
                 row.push(
                     widget::container(widget::Space::new(Length::Fill, Length::Fixed(18.0)))
-                        .style(move |_theme: &cosmic::Theme| iced_widget::container::Style {
-                            background: Some(cosmic::iced::Background::Color(color)),
-                            ..Default::default()
-                        })
+                        .style(
+                            move |_theme: &cosmic::Theme| iced_widget::container::Style {
+                                background: Some(cosmic::iced::Background::Color(color)),
+                                ..Default::default()
+                            },
+                        )
                         .width(Length::FillPortion(portion)),
                 )
             },
@@ -677,7 +676,8 @@ fn usage_tab_view<'a>(volumes_control: &'a VolumesControl) -> Element<'a, Messag
             ))
             .size(12);
 
-            let mut button = widget::button::custom(tab_text).class(usage_category_button_class(index, is_active));
+            let mut button = widget::button::custom(tab_text)
+                .class(usage_category_button_class(index, is_active));
             if !is_active {
                 button = button.on_press(Message::UsageCategorySelected(*category));
             }
@@ -713,7 +713,8 @@ fn usage_tab_view<'a>(volumes_control: &'a VolumesControl) -> Element<'a, Messag
     )
     .into();
 
-    let mut clear_selection_icon = widget::button::icon(icon::from_name("edit-clear-symbolic").size(16));
+    let mut clear_selection_icon =
+        widget::button::icon(icon::from_name("edit-clear-symbolic").size(16));
     if selected_count > 0 {
         clear_selection_icon = clear_selection_icon.on_press(Message::UsageSelectionClear);
     }
@@ -735,17 +736,14 @@ fn usage_tab_view<'a>(volumes_control: &'a VolumesControl) -> Element<'a, Messag
     )
     .into();
 
-    let top_files_input = text_input(
-        "1-1000",
-        usage_state.top_files_per_category.to_string(),
-    )
-    .width(Length::Fixed(100.0))
-    .on_input(|value| {
-        value
-            .parse::<u32>()
-            .map(|parsed| Message::UsageTopFilesPerCategoryChanged(parsed.clamp(1, 1000)))
-            .unwrap_or(Message::UsageTopFilesPerCategoryChanged(1))
-    });
+    let top_files_input = text_input("1-1000", usage_state.top_files_per_category.to_string())
+        .width(Length::Fixed(100.0))
+        .on_input(|value| {
+            value
+                .parse::<u32>()
+                .map(|parsed| Message::UsageTopFilesPerCategoryChanged(parsed.clamp(1, 1000)))
+                .unwrap_or(Message::UsageTopFilesPerCategoryChanged(1))
+        });
 
     let action_bar = iced_widget::row![
         widget::text::caption("Number of files"),
@@ -760,10 +758,9 @@ fn usage_tab_view<'a>(volumes_control: &'a VolumesControl) -> Element<'a, Messag
     .width(Length::Fill)
     .align_y(Alignment::Center);
 
-    let file_rows = selected_files
-        .iter()
-        .enumerate()
-        .fold(iced_widget::column!().spacing(6), |column, (index, file)| {
+    let file_rows = selected_files.iter().enumerate().fold(
+        iced_widget::column!().spacing(6),
+        |column, (index, file)| {
             let full_path = file.path.display().to_string();
             let selected = selected_path_set.contains(full_path.as_str());
             let filename = file
@@ -781,8 +778,7 @@ fn usage_tab_view<'a>(volumes_control: &'a VolumesControl) -> Element<'a, Messag
                         widget::tooltip::Position::Bottom,
                     ))
                     .width(Length::Fill),
-                    widget::text::body(bytes_to_pretty(&file.bytes, false))
-                        .width(Length::Shrink),
+                    widget::text::body(bytes_to_pretty(&file.bytes, false)).width(Length::Shrink),
                 ]
                 .spacing(12)
                 .align_y(Alignment::Center),
@@ -799,7 +795,9 @@ fn usage_tab_view<'a>(volumes_control: &'a VolumesControl) -> Element<'a, Messag
                     icon_color: if selected { Some(accent.into()) } else { None },
                     text_color: if selected { Some(accent.into()) } else { None },
                     background: if selected {
-                        Some(cosmic::iced::Background::Color(accent.with_alpha(0.14).into()))
+                        Some(cosmic::iced::Background::Color(
+                            accent.with_alpha(0.14).into(),
+                        ))
                     } else {
                         None
                     },
@@ -825,7 +823,8 @@ fn usage_tab_view<'a>(volumes_control: &'a VolumesControl) -> Element<'a, Messag
                         usage_state.selection_modifiers,
                     )),
             )
-        });
+        },
+    );
 
     let mut content = iced_widget::column![
         segmented_bar,
@@ -840,8 +839,7 @@ fn usage_tab_view<'a>(volumes_control: &'a VolumesControl) -> Element<'a, Messag
             widget::text("Size").font(cosmic::font::semibold()),
         ]
         .spacing(12),
-        widget::scrollable(widget::container(file_rows).padding([4, 0]))
-            .height(Length::Fill),
+        widget::scrollable(widget::container(file_rows).padding([4, 0])).height(Length::Fill),
     ]
     .spacing(12)
     .width(Length::Fill)
