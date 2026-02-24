@@ -5,7 +5,7 @@ use crate::client::connection::shared_connection;
 use crate::client::error::ClientError;
 use storage_common::{
     FilesystemInfo, FilesystemToolInfo, FilesystemUsage, MountOptionsSettings, ProcessInfo,
-    UnmountResult, UsageDeleteResult, UsageScanResult,
+    UnmountResult, UsageDeleteResult, UsageScanParallelismPreset, UsageScanResult,
 };
 use zbus::proxy;
 
@@ -69,10 +69,14 @@ pub trait FilesystemsInterface {
         scan_id: &str,
         top_files_per_category: u32,
         show_all_files: bool,
+        parallelism_preset: &str,
     ) -> zbus::Result<String>;
 
     /// Delete selected usage files and return per-path outcomes.
     async fn delete_usage_files(&self, paths_json: &str) -> zbus::Result<String>;
+
+    /// Authorize session usage of Show All Files.
+    async fn authorize_usage_show_all_files(&self) -> zbus::Result<bool>;
 
     /// Get persistent mount options (fstab) for a device
     async fn get_mount_options(&self, device: &str) -> zbus::Result<String>;
@@ -258,10 +262,16 @@ impl FilesystemsClient {
         scan_id: &str,
         top_files_per_category: u32,
         show_all_files: bool,
+        parallelism_preset: UsageScanParallelismPreset,
     ) -> Result<UsageScanResult, ClientError> {
         let json = self
             .proxy
-            .get_usage_scan(scan_id, top_files_per_category, show_all_files)
+            .get_usage_scan(
+                scan_id,
+                top_files_per_category,
+                show_all_files,
+                parallelism_preset.as_str(),
+            )
             .await?;
         let result: UsageScanResult = serde_json::from_str(&json).map_err(|e| {
             ClientError::ParseError(format!("Failed to parse usage scan result: {}", e))
@@ -281,6 +291,11 @@ impl FilesystemsClient {
             ClientError::ParseError(format!("Failed to parse usage delete result: {}", e))
         })?;
         Ok(result)
+    }
+
+    /// Request authorization for Show All Files session toggle.
+    pub async fn authorize_usage_show_all_files(&self) -> Result<bool, ClientError> {
+        Ok(self.proxy.authorize_usage_show_all_files().await?)
     }
 
     /// Get persistent mount options (fstab) for a device

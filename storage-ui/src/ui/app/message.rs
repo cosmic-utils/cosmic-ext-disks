@@ -50,6 +50,9 @@ pub enum Message {
     },
     UsageCategorySelected(UsageCategory),
     UsageShowAllFilesToggled(bool),
+    UsageShowAllFilesAuthCompleted {
+        result: Result<(), String>,
+    },
     UsageTopFilesPerCategoryChanged(u32),
     UsageRefreshRequested,
     UsageSelectionSingle {
@@ -63,6 +66,7 @@ pub enum Message {
     UsageSelectionShift {
         index: usize,
     },
+    UsageSelectionModifiersChanged(cosmic::iced::keyboard::Modifiers),
     UsageSelectionClear,
     UsageDeleteStart,
     UsageDeleteCompleted {
@@ -98,6 +102,7 @@ pub enum Message {
     OpenImagePathPicker(ImagePathPickerKind),
     ImagePathPicked(ImagePathPickerKind, Option<String>),
     ToggleShowReserved(bool),
+    UsageScanParallelismChanged(usize),
 
     // BTRFS management
     BtrfsLoadSubvolumes {

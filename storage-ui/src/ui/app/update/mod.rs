@@ -5,6 +5,8 @@ mod nav;
 mod network;
 mod smart;
 
+use std::collections::HashSet;
+
 use super::APP_ID;
 use super::message::{ImagePathPickerKind, Message};
 use super::state::AppModel;
@@ -23,6 +25,7 @@ use cosmic::app::Task;
 use cosmic::cosmic_config::CosmicConfigEntry;
 use cosmic::dialog::file_chooser;
 use cosmic::widget::nav_bar;
+use storage_common::UsageScanParallelismPreset;
 
 const USAGE_TOP_FILES_MIN: u32 = 1;
 const USAGE_TOP_FILES_MAX: u32 = 1000;
@@ -137,12 +140,18 @@ pub(crate) fn update(app: &mut AppModel, message: Message) -> Task<Message> {
                 .active_data::<VolumesControl>()
                 .map(|volumes_control| volumes_control.usage_state.show_all_files)
                 .unwrap_or(false);
+            let parallelism_preset = app.config.usage_scan_parallelism;
 
             return Task::perform(
                 async move {
                     let result = match FilesystemsClient::new().await {
                         Ok(client) => client
-                            .get_usage_scan(&scan_id, top_files_per_category, show_all_files)
+                            .get_usage_scan(
+                                &scan_id,
+                                top_files_per_category,
+                                show_all_files,
+                                parallelism_preset,
+                            )
                             .await
                             .map_err(|e| e.to_string()),
                         Err(e) => Err(e.to_string()),
@@ -166,6 +175,7 @@ pub(crate) fn update(app: &mut AppModel, message: Message) -> Task<Message> {
             {
                 volumes_control.usage_state.loading = false;
                 volumes_control.usage_state.active_scan_id = None;
+                volumes_control.usage_state.operation_status = None;
                 match result {
                     Ok(scan_result) => {
                         volumes_control.usage_state.result = Some(scan_result);
@@ -203,7 +213,52 @@ pub(crate) fn update(app: &mut AppModel, message: Message) -> Task<Message> {
         }
         Message::UsageShowAllFilesToggled(show_all_files) => {
             if let Some(volumes_control) = app.nav.active_data_mut::<VolumesControl>() {
-                volumes_control.usage_state.show_all_files = show_all_files;
+                if !show_all_files {
+                    volumes_control.usage_state.show_all_files = false;
+                    return Task::done(cosmic::Action::App(Message::UsageRefreshRequested));
+                }
+
+                if volumes_control
+                    .usage_state
+                    .show_all_files_authorized_for_session
+                {
+                    volumes_control.usage_state.show_all_files = true;
+                    return Task::done(cosmic::Action::App(Message::UsageRefreshRequested));
+                }
+
+                volumes_control.usage_state.show_all_files = false;
+
+                return Task::perform(
+                    async move {
+                        let result = match FilesystemsClient::new().await {
+                            Ok(client) => client
+                                .authorize_usage_show_all_files()
+                                .await
+                                .map(|_| ())
+                                .map_err(|e| e.to_string()),
+                            Err(e) => Err(e.to_string()),
+                        };
+
+                        Message::UsageShowAllFilesAuthCompleted { result }
+                    },
+                    |msg| msg.into(),
+                );
+            }
+        }
+        Message::UsageShowAllFilesAuthCompleted { result } => {
+            if let Some(volumes_control) = app.nav.active_data_mut::<VolumesControl>() {
+                match result {
+                    Ok(()) => {
+                        volumes_control.usage_state.show_all_files_authorized_for_session = true;
+                        volumes_control.usage_state.show_all_files = true;
+                        volumes_control.usage_state.error = None;
+                        return Task::done(cosmic::Action::App(Message::UsageRefreshRequested));
+                    }
+                    Err(error) => {
+                        volumes_control.usage_state.show_all_files = false;
+                        volumes_control.usage_state.error = Some(error);
+                    }
+                }
             }
         }
         Message::UsageTopFilesPerCategoryChanged(top_files_per_category) => {
@@ -231,6 +286,7 @@ pub(crate) fn update(app: &mut AppModel, message: Message) -> Task<Message> {
                 volumes_control.usage_state.progress_estimated_total_bytes = 0;
                 volumes_control.usage_state.active_scan_id = Some(scan_id.clone());
                 volumes_control.usage_state.error = None;
+                volumes_control.usage_state.operation_status = None;
                 volumes_control.usage_state.result = None;
                 volumes_control.usage_state.selected_paths.clear();
                 volumes_control.usage_state.selection_anchor_index = None;
@@ -300,6 +356,11 @@ pub(crate) fn update(app: &mut AppModel, message: Message) -> Task<Message> {
                 volumes_control.usage_state.selection_anchor_index = Some(anchor_index);
             }
         }
+        Message::UsageSelectionModifiersChanged(modifiers) => {
+            if let Some(volumes_control) = app.nav.active_data_mut::<VolumesControl>() {
+                volumes_control.usage_state.selection_modifiers = modifiers;
+            }
+        }
         Message::UsageSelectionClear => {
             if let Some(volumes_control) = app.nav.active_data_mut::<VolumesControl>() {
                 volumes_control.usage_state.selected_paths.clear();
@@ -308,20 +369,129 @@ pub(crate) fn update(app: &mut AppModel, message: Message) -> Task<Message> {
         }
         Message::UsageDeleteStart => {
             if let Some(volumes_control) = app.nav.active_data_mut::<VolumesControl>() {
+                if volumes_control.usage_state.deleting
+                    || volumes_control.usage_state.selected_paths.is_empty()
+                {
+                    return Task::none();
+                }
+
                 volumes_control.usage_state.deleting = true;
+                volumes_control.usage_state.operation_status = None;
+                let selected_paths = volumes_control.usage_state.selected_paths.clone();
+
+                return Task::perform(
+                    async move {
+                        let result = match FilesystemsClient::new().await {
+                            Ok(client) => client
+                                .delete_usage_files(&selected_paths)
+                                .await
+                                .map_err(|e| e.to_string()),
+                            Err(e) => Err(e.to_string()),
+                        };
+
+                        Message::UsageDeleteCompleted { result }
+                    },
+                    |msg| msg.into(),
+                );
             }
         }
         Message::UsageDeleteCompleted { result } => {
             if let Some(volumes_control) = app.nav.active_data_mut::<VolumesControl>() {
                 volumes_control.usage_state.deleting = false;
                 match result {
-                    Ok(_) => {
-                        volumes_control.usage_state.selected_paths.clear();
-                        volumes_control.usage_state.selection_anchor_index = None;
+                    Ok(delete_result) => {
+                        let deleted_paths: HashSet<String> =
+                            delete_result.deleted.iter().cloned().collect();
+
+                        if !deleted_paths.is_empty()
+                            && let Some(scan_result) = volumes_control.usage_state.result.as_mut()
+                        {
+                            let mut removed_by_category: std::collections::BTreeMap<
+                                storage_common::UsageCategory,
+                                u64,
+                            > = std::collections::BTreeMap::new();
+
+                            for category_entry in &mut scan_result.top_files_by_category {
+                                let mut removed_bytes = 0_u64;
+                                category_entry.files.retain(|file| {
+                                    let path = file.path.to_string_lossy();
+                                    if deleted_paths.contains(path.as_ref()) {
+                                        removed_bytes = removed_bytes.saturating_add(file.bytes);
+                                        false
+                                    } else {
+                                        true
+                                    }
+                                });
+
+                                if removed_bytes > 0 {
+                                    removed_by_category
+                                        .entry(category_entry.category)
+                                        .and_modify(|bytes| {
+                                            *bytes = bytes.saturating_add(removed_bytes)
+                                        })
+                                        .or_insert(removed_bytes);
+                                }
+                            }
+
+                            for category_total in &mut scan_result.categories {
+                                if let Some(removed_bytes) =
+                                    removed_by_category.get(&category_total.category)
+                                {
+                                    category_total.bytes =
+                                        category_total.bytes.saturating_sub(*removed_bytes);
+                                }
+                            }
+
+                            let removed_total: u64 = removed_by_category.values().copied().sum();
+                            if removed_total > 0 {
+                                scan_result.total_bytes =
+                                    scan_result.total_bytes.saturating_sub(removed_total);
+                            }
+
+                            let failed_paths: HashSet<String> =
+                                delete_result.failed.iter().map(|failure| failure.path.clone()).collect();
+
+                            volumes_control
+                                .usage_state
+                                .selected_paths
+                                .retain(|path| failed_paths.contains(path));
+
+                            let current_category_paths: Vec<String> = scan_result
+                                .top_files_by_category
+                                .iter()
+                                .find(|entry| {
+                                    entry.category == volumes_control.usage_state.selected_category
+                                })
+                                .map(|entry| {
+                                    entry
+                                        .files
+                                        .iter()
+                                        .map(|file| file.path.to_string_lossy().to_string())
+                                        .collect()
+                                })
+                                .unwrap_or_default();
+
+                            volumes_control.usage_state.selection_anchor_index = volumes_control
+                                .usage_state
+                                .selected_paths
+                                .first()
+                                .and_then(|first_selected| {
+                                    current_category_paths
+                                        .iter()
+                                        .position(|path| path == first_selected)
+                                });
+                        }
+
                         volumes_control.usage_state.error = None;
+                        volumes_control.usage_state.operation_status = Some(format!(
+                            "Deleted {} files; {} failed",
+                            delete_result.deleted.len(),
+                            delete_result.failed.len(),
+                        ));
                     }
                     Err(error) => {
                         volumes_control.usage_state.error = Some(error);
+                        volumes_control.usage_state.operation_status = None;
                     }
                 }
             }
@@ -337,6 +507,13 @@ pub(crate) fn update(app: &mut AppModel, message: Message) -> Task<Message> {
             // Update the active volumes control if one is selected
             if let Some(volumes_control) = app.nav.active_data_mut::<VolumesControl>() {
                 volumes_control.set_show_reserved(show_reserved);
+            }
+        }
+        Message::UsageScanParallelismChanged(index) => {
+            app.config.usage_scan_parallelism = UsageScanParallelismPreset::from_index(index);
+
+            if let Ok(helper) = cosmic::cosmic_config::Config::new(APP_ID, Config::VERSION) {
+                let _ = app.config.write_entry(&helper);
             }
         }
         Message::OpenImagePathPicker(kind) => {

@@ -558,7 +558,7 @@ fn usage_tab_view<'a>(volumes_control: &'a VolumesControl) -> Element<'a, Messag
         .into();
     }
 
-    if let Some(error) = &usage_state.error {
+    if usage_state.result.is_none() && let Some(error) = &usage_state.error {
         return iced_widget::column![
             widget::text("Usage scan failed").size(16),
             widget::text::caption(error.clone()),
@@ -569,6 +569,12 @@ fn usage_tab_view<'a>(volumes_control: &'a VolumesControl) -> Element<'a, Messag
 
     let Some(scan_result) = &usage_state.result else {
         return widget::text("Usage scan not started").into();
+    };
+
+    let status_line: Option<String> = if let Some(error) = &usage_state.error {
+        Some(error.clone())
+    } else {
+        usage_state.operation_status.clone()
     };
 
     let used_total_bytes: u64 = scan_result.categories.iter().map(|category| category.bytes).sum();
@@ -782,19 +788,15 @@ fn usage_tab_view<'a>(volumes_control: &'a VolumesControl) -> Element<'a, Messag
             column.push(
                 widget::mouse_area(row_content)
                     .interaction(mouse::Interaction::Pointer)
-                    .on_press(Message::UsageSelectionSingle {
-                        path: full_path.clone(),
+                    .on_press(usage_row_selection_message(
+                        full_path,
                         index,
-                    })
-                    .on_right_press(Message::UsageSelectionCtrl {
-                        path: full_path,
-                        index,
-                    })
-                    .on_middle_press(Message::UsageSelectionShift { index }),
+                        usage_state.selection_modifiers,
+                    )),
             )
         });
 
-    iced_widget::column![
+    let mut content = iced_widget::column![
         segmented_bar,
         widget::text::caption(totals_line),
         Space::new(0, 8),
@@ -808,8 +810,13 @@ fn usage_tab_view<'a>(volumes_control: &'a VolumesControl) -> Element<'a, Messag
         widget::scrollable(widget::container(file_rows).padding([4, 0]))
             .height(Length::Fixed(260.0)),
     ]
-    .spacing(12)
-    .into()
+    .spacing(12);
+
+    if let Some(status) = status_line {
+        content = content.push(widget::text::caption(status));
+    }
+
+    content.into()
 }
 
 /// Aggregate children's used space for LUKS containers
@@ -819,6 +826,64 @@ fn aggregate_children_usage(node: &crate::models::UiVolume) -> u64 {
         .filter_map(|child| child.volume.usage.as_ref())
         .map(|u| u.used)
         .sum()
+}
+
+fn usage_row_selection_message(
+    path: String,
+    index: usize,
+    modifiers: cosmic::iced::keyboard::Modifiers,
+) -> Message {
+    if modifiers.shift() {
+        Message::UsageSelectionShift { index }
+    } else if modifiers.command() {
+        Message::UsageSelectionCtrl { path, index }
+    } else {
+        Message::UsageSelectionSingle { path, index }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use cosmic::iced::keyboard::Modifiers;
+
+    #[test]
+    fn usage_row_selection_message_defaults_to_single_click_selection() {
+        let message = usage_row_selection_message("/tmp/a".to_string(), 3, Modifiers::empty());
+
+        match message {
+            Message::UsageSelectionSingle { path, index } => {
+                assert_eq!(path, "/tmp/a");
+                assert_eq!(index, 3);
+            }
+            other => panic!("unexpected message: {other:?}"),
+        }
+    }
+
+    #[test]
+    fn usage_row_selection_message_uses_ctrl_for_toggle() {
+        let message = usage_row_selection_message("/tmp/b".to_string(), 5, Modifiers::CTRL);
+
+        match message {
+            Message::UsageSelectionCtrl { path, index } => {
+                assert_eq!(path, "/tmp/b");
+                assert_eq!(index, 5);
+            }
+            other => panic!("unexpected message: {other:?}"),
+        }
+    }
+
+    #[test]
+    fn usage_row_selection_message_uses_shift_for_range_selection() {
+        let message = usage_row_selection_message("/tmp/c".to_string(), 7, Modifiers::SHIFT);
+
+        match message {
+            Message::UsageSelectionShift { index } => {
+                assert_eq!(index, 7);
+            }
+            other => panic!("unexpected message: {other:?}"),
+        }
+    }
 }
 
 /// Build info display for a volume (child filesystem/LV) - mirrors disk header layout

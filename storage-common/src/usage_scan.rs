@@ -15,6 +15,50 @@ pub enum UsageCategory {
     Other,
 }
 
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum UsageScanParallelismPreset {
+    Low,
+    #[default]
+    Balanced,
+    High,
+}
+
+impl UsageScanParallelismPreset {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            UsageScanParallelismPreset::Low => "low",
+            UsageScanParallelismPreset::Balanced => "balanced",
+            UsageScanParallelismPreset::High => "high",
+        }
+    }
+
+    pub fn from_str(value: &str) -> Option<Self> {
+        match value {
+            "low" => Some(UsageScanParallelismPreset::Low),
+            "balanced" => Some(UsageScanParallelismPreset::Balanced),
+            "high" => Some(UsageScanParallelismPreset::High),
+            _ => None,
+        }
+    }
+
+    pub fn to_index(self) -> usize {
+        match self {
+            UsageScanParallelismPreset::Low => 0,
+            UsageScanParallelismPreset::Balanced => 1,
+            UsageScanParallelismPreset::High => 2,
+        }
+    }
+
+    pub fn from_index(index: usize) -> Self {
+        match index {
+            0 => UsageScanParallelismPreset::Low,
+            2 => UsageScanParallelismPreset::High,
+            _ => UsageScanParallelismPreset::Balanced,
+        }
+    }
+}
+
 impl UsageCategory {
     pub const ALL: [UsageCategory; 8] = [
         UsageCategory::Documents,
@@ -64,6 +108,7 @@ pub struct UsageScanRequest {
     pub scan_id: String,
     pub top_files_per_category: usize,
     pub show_all_files: bool,
+    pub parallelism_preset: UsageScanParallelismPreset,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -101,10 +146,12 @@ mod tests {
             scan_id: "scan-1".into(),
             top_files_per_category: 20,
             show_all_files: false,
+            parallelism_preset: UsageScanParallelismPreset::Balanced,
         };
         let json = serde_json::to_string(&request).expect("serialize request");
         let parsed: UsageScanRequest = serde_json::from_str(&json).expect("parse request");
         assert_eq!(parsed.scan_id, "scan-1");
+        assert_eq!(parsed.parallelism_preset, UsageScanParallelismPreset::Balanced);
 
         let result = UsageDeleteResult {
             deleted: vec!["/tmp/a".into()],

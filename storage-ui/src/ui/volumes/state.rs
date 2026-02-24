@@ -32,8 +32,10 @@ pub struct UsageTabState {
     pub top_files_per_category: u32,
     pub selected_paths: Vec<String>,
     pub selection_anchor_index: Option<usize>,
+    pub selection_modifiers: cosmic::iced::keyboard::Modifiers,
     pub deleting: bool,
     pub error: Option<String>,
+    pub operation_status: Option<String>,
 }
 
 impl Default for UsageTabState {
@@ -50,8 +52,10 @@ impl Default for UsageTabState {
             top_files_per_category: 20,
             selected_paths: Vec::new(),
             selection_anchor_index: None,
+            selection_modifiers: cosmic::iced::keyboard::Modifiers::default(),
             deleting: false,
             error: None,
+            operation_status: None,
         }
     }
 }

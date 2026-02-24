@@ -4,6 +4,7 @@ use crate::config::Config;
 use crate::ui::dialogs::message::ImageOperationDialogMessage;
 use cosmic::Application;
 use cosmic::iced::Subscription;
+use cosmic::iced::{Event, event, keyboard};
 use cosmic::iced::futures::{SinkExt, StreamExt};
 use std::time::Duration;
 
@@ -23,6 +24,18 @@ pub(crate) fn subscription(app: &AppModel) -> Subscription<Message> {
     struct DiskEventSubscription;
 
     let mut subs: Vec<Subscription<Message>> = vec![
+        event::listen_with(|event, _, _| match event {
+            Event::Keyboard(keyboard::Event::ModifiersChanged(modifiers)) => {
+                Some(Message::UsageSelectionModifiersChanged(modifiers))
+            }
+            Event::Keyboard(keyboard::Event::KeyPressed { modifiers, .. }) => {
+                Some(Message::UsageSelectionModifiersChanged(modifiers))
+            }
+            Event::Keyboard(keyboard::Event::KeyReleased { modifiers, .. }) => {
+                Some(Message::UsageSelectionModifiersChanged(modifiers))
+            }
+            _ => None,
+        }),
         // Disk hotplug: subscribe to storage-service disk_added/disk_removed and refresh nav.
         Subscription::run_with_id(
             std::any::TypeId::of::<DiskEventSubscription>(),
