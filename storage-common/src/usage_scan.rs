@@ -13,6 +13,8 @@ pub enum UsageCategory {
     Archives,
     Code,
     Binaries,
+    Packages,
+    System,
     Other,
 }
 
@@ -65,7 +67,7 @@ impl FromStr for UsageScanParallelismPreset {
 }
 
 impl UsageCategory {
-    pub const ALL: [UsageCategory; 8] = [
+    pub const ALL: [UsageCategory; 10] = [
         UsageCategory::Documents,
         UsageCategory::Images,
         UsageCategory::Audio,
@@ -73,6 +75,8 @@ impl UsageCategory {
         UsageCategory::Archives,
         UsageCategory::Code,
         UsageCategory::Binaries,
+        UsageCategory::Packages,
+        UsageCategory::System,
         UsageCategory::Other,
     ];
 
@@ -85,6 +89,8 @@ impl UsageCategory {
             UsageCategory::Archives => "Archives",
             UsageCategory::Code => "Code",
             UsageCategory::Binaries => "Binaries",
+            UsageCategory::Packages => "Packages",
+            UsageCategory::System => "System",
             UsageCategory::Other => "Other",
         }
     }

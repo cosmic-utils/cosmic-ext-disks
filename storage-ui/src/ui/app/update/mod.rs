@@ -25,10 +25,50 @@ use cosmic::app::Task;
 use cosmic::cosmic_config::CosmicConfigEntry;
 use cosmic::dialog::file_chooser;
 use cosmic::widget::nav_bar;
-use storage_common::UsageScanParallelismPreset;
+use storage_common::{UsageCategory, UsageScanParallelismPreset};
 
 const USAGE_TOP_FILES_MIN: u32 = 1;
 const USAGE_TOP_FILES_MAX: u32 = 1000;
+
+fn visible_usage_categories(result: &storage_common::UsageScanResult) -> Vec<UsageCategory> {
+    result
+        .categories
+        .iter()
+        .filter(|entry| entry.bytes > 0)
+        .map(|entry| entry.category)
+        .collect()
+}
+
+fn usage_filtered_file_paths(state: &crate::ui::volumes::state::UsageTabState) -> Vec<String> {
+    let Some(result) = &state.result else {
+        return Vec::new();
+    };
+
+    let selected: HashSet<UsageCategory> = state.selected_categories.iter().copied().collect();
+
+    let mut files: Vec<(u64, String)> = result
+        .categories
+        .iter()
+        .filter(|entry| entry.bytes > 0 && selected.contains(&entry.category))
+        .flat_map(|entry| {
+            result
+                .top_files_by_category
+                .iter()
+                .find(|top| top.category == entry.category)
+                .into_iter()
+                .flat_map(|top| top.files.iter())
+        })
+        .map(|file| (file.bytes, file.path.to_string_lossy().to_string()))
+        .collect();
+
+    files.sort_by(|(left_bytes, left_path), (right_bytes, right_path)| {
+        right_bytes
+            .cmp(left_bytes)
+            .then_with(|| left_path.cmp(right_path))
+    });
+
+    files.into_iter().map(|(_, path)| path).collect()
+}
 
 /// Recursively search for a volume child by device_path
 #[allow(dead_code)]
@@ -172,7 +212,9 @@ pub(crate) fn update(app: &mut AppModel, message: Message) -> Task<Message> {
                 volumes_control.usage_state.operation_status = None;
                 match result {
                     Ok(scan_result) => {
+                        let visible_categories = visible_usage_categories(&scan_result);
                         volumes_control.usage_state.result = Some(scan_result);
+                        volumes_control.usage_state.selected_categories = visible_categories;
                         volumes_control.usage_state.error = None;
                     }
                     Err(error) => {
@@ -198,9 +240,19 @@ pub(crate) fn update(app: &mut AppModel, message: Message) -> Task<Message> {
                 volumes_control.usage_state.progress_estimated_total_bytes = estimated_total_bytes;
             }
         }
-        Message::UsageCategorySelected(category) => {
+        Message::UsageCategoryFilterToggled(category) => {
             if let Some(volumes_control) = app.nav.active_data_mut::<VolumesControl>() {
-                volumes_control.usage_state.selected_category = category;
+                let selected_categories = &mut volumes_control.usage_state.selected_categories;
+                if let Some(index) = selected_categories
+                    .iter()
+                    .position(|selected| selected == &category)
+                {
+                    if selected_categories.len() > 1 {
+                        selected_categories.remove(index);
+                    }
+                } else {
+                    selected_categories.push(category);
+                }
                 volumes_control.usage_state.selected_paths.clear();
                 volumes_control.usage_state.selection_anchor_index = None;
             }
@@ -269,13 +321,58 @@ pub(crate) fn update(app: &mut AppModel, message: Message) -> Task<Message> {
                     return Task::none();
                 }
 
+                if volumes_control.usage_state.scan_mount_points.is_empty() {
+                    return Task::done(cosmic::Action::App(Message::UsageConfigureRequested));
+                }
+
+                let scan_id = format!(
+                    "usage-{}",
+                    std::time::SystemTime::now()
+                        .duration_since(std::time::UNIX_EPOCH)
+                        .map(|duration| duration.as_millis())
+                        .unwrap_or(0)
+                );
+
+                let mount_points = volumes_control.usage_state.scan_mount_points.clone();
+                let show_all_files = volumes_control.usage_state.show_all_files;
+                let parallelism_preset = volumes_control.usage_state.scan_parallelism_preset;
+
+                volumes_control.usage_state.loading = true;
+                volumes_control.usage_state.progress_processed_bytes = 0;
+                volumes_control.usage_state.progress_estimated_total_bytes = 0;
+                volumes_control.usage_state.active_scan_id = Some(scan_id.clone());
+                volumes_control.usage_state.error = None;
+                volumes_control.usage_state.operation_status = None;
+                volumes_control.usage_state.result = None;
+                volumes_control.usage_state.selected_paths.clear();
+                volumes_control.usage_state.selection_anchor_index = None;
+
+                return Task::done(cosmic::Action::App(Message::UsageScanLoad {
+                    scan_id,
+                    top_files_per_category: volumes_control.usage_state.top_files_per_category,
+                    mount_points,
+                    show_all_files,
+                    parallelism_preset,
+                }));
+            }
+        }
+        Message::UsageConfigureRequested => {
+            if let Some(volumes_control) = app.nav.active_data_mut::<VolumesControl>() {
+                if volumes_control.usage_state.loading {
+                    return Task::none();
+                }
+
                 volumes_control.usage_state.wizard_open = true;
                 volumes_control.usage_state.wizard_loading_mounts = true;
                 volumes_control.usage_state.wizard_error = None;
                 volumes_control.usage_state.wizard_show_all_files =
                     volumes_control.usage_state.show_all_files;
                 volumes_control.usage_state.wizard_parallelism_preset =
-                    app.config.usage_scan_parallelism;
+                    if volumes_control.usage_state.scan_mount_points.is_empty() {
+                        app.config.usage_scan_parallelism
+                    } else {
+                        volumes_control.usage_state.scan_parallelism_preset
+                    };
 
                 return Task::perform(
                     async move {
@@ -301,7 +398,18 @@ pub(crate) fn update(app: &mut AppModel, message: Message) -> Task<Message> {
                         mount_points.sort_unstable();
                         mount_points.dedup();
                         volumes_control.usage_state.wizard_mount_points = mount_points.clone();
-                        volumes_control.usage_state.wizard_selected_mount_points = mount_points;
+                        volumes_control.usage_state.wizard_selected_mount_points =
+                            if volumes_control.usage_state.scan_mount_points.is_empty() {
+                                mount_points
+                            } else {
+                                volumes_control
+                                    .usage_state
+                                    .scan_mount_points
+                                    .iter()
+                                    .filter(|mount| mount_points.contains(mount))
+                                    .cloned()
+                                    .collect()
+                            };
                         volumes_control.usage_state.wizard_error = None;
                     }
                     Err(error) => {
@@ -350,6 +458,7 @@ pub(crate) fn update(app: &mut AppModel, message: Message) -> Task<Message> {
 
             if let Some(volumes_control) = app.nav.active_data_mut::<VolumesControl>() {
                 volumes_control.usage_state.wizard_parallelism_preset = preset;
+                volumes_control.usage_state.scan_parallelism_preset = preset;
             }
 
             app.config.usage_scan_parallelism = preset;
@@ -376,7 +485,7 @@ pub(crate) fn update(app: &mut AppModel, message: Message) -> Task<Message> {
                     .is_empty()
                 {
                     volumes_control.usage_state.wizard_error =
-                        Some("Select at least one mount point".to_string());
+                        Some(fl!("usage-select-at-least-one-mount-point"));
                     return Task::none();
                 }
 
@@ -421,6 +530,8 @@ pub(crate) fn update(app: &mut AppModel, message: Message) -> Task<Message> {
                 volumes_control.usage_state.wizard_loading_mounts = false;
                 volumes_control.usage_state.wizard_error = None;
                 volumes_control.usage_state.show_all_files = show_all_files;
+                volumes_control.usage_state.scan_mount_points = mount_points.clone();
+                volumes_control.usage_state.scan_parallelism_preset = parallelism_preset;
 
                 volumes_control.usage_state.loading = true;
                 volumes_control.usage_state.progress_processed_bytes = 0;
@@ -483,23 +594,7 @@ pub(crate) fn update(app: &mut AppModel, message: Message) -> Task<Message> {
         }
         Message::UsageSelectionShift { index } => {
             if let Some(volumes_control) = app.nav.active_data_mut::<VolumesControl>() {
-                let paths: Vec<String> = volumes_control
-                    .usage_state
-                    .result
-                    .as_ref()
-                    .and_then(|result| {
-                        result.top_files_by_category.iter().find(|entry| {
-                            entry.category == volumes_control.usage_state.selected_category
-                        })
-                    })
-                    .map(|entry| {
-                        entry
-                            .files
-                            .iter()
-                            .map(|file_entry| file_entry.path.to_string_lossy().to_string())
-                            .collect()
-                    })
-                    .unwrap_or_default();
+                let paths = usage_filtered_file_paths(&volumes_control.usage_state);
 
                 if paths.is_empty() {
                     return Task::none();
@@ -621,20 +716,8 @@ pub(crate) fn update(app: &mut AppModel, message: Message) -> Task<Message> {
                                 .selected_paths
                                 .retain(|path| failed_paths.contains(path));
 
-                            let current_category_paths: Vec<String> = scan_result
-                                .top_files_by_category
-                                .iter()
-                                .find(|entry| {
-                                    entry.category == volumes_control.usage_state.selected_category
-                                })
-                                .map(|entry| {
-                                    entry
-                                        .files
-                                        .iter()
-                                        .map(|file| file.path.to_string_lossy().to_string())
-                                        .collect()
-                                })
-                                .unwrap_or_default();
+                            let current_category_paths =
+                                usage_filtered_file_paths(&volumes_control.usage_state);
 
                             volumes_control.usage_state.selection_anchor_index =
                                 volumes_control.usage_state.selected_paths.first().and_then(
@@ -647,10 +730,10 @@ pub(crate) fn update(app: &mut AppModel, message: Message) -> Task<Message> {
                         }
 
                         volumes_control.usage_state.error = None;
-                        volumes_control.usage_state.operation_status = Some(format!(
-                            "Deleted {} files; {} failed",
-                            delete_result.deleted.len(),
-                            delete_result.failed.len(),
+                        volumes_control.usage_state.operation_status = Some(fl!(
+                            "usage-delete-summary",
+                            deleted = delete_result.deleted.len(),
+                            failed = delete_result.failed.len(),
                         ));
                     }
                     Err(error) => {

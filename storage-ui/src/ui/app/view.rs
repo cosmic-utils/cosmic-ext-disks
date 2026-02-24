@@ -522,6 +522,36 @@ fn usage_category_button_style(
     }
 }
 
+fn usage_category_icon(category: UsageCategory) -> &'static str {
+    match category {
+        UsageCategory::Documents => "x-office-document-symbolic",
+        UsageCategory::Images => "image-x-generic-symbolic",
+        UsageCategory::Audio => "audio-x-generic-symbolic",
+        UsageCategory::Video => "video-x-generic-symbolic",
+        UsageCategory::Archives => "package-x-generic-symbolic",
+        UsageCategory::Code => "text-x-script-symbolic",
+        UsageCategory::Binaries => "application-x-executable-symbolic",
+        UsageCategory::Packages => "package-x-generic-symbolic",
+        UsageCategory::System => "computer-symbolic",
+        UsageCategory::Other => "folder-symbolic",
+    }
+}
+
+fn usage_category_label(category: UsageCategory) -> String {
+    match category {
+        UsageCategory::Documents => fl!("usage-category-documents"),
+        UsageCategory::Images => fl!("usage-category-images"),
+        UsageCategory::Audio => fl!("usage-category-audio"),
+        UsageCategory::Video => fl!("usage-category-video"),
+        UsageCategory::Archives => fl!("usage-category-archives"),
+        UsageCategory::Code => fl!("usage-category-code"),
+        UsageCategory::Binaries => fl!("usage-category-binaries"),
+        UsageCategory::Packages => fl!("usage-category-packages"),
+        UsageCategory::System => fl!("usage-category-system"),
+        UsageCategory::Other => fl!("usage-category-other"),
+    }
+}
+
 fn usage_tab_view<'a>(volumes_control: &'a VolumesControl) -> Element<'a, Message> {
     let usage_state = &volumes_control.usage_state;
 
@@ -539,7 +569,7 @@ fn usage_tab_view<'a>(volumes_control: &'a VolumesControl) -> Element<'a, Messag
 
         let loading = iced_widget::column![
             iced_widget::row![
-                widget::text("Scanning disk usage...").size(16),
+                widget::text(fl!("usage-scanning")).size(16),
                 widget::Space::new(Length::Fill, 0),
                 widget::text::body(format!("{} / {}", processed, total)),
             ]
@@ -567,7 +597,7 @@ fn usage_tab_view<'a>(volumes_control: &'a VolumesControl) -> Element<'a, Messag
         && let Some(error) = &usage_state.error
     {
         return iced_widget::column![
-            widget::text("Usage scan failed").size(16),
+            widget::text(fl!("usage-scan-failed")).size(16),
             widget::text::caption(error.clone()),
         ]
         .spacing(8)
@@ -575,7 +605,7 @@ fn usage_tab_view<'a>(volumes_control: &'a VolumesControl) -> Element<'a, Messag
     }
 
     let Some(scan_result) = &usage_state.result else {
-        return widget::text("Usage scan not started").into();
+        return widget::text(fl!("usage-scan-not-started")).into();
     };
 
     let status_line: Option<String> = if let Some(error) = &usage_state.error {
@@ -606,7 +636,7 @@ fn usage_tab_view<'a>(volumes_control: &'a VolumesControl) -> Element<'a, Messag
 
     let segmented_bar: Element<'a, Message> = if non_zero_categories.is_empty() && unused_bytes == 0
     {
-        widget::container(widget::Space::new(Length::Fill, Length::Fixed(18.0)))
+        widget::container(widget::Space::new(Length::Fill, Length::Fixed(36.0)))
             .class(cosmic::style::Container::List)
             .into()
     } else {
@@ -622,7 +652,7 @@ fn usage_tab_view<'a>(volumes_control: &'a VolumesControl) -> Element<'a, Messag
                     .map(crate::ui::volumes::usage_pie::segment_color)
                     .unwrap_or(crate::ui::volumes::usage_pie::segment_color(0));
                 row.push(
-                    widget::container(widget::Space::new(Length::Fill, Length::Fixed(18.0)))
+                    widget::container(widget::Space::new(Length::Fill, Length::Fixed(36.0)))
                         .style(
                             move |_theme: &cosmic::Theme| iced_widget::container::Style {
                                 background: Some(cosmic::iced::Background::Color(color)),
@@ -640,7 +670,7 @@ fn usage_tab_view<'a>(volumes_control: &'a VolumesControl) -> Element<'a, Messag
                 .max(1.0) as u16;
             row_with_categories
                 .push(
-                    widget::container(widget::Space::new(Length::Fill, Length::Fixed(18.0)))
+                    widget::container(widget::Space::new(Length::Fill, Length::Fixed(36.0)))
                         .style(move |theme: &cosmic::Theme| iced_widget::container::Style {
                             background: Some(cosmic::iced::Background::Color(
                                 theme.cosmic().background.component.divider.into(),
@@ -655,32 +685,40 @@ fn usage_tab_view<'a>(volumes_control: &'a VolumesControl) -> Element<'a, Messag
         }
     };
 
-    let category_buttons: Vec<Element<'a, Message>> = UsageCategory::ALL
+    let selected_categories: std::collections::HashSet<UsageCategory> =
+        usage_state.selected_categories.iter().copied().collect();
+
+    let visible_categories: Vec<_> = scan_result
+        .categories
         .iter()
-        .map(|category| {
+        .filter(|entry| entry.bytes > 0)
+        .collect();
+
+    let category_buttons: Vec<Element<'a, Message>> = visible_categories
+        .iter()
+        .map(|entry| {
+            let category = entry.category;
             let index = UsageCategory::ALL
                 .iter()
-                .position(|candidate| candidate == category)
+                .position(|candidate| candidate == &category)
                 .unwrap_or(0);
-            let is_active = *category == usage_state.selected_category;
-            let category_total = scan_result
-                .categories
-                .iter()
-                .find(|entry| entry.category == *category)
-                .map(|entry| entry.bytes)
-                .unwrap_or(0);
-            let tab_text = widget::text(format!(
-                "{} ({})",
-                category.as_str(),
-                bytes_to_pretty(&category_total, false)
-            ))
-            .size(12);
+            let is_active = selected_categories.contains(&category);
+
+            let tab_text = iced_widget::row![
+                icon::from_name(usage_category_icon(category)).size(14),
+                widget::text(format!(
+                    "{} ({})",
+                    usage_category_label(category),
+                    bytes_to_pretty(&entry.bytes, false)
+                ))
+                .size(12),
+            ]
+            .spacing(6)
+            .align_y(Alignment::Center);
 
             let mut button = widget::button::custom(tab_text)
                 .class(usage_category_button_class(index, is_active));
-            if !is_active {
-                button = button.on_press(Message::UsageCategorySelected(*category));
-            }
+            button = button.on_press(Message::UsageCategoryFilterToggled(category));
             button.into()
         })
         .collect();
@@ -690,12 +728,26 @@ fn usage_tab_view<'a>(volumes_control: &'a VolumesControl) -> Element<'a, Messag
         .column_spacing(8)
         .width(Length::Fill);
 
-    let selected_files = scan_result
-        .top_files_by_category
+    let mut selected_files: Vec<(UsageCategory, &storage_common::UsageTopFileEntry)> = scan_result
+        .categories
         .iter()
-        .find(|entry| entry.category == usage_state.selected_category)
-        .map(|entry| entry.files.as_slice())
-        .unwrap_or(&[]);
+        .filter(|entry| entry.bytes > 0 && selected_categories.contains(&entry.category))
+        .flat_map(|entry| {
+            scan_result
+                .top_files_by_category
+                .iter()
+                .find(|top| top.category == entry.category)
+                .into_iter()
+                .flat_map(move |top| top.files.iter().map(move |file| (entry.category, file)))
+        })
+        .collect();
+
+    selected_files.sort_by(|(_, left_file), (_, right_file)| {
+        right_file
+            .bytes
+            .cmp(&left_file.bytes)
+            .then_with(|| left_file.path.cmp(&right_file.path))
+    });
 
     let selected_path_set: std::collections::HashSet<&str> = usage_state
         .selected_paths
@@ -708,7 +760,15 @@ fn usage_tab_view<'a>(volumes_control: &'a VolumesControl) -> Element<'a, Messag
     let refresh_button: Element<'a, Message> = widget::tooltip(
         widget::button::icon(icon::from_name("view-refresh-symbolic").size(16))
             .on_press(Message::UsageRefreshRequested),
-        widget::text("Refresh"),
+        widget::text(fl!("refresh")),
+        widget::tooltip::Position::Bottom,
+    )
+    .into();
+
+    let configure_button: Element<'a, Message> = widget::tooltip(
+        widget::button::icon(icon::from_name("preferences-system-symbolic").size(16))
+            .on_press(Message::UsageConfigureRequested),
+        widget::text(fl!("usage-configure")),
         widget::tooltip::Position::Bottom,
     )
     .into();
@@ -720,7 +780,7 @@ fn usage_tab_view<'a>(volumes_control: &'a VolumesControl) -> Element<'a, Messag
     }
     let clear_selection_button: Element<'a, Message> = widget::tooltip(
         clear_selection_icon,
-        widget::text("Clear Selection"),
+        widget::text(fl!("usage-clear-selection")),
         widget::tooltip::Position::Bottom,
     )
     .into();
@@ -731,7 +791,7 @@ fn usage_tab_view<'a>(volumes_control: &'a VolumesControl) -> Element<'a, Messag
     }
     let delete_button: Element<'a, Message> = widget::tooltip(
         delete_icon,
-        widget::text("Delete"),
+        widget::text(fl!("delete-partition")),
         widget::tooltip::Position::Bottom,
     )
     .into();
@@ -746,11 +806,12 @@ fn usage_tab_view<'a>(volumes_control: &'a VolumesControl) -> Element<'a, Messag
         });
 
     let action_bar = iced_widget::row![
-        widget::text::caption("Number of files"),
+        widget::text::caption(fl!("usage-files-per-category")),
         top_files_input,
         refresh_button,
+        configure_button,
         widget::Space::new(Length::Fill, 0),
-        widget::text::body(format!("Selected: {}", selected_count)),
+        widget::text::body(fl!("usage-selected-count", count = selected_count)),
         clear_selection_button,
         delete_button,
     ]
@@ -760,7 +821,7 @@ fn usage_tab_view<'a>(volumes_control: &'a VolumesControl) -> Element<'a, Messag
 
     let file_rows = selected_files.iter().enumerate().fold(
         iced_widget::column!().spacing(6),
-        |column, (index, file)| {
+        |column, (index, (category, file))| {
             let full_path = file.path.display().to_string();
             let selected = selected_path_set.contains(full_path.as_str());
             let filename = file
@@ -770,8 +831,23 @@ fn usage_tab_view<'a>(volumes_control: &'a VolumesControl) -> Element<'a, Messag
                 .map(|name| name.to_string())
                 .unwrap_or_else(|| full_path.clone());
 
+            let category_index = UsageCategory::ALL
+                .iter()
+                .position(|candidate| candidate == category)
+                .unwrap_or(0);
+            let category_color = crate::ui::volumes::usage_pie::segment_color(category_index);
+
             let row_content = widget::container(
                 iced_widget::row![
+                    widget::container(icon::from_name(usage_category_icon(*category)).size(16))
+                        .style(
+                            move |_theme: &cosmic::Theme| iced_widget::container::Style {
+                                text_color: Some(category_color),
+                                icon_color: Some(category_color),
+                                ..Default::default()
+                            }
+                        )
+                        .width(Length::Fixed(24.0)),
                     widget::container(widget::tooltip(
                         widget::text::body(filename).width(Length::Fill),
                         widget::text::caption(full_path.clone()),
@@ -833,10 +909,11 @@ fn usage_tab_view<'a>(volumes_control: &'a VolumesControl) -> Element<'a, Messag
         Space::new(0, 4),
         action_bar,
         iced_widget::row![
-            widget::text("Filename")
+            widget::text(" ").width(Length::Fixed(24.0)),
+            widget::text(fl!("usage-filename"))
                 .font(cosmic::font::semibold())
                 .width(Length::Fill),
-            widget::text("Size").font(cosmic::font::semibold()),
+            widget::text(fl!("size")).font(cosmic::font::semibold()),
         ]
         .spacing(12),
         widget::scrollable(widget::container(file_rows).padding([4, 0])).height(Length::Fill),
@@ -855,7 +932,10 @@ fn usage_tab_view<'a>(volumes_control: &'a VolumesControl) -> Element<'a, Messag
 fn usage_scan_wizard_view<'a>(
     usage_state: &'a crate::ui::volumes::state::UsageTabState,
 ) -> Element<'a, Message> {
-    let mut show_all_toggle = widget::checkbox("Show All Files", usage_state.wizard_show_all_files);
+    let mut show_all_toggle = widget::checkbox(
+        fl!("usage-show-all-root-mode"),
+        usage_state.wizard_show_all_files,
+    );
     show_all_toggle = show_all_toggle.on_toggle(Message::UsageWizardShowAllFilesToggled);
 
     let parallelism_options = vec![
@@ -885,7 +965,11 @@ fn usage_scan_wizard_view<'a>(
             let tile_content = iced_widget::column![
                 icon::from_name("drive-harddisk-symbolic").size(24),
                 widget::text::body(mount_point.clone()).font(cosmic::font::semibold()),
-                widget::text::caption(if selected { "Selected" } else { "Not selected" }),
+                widget::text::caption(if selected {
+                    fl!("usage-selected")
+                } else {
+                    fl!("usage-not-selected")
+                }),
             ]
             .spacing(6)
             .align_x(Alignment::Center)
@@ -904,25 +988,27 @@ fn usage_scan_wizard_view<'a>(
         })
         .collect();
 
-    let mut start_button = widget::button::standard("Start Scan");
+    let mut start_button = widget::button::standard(fl!("usage-start-scan"));
     if !usage_state.wizard_loading_mounts && !usage_state.wizard_selected_mount_points.is_empty() {
-        start_button = start_button.on_press(Message::UsageWizardStartScan);
+        start_button = widget::button::suggested(fl!("usage-start-scan"))
+            .on_press(Message::UsageWizardStartScan);
     }
 
-    let cancel_button = widget::button::standard("Cancel").on_press(Message::UsageWizardCancel);
+    let cancel_button =
+        widget::button::standard(fl!("cancel")).on_press(Message::UsageWizardCancel);
 
     let mut wizard = iced_widget::column![
-        widget::text::title3("Choose mount points"),
-        widget::text::body("Select one or more mount points to include in the scan."),
+        widget::text::title3(fl!("usage-choose-mount-points")),
+        widget::text::body(fl!("usage-choose-mount-points-desc")),
         widget::Space::new(0, 8),
     ]
     .spacing(8)
     .width(Length::Fill);
 
     if usage_state.wizard_loading_mounts {
-        wizard = wizard.push(widget::text::caption("Loading mount points..."));
+        wizard = wizard.push(widget::text::caption(fl!("usage-loading-mount-points")));
     } else if usage_state.wizard_mount_points.is_empty() {
-        wizard = wizard.push(widget::text::caption("No mount points available."));
+        wizard = wizard.push(widget::text::caption(fl!("usage-no-mount-points")));
     } else {
         wizard = wizard.push(option_tile_grid(mount_tiles));
     }
@@ -930,7 +1016,7 @@ fn usage_scan_wizard_view<'a>(
     wizard = wizard
         .push(widget::Space::new(0, 4))
         .push(show_all_toggle)
-        .push(widget::text::caption("Parallelism"))
+        .push(widget::text::caption(fl!("usage-parallelism")))
         .push(parallelism_dropdown)
         .width(Length::Fill)
         .max_width(640);
@@ -940,8 +1026,8 @@ fn usage_scan_wizard_view<'a>(
     }
 
     let header = iced_widget::column![
-        widget::text::title2("Usage Scan Setup"),
-        widget::text::body("Choose scan scope and options before starting."),
+        widget::text::title2(fl!("usage-scan-setup")),
+        widget::text::body(fl!("usage-choose-mount-points-desc")),
     ]
     .spacing(8)
     .width(Length::Fill);

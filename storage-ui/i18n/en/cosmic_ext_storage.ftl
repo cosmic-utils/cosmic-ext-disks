@@ -281,3 +281,37 @@ btrfs-no-subvolumes = No subvolumes found
 btrfs-no-subvolumes-desc = This BTRFS volume may be newly created or not yet have any subvolumes.
 btrfs-loading-usage = Loading usage information...
 btrfs-usage-error = Usage error: { $error }
+
+# Usage view
+usage-scanning = Scanning disk usage...
+usage-scan-failed = Usage scan failed
+usage-scan-not-started = Usage scan not started
+usage-files-per-category = Files per Category
+usage-filename = Filename
+usage-selected-count = Selected: { $count }
+usage-clear-selection = Clear Selection
+usage-configure = Configure
+usage-show-all-root-mode = Show All Files (Root Mode)
+usage-scan-setup = Usage Scan Setup
+usage-choose-mount-points = Choose mount points
+usage-choose-mount-points-desc = Select one or more mount points to include in the scan.
+usage-selected = Selected
+usage-not-selected = Not selected
+usage-loading-mount-points = Loading mount points...
+usage-no-mount-points = No mount points available.
+usage-parallelism = Parallelism
+usage-start-scan = Start Scan
+usage-select-at-least-one-mount-point = Select at least one mount point
+usage-delete-summary = Deleted { $deleted } files; { $failed } failed
+
+# Usage categories
+usage-category-documents = Documents
+usage-category-images = Images
+usage-category-audio = Audio
+usage-category-video = Video
+usage-category-archives = Archives
+usage-category-code = Code
+usage-category-binaries = Binaries
+usage-category-packages = Packages
+usage-category-system = System
+usage-category-other = Other

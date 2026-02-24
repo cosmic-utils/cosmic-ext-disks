@@ -30,7 +30,7 @@ impl VolumesControl {
                     && self.usage_state.result.is_none()
                     && !self.usage_state.loading
                 {
-                    return Task::done(cosmic::Action::App(Message::UsageRefreshRequested));
+                    return Task::done(cosmic::Action::App(Message::UsageConfigureRequested));
                 }
 
                 // If switching to BTRFS tab, ensure data is loaded

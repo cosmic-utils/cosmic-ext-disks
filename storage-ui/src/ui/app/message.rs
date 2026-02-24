@@ -54,13 +54,14 @@ pub enum Message {
         processed_bytes: u64,
         estimated_total_bytes: u64,
     },
-    UsageCategorySelected(UsageCategory),
+    UsageCategoryFilterToggled(UsageCategory),
     UsageShowAllFilesToggled(bool),
     UsageShowAllFilesAuthCompleted {
         result: Result<(), String>,
     },
     UsageTopFilesPerCategoryChanged(u32),
     UsageRefreshRequested,
+    UsageConfigureRequested,
     UsageWizardMountPointsLoaded {
         result: Result<Vec<String>, String>,
     },

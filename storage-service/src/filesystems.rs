@@ -13,7 +13,7 @@ use std::sync::mpsc;
 use std::time::Duration;
 use storage_common::{
     CheckResult, FilesystemInfo, FilesystemToolInfo, FormatOptions, MountOptions,
-    MountOptionsSettings, UnmountResult, UsageDeleteFailure, UsageDeleteResult,
+    MountOptionsSettings, UnmountResult, UsageCategory, UsageDeleteFailure, UsageDeleteResult,
     UsageScanParallelismPreset, UsageScanResult,
 };
 use storage_dbus::DiskManager;
@@ -1061,6 +1061,31 @@ impl FilesystemsHandler {
             .await
             .map_err(|e| zbus::fdo::Error::Failed(format!("Usage scan join error: {e}")))?
             .map_err(|e| zbus::fdo::Error::Failed(format!("Usage scan failed: {e}")))?;
+
+        if !show_all_files {
+            for entry in &mut scan_result.categories {
+                if entry.category == UsageCategory::System
+                    || entry.category == UsageCategory::Packages
+                {
+                    entry.bytes = 0;
+                }
+            }
+
+            for entry in &mut scan_result.top_files_by_category {
+                if entry.category == UsageCategory::System
+                    || entry.category == UsageCategory::Packages
+                {
+                    entry.files.clear();
+                }
+            }
+
+            scan_result.categories.sort_by(|left, right| {
+                right
+                    .bytes
+                    .cmp(&left.bytes)
+                    .then_with(|| left.category.cmp(&right.category))
+            });
+        }
 
         scan_result.total_free_bytes = estimate.free_bytes;
 

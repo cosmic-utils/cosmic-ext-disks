@@ -25,7 +25,7 @@ pub struct UsageTabState {
     pub progress_estimated_total_bytes: u64,
     pub active_scan_id: Option<String>,
     pub result: Option<UsageScanResult>,
-    pub selected_category: UsageCategory,
+    pub selected_categories: Vec<UsageCategory>,
     pub show_all_files: bool,
     #[allow(dead_code)]
     pub show_all_files_authorized_for_session: bool,
@@ -43,6 +43,8 @@ pub struct UsageTabState {
     pub wizard_show_all_files: bool,
     pub wizard_parallelism_preset: UsageScanParallelismPreset,
     pub wizard_error: Option<String>,
+    pub scan_mount_points: Vec<String>,
+    pub scan_parallelism_preset: UsageScanParallelismPreset,
 }
 
 impl Default for UsageTabState {
@@ -53,7 +55,7 @@ impl Default for UsageTabState {
             progress_estimated_total_bytes: 0,
             active_scan_id: None,
             result: None,
-            selected_category: UsageCategory::Documents,
+            selected_categories: UsageCategory::ALL.to_vec(),
             show_all_files: false,
             show_all_files_authorized_for_session: false,
             top_files_per_category: 20,
@@ -70,6 +72,8 @@ impl Default for UsageTabState {
             wizard_show_all_files: false,
             wizard_parallelism_preset: UsageScanParallelismPreset::Balanced,
             wizard_error: None,
+            scan_mount_points: Vec::new(),
+            scan_parallelism_preset: UsageScanParallelismPreset::Balanced,
         }
     }
 }
