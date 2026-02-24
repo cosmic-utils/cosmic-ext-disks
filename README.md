@@ -59,11 +59,11 @@ just clippy             # Run linter
    - **Deferred until v0.2**: ATA Drive settings
 - 🎯 Performance improvements
 - 🎯 LVM/Logical container support
-- ⌛ Detailed Usage - Think "windirstat"
+- ✅ Detailed Usage tool
 - ⌛ BTRFS support - Partial implementation complete.
-  - Subvolumes Management
-  - Snapshot Management & Scheduling
-  - Optional Usage breakdown (requires enablement of quotas)
+   - Subvolumes Management
+   - Snapshot Management & Scheduling
+   - Optional Usage breakdown (requires enablement of quotas)
 - ⌛ New UI
    - **Deferred**: Modal dialog windows blocked by upstream libcosmic limitations
    - Settings pane is a mess still
