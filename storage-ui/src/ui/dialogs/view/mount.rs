@@ -1,8 +1,11 @@
 use crate::app::Message;
 use crate::fl;
 use crate::ui::dialogs::message::{EditMountOptionsMessage, UnmountBusyMessage};
-use crate::ui::dialogs::state::{EditMountOptionsDialog, UnmountBusyDialog};
-use crate::ui::wizard::{wizard_action_row, wizard_shell};
+use crate::ui::dialogs::state::{EditMountOptionsDialog, EditMountOptionsStep, UnmountBusyDialog};
+use crate::ui::wizard::{
+    WizardBreadcrumbStatus, WizardBreadcrumbStep, wizard_breadcrumb, wizard_step_is_clickable,
+    wizard_step_nav, wizard_step_shell,
+};
 use cosmic::{
     Element, iced_widget,
     widget::text::{caption, caption_heading},
@@ -12,6 +15,7 @@ use cosmic::{
 pub fn edit_mount_options<'a>(state: EditMountOptionsDialog) -> Element<'a, Message> {
     let EditMountOptionsDialog {
         target: _,
+        step,
         use_defaults,
         mount_at_startup,
         require_auth,
@@ -56,9 +60,13 @@ pub fn edit_mount_options<'a>(state: EditMountOptionsDialog) -> Element<'a, Mess
         show_cb = show_cb.on_toggle(|v| EditMountOptionsMessage::ShowInUiUpdate(v).into());
     }
 
-    let mut identify_dropdown = dropdown(identify_as_options, Some(identify_as_index), |v| {
-        EditMountOptionsMessage::IdentifyAsIndexUpdate(v).into()
-    });
+    let identify_as_options_for_dropdown = identify_as_options.clone();
+
+    let mut identify_dropdown = dropdown(
+        identify_as_options_for_dropdown,
+        Some(identify_as_index),
+        |v| EditMountOptionsMessage::IdentifyAsIndexUpdate(v).into(),
+    );
     if !controls_enabled || running {
         // Best-effort: disable via style by removing interaction.
         identify_dropdown = dropdown(Vec::<String>::new(), None, |_| Message::None);
@@ -104,21 +112,58 @@ pub fn edit_mount_options<'a>(state: EditMountOptionsDialog) -> Element<'a, Mess
             sym_icon_input.on_input(|t| EditMountOptionsMessage::SymbolicIconNameUpdate(t).into());
     }
 
-    let mut content = iced_widget::column![
-        defaults_cb,
-        mount_start_cb,
-        auth_cb,
-        show_cb,
-        caption_heading(fl!("identify-as")),
-        identify_dropdown,
-        other_opts_input,
-        mount_point_input,
-        fs_type_input,
-        display_name_input,
-        icon_input,
-        sym_icon_input,
-    ]
-    .spacing(12);
+    let mut content = iced_widget::column![].spacing(12);
+
+    match step {
+        EditMountOptionsStep::Behavior => {
+            content = content
+                .push(defaults_cb)
+                .push(mount_start_cb)
+                .push(auth_cb)
+                .push(show_cb);
+        }
+        EditMountOptionsStep::Details => {
+            content = content
+                .push(caption_heading(fl!("identify-as")))
+                .push(identify_dropdown)
+                .push(other_opts_input)
+                .push(mount_point_input)
+                .push(fs_type_input)
+                .push(display_name_input)
+                .push(icon_input)
+                .push(sym_icon_input);
+        }
+        EditMountOptionsStep::Review => {
+            let identify_as = identify_as_options
+                .get(identify_as_index)
+                .cloned()
+                .unwrap_or_default();
+            content = content
+                .push(caption(format!(
+                    "{}: {}",
+                    fl!("user-session-defaults"),
+                    use_defaults
+                )))
+                .push(caption(format!(
+                    "{}: {}",
+                    fl!("mount-at-startup"),
+                    mount_at_startup
+                )))
+                .push(caption(format!(
+                    "{}: {}",
+                    fl!("require-auth-to-mount"),
+                    require_auth
+                )))
+                .push(caption(format!("{}: {}", fl!("show-in-ui"), show_in_ui)))
+                .push(caption(format!("{}: {}", fl!("identify-as"), identify_as)))
+                .push(caption(format!("{}: {}", fl!("mount-point"), mount_point)))
+                .push(caption(format!(
+                    "{}: {}",
+                    fl!("filesystem-type"),
+                    filesystem_type
+                )));
+        }
+    }
 
     if let Some(err) = error.as_ref() {
         content = content.push(caption(err.clone()));
@@ -133,23 +178,76 @@ pub fn edit_mount_options<'a>(state: EditMountOptionsDialog) -> Element<'a, Mess
             && !filesystem_type.trim().is_empty()
             && !other_options.trim().is_empty());
 
-    let mut apply = button::standard(fl!("apply"));
-    if can_apply {
-        apply = apply.on_press(EditMountOptionsMessage::Confirm.into());
-    }
+    let current_number = step.number();
+    let steps = [
+        (EditMountOptionsStep::Behavior, "Behavior".to_string()),
+        (EditMountOptionsStep::Details, "Details".to_string()),
+        (EditMountOptionsStep::Review, "Review".to_string()),
+    ];
 
-    let footer = wizard_action_row(
-        vec![],
-        vec![
-            button::standard(fl!("cancel"))
-                .on_press(EditMountOptionsMessage::Cancel.into())
-                .into(),
-            apply.into(),
-        ],
+    let breadcrumb = wizard_breadcrumb(
+        steps
+            .iter()
+            .map(|(wizard_step, label)| {
+                let number = wizard_step.number();
+                let status = if number == current_number {
+                    WizardBreadcrumbStatus::Current
+                } else if number < current_number {
+                    WizardBreadcrumbStatus::Completed
+                } else {
+                    WizardBreadcrumbStatus::Upcoming
+                };
+                let on_press = if wizard_step_is_clickable(number, current_number) {
+                    Some(EditMountOptionsMessage::SetStep(*wizard_step).into())
+                } else {
+                    None
+                };
+
+                WizardBreadcrumbStep {
+                    label: label.clone(),
+                    status,
+                    on_press,
+                }
+            })
+            .collect(),
     );
 
-    wizard_shell(
+    let back_message = if step == EditMountOptionsStep::Behavior {
+        None
+    } else {
+        Some(EditMountOptionsMessage::PrevStep.into())
+    };
+
+    let (primary_label, primary_message) = if step == EditMountOptionsStep::Review {
+        (
+            fl!("apply"),
+            if can_apply {
+                Some(EditMountOptionsMessage::Confirm.into())
+            } else {
+                None
+            },
+        )
+    } else {
+        (
+            "Next".to_string(),
+            if !running {
+                Some(EditMountOptionsMessage::NextStep.into())
+            } else {
+                None
+            },
+        )
+    };
+
+    let footer = wizard_step_nav(
+        EditMountOptionsMessage::Cancel.into(),
+        back_message,
+        primary_label,
+        primary_message,
+    );
+
+    wizard_step_shell(
         caption(fl!("edit-mount-options")).into(),
+        breadcrumb,
         content.into(),
         footer,
     )

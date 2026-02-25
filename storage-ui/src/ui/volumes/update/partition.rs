@@ -7,7 +7,8 @@ use crate::client::{FilesystemsClient, LuksClient, PartitionsClient};
 use crate::fl;
 use crate::ui::dialogs::message::{EditPartitionMessage, ResizePartitionMessage};
 use crate::ui::dialogs::state::{
-    EditPartitionDialog, FormatPartitionDialog, ResizePartitionDialog, ShowDialog,
+    EditPartitionDialog, EditPartitionStep, FormatPartitionDialog, FormatPartitionStep,
+    ResizePartitionDialog, ResizePartitionStep, ShowDialog,
 };
 use crate::ui::error::{UiErrorContext, log_error_and_show_dialog};
 use crate::ui::volumes::helpers;
@@ -161,6 +162,7 @@ pub(super) fn open_format_partition(
     *dialog = Some(ShowDialog::FormatPartition(FormatPartitionDialog {
         volume,
         info,
+        step: FormatPartitionStep::Basics,
         running: false,
         filesystem_tools: control.filesystem_tools.clone(),
     }));
@@ -219,6 +221,7 @@ pub(super) fn open_edit_partition(
 
     *dialog = Some(ShowDialog::EditPartition(EditPartitionDialog {
         volume,
+        step: EditPartitionStep::Basics,
         partition_types,
         selected_type_index,
         name,
@@ -273,6 +276,7 @@ pub(super) fn open_resize_partition(
 
     *dialog = Some(ShowDialog::ResizePartition(ResizePartitionDialog {
         volume,
+        step: ResizePartitionStep::Sizing,
         min_size_bytes,
         max_size_bytes,
         new_size_bytes,
@@ -292,6 +296,34 @@ pub(super) fn edit_partition_message(
     };
 
     match msg {
+        EditPartitionMessage::PrevStep => {
+            if state.running {
+                return Task::none();
+            }
+            state.step = match state.step {
+                EditPartitionStep::Basics => EditPartitionStep::Basics,
+                EditPartitionStep::Flags => EditPartitionStep::Basics,
+                EditPartitionStep::Review => EditPartitionStep::Flags,
+            };
+        }
+        EditPartitionMessage::NextStep => {
+            if state.running {
+                return Task::none();
+            }
+            state.step = match state.step {
+                EditPartitionStep::Basics => EditPartitionStep::Flags,
+                EditPartitionStep::Flags => EditPartitionStep::Review,
+                EditPartitionStep::Review => EditPartitionStep::Review,
+            };
+        }
+        EditPartitionMessage::SetStep(step) => {
+            if state.running {
+                return Task::none();
+            }
+            if step.number() <= state.step.number() {
+                state.step = step;
+            }
+        }
         EditPartitionMessage::TypeUpdate(idx) => state.selected_type_index = idx,
         EditPartitionMessage::NameUpdate(name) => state.name = name,
         EditPartitionMessage::LegacyBiosBootableUpdate(v) => state.legacy_bios_bootable = v,
@@ -371,6 +403,32 @@ pub(super) fn resize_partition_message(
     };
 
     match msg {
+        ResizePartitionMessage::PrevStep => {
+            if state.running {
+                return Task::none();
+            }
+            state.step = match state.step {
+                ResizePartitionStep::Sizing => ResizePartitionStep::Sizing,
+                ResizePartitionStep::Review => ResizePartitionStep::Sizing,
+            };
+        }
+        ResizePartitionMessage::NextStep => {
+            if state.running {
+                return Task::none();
+            }
+            state.step = match state.step {
+                ResizePartitionStep::Sizing => ResizePartitionStep::Review,
+                ResizePartitionStep::Review => ResizePartitionStep::Review,
+            };
+        }
+        ResizePartitionMessage::SetStep(step) => {
+            if state.running {
+                return Task::none();
+            }
+            if step.number() <= state.step.number() {
+                state.step = step;
+            }
+        }
         ResizePartitionMessage::SizeUpdate(size) => {
             state.new_size_bytes = size.clamp(state.min_size_bytes, state.max_size_bytes)
         }

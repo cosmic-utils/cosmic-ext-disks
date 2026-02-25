@@ -9,8 +9,8 @@ use crate::ui::dialogs::message::{
     ChangePassphraseMessage, EditEncryptionOptionsMessage, TakeOwnershipMessage, UnlockMessage,
 };
 use crate::ui::dialogs::state::{
-    ChangePassphraseDialog, EditEncryptionOptionsDialog, FilesystemTarget, ShowDialog,
-    TakeOwnershipDialog, UnlockEncryptedDialog,
+    ChangePassphraseDialog, EditEncryptionOptionsDialog, EditEncryptionOptionsStep,
+    FilesystemTarget, ShowDialog, TakeOwnershipDialog, UnlockEncryptedDialog,
 };
 use crate::ui::error::{UiErrorContext, log_error_and_show_dialog};
 use crate::ui::volumes::helpers;
@@ -159,6 +159,7 @@ pub(super) fn open_edit_encryption_options(
 
             ShowDialog::EditEncryptionOptions(EditEncryptionOptionsDialog {
                 volume,
+                step: EditEncryptionOptionsStep::Behavior,
                 use_defaults,
                 unlock_at_startup,
                 require_auth,
@@ -418,6 +419,40 @@ pub(super) fn edit_encryption_options_message(
     };
 
     match msg {
+        EditEncryptionOptionsMessage::PrevStep => {
+            if state.running {
+                return Task::none();
+            }
+            state.step = match state.step {
+                EditEncryptionOptionsStep::Behavior => EditEncryptionOptionsStep::Behavior,
+                EditEncryptionOptionsStep::Credentials => EditEncryptionOptionsStep::Behavior,
+                EditEncryptionOptionsStep::Review => EditEncryptionOptionsStep::Credentials,
+            };
+            state.error = None;
+            Task::none()
+        }
+        EditEncryptionOptionsMessage::NextStep => {
+            if state.running {
+                return Task::none();
+            }
+            state.step = match state.step {
+                EditEncryptionOptionsStep::Behavior => EditEncryptionOptionsStep::Credentials,
+                EditEncryptionOptionsStep::Credentials => EditEncryptionOptionsStep::Review,
+                EditEncryptionOptionsStep::Review => EditEncryptionOptionsStep::Review,
+            };
+            state.error = None;
+            Task::none()
+        }
+        EditEncryptionOptionsMessage::SetStep(step) => {
+            if state.running {
+                return Task::none();
+            }
+            if step.number() <= state.step.number() {
+                state.step = step;
+                state.error = None;
+            }
+            Task::none()
+        }
         EditEncryptionOptionsMessage::UseDefaultsUpdate(v) => {
             state.use_defaults = v;
             state.error = None;

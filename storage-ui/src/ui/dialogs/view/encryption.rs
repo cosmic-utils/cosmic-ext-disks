@@ -4,9 +4,13 @@ use crate::ui::dialogs::message::{
     ChangePassphraseMessage, EditEncryptionOptionsMessage, TakeOwnershipMessage, UnlockMessage,
 };
 use crate::ui::dialogs::state::{
-    ChangePassphraseDialog, EditEncryptionOptionsDialog, TakeOwnershipDialog, UnlockEncryptedDialog,
+    ChangePassphraseDialog, EditEncryptionOptionsDialog, EditEncryptionOptionsStep,
+    TakeOwnershipDialog, UnlockEncryptedDialog,
 };
-use crate::ui::wizard::{wizard_action_row, wizard_shell};
+use crate::ui::wizard::{
+    WizardBreadcrumbStatus, WizardBreadcrumbStep, wizard_action_row, wizard_breadcrumb,
+    wizard_shell, wizard_step_is_clickable, wizard_step_nav, wizard_step_shell,
+};
 use cosmic::{
     Element, iced_widget,
     widget::text::caption,
@@ -106,6 +110,7 @@ pub fn change_passphrase<'a>(state: ChangePassphraseDialog) -> Element<'a, Messa
 pub fn edit_encryption_options<'a>(state: EditEncryptionOptionsDialog) -> Element<'a, Message> {
     let EditEncryptionOptionsDialog {
         volume: _,
+        step,
         use_defaults,
         unlock_at_startup,
         require_auth,
@@ -118,6 +123,7 @@ pub fn edit_encryption_options<'a>(state: EditEncryptionOptionsDialog) -> Elemen
     } = state;
 
     let name_for_input = name.clone();
+    let other_options_for_input = other_options.clone();
 
     let controls_enabled = !use_defaults;
 
@@ -139,7 +145,7 @@ pub fn edit_encryption_options<'a>(state: EditEncryptionOptionsDialog) -> Elemen
     }
 
     let mut other_opts_input =
-        text_input(fl!("other-options"), other_options).label(fl!("other-options"));
+        text_input(fl!("other-options"), other_options_for_input).label(fl!("other-options"));
     if controls_enabled && !running {
         other_opts_input = other_opts_input
             .on_input(|t| EditEncryptionOptionsMessage::OtherOptionsUpdate(t).into());
@@ -166,16 +172,44 @@ pub fn edit_encryption_options<'a>(state: EditEncryptionOptionsDialog) -> Elemen
             .on_toggle(|v| EditEncryptionOptionsMessage::ShowPassphraseUpdate(v).into());
     }
 
-    let mut content = iced_widget::column![
-        defaults_cb,
-        startup_cb,
-        auth_cb,
-        other_opts_input,
-        name_input,
-        passphrase_input,
-        show_pass_cb,
-    ]
-    .spacing(12);
+    let mut content = iced_widget::column![].spacing(12);
+
+    match step {
+        EditEncryptionOptionsStep::Behavior => {
+            content = content.push(defaults_cb).push(startup_cb).push(auth_cb);
+        }
+        EditEncryptionOptionsStep::Credentials => {
+            content = content
+                .push(other_opts_input)
+                .push(name_input)
+                .push(passphrase_input)
+                .push(show_pass_cb);
+        }
+        EditEncryptionOptionsStep::Review => {
+            content = content
+                .push(caption(format!(
+                    "{}: {}",
+                    fl!("user-session-defaults"),
+                    use_defaults
+                )))
+                .push(caption(format!(
+                    "{}: {}",
+                    fl!("unlock-at-startup"),
+                    unlock_at_startup
+                )))
+                .push(caption(format!(
+                    "{}: {}",
+                    fl!("require-auth-to-unlock"),
+                    require_auth
+                )))
+                .push(caption(format!("{}: {}", fl!("name"), name)))
+                .push(caption(format!(
+                    "{}: {}",
+                    fl!("other-options"),
+                    other_options
+                )));
+        }
+    }
 
     if let Some(err) = error.as_ref() {
         content = content.push(caption(err.clone()));
@@ -185,23 +219,80 @@ pub fn edit_encryption_options<'a>(state: EditEncryptionOptionsDialog) -> Elemen
     }
 
     let can_apply = use_defaults || (!name.trim().is_empty() && !running);
-    let mut apply = button::standard(fl!("apply"));
-    if can_apply {
-        apply = apply.on_press(EditEncryptionOptionsMessage::Confirm.into());
-    }
 
-    let footer = wizard_action_row(
-        vec![],
-        vec![
-            button::standard(fl!("cancel"))
-                .on_press(EditEncryptionOptionsMessage::Cancel.into())
-                .into(),
-            apply.into(),
-        ],
+    let current_number = step.number();
+    let steps = [
+        (EditEncryptionOptionsStep::Behavior, "Behavior".to_string()),
+        (
+            EditEncryptionOptionsStep::Credentials,
+            "Credentials".to_string(),
+        ),
+        (EditEncryptionOptionsStep::Review, "Review".to_string()),
+    ];
+
+    let breadcrumb = wizard_breadcrumb(
+        steps
+            .iter()
+            .map(|(wizard_step, label)| {
+                let number = wizard_step.number();
+                let status = if number == current_number {
+                    WizardBreadcrumbStatus::Current
+                } else if number < current_number {
+                    WizardBreadcrumbStatus::Completed
+                } else {
+                    WizardBreadcrumbStatus::Upcoming
+                };
+                let on_press = if wizard_step_is_clickable(number, current_number) {
+                    Some(EditEncryptionOptionsMessage::SetStep(*wizard_step).into())
+                } else {
+                    None
+                };
+
+                WizardBreadcrumbStep {
+                    label: label.clone(),
+                    status,
+                    on_press,
+                }
+            })
+            .collect(),
     );
 
-    wizard_shell(
+    let back_message = if step == EditEncryptionOptionsStep::Behavior {
+        None
+    } else {
+        Some(EditEncryptionOptionsMessage::PrevStep.into())
+    };
+
+    let (primary_label, primary_message) = if step == EditEncryptionOptionsStep::Review {
+        (
+            fl!("apply"),
+            if can_apply {
+                Some(EditEncryptionOptionsMessage::Confirm.into())
+            } else {
+                None
+            },
+        )
+    } else {
+        (
+            "Next".to_string(),
+            if !running {
+                Some(EditEncryptionOptionsMessage::NextStep.into())
+            } else {
+                None
+            },
+        )
+    };
+
+    let footer = wizard_step_nav(
+        EditEncryptionOptionsMessage::Cancel.into(),
+        back_message,
+        primary_label,
+        primary_message,
+    );
+
+    wizard_step_shell(
         caption(fl!("edit-encryption-options")).into(),
+        breadcrumb,
         content.into(),
         footer,
     )

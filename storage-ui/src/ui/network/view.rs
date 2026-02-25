@@ -8,7 +8,10 @@ use super::state::{
     NetworkEditorState, NetworkState, NetworkWizardState, QUICK_SETUP_PROVIDERS, SECTION_ORDER,
     WizardStep,
 };
-use crate::ui::wizard::{option_tile_grid, selectable_tile, wizard_action_row, wizard_shell};
+use crate::ui::wizard::{
+    WizardBreadcrumbStatus, WizardBreadcrumbStep, option_tile_grid, selectable_tile,
+    wizard_breadcrumb, wizard_shell, wizard_step_nav,
+};
 use cosmic::cosmic_theme::palette::WithAlpha;
 use cosmic::iced::Length;
 use cosmic::widget::{self, button, dropdown, icon, text_input};
@@ -832,9 +835,6 @@ fn editor_view(
 /// Progress indicator showing dots for each step
 fn wizard_progress(current: &WizardStep) -> Element<'static, NetworkMessage> {
     let current_num = current.number();
-    let total = WizardStep::total();
-
-    let mut dots: Vec<Element<'static, NetworkMessage>> = Vec::new();
     let steps = [
         WizardStep::SelectType,
         WizardStep::NameAndScope,
@@ -843,95 +843,59 @@ fn wizard_progress(current: &WizardStep) -> Element<'static, NetworkMessage> {
         WizardStep::Review,
     ];
 
-    for (i, step) in steps.iter().enumerate() {
-        let step_num = i + 1;
-        let is_current = step_num == current_num;
-        let is_done = step_num < current_num;
-
-        let label = step.label();
-        let text = if is_current {
-            widget::text::body(label.to_string()).font(cosmic::font::semibold())
-        } else {
-            widget::text::body(label.to_string())
-        };
-
-        let styled_text: Element<'static, NetworkMessage> = widget::container(text)
-            .style(move |theme| {
-                let color = if is_current {
-                    theme.cosmic().accent_color()
-                } else if is_done {
-                    theme.cosmic().background.component.on
+    wizard_breadcrumb(
+        steps
+            .iter()
+            .map(|step| {
+                let number = step.number();
+                let status = if number == current_num {
+                    WizardBreadcrumbStatus::Current
+                } else if number < current_num {
+                    WizardBreadcrumbStatus::Completed
                 } else {
-                    theme.cosmic().background.component.on.with_alpha(0.4)
+                    WizardBreadcrumbStatus::Upcoming
                 };
-                cosmic::iced_widget::container::Style {
-                    text_color: Some(color.into()),
-                    ..Default::default()
+
+                WizardBreadcrumbStep {
+                    label: step.label().to_string(),
+                    status,
+                    on_press: None,
                 }
             })
-            .into();
-
-        dots.push(styled_text);
-
-        if step_num < total {
-            dots.push(
-                widget::container(widget::text::caption("  >  ".to_string()))
-                    .style(move |theme| cosmic::iced_widget::container::Style {
-                        text_color: Some(
-                            theme
-                                .cosmic()
-                                .background
-                                .component
-                                .on
-                                .with_alpha(0.3)
-                                .into(),
-                        ),
-                        ..Default::default()
-                    })
-                    .into(),
-            );
-        }
-    }
-
-    widget::Row::from_vec(dots)
-        .align_y(cosmic::iced::Alignment::Center)
-        .into()
+            .collect(),
+    )
 }
 
 /// Navigation buttons for wizard (Back / Next / Create)
 fn wizard_nav(wizard: &NetworkWizardState) -> Element<'static, NetworkMessage> {
-    let left_actions = vec![
-        button::standard("Cancel")
-            .on_press(NetworkMessage::WizardCancel)
-            .into(),
-    ];
-
-    let mut right_actions: Vec<Element<'static, NetworkMessage>> = Vec::new();
-
-    if wizard.step != WizardStep::SelectType {
-        right_actions.push(
-            button::standard("Back")
-                .on_press(NetworkMessage::WizardBack)
-                .into(),
-        );
-    }
-
     let can_advance = wizard.can_advance();
-    if wizard.step == WizardStep::Review {
-        let mut create_btn = button::suggested("Create");
-        if can_advance {
-            create_btn = create_btn.on_press(NetworkMessage::WizardCreate);
-        }
-        right_actions.push(create_btn.into());
+    let back_message = if wizard.step != WizardStep::SelectType {
+        Some(NetworkMessage::WizardBack)
     } else {
-        let mut next_btn = button::suggested("Next");
-        if can_advance {
-            next_btn = next_btn.on_press(NetworkMessage::WizardNext);
-        }
-        right_actions.push(next_btn.into());
-    }
+        None
+    };
 
-    wizard_action_row(left_actions, right_actions)
+    let (label, action) = if wizard.step == WizardStep::Review {
+        (
+            "Create".to_string(),
+            if can_advance {
+                Some(NetworkMessage::WizardCreate)
+            } else {
+                None
+            },
+        )
+    } else {
+        (
+            "Next".to_string(),
+            if can_advance {
+                Some(NetworkMessage::WizardNext)
+            } else {
+                None
+            },
+        )
+    };
+
+    wizard_step_nav(NetworkMessage::WizardCancel, back_message, label, action)
 }
 
 /// Step 1: Type selection grid

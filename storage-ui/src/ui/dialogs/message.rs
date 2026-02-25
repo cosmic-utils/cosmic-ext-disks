@@ -1,5 +1,8 @@
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum EditPartitionMessage {
+    PrevStep,
+    NextStep,
+    SetStep(crate::ui::dialogs::state::EditPartitionStep),
     TypeUpdate(usize),
     NameUpdate(String),
     LegacyBiosBootableUpdate(bool),
@@ -11,6 +14,9 @@ pub enum EditPartitionMessage {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ResizePartitionMessage {
+    PrevStep,
+    NextStep,
+    SetStep(crate::ui::dialogs::state::ResizePartitionStep),
     SizeUpdate(u64),
     Confirm,
     Cancel,
@@ -25,6 +31,9 @@ pub enum EditFilesystemLabelMessage {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum EditMountOptionsMessage {
+    PrevStep,
+    NextStep,
+    SetStep(crate::ui::dialogs::state::EditMountOptionsStep),
     UseDefaultsUpdate(bool),
     MountAtStartupUpdate(bool),
     RequireAuthUpdate(bool),
@@ -58,6 +67,9 @@ pub enum ChangePassphraseMessage {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum EditEncryptionOptionsMessage {
+    PrevStep,
+    NextStep,
+    SetStep(crate::ui::dialogs::state::EditEncryptionOptionsStep),
     UseDefaultsUpdate(bool),
     UnlockAtStartupUpdate(bool),
     RequireAuthUpdate(bool),
@@ -73,6 +85,8 @@ pub enum EditEncryptionOptionsMessage {
 pub enum CreateMessage {
     PrevStep,
     NextStep,
+    SetStep(crate::ui::dialogs::state::CreatePartitionStep),
+    SetFormatStep(crate::ui::dialogs::state::FormatPartitionStep),
     SizeUpdate(u64),
     SizeUnitUpdate(usize),
     NameUpdate(String),

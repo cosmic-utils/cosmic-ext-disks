@@ -40,13 +40,30 @@ pub enum ShowDialog {
 pub struct FormatPartitionDialog {
     pub volume: VolumeInfo,
     pub info: CreatePartitionInfo,
+    pub step: FormatPartitionStep,
     pub running: bool,
     pub filesystem_tools: Vec<FilesystemToolInfo>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FormatPartitionStep {
+    Basics,
+    Options,
+}
+
+impl FormatPartitionStep {
+    pub const fn number(self) -> usize {
+        match self {
+            Self::Basics => 1,
+            Self::Options => 2,
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
 pub struct EditPartitionDialog {
     pub volume: VolumeInfo,
+    pub step: EditPartitionStep,
     pub partition_types: Vec<PartitionTypeInfo>,
     pub selected_type_index: usize,
     pub name: String,
@@ -56,13 +73,46 @@ pub struct EditPartitionDialog {
     pub running: bool,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum EditPartitionStep {
+    Basics,
+    Flags,
+    Review,
+}
+
+impl EditPartitionStep {
+    pub const fn number(self) -> usize {
+        match self {
+            Self::Basics => 1,
+            Self::Flags => 2,
+            Self::Review => 3,
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct ResizePartitionDialog {
     pub volume: VolumeInfo,
+    pub step: ResizePartitionStep,
     pub min_size_bytes: u64,
     pub max_size_bytes: u64,
     pub new_size_bytes: u64,
     pub running: bool,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ResizePartitionStep {
+    Sizing,
+    Review,
+}
+
+impl ResizePartitionStep {
+    pub const fn number(self) -> usize {
+        match self {
+            Self::Sizing => 1,
+            Self::Review => 2,
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -107,6 +157,7 @@ pub struct ChangePassphraseDialog {
 #[derive(Debug, Clone)]
 pub struct EditMountOptionsDialog {
     pub target: FilesystemTarget,
+    pub step: EditMountOptionsStep,
     pub use_defaults: bool,
     pub mount_at_startup: bool,
     pub require_auth: bool,
@@ -123,9 +174,27 @@ pub struct EditMountOptionsDialog {
     pub running: bool,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum EditMountOptionsStep {
+    Behavior,
+    Details,
+    Review,
+}
+
+impl EditMountOptionsStep {
+    pub const fn number(self) -> usize {
+        match self {
+            Self::Behavior => 1,
+            Self::Details => 2,
+            Self::Review => 3,
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct EditEncryptionOptionsDialog {
     pub volume: VolumeInfo,
+    pub step: EditEncryptionOptionsStep,
     pub use_defaults: bool,
     pub unlock_at_startup: bool,
     pub require_auth: bool,
@@ -135,6 +204,23 @@ pub struct EditEncryptionOptionsDialog {
     pub show_passphrase: bool,
     pub error: Option<String>,
     pub running: bool,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum EditEncryptionOptionsStep {
+    Behavior,
+    Credentials,
+    Review,
+}
+
+impl EditEncryptionOptionsStep {
+    pub const fn number(self) -> usize {
+        match self {
+            Self::Behavior => 1,
+            Self::Credentials => 2,
+            Self::Review => 3,
+        }
+    }
 }
 
 #[derive(Debug, Clone)]

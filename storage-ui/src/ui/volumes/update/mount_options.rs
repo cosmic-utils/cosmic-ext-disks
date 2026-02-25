@@ -6,7 +6,9 @@ use storage_common::MountOptionsSettings;
 use crate::app::Message;
 use crate::fl;
 use crate::ui::dialogs::message::EditMountOptionsMessage;
-use crate::ui::dialogs::state::{EditMountOptionsDialog, FilesystemTarget, ShowDialog};
+use crate::ui::dialogs::state::{
+    EditMountOptionsDialog, EditMountOptionsStep, FilesystemTarget, ShowDialog,
+};
 use crate::ui::error::{UiErrorContext, log_error_and_show_dialog};
 
 use crate::ui::volumes::VolumesControl;
@@ -179,6 +181,7 @@ pub(super) fn open_edit_mount_options(
 
             ShowDialog::EditMountOptions(EditMountOptionsDialog {
                 target,
+                step: EditMountOptionsStep::Behavior,
                 use_defaults,
                 mount_at_startup,
                 require_auth,
@@ -209,6 +212,40 @@ pub(super) fn edit_mount_options_message(
     };
 
     match msg {
+        EditMountOptionsMessage::PrevStep => {
+            if state.running {
+                return Task::none();
+            }
+            state.step = match state.step {
+                EditMountOptionsStep::Behavior => EditMountOptionsStep::Behavior,
+                EditMountOptionsStep::Details => EditMountOptionsStep::Behavior,
+                EditMountOptionsStep::Review => EditMountOptionsStep::Details,
+            };
+            state.error = None;
+            Task::none()
+        }
+        EditMountOptionsMessage::NextStep => {
+            if state.running {
+                return Task::none();
+            }
+            state.step = match state.step {
+                EditMountOptionsStep::Behavior => EditMountOptionsStep::Details,
+                EditMountOptionsStep::Details => EditMountOptionsStep::Review,
+                EditMountOptionsStep::Review => EditMountOptionsStep::Review,
+            };
+            state.error = None;
+            Task::none()
+        }
+        EditMountOptionsMessage::SetStep(step) => {
+            if state.running {
+                return Task::none();
+            }
+            if step.number() <= state.step.number() {
+                state.step = step;
+                state.error = None;
+            }
+            Task::none()
+        }
         EditMountOptionsMessage::UseDefaultsUpdate(v) => {
             state.use_defaults = v;
             state.error = None;

@@ -5,12 +5,36 @@ use crate::app::Message;
 use crate::client::{FilesystemsClient, PartitionsClient};
 use crate::fl;
 use crate::ui::dialogs::message::CreateMessage;
-use crate::ui::dialogs::state::{CreatePartitionStep, ShowDialog};
+use crate::ui::dialogs::state::{CreatePartitionStep, FormatPartitionStep, ShowDialog};
 use crate::ui::error::{UiErrorContext, log_error_and_show_dialog};
 use crate::ui::volumes::helpers;
 use storage_common::CreatePartitionInfo;
 
 use crate::ui::volumes::VolumesControl;
+
+fn create_partition_step_can_advance(
+    state: &crate::ui::dialogs::state::CreatePartitionDialog,
+) -> bool {
+    match state.step {
+        CreatePartitionStep::Basics => {
+            let filesystem_type = helpers::common_partition_filesystem_type(
+                &state.info.table_type,
+                state.info.selected_partition_type_index,
+            );
+
+            filesystem_type.is_some_and(|fs_type| {
+                state
+                    .filesystem_tools
+                    .iter()
+                    .any(|tool| tool.fs_type == fs_type && tool.available)
+            })
+        }
+        CreatePartitionStep::Sizing => {
+            state.info.size > 0 && state.info.size <= state.info.max_size
+        }
+        CreatePartitionStep::Options => true,
+    }
+}
 
 pub(super) fn create_message(
     control: &mut VolumesControl,
@@ -45,12 +69,26 @@ pub(super) fn create_message(
                 if state.running {
                     return Task::none();
                 }
+                if !create_partition_step_can_advance(state) {
+                    return Task::none();
+                }
                 state.step = match state.step {
                     CreatePartitionStep::Basics => CreatePartitionStep::Sizing,
                     CreatePartitionStep::Sizing => CreatePartitionStep::Options,
                     CreatePartitionStep::Options => CreatePartitionStep::Options,
                 };
             }
+            CreateMessage::SetStep(step) => {
+                if state.running {
+                    return Task::none();
+                }
+
+                if step.number() <= state.step.number() {
+                    state.step = step;
+                    state.error = None;
+                }
+            }
+            CreateMessage::SetFormatStep(_) => {}
             CreateMessage::SizeUpdate(size) => {
                 state.info.size = size;
                 state.error = None;
@@ -145,6 +183,35 @@ pub(super) fn create_message(
         },
 
         ShowDialog::FormatPartition(state) => match create_message {
+            CreateMessage::PrevStep => {
+                if state.running {
+                    return Task::none();
+                }
+
+                state.step = match state.step {
+                    FormatPartitionStep::Basics => FormatPartitionStep::Basics,
+                    FormatPartitionStep::Options => FormatPartitionStep::Basics,
+                };
+            }
+            CreateMessage::NextStep => {
+                if state.running {
+                    return Task::none();
+                }
+
+                state.step = match state.step {
+                    FormatPartitionStep::Basics => FormatPartitionStep::Options,
+                    FormatPartitionStep::Options => FormatPartitionStep::Options,
+                };
+            }
+            CreateMessage::SetFormatStep(step) => {
+                if state.running {
+                    return Task::none();
+                }
+
+                if step.number() <= state.step.number() {
+                    state.step = step;
+                }
+            }
             CreateMessage::NameUpdate(name) => {
                 state.info.name = name;
             }

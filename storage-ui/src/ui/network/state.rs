@@ -61,11 +61,6 @@ impl WizardStep {
         }
     }
 
-    /// Total number of steps
-    pub fn total() -> usize {
-        5
-    }
-
     /// Get display label for the step
     pub fn label(&self) -> &'static str {
         match self {
