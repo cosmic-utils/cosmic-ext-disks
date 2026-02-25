@@ -9,7 +9,7 @@ use zbus::message::Header as MessageHeader;
 use zbus::object_server::SignalEmitter;
 use zbus::{Connection, interface};
 
-use crate::domain::btrfs::{BtrfsDomain, BtrfsPolicy};
+use crate::policies::btrfs::{BtrfsDomain, BtrfsPolicy};
 
 /// BTRFS operations handler
 pub struct BtrfsHandler {

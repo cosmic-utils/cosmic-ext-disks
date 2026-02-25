@@ -11,7 +11,7 @@ use storage_macros::authorized_interface;
 use zbus::message::Header as MessageHeader;
 use zbus::{Connection, interface};
 
-use crate::domain::partitions::{PartitionsDomain, PartitionsPolicy};
+use crate::policies::partitions::{PartitionsDomain, PartitionsPolicy};
 
 /// D-Bus interface for partition management operations
 pub struct PartitionsHandler {

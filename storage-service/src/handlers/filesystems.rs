@@ -23,7 +23,7 @@ use storage_types::{
 use zbus::message::Header as MessageHeader;
 use zbus::{Connection, interface};
 
-use crate::domain::filesystems::{FilesystemsDomain, FilesystemsPolicy};
+use crate::policies::filesystems::{FilesystemsDomain, FilesystemsPolicy};
 
 /// D-Bus interface for filesystem management operations
 pub struct FilesystemsHandler {

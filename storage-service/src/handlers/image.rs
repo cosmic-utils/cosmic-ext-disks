@@ -18,7 +18,7 @@ use zbus::message::Header as MessageHeader;
 use zbus::object_server::SignalEmitter;
 use zbus::{Connection, interface};
 
-use crate::domain::image::{ImageDomain, ImagePolicy};
+use crate::policies::image::{ImageDomain, ImagePolicy};
 
 /// Operation type for tracking
 #[derive(Debug, Clone, PartialEq, Eq)]

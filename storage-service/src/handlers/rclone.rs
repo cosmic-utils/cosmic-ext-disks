@@ -16,7 +16,7 @@ use zbus::message::Header as MessageHeader;
 use zbus::object_server::SignalEmitter;
 use zbus::{Connection, interface};
 
-use crate::domain::rclone::{RcloneDomain, RclonePolicy};
+use crate::policies::rclone::{RcloneDomain, RclonePolicy};
 
 /// D-Bus interface for RClone mount management operations
 pub struct RcloneHandler {
