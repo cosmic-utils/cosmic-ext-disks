@@ -4,18 +4,25 @@
 //!
 //! This module provides D-Bus methods for managing LUKS encrypted volumes.
 
+use std::sync::Arc;
 use storage_common::EncryptionOptionsSettings;
 use storage_service_macros::authorized_interface;
 use zbus::message::Header as MessageHeader;
 use zbus::{Connection, interface};
 
+use crate::service::domain::luks::{DefaultLuksDomain, LuksDomain};
+
 /// D-Bus interface for LUKS encryption operations
-pub struct LuksHandler;
+pub struct LuksHandler {
+    domain: Arc<dyn LuksDomain>,
+}
 
 impl LuksHandler {
     /// Create a new LuksHandler
     pub fn new() -> Self {
-        Self
+        Self {
+            domain: Arc::new(DefaultLuksDomain),
+        }
     }
 }
 
@@ -94,17 +101,7 @@ impl LuksHandler {
             caller.uid
         );
 
-        // Validate version
-        let luks_version = if version.is_empty() || version == "luks2" {
-            "luks2"
-        } else if version == "luks1" {
-            "luks1"
-        } else {
-            return Err(zbus::fdo::Error::InvalidArgs(format!(
-                "Invalid LUKS version: {}. Use 'luks1' or 'luks2'",
-                version
-            )));
-        };
+        let luks_version = self.domain.normalize_luks_version(&version)?;
 
         // Delegate to storage-dbus operation
         storage_dbus::format_luks(&device, &passphrase, luks_version)

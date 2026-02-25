@@ -6,6 +6,28 @@ license = "GPL-3.0-only"
 description = "A Storage utility for the COSMIC™ desktop"
 repository = "https://github.com/cosmic-utils/cosmic-ext-storage"
 
+[features]
+default = [
+	"btrfs-tools",
+	"lvm-tools",
+	"rclone-tools",
+	"fs-ext4",
+	"fs-xfs",
+	"fs-btrfs",
+	"fs-vfat",
+	"fs-ntfs",
+	"fs-exfat",
+]
+btrfs-tools = []
+lvm-tools = []
+rclone-tools = []
+fs-ext4 = []
+fs-xfs = []
+fs-btrfs = []
+fs-vfat = []
+fs-ntfs = []
+fs-exfat = []
+
 [build-dependencies]
 vergen = { workspace = true }
 

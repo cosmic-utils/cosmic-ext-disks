@@ -6,22 +6,29 @@
 //! and monitoring disk hotplug events.
 
 use anyhow::Result;
+use std::sync::Arc;
 use storage_dbus::DiskManager;
 use storage_service_macros::authorized_interface;
 use zbus::message::Header as MessageHeader;
 use zbus::{Connection, interface};
 
+use crate::service::domain::disks::{DefaultDisksDomain, DisksDomain};
+
 /// D-Bus interface for disk discovery and SMART operations
 pub struct DisksHandler {
     #[allow(dead_code)]
     manager: DiskManager,
+    domain: Arc<dyn DisksDomain>,
 }
 
 impl DisksHandler {
     /// Create a new DisksHandler
     pub async fn new() -> Result<Self> {
         let manager = DiskManager::new().await?;
-        Ok(Self { manager })
+        Ok(Self {
+            manager,
+            domain: Arc::new(DefaultDisksDomain),
+        })
     }
 
     /// Get the underlying DiskManager for internal use
@@ -214,33 +221,9 @@ impl DisksHandler {
         }
 
         // Extract device name from input (strip "/dev/" prefix if present)
-        let device_name = device.strip_prefix("/dev/").unwrap_or(&device);
-
-        // Try to find the disk by matching device name
-        // The device field contains UDisks2 paths like "/org/freedesktop/UDisks2/block_devices/sda"
         let disk = disks
             .into_iter()
-            .find(|d| {
-                // Exact match on full device field (handles UDisks2 paths)
-                if d.device == device {
-                    return true;
-                }
-
-                // Extract the device name from the UDisks2 path (last component)
-                // e.g., "/org/freedesktop/UDisks2/block_devices/sda" -> "sda"
-                if let Some(disk_name) = d.device.rsplit('/').next()
-                    && disk_name == device_name
-                {
-                    return true;
-                }
-
-                // Also check if id matches (for serial/model lookups)
-                if d.id == device || d.id == device_name {
-                    return true;
-                }
-
-                false
-            })
+            .find(|d| self.domain.disk_matches(d, &device))
             .ok_or_else(|| {
                 tracing::warn!("Device not found: {device}");
                 zbus::fdo::Error::Failed(format!("Device not found: {device}"))

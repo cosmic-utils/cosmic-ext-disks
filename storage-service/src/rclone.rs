@@ -5,6 +5,7 @@
 //! This module provides D-Bus methods for managing RClone remotes and mounts,
 //! including listing remotes, mounting/unmounting, and configuration management.
 
+use std::sync::Arc;
 use storage_common::rclone::{
     ConfigScope, MountStatus, MountStatusResult, RemoteConfig, RemoteConfigList, TestResult,
     rclone_provider, supported_remote_types,
@@ -15,9 +16,12 @@ use zbus::message::Header as MessageHeader;
 use zbus::object_server::SignalEmitter;
 use zbus::{Connection, interface};
 
+use crate::service::domain::rclone::{DefaultRcloneDomain, RcloneDomain};
+
 /// D-Bus interface for RClone mount management operations
 pub struct RcloneHandler {
     cli: RCloneCli,
+    domain: Arc<dyn RcloneDomain>,
 }
 
 impl RcloneHandler {
@@ -25,7 +29,10 @@ impl RcloneHandler {
     pub fn new() -> Result<Self, storage_sys::SysError> {
         let cli = RCloneCli::new()?;
         tracing::info!("RcloneHandler initialized successfully");
-        Ok(Self { cli })
+        Ok(Self {
+            cli,
+            domain: Arc::new(DefaultRcloneDomain),
+        })
     }
 
     /// Get the home directory for a specific UID
@@ -115,33 +122,12 @@ impl RcloneHandler {
     }
 
     /// Convert scope string to ConfigScope enum
-    fn parse_scope(scope: &str) -> Result<ConfigScope, zbus::fdo::Error> {
-        scope
-            .parse()
-            .map_err(|e| zbus::fdo::Error::Failed(format!("Invalid scope: {}", e)))
+    fn parse_scope(&self, scope: &str) -> Result<ConfigScope, zbus::fdo::Error> {
+        self.domain.parse_scope(scope)
     }
 
-    fn validate_remote_config(config: &RemoteConfig) -> Result<(), zbus::fdo::Error> {
-        config.validate_name().map_err(zbus::fdo::Error::Failed)?;
-
-        let provider = rclone_provider(&config.remote_type).ok_or_else(|| {
-            zbus::fdo::Error::Failed(format!("Unsupported remote type: {}", config.remote_type))
-        })?;
-
-        for option in &provider.options {
-            if !option.required || option.is_hidden() {
-                continue;
-            }
-            let value = config.options.get(&option.name).map(|v| v.trim());
-            if value.is_none() || value == Some("") {
-                return Err(zbus::fdo::Error::Failed(format!(
-                    "Missing required field '{}' for {}",
-                    option.name, config.remote_type
-                )));
-            }
-        }
-
-        Ok(())
+    fn validate_remote_config(&self, config: &RemoteConfig) -> Result<(), zbus::fdo::Error> {
+        self.domain.validate_remote_config(config)
     }
 }
 
@@ -163,6 +149,7 @@ impl RcloneHandler {
         #[zbus(connection)] _connection: &Connection,
         #[zbus(header)] _header: MessageHeader<'_>,
     ) -> zbus::fdo::Result<String> {
+        self.domain.require_available()?;
         tracing::info!("Listing RClone remotes (UID {})", caller.uid);
 
         let mut remotes = Vec::new();
@@ -283,7 +270,7 @@ impl RcloneHandler {
             caller.uid
         );
 
-        let scope = Self::parse_scope(scope)?;
+        let scope = self.parse_scope(scope)?;
         let config_path = Self::get_existing_config_path(scope, Some(caller.uid))
             .ok_or_else(|| zbus::fdo::Error::Failed("Config file not found".to_string()))?;
 
@@ -342,7 +329,7 @@ impl RcloneHandler {
             caller.uid
         );
 
-        let scope = Self::parse_scope(scope)?;
+        let scope = self.parse_scope(scope)?;
         let config_path = Self::get_existing_config_path(scope, Some(caller.uid))
             .ok_or_else(|| zbus::fdo::Error::Failed("Config file not found".to_string()))?;
 
@@ -372,7 +359,7 @@ impl RcloneHandler {
     ) -> zbus::fdo::Result<()> {
         tracing::info!("Mounting remote {} (scope: {})", name, scope);
 
-        let scope_enum = Self::parse_scope(scope)?;
+        let scope_enum = self.parse_scope(scope)?;
         let caller_uid = Self::get_caller_uid(connection, &header).await?;
 
         // For system scope, check polkit authorization
@@ -430,7 +417,7 @@ impl RcloneHandler {
     ) -> zbus::fdo::Result<()> {
         tracing::info!("Unmounting remote {} (scope: {})", name, scope);
 
-        let scope_enum = Self::parse_scope(scope)?;
+        let scope_enum = self.parse_scope(scope)?;
         let caller_uid = Self::get_caller_uid(connection, &header).await?;
 
         // For system scope, check polkit authorization
@@ -486,7 +473,7 @@ impl RcloneHandler {
             caller.uid
         );
 
-        let scope = Self::parse_scope(scope)?;
+        let scope = self.parse_scope(scope)?;
         let mount_point = Self::get_mount_point_for_uid(name, scope, Some(caller.uid));
 
         let status = if RCloneCli::is_mounted(&mount_point)
@@ -512,7 +499,7 @@ impl RcloneHandler {
         name: &str,
         scope: &str,
     ) -> zbus::fdo::Result<bool> {
-        let scope_enum = Self::parse_scope(scope)?;
+        let scope_enum = self.parse_scope(scope)?;
         let caller_uid = Self::get_caller_uid(connection, &header).await?;
         let home = if scope_enum == ConfigScope::User {
             Self::get_home_for_uid(caller_uid)
@@ -542,7 +529,7 @@ impl RcloneHandler {
         scope: &str,
         enabled: bool,
     ) -> zbus::fdo::Result<()> {
-        let scope_enum = Self::parse_scope(scope)?;
+        let scope_enum = self.parse_scope(scope)?;
         let caller_uid = Self::get_caller_uid(connection, &header).await?;
 
         if scope_enum == ConfigScope::System {
@@ -611,7 +598,7 @@ impl RcloneHandler {
     ) -> zbus::fdo::Result<()> {
         tracing::info!("Creating remote (scope: {})", scope);
 
-        let scope_enum = Self::parse_scope(scope)?;
+        let scope_enum = self.parse_scope(scope)?;
         let caller_uid = Self::get_caller_uid(connection, &header).await?;
 
         // For system scope, check polkit authorization
@@ -640,7 +627,7 @@ impl RcloneHandler {
         let remote_config: RemoteConfig = serde_json::from_str(config)
             .map_err(|e| zbus::fdo::Error::Failed(format!("Invalid config JSON: {}", e)))?;
 
-        Self::validate_remote_config(&remote_config)?;
+        self.validate_remote_config(&remote_config)?;
 
         let config_path = Self::get_config_path_for_uid(scope_enum, Some(caller_uid));
 
@@ -691,7 +678,7 @@ impl RcloneHandler {
     ) -> zbus::fdo::Result<()> {
         tracing::info!("Updating remote {} (scope: {})", name, scope);
 
-        let scope_enum = Self::parse_scope(scope)?;
+        let scope_enum = self.parse_scope(scope)?;
         let caller_uid = Self::get_caller_uid(connection, &header).await?;
 
         // For system scope, check polkit authorization
@@ -720,7 +707,7 @@ impl RcloneHandler {
         let remote_config: RemoteConfig = serde_json::from_str(config)
             .map_err(|e| zbus::fdo::Error::Failed(format!("Invalid config JSON: {}", e)))?;
 
-        Self::validate_remote_config(&remote_config)?;
+        self.validate_remote_config(&remote_config)?;
 
         let config_path = Self::get_config_path_for_uid(scope_enum, Some(caller_uid));
 
@@ -767,7 +754,7 @@ impl RcloneHandler {
     ) -> zbus::fdo::Result<()> {
         tracing::info!("Deleting remote {} (scope: {})", name, scope);
 
-        let scope_enum = Self::parse_scope(scope)?;
+        let scope_enum = self.parse_scope(scope)?;
         let caller_uid = Self::get_caller_uid(connection, &header).await?;
 
         // For system scope, check polkit authorization
@@ -819,6 +806,7 @@ impl RcloneHandler {
 
     /// Get list of supported remote types
     async fn supported_remote_types(&self) -> zbus::fdo::Result<Vec<String>> {
+        self.domain.require_available()?;
         Ok(supported_remote_types().to_vec())
     }
 }

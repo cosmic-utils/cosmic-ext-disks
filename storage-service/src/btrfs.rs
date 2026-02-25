@@ -2,18 +2,25 @@
 
 use disks_btrfs::SubvolumeManager;
 use std::path::PathBuf;
+use std::sync::Arc;
 use storage_common::btrfs::SubvolumeList;
 use storage_service_macros::authorized_interface;
 use zbus::message::Header as MessageHeader;
 use zbus::object_server::SignalEmitter;
 use zbus::{Connection, interface};
 
+use crate::service::domain::btrfs::{BtrfsDomain, DefaultBtrfsDomain};
+
 /// BTRFS operations handler
-pub struct BtrfsHandler;
+pub struct BtrfsHandler {
+    domain: Arc<dyn BtrfsDomain>,
+}
 
 impl BtrfsHandler {
     pub fn new() -> Self {
-        Self
+        Self {
+            domain: Arc::new(DefaultBtrfsDomain),
+        }
     }
 }
 
@@ -28,6 +35,7 @@ impl BtrfsHandler {
         #[zbus(signal_context)] _ctx: SignalEmitter<'_>,
         mountpoint: &str,
     ) -> zbus::fdo::Result<String> {
+        self.domain.require_available()?;
         tracing::info!("Listing subvolumes at {} (UID {})", mountpoint, caller.uid);
 
         let manager = SubvolumeManager::new(mountpoint)
@@ -60,6 +68,7 @@ impl BtrfsHandler {
         mountpoint: &str,
         name: &str,
     ) -> zbus::fdo::Result<()> {
+        self.domain.require_available()?;
         tracing::info!(
             "Creating subvolume {} at {} (UID {})",
             name,
@@ -95,6 +104,7 @@ impl BtrfsHandler {
         dest_path: &str,
         readonly: bool,
     ) -> zbus::fdo::Result<()> {
+        self.domain.require_available()?;
         tracing::info!(
             "Creating snapshot from {} to {}, readonly={} (UID {})",
             source_path,
@@ -134,6 +144,7 @@ impl BtrfsHandler {
         path: &str,
         recursive: bool,
     ) -> zbus::fdo::Result<()> {
+        self.domain.require_available()?;
         tracing::info!(
             "Deleting subvolume at {}, recursive={} (UID {})",
             path,
@@ -165,6 +176,7 @@ impl BtrfsHandler {
         path: &str,
         readonly: bool,
     ) -> zbus::fdo::Result<()> {
+        self.domain.require_available()?;
         tracing::info!(
             "Setting readonly={} on {} (UID {})",
             readonly,
@@ -195,6 +207,7 @@ impl BtrfsHandler {
         mountpoint: &str,
         path: &str,
     ) -> zbus::fdo::Result<()> {
+        self.domain.require_available()?;
         tracing::info!("Setting default subvolume to {} (UID {})", path, caller.uid);
 
         let manager = SubvolumeManager::new(mountpoint)
@@ -218,6 +231,7 @@ impl BtrfsHandler {
         #[zbus(header)] _header: MessageHeader<'_>,
         mountpoint: &str,
     ) -> zbus::fdo::Result<u64> {
+        self.domain.require_available()?;
         let manager = SubvolumeManager::new(mountpoint)
             .map_err(|e| zbus::fdo::Error::Failed(e.to_string()))?;
 
@@ -236,6 +250,7 @@ impl BtrfsHandler {
         #[zbus(header)] _header: MessageHeader<'_>,
         mountpoint: &str,
     ) -> zbus::fdo::Result<String> {
+        self.domain.require_available()?;
         tracing::info!(
             "Listing deleted subvolumes at {} (UID {})",
             mountpoint,
@@ -263,6 +278,7 @@ impl BtrfsHandler {
         #[zbus(header)] _header: MessageHeader<'_>,
         mountpoint: &str,
     ) -> zbus::fdo::Result<String> {
+        self.domain.require_available()?;
         tracing::info!("Getting usage for {} (UID {})", mountpoint, caller.uid);
 
         let usage = disks_btrfs::get_filesystem_usage(&PathBuf::from(mountpoint))

@@ -5,16 +5,20 @@
 //! This module provides D-Bus methods for managing disk partitions,
 //! including creating/deleting partitions and partition tables.
 
+use std::sync::Arc;
 use storage_dbus::DiskManager;
 use storage_service_macros::authorized_interface;
 use zbus::message::Header as MessageHeader;
 use zbus::zvariant::OwnedObjectPath;
 use zbus::{Connection, interface};
 
+use crate::service::domain::partitions::{DefaultPartitionsDomain, PartitionsDomain};
+
 /// D-Bus interface for partition management operations
 pub struct PartitionsHandler {
     /// DiskManager for disk enumeration (cached connection)
     manager: DiskManager,
+    domain: Arc<dyn PartitionsDomain>,
 }
 
 impl PartitionsHandler {
@@ -23,7 +27,10 @@ impl PartitionsHandler {
         let manager = DiskManager::new()
             .await
             .expect("Failed to create DiskManager");
-        Self { manager }
+        Self {
+            manager,
+            domain: Arc::new(DefaultPartitionsDomain),
+        }
     }
 }
 
@@ -153,23 +160,9 @@ impl PartitionsHandler {
             caller.uid
         );
 
-        // Validate and normalize table type
-        let normalized_type = match table_type.to_lowercase().as_str() {
-            "gpt" => "gpt",
-            "dos" | "mbr" | "msdos" => "dos",
-            _ => {
-                tracing::warn!("Invalid partition table type: {table_type}");
-                return Err(zbus::fdo::Error::InvalidArgs(format!(
-                    "Invalid table type: {table_type}. Must be 'gpt' or 'dos'/'mbr'"
-                )));
-            }
-        };
+        let normalized_type = self.domain.normalize_table_type(&table_type)?;
 
-        let disk_device = if disk.starts_with("/dev/") {
-            disk.clone()
-        } else {
-            format!("/dev/{}", disk)
-        };
+        let disk_device = self.domain.normalize_disk_device(&disk);
 
         let block_path = storage_dbus::block_object_path_for_device(&disk_device)
             .await
@@ -178,7 +171,7 @@ impl PartitionsHandler {
                 zbus::fdo::Error::Failed(format!("Device not found: {e}"))
             })?;
 
-        storage_dbus::create_partition_table(block_path.as_str(), normalized_type)
+        storage_dbus::create_partition_table(block_path.as_str(), &normalized_type)
             .await
             .map_err(|e| {
                 tracing::error!("Failed to create partition table: {e}");
@@ -190,7 +183,7 @@ impl PartitionsHandler {
             normalized_type,
             disk
         );
-        let _ = Self::partition_table_created(&signal_ctx, &disk_device, normalized_type).await;
+        let _ = Self::partition_table_created(&signal_ctx, &disk_device, &normalized_type).await;
         Ok(())
     }
 
@@ -225,11 +218,7 @@ impl PartitionsHandler {
             caller.uid
         );
 
-        let disk_device = if disk.starts_with("/dev/") {
-            disk.clone()
-        } else {
-            format!("/dev/{}", disk)
-        };
+        let disk_device = self.domain.normalize_disk_device(&disk);
 
         let block_path = storage_dbus::block_object_path_for_device(&disk_device)
             .await
@@ -305,11 +294,7 @@ impl PartitionsHandler {
             caller.uid
         );
 
-        let disk_device = if disk.starts_with("/dev/") {
-            disk.clone()
-        } else {
-            format!("/dev/{}", disk)
-        };
+        let disk_device = self.domain.normalize_disk_device(&disk);
 
         let block_path = storage_dbus::block_object_path_for_device(&disk_device)
             .await

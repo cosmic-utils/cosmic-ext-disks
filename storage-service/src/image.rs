@@ -17,6 +17,8 @@ use zbus::message::Header as MessageHeader;
 use zbus::object_server::SignalEmitter;
 use zbus::{Connection, interface};
 
+use crate::service::domain::image::{DefaultImageDomain, ImageDomain};
+
 /// Operation type for tracking
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum OperationType {
@@ -61,12 +63,14 @@ struct OperationState {
 /// Image operations handler with operation tracking
 pub struct ImageHandler {
     active_operations: Arc<Mutex<HashMap<String, OperationState>>>,
+    domain: Arc<dyn ImageDomain>,
 }
 
 impl ImageHandler {
     pub fn new() -> Self {
         Self {
             active_operations: Arc::new(Mutex::new(HashMap::new())),
+            domain: Arc::new(DefaultImageDomain),
         }
     }
 
@@ -246,16 +250,8 @@ impl ImageHandler {
             caller.uid
         );
 
-        // Validate output path
-        let output_path_obj = Path::new(&output_path);
-        if let Some(parent) = output_path_obj.parent()
-            && !parent.exists()
-        {
-            return Err(zbus::fdo::Error::Failed(format!(
-                "Output directory does not exist: {}",
-                parent.display()
-            )));
-        }
+        self.domain
+            .validate_output_path_parent_exists(&output_path)?;
 
         // Normalize device path
         let device_path = if device.starts_with("/dev/") {
@@ -346,16 +342,8 @@ impl ImageHandler {
             caller.uid
         );
 
-        // Validate output path
-        let output_path_obj = Path::new(&output_path);
-        if let Some(parent) = output_path_obj.parent()
-            && !parent.exists()
-        {
-            return Err(zbus::fdo::Error::Failed(format!(
-                "Output directory does not exist: {}",
-                parent.display()
-            )));
-        }
+        self.domain
+            .validate_output_path_parent_exists(&output_path)?;
 
         // Normalize device path
         let device_path = if device.starts_with("/dev/") {

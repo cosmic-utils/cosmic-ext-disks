@@ -5,45 +5,33 @@
 //! This module provides D-Bus methods for managing LVM volume groups,
 //! logical volumes, and physical volumes.
 
-use std::path::Path;
 use std::process::Command;
+use std::sync::Arc;
 use storage_common::{LogicalVolumeInfo, PhysicalVolumeInfo, VolumeGroupInfo};
 use storage_service_macros::authorized_interface;
 use zbus::message::Header as MessageHeader;
 use zbus::{Connection, interface};
 
+use crate::service::domain::lvm::{DefaultLvmDomain, LvmDomain};
+
 /// D-Bus interface for LVM management operations
 pub struct LVMHandler {
-    /// Whether LVM tools are available
-    lvm_available: bool,
+    domain: Arc<dyn LvmDomain>,
 }
 
 impl LVMHandler {
     /// Create a new LVMHandler
     pub fn new() -> Self {
-        let lvm_available = Self::check_lvm_tools();
-        if !lvm_available {
-            tracing::warn!("LVM tools not found - LVM operations will be disabled");
+        let domain: Arc<dyn LvmDomain> = Arc::new(DefaultLvmDomain::new());
+        if let Err(error) = domain.require_lvm() {
+            tracing::warn!("LVM operations will be disabled: {error}");
         }
-        Self { lvm_available }
-    }
-
-    /// Check if LVM tools are installed
-    fn check_lvm_tools() -> bool {
-        Path::new("/sbin/pvs").exists()
-            && Path::new("/sbin/vgs").exists()
-            && Path::new("/sbin/lvs").exists()
+        Self { domain }
     }
 
     /// Ensure LVM tools are available
     fn require_lvm(&self) -> Result<(), zbus::fdo::Error> {
-        if !self.lvm_available {
-            Err(zbus::fdo::Error::Failed(
-                "LVM tools not available on this system".to_string(),
-            ))
-        } else {
-            Ok(())
-        }
+        self.domain.require_lvm()
     }
 }
 

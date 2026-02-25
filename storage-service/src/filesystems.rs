@@ -10,6 +10,7 @@ use std::ffi::{CStr, CString};
 use std::fs;
 use std::os::unix::fs::MetadataExt;
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 use std::sync::mpsc;
 use std::time::Duration;
 use storage_common::{
@@ -22,6 +23,8 @@ use storage_service_macros::authorized_interface;
 use zbus::message::Header as MessageHeader;
 use zbus::{Connection, interface};
 
+use crate::service::domain::filesystems::{DefaultFilesystemsDomain, FilesystemsDomain};
+
 /// D-Bus interface for filesystem management operations
 pub struct FilesystemsHandler {
     /// Cached list of supported filesystem tools (simple list for backward compat)
@@ -30,12 +33,15 @@ pub struct FilesystemsHandler {
     filesystem_tools: Vec<FilesystemToolInfo>,
     /// DiskManager for disk enumeration (cached connection)
     manager: DiskManager,
+    /// Domain delegate for feature/capability policies
+    domain: Arc<dyn FilesystemsDomain>,
 }
 
 impl FilesystemsHandler {
     /// Create a new FilesystemsHandler and detect available tools
     pub async fn new() -> Self {
-        let filesystem_tools = Self::detect_all_filesystem_tools();
+        let domain: Arc<dyn FilesystemsDomain> = Arc::new(DefaultFilesystemsDomain);
+        let filesystem_tools = domain.detect_all_filesystem_tools();
         let supported_tools: Vec<String> = filesystem_tools
             .iter()
             .filter(|t| t.available)
@@ -48,31 +54,14 @@ impl FilesystemsHandler {
             supported_tools,
             filesystem_tools,
             manager,
+            domain,
         }
     }
 
     /// Detect all filesystem tools with detailed information
     fn detect_all_filesystem_tools() -> Vec<FilesystemToolInfo> {
-        let tools = vec![
-            ("ext4", "EXT4", "mkfs.ext4", "e2fsprogs"),
-            ("xfs", "XFS", "mkfs.xfs", "xfsprogs"),
-            ("btrfs", "Btrfs", "mkfs.btrfs", "btrfs-progs"),
-            ("vfat", "FAT32", "mkfs.vfat", "dosfstools"),
-            ("ntfs", "NTFS", "mkfs.ntfs", "ntfs-3g"),
-            ("exfat", "exFAT", "mkfs.exfat", "exfat-utils"),
-        ];
-
-        let mut results = Vec::new();
-        for (fs_type, fs_name, command, package_hint) in tools {
-            let available = which::which(command).is_ok();
-            results.push(FilesystemToolInfo {
-                fs_type: fs_type.to_string(),
-                fs_name: fs_name.to_string(),
-                command: command.to_string(),
-                package_hint: package_hint.to_string(),
-                available,
-            });
-        }
+        let domain = DefaultFilesystemsDomain;
+        let results = domain.detect_all_filesystem_tools();
 
         tracing::info!(
             "Detected filesystem tools: {:?}",
@@ -442,13 +431,8 @@ impl FilesystemsHandler {
         );
 
         // Validate filesystem type is supported
-        if !self.supported_tools.contains(&fs_type) {
-            tracing::warn!("Unsupported filesystem type: {}", fs_type);
-            return Err(zbus::fdo::Error::Failed(format!(
-                "Filesystem type '{}' is not supported or tools not installed",
-                fs_type
-            )));
-        }
+        self.domain
+            .require_filesystem_format_support(&fs_type, &self.supported_tools)?;
 
         // Parse options
         let options: FormatOptions = serde_json::from_str(&options_json).unwrap_or_default();
@@ -797,6 +781,8 @@ impl FilesystemsHandler {
             repair,
             caller.uid
         );
+
+        self.domain.require_filesystem_check_support()?;
 
         // Delegate to storage-dbus operation
         let clean = storage_dbus::check_filesystem(&device, repair)

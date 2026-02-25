@@ -2,8 +2,8 @@
 
 //! View components for network mount management
 
-use super::message::NetworkMessage;
 use super::icons::resolve_provider_icon;
+use super::message::NetworkMessage;
 use super::state::{
     NetworkEditorState, NetworkState, NetworkWizardState, QUICK_SETUP_PROVIDERS, SECTION_ORDER,
     WizardStep,
@@ -144,9 +144,9 @@ pub fn network_mount_item(
             name_text.into(),
             scope_icon_widget.into(),
         ])
-            .spacing(8)
-            .align_y(cosmic::iced::Alignment::Center)
-            .width(Length::Fill),
+        .spacing(8)
+        .align_y(cosmic::iced::Alignment::Center)
+        .width(Length::Fill),
     )
     .padding(0)
     .width(Length::Fill)
