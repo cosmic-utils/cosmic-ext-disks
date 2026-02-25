@@ -11,29 +11,22 @@ use zbus::connection::Builder as ConnectionBuilder;
 
 mod adapters;
 mod auth;
-mod btrfs;
-mod disks;
+mod domain;
 mod error;
-mod filesystems;
-mod image;
-mod luks;
-mod lvm;
-mod partitions;
 mod protected_paths;
-mod rclone;
 mod routing;
-mod service;
+mod transport;
 
-use btrfs::BtrfsHandler;
-use disks::DisksHandler;
-use filesystems::FilesystemsHandler;
-use image::ImageHandler;
-use luks::LuksHandler;
-use lvm::LVMHandler;
-use partitions::PartitionsHandler;
-use rclone::RcloneHandler;
 use routing::{AdapterRegistry, Concern};
-use service::StorageService;
+use transport::btrfs::BtrfsHandler;
+use transport::disks::DisksHandler;
+use transport::filesystems::FilesystemsHandler;
+use transport::image::ImageHandler;
+use transport::luks::LuksHandler;
+use transport::lvm::LVMHandler;
+use transport::partitions::PartitionsHandler;
+use transport::rclone::RcloneHandler;
+use transport::service::StorageService;
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -127,7 +120,7 @@ async fn main() -> Result<()> {
     tracing::info!("  - RClone interface at /org/cosmic/ext/Storage/Service/rclone");
 
     // Start disk hotplug monitoring
-    disks::monitor_hotplug_events(
+    transport::disks::monitor_hotplug_events(
         connection.clone(),
         "/org/cosmic/ext/Storage/Service/disks",
         adapters.disk_query(),

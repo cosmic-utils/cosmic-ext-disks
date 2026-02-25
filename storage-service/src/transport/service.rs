@@ -2,8 +2,6 @@
 
 use zbus::interface;
 
-pub mod domain;
-
 /// Main storage service interface
 pub struct StorageService {
     version: String,

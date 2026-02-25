@@ -12,7 +12,7 @@ use storage_types::{LogicalVolumeInfo, PhysicalVolumeInfo, VolumeGroupInfo};
 use zbus::message::Header as MessageHeader;
 use zbus::{Connection, interface};
 
-use crate::service::domain::lvm::{DefaultLvmDomain, LvmDomain};
+use crate::domain::lvm::{DefaultLvmDomain, LvmDomain};
 
 /// D-Bus interface for LVM management operations
 pub struct LVMHandler {

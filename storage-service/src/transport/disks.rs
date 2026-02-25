@@ -13,7 +13,7 @@ use storage_types::SmartSelfTestKind;
 use zbus::message::Header as MessageHeader;
 use zbus::{Connection, interface};
 
-use crate::service::domain::disks::{DefaultDisksDomain, DisksDomain};
+use crate::domain::disks::{DefaultDisksDomain, DisksDomain};
 
 /// D-Bus interface for disk discovery and SMART operations
 pub struct DisksHandler {
