@@ -64,6 +64,11 @@ fn tab_button_style(active: bool, theme: &cosmic::theme::Theme) -> cosmic::widge
 
 /// Elements to pack at the start of the header bar.
 pub(crate) fn header_start(_app: &AppModel) -> Vec<Element<'_, Message>> {
+    vec![]
+}
+
+/// Elements to pack at the end of the header bar.
+pub(crate) fn header_end(_app: &AppModel) -> Vec<Element<'_, Message>> {
     vec![
         widget::button::icon(icon::from_name("preferences-system-symbolic"))
             .on_press(Message::ToggleContextPage(ContextPage::Settings))
