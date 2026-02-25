@@ -11,7 +11,7 @@ use crate::ui::sidebar;
 use crate::ui::volumes::{DetailTab, VolumesControl, VolumesControlMessage, disk_header, helpers};
 use crate::ui::wizard::{option_tile_grid, selectable_tile, wizard_action_row, wizard_shell};
 use crate::utils::DiskSegmentKind;
-use crate::views::settings::settings;
+use crate::views::settings::{settings, settings_footer};
 use cosmic::app::context_drawer as cosmic_context_drawer;
 use cosmic::cosmic_theme::palette::WithAlpha;
 use cosmic::iced::Color;
@@ -284,9 +284,10 @@ pub(crate) fn context_drawer(
 
     Some(match app.context_page {
         ContextPage::Settings => cosmic_context_drawer::context_drawer(
-            settings(&app.config, &app.filesystem_tools),
+            settings(&app.config),
             Message::ToggleContextPage(ContextPage::Settings),
         )
+        .footer(settings_footer(&app.filesystem_tools))
         .title(fl!("settings")),
     })
 }

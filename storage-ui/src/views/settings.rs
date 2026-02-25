@@ -7,29 +7,10 @@ use crate::{
     fl,
 };
 
-pub fn settings<'a>(
-    config: &Config,
-    filesystem_tools: &[FilesystemToolInfo],
-) -> Element<'a, Message> {
+pub fn settings<'a>(config: &Config) -> Element<'a, Message> {
     let cosmic_theme::Spacing {
-        space_xxs,
-        space_s,
-        space_m,
-        ..
+        space_s, space_m, ..
     } = theme::active().cosmic().spacing;
-
-    let hash = env!("VERGEN_GIT_SHA");
-    let short_hash: String = hash.chars().take(7).collect();
-    let date = env!("VERGEN_GIT_COMMIT_DATE");
-
-    let commit_caption = widget::button::custom(widget::text::caption(fl!(
-        "git-description",
-        hash = short_hash.as_str(),
-        date = date
-    )))
-    .class(cosmic::theme::Button::Link)
-    .on_press(Message::LaunchUrl(format!("{REPOSITORY}/commits/{hash}")))
-    .padding(0);
 
     let show_reserved_toggle = widget::checkbox("Show Reserved Space", config.show_reserved)
         .on_toggle(Message::ToggleShowReserved);
@@ -61,8 +42,34 @@ pub fn settings<'a>(
         .spacing(space_s)
         .align_x(Alignment::Start);
 
-    // Filesystem tools status section - use tools from service
-    let missing_tools: Vec<_> = filesystem_tools.iter().filter(|t| !t.available).collect();
+    widget::column()
+        .push(volumes_section)
+        .push(widget::divider::horizontal::default())
+        .push(usage_section)
+        .spacing(space_m)
+        .into()
+}
+
+pub fn settings_footer<'a>(filesystem_tools: &[FilesystemToolInfo]) -> Element<'a, Message> {
+    let cosmic_theme::Spacing {
+        space_xxs,
+        space_s,
+        space_m,
+        ..
+    } = theme::active().cosmic().spacing;
+
+    let hash = env!("VERGEN_GIT_SHA");
+    let short_hash: String = hash.chars().take(7).collect();
+    let date = env!("VERGEN_GIT_COMMIT_DATE");
+
+    let commit_caption = widget::button::custom(widget::text::caption(fl!(
+        "git-description",
+        hash = short_hash.as_str(),
+        date = date
+    )))
+    .class(cosmic::theme::Button::Link)
+    .on_press(Message::LaunchUrl(format!("{REPOSITORY}/commits/{hash}")))
+    .padding(0);
 
     let github_icon = widget::icon::icon(
         widget::icon::from_svg_bytes(include_bytes!("../../resources/icons/github.svg"))
@@ -88,11 +95,7 @@ pub fn settings<'a>(
         .spacing(space_xxs)
         .align_y(Alignment::Center);
 
-    let top_sections = widget::column()
-        .push(volumes_section)
-        .push(widget::divider::horizontal::default())
-        .push(usage_section)
-        .spacing(space_m);
+    let missing_tools: Vec<_> = filesystem_tools.iter().filter(|t| !t.available).collect();
 
     if !missing_tools.is_empty() {
         let tools_title = widget::text::title4(fl!("fs-tools-missing-title"));
@@ -108,32 +111,15 @@ pub fn settings<'a>(
             tools_list = tools_list.push(tool_text);
         }
 
-        let tools_section = widget::column()
+        widget::column()
             .push(tools_title)
             .push(tools_description)
             .push(tools_list)
-            .spacing(space_s);
-
-        // Missing-filesystem-tools section is docked near the bottom
-        let filesystem_domain = widget::column()
-            .push(tools_section)
-            .spacing(space_s)
-            .align_x(Alignment::Start);
-
-        widget::column()
-            .push(top_sections)
-            .push(widget::divider::horizontal::default())
-            .push(filesystem_domain)
             .push(widget::divider::horizontal::default())
             .push(repo_footer)
-            .spacing(space_m)
+            .spacing(space_s)
             .into()
     } else {
-        widget::column()
-            .push(top_sections)
-            .push(widget::divider::horizontal::default())
-            .push(repo_footer)
-            .spacing(space_m)
-            .into()
+        widget::column().push(repo_footer).spacing(space_m).into()
     }
 }
