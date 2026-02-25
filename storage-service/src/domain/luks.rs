@@ -4,9 +4,9 @@ pub trait LuksDomain: Send + Sync {
     fn normalize_luks_version<'a>(&self, version: &'a str) -> zbus::fdo::Result<&'a str>;
 }
 
-pub struct DefaultLuksDomain;
+pub struct LuksPolicy;
 
-impl LuksDomain for DefaultLuksDomain {
+impl LuksDomain for LuksPolicy {
     fn normalize_luks_version<'a>(&self, version: &'a str) -> zbus::fdo::Result<&'a str> {
         if version.is_empty() || version == "luks2" {
             Ok("luks2")

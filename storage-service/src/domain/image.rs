@@ -6,9 +6,9 @@ pub trait ImageDomain: Send + Sync {
     fn validate_output_path_parent_exists(&self, output_path: &str) -> zbus::fdo::Result<()>;
 }
 
-pub struct DefaultImageDomain;
+pub struct ImagePolicy;
 
-impl ImageDomain for DefaultImageDomain {
+impl ImageDomain for ImagePolicy {
     fn validate_output_path_parent_exists(&self, output_path: &str) -> zbus::fdo::Result<()> {
         let output_path_obj = Path::new(output_path);
         if let Some(parent) = output_path_obj.parent()

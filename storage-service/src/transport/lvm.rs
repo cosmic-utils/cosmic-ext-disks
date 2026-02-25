@@ -12,7 +12,7 @@ use storage_types::{LogicalVolumeInfo, PhysicalVolumeInfo, VolumeGroupInfo};
 use zbus::message::Header as MessageHeader;
 use zbus::{Connection, interface};
 
-use crate::domain::lvm::{DefaultLvmDomain, LvmDomain};
+use crate::domain::lvm::{LvmDomain, LvmPolicy};
 
 /// D-Bus interface for LVM management operations
 pub struct LVMHandler {
@@ -22,7 +22,7 @@ pub struct LVMHandler {
 impl LVMHandler {
     /// Create a new LVMHandler
     pub fn new() -> Self {
-        let domain: Arc<dyn LvmDomain> = Arc::new(DefaultLvmDomain::new());
+        let domain: Arc<dyn LvmDomain> = Arc::new(LvmPolicy::new());
         if let Err(error) = domain.require_lvm() {
             tracing::warn!("LVM operations will be disabled: {error}");
         }

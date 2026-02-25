@@ -23,7 +23,7 @@ use storage_types::{
 use zbus::message::Header as MessageHeader;
 use zbus::{Connection, interface};
 
-use crate::domain::filesystems::{DefaultFilesystemsDomain, FilesystemsDomain};
+use crate::domain::filesystems::{FilesystemsDomain, FilesystemsPolicy};
 
 /// D-Bus interface for filesystem management operations
 pub struct FilesystemsHandler {
@@ -40,7 +40,7 @@ pub struct FilesystemsHandler {
 impl FilesystemsHandler {
     /// Create a new FilesystemsHandler and detect available tools
     pub fn new(filesystem_ops: Arc<dyn FilesystemOpsAdapter>) -> anyhow::Result<Self> {
-        let domain: Arc<dyn FilesystemsDomain> = Arc::new(DefaultFilesystemsDomain);
+        let domain: Arc<dyn FilesystemsDomain> = Arc::new(FilesystemsPolicy);
         let filesystem_tools = domain.detect_all_filesystem_tools();
         let supported_tools: Vec<String> = filesystem_tools
             .iter()

@@ -4,9 +4,9 @@ pub trait BtrfsDomain: Send + Sync {
     fn require_available(&self) -> zbus::fdo::Result<()>;
 }
 
-pub struct DefaultBtrfsDomain;
+pub struct BtrfsPolicy;
 
-impl BtrfsDomain for DefaultBtrfsDomain {
+impl BtrfsDomain for BtrfsPolicy {
     fn require_available(&self) -> zbus::fdo::Result<()> {
         if !cfg!(feature = "btrfs-tools") {
             return Err(zbus::fdo::Error::Failed(

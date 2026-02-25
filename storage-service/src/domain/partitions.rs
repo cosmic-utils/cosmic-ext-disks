@@ -5,9 +5,9 @@ pub trait PartitionsDomain: Send + Sync {
     fn normalize_disk_device(&self, disk: &str) -> String;
 }
 
-pub struct DefaultPartitionsDomain;
+pub struct PartitionsPolicy;
 
-impl PartitionsDomain for DefaultPartitionsDomain {
+impl PartitionsDomain for PartitionsPolicy {
     fn normalize_table_type(&self, table_type: &str) -> zbus::fdo::Result<String> {
         match table_type.to_lowercase().as_str() {
             "gpt" => Ok("gpt".to_string()),

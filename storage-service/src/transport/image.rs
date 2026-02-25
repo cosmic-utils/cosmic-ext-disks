@@ -18,7 +18,7 @@ use zbus::message::Header as MessageHeader;
 use zbus::object_server::SignalEmitter;
 use zbus::{Connection, interface};
 
-use crate::domain::image::{DefaultImageDomain, ImageDomain};
+use crate::domain::image::{ImageDomain, ImagePolicy};
 
 /// Operation type for tracking
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -73,7 +73,7 @@ impl ImageHandler {
         Self {
             active_operations: Arc::new(Mutex::new(HashMap::new())),
             image_ops,
-            domain: Arc::new(DefaultImageDomain),
+            domain: Arc::new(ImagePolicy),
         }
     }
 

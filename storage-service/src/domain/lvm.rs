@@ -6,11 +6,11 @@ pub trait LvmDomain: Send + Sync {
     fn require_lvm(&self) -> zbus::fdo::Result<()>;
 }
 
-pub struct DefaultLvmDomain {
+pub struct LvmPolicy {
     lvm_available: bool,
 }
 
-impl DefaultLvmDomain {
+impl LvmPolicy {
     pub fn new() -> Self {
         let lvm_available = cfg!(feature = "lvm-tools")
             && Path::new("/sbin/pvs").exists()
@@ -21,7 +21,7 @@ impl DefaultLvmDomain {
     }
 }
 
-impl LvmDomain for DefaultLvmDomain {
+impl LvmDomain for LvmPolicy {
     fn require_lvm(&self) -> zbus::fdo::Result<()> {
         if !cfg!(feature = "lvm-tools") {
             return Err(zbus::fdo::Error::Failed(

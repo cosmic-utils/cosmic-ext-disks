@@ -6,9 +6,9 @@ pub trait DisksDomain: Send + Sync {
     fn disk_matches(&self, disk: &DiskInfo, requested: &str) -> bool;
 }
 
-pub struct DefaultDisksDomain;
+pub struct DisksPolicy;
 
-impl DisksDomain for DefaultDisksDomain {
+impl DisksDomain for DisksPolicy {
     fn disk_matches(&self, disk: &DiskInfo, requested: &str) -> bool {
         let device_name = requested.strip_prefix("/dev/").unwrap_or(requested);
 

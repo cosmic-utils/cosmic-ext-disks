@@ -8,9 +8,9 @@ pub trait RcloneDomain: Send + Sync {
     fn validate_remote_config(&self, config: &RemoteConfig) -> zbus::fdo::Result<()>;
 }
 
-pub struct DefaultRcloneDomain;
+pub struct RclonePolicy;
 
-impl RcloneDomain for DefaultRcloneDomain {
+impl RcloneDomain for RclonePolicy {
     fn require_available(&self) -> zbus::fdo::Result<()> {
         if !cfg!(feature = "rclone-tools") {
             return Err(zbus::fdo::Error::Failed(

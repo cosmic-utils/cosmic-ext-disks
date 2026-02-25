@@ -9,7 +9,7 @@ use zbus::message::Header as MessageHeader;
 use zbus::object_server::SignalEmitter;
 use zbus::{Connection, interface};
 
-use crate::domain::btrfs::{BtrfsDomain, DefaultBtrfsDomain};
+use crate::domain::btrfs::{BtrfsDomain, BtrfsPolicy};
 
 /// BTRFS operations handler
 pub struct BtrfsHandler {
@@ -19,7 +19,7 @@ pub struct BtrfsHandler {
 impl BtrfsHandler {
     pub fn new() -> Self {
         Self {
-            domain: Arc::new(DefaultBtrfsDomain),
+            domain: Arc::new(BtrfsPolicy),
         }
     }
 }

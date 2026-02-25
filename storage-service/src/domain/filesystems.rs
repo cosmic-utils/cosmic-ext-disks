@@ -12,9 +12,9 @@ pub trait FilesystemsDomain: Send + Sync {
     fn require_filesystem_check_support(&self) -> zbus::fdo::Result<()>;
 }
 
-pub struct DefaultFilesystemsDomain;
+pub struct FilesystemsPolicy;
 
-impl DefaultFilesystemsDomain {
+impl FilesystemsPolicy {
     #[allow(clippy::match_like_matches_macro)]
     fn feature_enabled_for_fs(fs_type: &str) -> bool {
         match fs_type.to_ascii_lowercase().as_str() {
@@ -38,7 +38,7 @@ impl DefaultFilesystemsDomain {
     }
 }
 
-impl FilesystemsDomain for DefaultFilesystemsDomain {
+impl FilesystemsDomain for FilesystemsPolicy {
     fn detect_all_filesystem_tools(&self) -> Vec<FilesystemToolInfo> {
         let tools = vec![
             ("ext4", "EXT4", "mkfs.ext4", "e2fsprogs"),

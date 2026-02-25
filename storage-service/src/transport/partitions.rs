@@ -11,7 +11,7 @@ use storage_macros::authorized_interface;
 use zbus::message::Header as MessageHeader;
 use zbus::{Connection, interface};
 
-use crate::domain::partitions::{DefaultPartitionsDomain, PartitionsDomain};
+use crate::domain::partitions::{PartitionsDomain, PartitionsPolicy};
 
 /// D-Bus interface for partition management operations
 pub struct PartitionsHandler {
@@ -24,7 +24,7 @@ impl PartitionsHandler {
     pub fn new(partition_ops: Arc<dyn PartitionOpsAdapter>) -> Self {
         Self {
             partition_ops,
-            domain: Arc::new(DefaultPartitionsDomain),
+            domain: Arc::new(PartitionsPolicy),
         }
     }
 }

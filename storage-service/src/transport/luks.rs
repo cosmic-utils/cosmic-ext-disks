@@ -11,7 +11,7 @@ use storage_types::EncryptionOptionsSettings;
 use zbus::message::Header as MessageHeader;
 use zbus::{Connection, interface};
 
-use crate::domain::luks::{DefaultLuksDomain, LuksDomain};
+use crate::domain::luks::{LuksDomain, LuksPolicy};
 
 /// D-Bus interface for LUKS encryption operations
 pub struct LuksHandler {
@@ -24,7 +24,7 @@ impl LuksHandler {
     pub fn new(luks_ops: Arc<dyn LuksOpsAdapter>) -> Self {
         Self {
             luks_ops,
-            domain: Arc::new(DefaultLuksDomain),
+            domain: Arc::new(LuksPolicy),
         }
     }
 }
