@@ -6,35 +6,30 @@
 //! including creating/deleting partitions and partition tables.
 
 use std::sync::Arc;
-use storage_dbus::DiskManager;
-use storage_service_macros::authorized_interface;
+use storage_contracts::PartitionOpsAdapter;
+use storage_macros::authorized_interface;
 use zbus::message::Header as MessageHeader;
-use zbus::zvariant::OwnedObjectPath;
 use zbus::{Connection, interface};
 
 use crate::service::domain::partitions::{DefaultPartitionsDomain, PartitionsDomain};
 
 /// D-Bus interface for partition management operations
 pub struct PartitionsHandler {
-    /// DiskManager for disk enumeration (cached connection)
-    manager: DiskManager,
+    partition_ops: Arc<dyn PartitionOpsAdapter>,
     domain: Arc<dyn PartitionsDomain>,
 }
 
 impl PartitionsHandler {
     /// Create a new PartitionsHandler
-    pub async fn new() -> Self {
-        let manager = DiskManager::new()
-            .await
-            .expect("Failed to create DiskManager");
+    pub fn new(partition_ops: Arc<dyn PartitionOpsAdapter>) -> Self {
         Self {
-            manager,
+            partition_ops,
             domain: Arc::new(DefaultPartitionsDomain),
         }
     }
 }
 
-#[interface(name = "org.cosmic.ext.StorageService.Partitions")]
+#[interface(name = "org.cosmic.ext.Storage.Service.Partitions")]
 impl PartitionsHandler {
     /// Signal emitted when a partition is created
     ///
@@ -95,8 +90,8 @@ impl PartitionsHandler {
     ///
     /// Returns: JSON-serialized Vec<PartitionInfo>
     ///
-    /// Authorization: org.cosmic.ext.storage-service.partition-read (allow_active)
-    #[authorized_interface(action = "org.cosmic.ext.storage-service.partition-read")]
+    /// Authorization: org.cosmic.ext.storage.service.partition-read (allow_active)
+    #[authorized_interface(action = "org.cosmic.ext.storage.service.partition-read")]
     async fn list_partitions(
         &self,
         #[zbus(connection)] _connection: &Connection,
@@ -105,7 +100,9 @@ impl PartitionsHandler {
     ) -> zbus::fdo::Result<String> {
         tracing::debug!("Listing partitions for disk: {disk} (UID {})", caller.uid);
 
-        let disk_volumes = storage_dbus::disk::get_disks_with_partitions(&self.manager)
+        let disk_volumes = self
+            .partition_ops
+            .list_disks_with_partitions()
             .await
             .map_err(|e| {
                 tracing::error!("Failed to get drives: {e}");
@@ -143,8 +140,8 @@ impl PartitionsHandler {
     /// - disk: Device identifier (e.g., "/dev/sda", "sda")
     /// - table_type: Type of partition table ("gpt" or "dos"/"mbr")
     ///
-    /// Authorization: org.cosmic.ext.storage-service.partition-modify (auth_admin_keep)
-    #[authorized_interface(action = "org.cosmic.ext.storage-service.partition-modify")]
+    /// Authorization: org.cosmic.ext.storage.service.partition-modify (auth_admin_keep)
+    #[authorized_interface(action = "org.cosmic.ext.storage.service.partition-modify")]
     async fn create_partition_table(
         &self,
         #[zbus(connection)] _connection: &Connection,
@@ -164,14 +161,17 @@ impl PartitionsHandler {
 
         let disk_device = self.domain.normalize_disk_device(&disk);
 
-        let block_path = storage_dbus::block_object_path_for_device(&disk_device)
+        let block_path = self
+            .partition_ops
+            .resolve_block_path_for_device(&disk_device)
             .await
             .map_err(|e| {
                 tracing::error!("Failed to resolve device: {e}");
                 zbus::fdo::Error::Failed(format!("Device not found: {e}"))
             })?;
 
-        storage_dbus::create_partition_table(block_path.as_str(), &normalized_type)
+        self.partition_ops
+            .create_partition_table(block_path.as_str(), &normalized_type)
             .await
             .map_err(|e| {
                 tracing::error!("Failed to create partition table: {e}");
@@ -197,8 +197,8 @@ impl PartitionsHandler {
     ///
     /// Returns: Device path of created partition (e.g., "/dev/sda1")
     ///
-    /// Authorization: org.cosmic.ext.storage-service.partition-modify (auth_admin_keep)
-    #[authorized_interface(action = "org.cosmic.ext.storage-service.partition-modify")]
+    /// Authorization: org.cosmic.ext.storage.service.partition-modify (auth_admin_keep)
+    #[authorized_interface(action = "org.cosmic.ext.storage.service.partition-modify")]
     async fn create_partition(
         &self,
         #[zbus(connection)] _connection: &Connection,
@@ -220,23 +220,26 @@ impl PartitionsHandler {
 
         let disk_device = self.domain.normalize_disk_device(&disk);
 
-        let block_path = storage_dbus::block_object_path_for_device(&disk_device)
+        let block_path = self
+            .partition_ops
+            .resolve_block_path_for_device(&disk_device)
             .await
             .map_err(|e| {
                 tracing::error!("Failed to resolve device: {e}");
                 zbus::fdo::Error::Failed(format!("Device not found: {e}"))
             })?;
 
-        let device_path =
-            storage_dbus::create_partition(block_path.as_str(), offset, size, &type_id)
-                .await
-                .map_err(|e| {
-                    tracing::error!("Failed to create partition: {e}");
-                    zbus::fdo::Error::Failed(format!("Failed to create partition: {e}"))
-                })?;
+        let device_path = self
+            .partition_ops
+            .create_partition(block_path.as_str(), offset, size, &type_id)
+            .await
+            .map_err(|e| {
+                tracing::error!("Failed to create partition: {e}");
+                zbus::fdo::Error::Failed(format!("Failed to create partition: {e}"))
+            })?;
 
         tracing::info!("Successfully created partition: {}", device_path);
-        let partition_info_json = serde_json::to_string(&storage_common::PartitionInfo {
+        let partition_info_json = serde_json::to_string(&storage_types::PartitionInfo {
             device: device_path.clone(),
             number: 0,
             parent_path: disk.clone(),
@@ -267,8 +270,8 @@ impl PartitionsHandler {
     ///
     /// Returns: Device path of created partition (e.g., "/dev/sda1")
     ///
-    /// Authorization: org.cosmic.ext.storage-service.partition-modify (auth_admin_keep)
-    #[authorized_interface(action = "org.cosmic.ext.storage-service.partition-modify")]
+    /// Authorization: org.cosmic.ext.storage.service.partition-modify (auth_admin_keep)
+    #[authorized_interface(action = "org.cosmic.ext.storage.service.partition-modify")]
     async fn create_partition_with_filesystem(
         &self,
         #[zbus(connection)] _connection: &Connection,
@@ -278,7 +281,7 @@ impl PartitionsHandler {
         info_json: String,
     ) -> zbus::fdo::Result<String> {
         // Parse the CreatePartitionInfo
-        let info: storage_common::CreatePartitionInfo =
+        let info: storage_types::CreatePartitionInfo =
             serde_json::from_str(&info_json).map_err(|e| {
                 tracing::error!("Failed to parse CreatePartitionInfo: {e}");
                 zbus::fdo::Error::InvalidArgs(format!("Invalid partition info JSON: {e}"))
@@ -296,27 +299,30 @@ impl PartitionsHandler {
 
         let disk_device = self.domain.normalize_disk_device(&disk);
 
-        let block_path = storage_dbus::block_object_path_for_device(&disk_device)
+        let block_path = self
+            .partition_ops
+            .resolve_block_path_for_device(&disk_device)
             .await
             .map_err(|e| {
                 tracing::error!("Failed to resolve device: {e}");
                 zbus::fdo::Error::Failed(format!("Device not found: {e}"))
             })?;
 
-        let device_path =
-            storage_dbus::create_partition_with_filesystem(block_path.as_str(), &info)
-                .await
-                .map_err(|e| {
-                    tracing::error!("Failed to create partition with filesystem: {e}");
-                    zbus::fdo::Error::Failed(format!("Failed to create partition: {e}"))
-                })?;
+        let device_path = self
+            .partition_ops
+            .create_partition_with_filesystem(block_path.as_str(), &info)
+            .await
+            .map_err(|e| {
+                tracing::error!("Failed to create partition with filesystem: {e}");
+                zbus::fdo::Error::Failed(format!("Failed to create partition: {e}"))
+            })?;
 
         tracing::info!(
             "Successfully created partition with filesystem: {}",
             device_path
         );
 
-        let partition_info_json = serde_json::to_string(&storage_common::PartitionInfo {
+        let partition_info_json = serde_json::to_string(&storage_types::PartitionInfo {
             device: device_path.clone(),
             number: 0,
             parent_path: disk.clone(),
@@ -348,8 +354,8 @@ impl PartitionsHandler {
     /// Args:
     /// - partition: Partition device path (e.g., "/dev/sda1")
     ///
-    /// Authorization: org.cosmic.ext.storage-service.partition-modify (auth_admin_keep)
-    #[authorized_interface(action = "org.cosmic.ext.storage-service.partition-modify")]
+    /// Authorization: org.cosmic.ext.storage.service.partition-modify (auth_admin_keep)
+    #[authorized_interface(action = "org.cosmic.ext.storage.service.partition-modify")]
     async fn delete_partition(
         &self,
         #[zbus(connection)] _connection: &Connection,
@@ -362,8 +368,9 @@ impl PartitionsHandler {
         // Find partition path from device
         let partition_path = self.find_partition_path(&partition).await?;
 
-        // Delegate to storage-dbus operation
-        storage_dbus::delete_partition(&partition_path.to_string())
+        // Delegate to storage-udisks operation
+        self.partition_ops
+            .delete_partition(&partition_path)
             .await
             .map_err(|e| {
                 tracing::error!("Failed to delete partition: {e}");
@@ -384,8 +391,8 @@ impl PartitionsHandler {
     /// - partition: Partition device path (e.g., "/dev/sda1")
     /// - new_size: New size in bytes
     ///
-    /// Authorization: org.cosmic.ext.storage-service.partition-modify (auth_admin_keep)
-    #[authorized_interface(action = "org.cosmic.ext.storage-service.partition-modify")]
+    /// Authorization: org.cosmic.ext.storage.service.partition-modify (auth_admin_keep)
+    #[authorized_interface(action = "org.cosmic.ext.storage.service.partition-modify")]
     async fn resize_partition(
         &self,
         #[zbus(connection)] _connection: &Connection,
@@ -404,8 +411,9 @@ impl PartitionsHandler {
         // Find partition path
         let partition_path = self.find_partition_path(&partition).await?;
 
-        // Delegate to storage-dbus operation
-        storage_dbus::resize_partition(&partition_path.to_string(), new_size)
+        // Delegate to storage-udisks operation
+        self.partition_ops
+            .resize_partition(&partition_path, new_size)
             .await
             .map_err(|e| {
                 tracing::error!("Failed to resize partition: {e}");
@@ -426,8 +434,8 @@ impl PartitionsHandler {
     /// - partition: Partition device path (e.g., "/dev/sda1")
     /// - type_id: Partition type identifier
     ///
-    /// Authorization: org.cosmic.ext.storage-service.partition-modify (auth_admin_keep)
-    #[authorized_interface(action = "org.cosmic.ext.storage-service.partition-modify")]
+    /// Authorization: org.cosmic.ext.storage.service.partition-modify (auth_admin_keep)
+    #[authorized_interface(action = "org.cosmic.ext.storage.service.partition-modify")]
     async fn set_partition_type(
         &self,
         #[zbus(connection)] _connection: &Connection,
@@ -446,8 +454,9 @@ impl PartitionsHandler {
         // Find partition path
         let partition_path = self.find_partition_path(&partition).await?;
 
-        // Delegate to storage-dbus operation
-        storage_dbus::set_partition_type(&partition_path.to_string(), &type_id)
+        // Delegate to storage-udisks operation
+        self.partition_ops
+            .set_partition_type(&partition_path, &type_id)
             .await
             .map_err(|e| {
                 tracing::error!("Failed to set partition type: {e}");
@@ -468,8 +477,8 @@ impl PartitionsHandler {
     /// - partition: Partition device path (e.g., "/dev/sda1")
     /// - flags: Flags as u64 bitfield (0x01 = bootable, 0x02 = system, 0x04 = hidden)
     ///
-    /// Authorization: org.cosmic.ext.storage-service.partition-modify (auth_admin_keep)
-    #[authorized_interface(action = "org.cosmic.ext.storage-service.partition-modify")]
+    /// Authorization: org.cosmic.ext.storage.service.partition-modify (auth_admin_keep)
+    #[authorized_interface(action = "org.cosmic.ext.storage.service.partition-modify")]
     async fn set_partition_flags(
         &self,
         #[zbus(connection)] _connection: &Connection,
@@ -488,8 +497,9 @@ impl PartitionsHandler {
         // Find partition path
         let partition_path = self.find_partition_path(&partition).await?;
 
-        // Delegate to storage-dbus operation
-        storage_dbus::set_partition_flags(&partition_path.to_string(), flags)
+        // Delegate to storage-udisks operation
+        self.partition_ops
+            .set_partition_flags(&partition_path, flags)
             .await
             .map_err(|e| {
                 tracing::error!("Failed to set partition flags: {e}");
@@ -510,8 +520,8 @@ impl PartitionsHandler {
     /// - partition: Partition device path (e.g., "/dev/sda1")
     /// - name: Partition name (max 36 characters for GPT)
     ///
-    /// Authorization: org.cosmic.ext.storage-service.partition-modify (auth_admin_keep)
-    #[authorized_interface(action = "org.cosmic.ext.storage-service.partition-modify")]
+    /// Authorization: org.cosmic.ext.storage.service.partition-modify (auth_admin_keep)
+    #[authorized_interface(action = "org.cosmic.ext.storage.service.partition-modify")]
     async fn set_partition_name(
         &self,
         #[zbus(connection)] _connection: &Connection,
@@ -539,8 +549,9 @@ impl PartitionsHandler {
         // Find partition path
         let partition_path = self.find_partition_path(&partition).await?;
 
-        // Delegate to storage-dbus operation
-        storage_dbus::set_partition_name(&partition_path.to_string(), &name)
+        // Delegate to storage-udisks operation
+        self.partition_ops
+            .set_partition_name(&partition_path, &name)
             .await
             .map_err(|e| {
                 tracing::error!("Failed to set partition name: {e}");
@@ -559,13 +570,14 @@ impl PartitionsHandler {
 /// Helper methods
 impl PartitionsHandler {
     /// Find UDisks2 partition object path from device path
-    async fn find_partition_path(&self, partition: &str) -> zbus::fdo::Result<OwnedObjectPath> {
+    async fn find_partition_path(&self, partition: &str) -> zbus::fdo::Result<String> {
         let device = if partition.starts_with("/dev/") {
             partition.to_string()
         } else {
             format!("/dev/{}", partition)
         };
-        storage_dbus::block_object_path_for_device(&device)
+        self.partition_ops
+            .resolve_block_path_for_device(&device)
             .await
             .map_err(|e| {
                 tracing::warn!("Partition not found: {} - {}", partition, e);

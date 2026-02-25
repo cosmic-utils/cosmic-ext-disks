@@ -17,7 +17,7 @@ impl StorageService {
     }
 }
 
-#[interface(name = "org.cosmic.ext.StorageService")]
+#[interface(name = "org.cosmic.ext.Storage.Service")]
 impl StorageService {
     /// Get service version
     #[zbus(property)]

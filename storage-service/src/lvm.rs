@@ -7,8 +7,8 @@
 
 use std::process::Command;
 use std::sync::Arc;
-use storage_common::{LogicalVolumeInfo, PhysicalVolumeInfo, VolumeGroupInfo};
-use storage_service_macros::authorized_interface;
+use storage_macros::authorized_interface;
+use storage_types::{LogicalVolumeInfo, PhysicalVolumeInfo, VolumeGroupInfo};
 use zbus::message::Header as MessageHeader;
 use zbus::{Connection, interface};
 
@@ -35,7 +35,7 @@ impl LVMHandler {
     }
 }
 
-#[interface(name = "org.cosmic.ext.StorageService.LVM")]
+#[interface(name = "org.cosmic.ext.Storage.Service.LVM")]
 impl LVMHandler {
     /// Signal emitted when a volume group is created
     #[zbus(signal)]
@@ -71,8 +71,8 @@ impl LVMHandler {
     ///
     /// Returns: JSON-serialized Vec<VolumeGroupInfo>
     ///
-    /// Authorization: org.cosmic.ext.storage-service.lvm-read (allow_active)
-    #[authorized_interface(action = "org.cosmic.ext.storage-service.lvm-read")]
+    /// Authorization: org.cosmic.ext.storage.service.lvm-read (allow_active)
+    #[authorized_interface(action = "org.cosmic.ext.storage.service.lvm-read")]
     async fn list_volume_groups(
         &self,
         #[zbus(connection)] _connection: &Connection,
@@ -150,8 +150,8 @@ impl LVMHandler {
     ///
     /// Returns: JSON-serialized Vec<LogicalVolumeInfo>
     ///
-    /// Authorization: org.cosmic.ext.storage-service.lvm-read (allow_active)
-    #[authorized_interface(action = "org.cosmic.ext.storage-service.lvm-read")]
+    /// Authorization: org.cosmic.ext.storage.service.lvm-read (allow_active)
+    #[authorized_interface(action = "org.cosmic.ext.storage.service.lvm-read")]
     async fn list_logical_volumes(
         &self,
         #[zbus(connection)] _connection: &Connection,
@@ -230,8 +230,8 @@ impl LVMHandler {
     ///
     /// Returns: JSON-serialized Vec<PhysicalVolumeInfo>
     ///
-    /// Authorization: org.cosmic.ext.storage-service.lvm-read (allow_active)
-    #[authorized_interface(action = "org.cosmic.ext.storage-service.lvm-read")]
+    /// Authorization: org.cosmic.ext.storage.service.lvm-read (allow_active)
+    #[authorized_interface(action = "org.cosmic.ext.storage.service.lvm-read")]
     async fn list_physical_volumes(
         &self,
         #[zbus(connection)] _connection: &Connection,
@@ -312,8 +312,8 @@ impl LVMHandler {
     /// - vg_name: Name for the new volume group
     /// - devices_json: JSON-serialized Vec<String> of device paths (e.g., ["/dev/sda1", "/dev/sdb1"])
     ///
-    /// Authorization: org.cosmic.ext.storage-service.lvm-modify (auth_admin_keep)
-    #[authorized_interface(action = "org.cosmic.ext.storage-service.lvm-modify")]
+    /// Authorization: org.cosmic.ext.storage.service.lvm-modify (auth_admin_keep)
+    #[authorized_interface(action = "org.cosmic.ext.storage.service.lvm-modify")]
     async fn create_volume_group(
         &self,
         #[zbus(connection)] _connection: &Connection,
@@ -371,8 +371,8 @@ impl LVMHandler {
     /// - lv_name: Name for the new logical volume
     /// - size_bytes: Size in bytes
     ///
-    /// Authorization: org.cosmic.ext.storage-service.lvm-modify (auth_admin_keep)
-    #[authorized_interface(action = "org.cosmic.ext.storage-service.lvm-modify")]
+    /// Authorization: org.cosmic.ext.storage.service.lvm-modify (auth_admin_keep)
+    #[authorized_interface(action = "org.cosmic.ext.storage.service.lvm-modify")]
     async fn create_logical_volume(
         &self,
         #[zbus(connection)] _connection: &Connection,
@@ -422,8 +422,8 @@ impl LVMHandler {
     /// - lv_path: Logical volume path (e.g., "/dev/vg0/lv0" or "vg0/lv0")
     /// - new_size_bytes: New size in bytes
     ///
-    /// Authorization: org.cosmic.ext.storage-service.lvm-modify (auth_admin_keep)
-    #[authorized_interface(action = "org.cosmic.ext.storage-service.lvm-modify")]
+    /// Authorization: org.cosmic.ext.storage.service.lvm-modify (auth_admin_keep)
+    #[authorized_interface(action = "org.cosmic.ext.storage.service.lvm-modify")]
     async fn resize_logical_volume(
         &self,
         #[zbus(connection)] _connection: &Connection,
@@ -468,8 +468,8 @@ impl LVMHandler {
     /// Args:
     /// - vg_name: Name of the volume group to delete
     ///
-    /// Authorization: org.cosmic.ext.storage-service.lvm-modify (auth_admin_keep)
-    #[authorized_interface(action = "org.cosmic.ext.storage-service.lvm-modify")]
+    /// Authorization: org.cosmic.ext.storage.service.lvm-modify (auth_admin_keep)
+    #[authorized_interface(action = "org.cosmic.ext.storage.service.lvm-modify")]
     async fn delete_volume_group(
         &self,
         #[zbus(connection)] _connection: &Connection,
@@ -508,8 +508,8 @@ impl LVMHandler {
     /// Args:
     /// - lv_path: Logical volume path (e.g., "/dev/vg0/lv0" or "vg0/lv0")
     ///
-    /// Authorization: org.cosmic.ext.storage-service.lvm-modify (auth_admin_keep)
-    #[authorized_interface(action = "org.cosmic.ext.storage-service.lvm-modify")]
+    /// Authorization: org.cosmic.ext.storage.service.lvm-modify (auth_admin_keep)
+    #[authorized_interface(action = "org.cosmic.ext.storage.service.lvm-modify")]
     async fn delete_logical_volume(
         &self,
         #[zbus(connection)] _connection: &Connection,
@@ -554,8 +554,8 @@ impl LVMHandler {
     /// - vg_name: Name of the volume group
     /// - pv_device: Physical volume device path (e.g., "/dev/sda1")
     ///
-    /// Authorization: org.cosmic.ext.storage-service.lvm-modify (auth_admin_keep)
-    #[authorized_interface(action = "org.cosmic.ext.storage-service.lvm-modify")]
+    /// Authorization: org.cosmic.ext.storage.service.lvm-modify (auth_admin_keep)
+    #[authorized_interface(action = "org.cosmic.ext.storage.service.lvm-modify")]
     async fn remove_physical_volume(
         &self,
         #[zbus(connection)] _connection: &Connection,

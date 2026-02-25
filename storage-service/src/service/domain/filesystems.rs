@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-only
 
-use storage_common::FilesystemToolInfo;
+use storage_types::FilesystemToolInfo;
 
 pub trait FilesystemsDomain: Send + Sync {
     fn detect_all_filesystem_tools(&self) -> Vec<FilesystemToolInfo>;

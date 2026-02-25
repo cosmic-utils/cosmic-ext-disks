@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-only
 
-use storage_common::rclone::{ConfigScope, RemoteConfig, rclone_provider};
+use storage_types::rclone::{ConfigScope, RemoteConfig, rclone_provider};
 
 pub trait RcloneDomain: Send + Sync {
     fn require_available(&self) -> zbus::fdo::Result<()>;

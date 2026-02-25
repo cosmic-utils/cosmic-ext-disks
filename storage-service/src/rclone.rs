@@ -6,12 +6,12 @@
 //! including listing remotes, mounting/unmounting, and configuration management.
 
 use std::sync::Arc;
-use storage_common::rclone::{
+use storage_macros::authorized_interface;
+use storage_sys::{RCloneCli, is_mount_on_boot_enabled, set_mount_on_boot};
+use storage_types::rclone::{
     ConfigScope, MountStatus, MountStatusResult, RemoteConfig, RemoteConfigList, TestResult,
     rclone_provider, supported_remote_types,
 };
-use storage_service_macros::authorized_interface;
-use storage_sys::{RCloneCli, is_mount_on_boot_enabled, set_mount_on_boot};
 use zbus::message::Header as MessageHeader;
 use zbus::object_server::SignalEmitter;
 use zbus::{Connection, interface};
@@ -131,7 +131,7 @@ impl RcloneHandler {
     }
 }
 
-#[interface(name = "org.cosmic.ext.StorageService.Rclone")]
+#[interface(name = "org.cosmic.ext.Storage.Service.Rclone")]
 impl RcloneHandler {
     /// Signal emitted when mount status changes
     #[zbus(signal)]
@@ -143,7 +143,7 @@ impl RcloneHandler {
     ) -> zbus::Result<()>;
 
     /// List all configured RClone remotes from both user and system config files
-    #[authorized_interface(action = "org.cosmic.ext.storage-service.rclone-read")]
+    #[authorized_interface(action = "org.cosmic.ext.storage.service.rclone-read")]
     async fn list_remotes(
         &self,
         #[zbus(connection)] _connection: &Connection,
@@ -255,7 +255,7 @@ impl RcloneHandler {
     }
 
     /// Get detailed configuration for a specific remote
-    #[authorized_interface(action = "org.cosmic.ext.storage-service.rclone-read")]
+    #[authorized_interface(action = "org.cosmic.ext.storage.service.rclone-read")]
     async fn get_remote(
         &self,
         #[zbus(connection)] _connection: &Connection,
@@ -314,7 +314,7 @@ impl RcloneHandler {
     }
 
     /// Test connectivity and authentication for a remote
-    #[authorized_interface(action = "org.cosmic.ext.storage-service.rclone-test")]
+    #[authorized_interface(action = "org.cosmic.ext.storage.service.rclone-test")]
     async fn test_remote(
         &self,
         #[zbus(connection)] _connection: &Connection,
@@ -373,7 +373,7 @@ impl RcloneHandler {
             let authorized = crate::auth::check_authorization(
                 connection,
                 &sender,
-                "org.cosmic.ext.storage-service.rclone-mount",
+                "org.cosmic.ext.storage.service.rclone-mount",
             )
             .await
             .map_err(|e| zbus::fdo::Error::Failed(format!("Authorization check failed: {}", e)))?;
@@ -431,7 +431,7 @@ impl RcloneHandler {
             let authorized = crate::auth::check_authorization(
                 connection,
                 &sender,
-                "org.cosmic.ext.storage-service.rclone-mount",
+                "org.cosmic.ext.storage.service.rclone-mount",
             )
             .await
             .map_err(|e| zbus::fdo::Error::Failed(format!("Authorization check failed: {}", e)))?;
@@ -458,7 +458,7 @@ impl RcloneHandler {
     }
 
     /// Get current mount status for a remote
-    #[authorized_interface(action = "org.cosmic.ext.storage-service.rclone-read")]
+    #[authorized_interface(action = "org.cosmic.ext.storage.service.rclone-read")]
     async fn get_mount_status(
         &self,
         #[zbus(connection)] _connection: &Connection,
@@ -491,7 +491,7 @@ impl RcloneHandler {
     }
 
     /// Check if a remote is enabled to mount on boot
-    #[authorized_interface(action = "org.cosmic.ext.storage-service.rclone-read")]
+    #[authorized_interface(action = "org.cosmic.ext.storage.service.rclone-read")]
     async fn get_mount_on_boot(
         &self,
         #[zbus(connection)] connection: &Connection,
@@ -542,7 +542,7 @@ impl RcloneHandler {
             let authorized = crate::auth::check_authorization(
                 connection,
                 &sender,
-                "org.cosmic.ext.storage-service.rclone-mount",
+                "org.cosmic.ext.storage.service.rclone-mount",
             )
             .await
             .map_err(|e| zbus::fdo::Error::Failed(format!("Authorization check failed: {}", e)))?;
@@ -612,7 +612,7 @@ impl RcloneHandler {
             let authorized = crate::auth::check_authorization(
                 connection,
                 &sender,
-                "org.cosmic.ext.storage-service.rclone-config",
+                "org.cosmic.ext.storage.service.rclone-config",
             )
             .await
             .map_err(|e| zbus::fdo::Error::Failed(format!("Authorization check failed: {}", e)))?;
@@ -692,7 +692,7 @@ impl RcloneHandler {
             let authorized = crate::auth::check_authorization(
                 connection,
                 &sender,
-                "org.cosmic.ext.storage-service.rclone-config",
+                "org.cosmic.ext.storage.service.rclone-config",
             )
             .await
             .map_err(|e| zbus::fdo::Error::Failed(format!("Authorization check failed: {}", e)))?;
@@ -768,7 +768,7 @@ impl RcloneHandler {
             let authorized = crate::auth::check_authorization(
                 connection,
                 &sender,
-                "org.cosmic.ext.storage-service.rclone-config",
+                "org.cosmic.ext.storage.service.rclone-config",
             )
             .await
             .map_err(|e| zbus::fdo::Error::Failed(format!("Authorization check failed: {}", e)))?;

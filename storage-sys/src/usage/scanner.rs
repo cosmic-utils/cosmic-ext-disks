@@ -9,8 +9,8 @@ use std::path::{Path, PathBuf};
 use std::sync::mpsc::Sender;
 use std::time::Instant;
 
-use rayon::prelude::*;
 use rayon::ThreadPoolBuilder;
+use rayon::prelude::*;
 
 use super::classifier::classify_path;
 use super::error::UsageScanError;
@@ -149,11 +149,11 @@ impl LocalStats {
             return;
         }
 
-        if let Some(worst) = heap.peek() {
-            if candidate.better_than(worst) {
-                heap.pop();
-                heap.push(candidate);
-            }
+        if let Some(worst) = heap.peek()
+            && candidate.better_than(worst)
+        {
+            heap.pop();
+            heap.push(candidate);
         }
     }
 
@@ -369,10 +369,10 @@ fn scan_single_root(
         }
     }
 
-    if pending_progress_bytes > 0 {
-        if let Some(tx) = &progress_tx {
-            let _ = tx.send(pending_progress_bytes);
-        }
+    if pending_progress_bytes > 0
+        && let Some(tx) = &progress_tx
+    {
+        let _ = tx.send(pending_progress_bytes);
     }
 
     stats

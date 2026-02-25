@@ -3,8 +3,8 @@
 use disks_btrfs::SubvolumeManager;
 use std::path::PathBuf;
 use std::sync::Arc;
-use storage_common::btrfs::SubvolumeList;
-use storage_service_macros::authorized_interface;
+use storage_macros::authorized_interface;
+use storage_types::btrfs::SubvolumeList;
 use zbus::message::Header as MessageHeader;
 use zbus::object_server::SignalEmitter;
 use zbus::{Connection, interface};
@@ -24,10 +24,10 @@ impl BtrfsHandler {
     }
 }
 
-#[interface(name = "org.cosmic.ext.StorageService.Btrfs")]
+#[interface(name = "org.cosmic.ext.Storage.Service.Btrfs")]
 impl BtrfsHandler {
     /// List all subvolumes in a BTRFS filesystem
-    #[authorized_interface(action = "org.cosmic.ext.storage-service.btrfs-read")]
+    #[authorized_interface(action = "org.cosmic.ext.storage.service.btrfs-read")]
     async fn list_subvolumes(
         &self,
         #[zbus(connection)] _connection: &Connection,
@@ -59,7 +59,7 @@ impl BtrfsHandler {
     }
 
     /// Create a new subvolume
-    #[authorized_interface(action = "org.cosmic.ext.storage-service.btrfs-modify")]
+    #[authorized_interface(action = "org.cosmic.ext.storage.service.btrfs-modify")]
     async fn create_subvolume(
         &self,
         #[zbus(connection)] _connection: &Connection,
@@ -92,7 +92,7 @@ impl BtrfsHandler {
     }
 
     /// Create a snapshot of a subvolume
-    #[authorized_interface(action = "org.cosmic.ext.storage-service.btrfs-modify")]
+    #[authorized_interface(action = "org.cosmic.ext.storage.service.btrfs-modify")]
     #[allow(clippy::too_many_arguments)]
     async fn create_snapshot(
         &self,
@@ -134,7 +134,7 @@ impl BtrfsHandler {
     }
 
     /// Delete a subvolume
-    #[authorized_interface(action = "org.cosmic.ext.storage-service.btrfs-modify")]
+    #[authorized_interface(action = "org.cosmic.ext.storage.service.btrfs-modify")]
     async fn delete_subvolume(
         &self,
         #[zbus(connection)] _connection: &Connection,
@@ -166,7 +166,7 @@ impl BtrfsHandler {
     }
 
     /// Set or unset the read-only flag on a subvolume
-    #[authorized_interface(action = "org.cosmic.ext.storage-service.btrfs-modify")]
+    #[authorized_interface(action = "org.cosmic.ext.storage.service.btrfs-modify")]
     async fn set_readonly(
         &self,
         #[zbus(connection)] _connection: &Connection,
@@ -198,7 +198,7 @@ impl BtrfsHandler {
     }
 
     /// Set a subvolume as the default
-    #[authorized_interface(action = "org.cosmic.ext.storage-service.btrfs-modify")]
+    #[authorized_interface(action = "org.cosmic.ext.storage.service.btrfs-modify")]
     async fn set_default(
         &self,
         #[zbus(connection)] _connection: &Connection,
@@ -224,7 +224,7 @@ impl BtrfsHandler {
     }
 
     /// Get the default subvolume ID
-    #[authorized_interface(action = "org.cosmic.ext.storage-service.btrfs-read")]
+    #[authorized_interface(action = "org.cosmic.ext.storage.service.btrfs-read")]
     async fn get_default(
         &self,
         #[zbus(connection)] _connection: &Connection,
@@ -243,7 +243,7 @@ impl BtrfsHandler {
     }
 
     /// List deleted subvolumes pending cleanup
-    #[authorized_interface(action = "org.cosmic.ext.storage-service.btrfs-read")]
+    #[authorized_interface(action = "org.cosmic.ext.storage.service.btrfs-read")]
     async fn list_deleted(
         &self,
         #[zbus(connection)] _connection: &Connection,
@@ -271,7 +271,7 @@ impl BtrfsHandler {
     }
 
     /// Get filesystem usage information
-    #[authorized_interface(action = "org.cosmic.ext.storage-service.btrfs-read")]
+    #[authorized_interface(action = "org.cosmic.ext.storage.service.btrfs-read")]
     async fn get_usage(
         &self,
         #[zbus(connection)] _connection: &Connection,

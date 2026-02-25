@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-only
 
-use storage_common::DiskInfo;
+use storage_types::DiskInfo;
 
 pub trait DisksDomain: Send + Sync {
     fn disk_matches(&self, disk: &DiskInfo, requested: &str) -> bool;

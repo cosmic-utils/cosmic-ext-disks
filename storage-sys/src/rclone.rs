@@ -13,7 +13,7 @@ use std::os::unix::ffi::OsStrExt;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::time::Instant;
-use storage_common::ConfigScope;
+use storage_types::ConfigScope;
 use tracing::{debug, info, warn};
 use which::which;
 
@@ -191,13 +191,13 @@ impl RCloneCli {
             for line in mounts.lines() {
                 // /proc/mounts format: device mountpoint fstype options dump pass
                 let mut fields = line.split_whitespace();
-                if let Some(_device) = fields.next() {
-                    if let Some(mp) = fields.next() {
-                        // Unescape octal sequences in mount paths (e.g. \040 for space)
-                        let unescaped = unescape_mount_path(mp);
-                        if unescaped == mount_path_str.as_ref() {
-                            return Ok(true);
-                        }
+                if let Some(_device) = fields.next()
+                    && let Some(mp) = fields.next()
+                {
+                    // Unescape octal sequences in mount paths (e.g. \040 for space)
+                    let unescaped = unescape_mount_path(mp);
+                    if unescaped == mount_path_str.as_ref() {
+                        return Ok(true);
                     }
                 }
             }
@@ -232,20 +232,20 @@ impl RCloneCli {
         }
 
         // Ensure user-owned mountpoint for user scope
-        if scope == ConfigScope::User {
-            if let Some(uid) = uid {
-                if unsafe { libc::geteuid() } == 0 {
-                    if let Some((uid, gid)) = uid_gid_for_uid(uid) {
-                        if let Some(parent) = mount_point.parent() {
-                            chown_path(parent, uid, gid)?;
-                        }
-                        chown_path(mount_point, uid, gid)?;
-                    } else {
-                        warn!("Failed to resolve uid/gid for uid {}", uid);
+        if scope == ConfigScope::User
+            && let Some(uid) = uid
+        {
+            if unsafe { libc::geteuid() } == 0 {
+                if let Some((uid, gid)) = uid_gid_for_uid(uid) {
+                    if let Some(parent) = mount_point.parent() {
+                        chown_path(parent, uid, gid)?;
                     }
+                    chown_path(mount_point, uid, gid)?;
                 } else {
-                    debug!("Skipping mountpoint chown; not running as root");
+                    warn!("Failed to resolve uid/gid for uid {}", uid);
                 }
+            } else {
+                debug!("Skipping mountpoint chown; not running as root");
             }
         }
 
@@ -372,12 +372,12 @@ impl RCloneCli {
         }
 
         // Ensure parent directory exists
-        if let Some(parent) = config_path.parent() {
-            if !parent.exists() {
-                std::fs::create_dir_all(parent).map_err(|e| {
-                    SysError::OperationFailed(format!("Failed to create config directory: {}", e))
-                })?;
-            }
+        if let Some(parent) = config_path.parent()
+            && !parent.exists()
+        {
+            std::fs::create_dir_all(parent).map_err(|e| {
+                SysError::OperationFailed(format!("Failed to create config directory: {}", e))
+            })?;
         }
 
         conf.write(config_path)

@@ -1245,7 +1245,7 @@ dependencies = [
  "rust-embed",
  "serde",
  "serde_json",
- "storage-common",
+ "storage-types",
  "thiserror 2.0.18",
  "tokio",
  "tracing",
@@ -1255,33 +1255,6 @@ dependencies = [
  "vergen",
  "which 8.0.0",
  "zbus 5.14.0",
-]
-
-[[package]]
-name = "cosmic-ext-storage-dbus"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "btrfsutil",
- "chrono",
- "enumflags2",
- "futures",
- "libc",
- "nix 0.31.1",
- "num-format",
- "procfs",
- "serde",
- "serde_json",
- "storage-common",
- "thiserror 2.0.18",
- "tokio",
- "toml 0.9.12+spec-1.1.0",
- "tracing",
- "tracing-subscriber",
- "udisks2",
- "uuid 1.21.0",
- "zbus 5.14.0",
- "zbus_macros 5.14.0",
 ]
 
 [[package]]
@@ -1295,7 +1268,7 @@ dependencies = [
  "rayon",
  "serde",
  "serde_json",
- "storage-common",
+ "storage-types",
  "thiserror 2.0.18",
  "tokio",
  "tracing",
@@ -5308,7 +5281,7 @@ dependencies = [
  "libc",
  "serde",
  "serde_json",
- "storage-common",
+ "storage-types",
  "thiserror 2.0.18",
  "tracing",
  "tracing-subscriber",
@@ -5316,16 +5289,24 @@ dependencies = [
 ]
 
 [[package]]
-name = "storage-common"
+name = "storage-contracts"
 version = "0.1.0"
 dependencies = [
- "anyhow",
- "chrono",
- "num-format",
+ "async-trait",
  "serde",
  "serde_json",
- "toml 0.9.12+spec-1.1.0",
+ "storage-types",
+ "thiserror 2.0.18",
  "uuid 1.21.0",
+]
+
+[[package]]
+name = "storage-macros"
+version = "0.1.0"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.114",
 ]
 
 [[package]]
@@ -5333,7 +5314,7 @@ name = "storage-service"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "cosmic-ext-storage-dbus",
+ "async-trait",
  "cosmic-ext-storage-storage-sys",
  "enumflags2",
  "futures-util",
@@ -5342,8 +5323,10 @@ dependencies = [
  "serde",
  "serde_json",
  "storage-btrfs",
- "storage-common",
- "storage-service-macros",
+ "storage-contracts",
+ "storage-macros",
+ "storage-types",
+ "storage-udisks",
  "thiserror 2.0.18",
  "tokio",
  "tokio-util",
@@ -5357,12 +5340,43 @@ dependencies = [
 ]
 
 [[package]]
-name = "storage-service-macros"
+name = "storage-types"
 version = "0.1.0"
 dependencies = [
- "proc-macro2",
- "quote",
- "syn 2.0.114",
+ "anyhow",
+ "chrono",
+ "num-format",
+ "serde",
+ "serde_json",
+ "toml 0.9.12+spec-1.1.0",
+ "uuid 1.21.0",
+]
+
+[[package]]
+name = "storage-udisks"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "btrfsutil",
+ "chrono",
+ "enumflags2",
+ "futures",
+ "libc",
+ "nix 0.31.1",
+ "num-format",
+ "procfs",
+ "serde",
+ "serde_json",
+ "storage-types",
+ "thiserror 2.0.18",
+ "tokio",
+ "toml 0.9.12+spec-1.1.0",
+ "tracing",
+ "tracing-subscriber",
+ "udisks2",
+ "uuid 1.21.0",
+ "zbus 5.14.0",
+ "zbus_macros 5.14.0",
 ]
 
 [[package]]

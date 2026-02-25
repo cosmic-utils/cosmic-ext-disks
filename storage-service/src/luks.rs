@@ -5,8 +5,9 @@
 //! This module provides D-Bus methods for managing LUKS encrypted volumes.
 
 use std::sync::Arc;
-use storage_common::EncryptionOptionsSettings;
-use storage_service_macros::authorized_interface;
+use storage_contracts::LuksOpsAdapter;
+use storage_macros::authorized_interface;
+use storage_types::EncryptionOptionsSettings;
 use zbus::message::Header as MessageHeader;
 use zbus::{Connection, interface};
 
@@ -14,19 +15,21 @@ use crate::service::domain::luks::{DefaultLuksDomain, LuksDomain};
 
 /// D-Bus interface for LUKS encryption operations
 pub struct LuksHandler {
+    luks_ops: Arc<dyn LuksOpsAdapter>,
     domain: Arc<dyn LuksDomain>,
 }
 
 impl LuksHandler {
     /// Create a new LuksHandler
-    pub fn new() -> Self {
+    pub fn new(luks_ops: Arc<dyn LuksOpsAdapter>) -> Self {
         Self {
+            luks_ops,
             domain: Arc::new(DefaultLuksDomain),
         }
     }
 }
 
-#[interface(name = "org.cosmic.ext.StorageService.Luks")]
+#[interface(name = "org.cosmic.ext.Storage.Service.Luks")]
 impl LuksHandler {
     /// Signal emitted when a LUKS container is formatted
     #[zbus(signal)]
@@ -54,8 +57,8 @@ impl LuksHandler {
     ///
     /// Returns: JSON-serialized Vec<LuksInfo>
     ///
-    /// Authorization: org.cosmic.ext.storage-service.luks-read (allow_active)
-    #[authorized_interface(action = "org.cosmic.ext.storage-service.luks-read")]
+    /// Authorization: org.cosmic.ext.storage.service.luks-read (allow_active)
+    #[authorized_interface(action = "org.cosmic.ext.storage.service.luks-read")]
     async fn list_encrypted_devices(
         &self,
         #[zbus(connection)] _connection: &Connection,
@@ -63,8 +66,8 @@ impl LuksHandler {
     ) -> zbus::fdo::Result<String> {
         tracing::debug!("Listing encrypted devices (UID {})", caller.uid);
 
-        // Delegate to storage-dbus operation
-        let luks_devices = storage_dbus::list_luks_devices().await.map_err(|e| {
+        // Delegate to storage-udisks operation
+        let luks_devices = self.luks_ops.list_luks_devices().await.map_err(|e| {
             tracing::error!("Failed to list encrypted devices: {e}");
             zbus::fdo::Error::Failed(format!("Failed to list encrypted devices: {e}"))
         })?;
@@ -84,8 +87,8 @@ impl LuksHandler {
     /// - passphrase: Encryption passphrase
     /// - version: LUKS version ("luks1" or "luks2", defaults to "luks2")
     ///
-    /// Authorization: org.cosmic.ext.storage-service.luks-format (auth_admin - always prompt)
-    #[authorized_interface(action = "org.cosmic.ext.storage-service.luks-format")]
+    /// Authorization: org.cosmic.ext.storage.service.luks-format (auth_admin - always prompt)
+    #[authorized_interface(action = "org.cosmic.ext.storage.service.luks-format")]
     async fn format(
         &self,
         #[zbus(connection)] _connection: &Connection,
@@ -103,8 +106,9 @@ impl LuksHandler {
 
         let luks_version = self.domain.normalize_luks_version(&version)?;
 
-        // Delegate to storage-dbus operation
-        storage_dbus::format_luks(&device, &passphrase, luks_version)
+        // Delegate to storage-udisks operation
+        self.luks_ops
+            .format_luks(&device, &passphrase, luks_version)
             .await
             .map_err(|e| {
                 tracing::error!("LUKS format failed: {e}");
@@ -124,8 +128,8 @@ impl LuksHandler {
     ///
     /// Returns: Cleartext device path (e.g., "/dev/mapper/luks-xxx")
     ///
-    /// Authorization: org.cosmic.ext.storage-service.luks-unlock (allow_active)
-    #[authorized_interface(action = "org.cosmic.ext.storage-service.luks-unlock")]
+    /// Authorization: org.cosmic.ext.storage.service.luks-unlock (allow_active)
+    #[authorized_interface(action = "org.cosmic.ext.storage.service.luks-unlock")]
     async fn unlock(
         &self,
         #[zbus(connection)] _connection: &Connection,
@@ -136,8 +140,10 @@ impl LuksHandler {
     ) -> zbus::fdo::Result<String> {
         tracing::info!("Unlocking LUKS device '{}' (UID {})", device, caller.uid);
 
-        // Delegate to storage-dbus operation
-        let cleartext_device = storage_dbus::unlock_luks(&device, &passphrase)
+        // Delegate to storage-udisks operation
+        let cleartext_device = self
+            .luks_ops
+            .unlock_luks(&device, &passphrase)
             .await
             .map_err(|e| {
                 tracing::error!("Unlock failed: {e}");
@@ -158,8 +164,8 @@ impl LuksHandler {
     /// Args:
     /// - device: Device path (e.g., "/dev/sda1")
     ///
-    /// Authorization: org.cosmic.ext.storage-service.luks-lock (allow_active)
-    #[authorized_interface(action = "org.cosmic.ext.storage-service.luks-lock")]
+    /// Authorization: org.cosmic.ext.storage.service.luks-lock (allow_active)
+    #[authorized_interface(action = "org.cosmic.ext.storage.service.luks-lock")]
     async fn lock(
         &self,
         #[zbus(connection)] _connection: &Connection,
@@ -169,8 +175,8 @@ impl LuksHandler {
     ) -> zbus::fdo::Result<()> {
         tracing::info!("Locking LUKS device '{}' (UID {})", device, caller.uid);
 
-        // Delegate to storage-dbus operation
-        storage_dbus::lock_luks(&device).await.map_err(|e| {
+        // Delegate to storage-udisks operation
+        self.luks_ops.lock_luks(&device).await.map_err(|e| {
             tracing::error!("Lock failed: {e}");
             zbus::fdo::Error::Failed(format!("Lock failed: {e}"))
         })?;
@@ -187,8 +193,8 @@ impl LuksHandler {
     /// - current_passphrase: Current passphrase
     /// - new_passphrase: New passphrase
     ///
-    /// Authorization: org.cosmic.ext.storage-service.luks-modify (auth_admin_keep)
-    #[authorized_interface(action = "org.cosmic.ext.storage-service.luks-modify")]
+    /// Authorization: org.cosmic.ext.storage.service.luks-modify (auth_admin_keep)
+    #[authorized_interface(action = "org.cosmic.ext.storage.service.luks-modify")]
     async fn change_passphrase(
         &self,
         #[zbus(connection)] _connection: &Connection,
@@ -203,8 +209,9 @@ impl LuksHandler {
             caller.uid
         );
 
-        // Delegate to storage-dbus operation
-        storage_dbus::change_luks_passphrase(&device, &current_passphrase, &new_passphrase)
+        // Delegate to storage-udisks operation
+        self.luks_ops
+            .change_luks_passphrase(&device, &current_passphrase, &new_passphrase)
             .await
             .map_err(|e| {
                 tracing::error!("Change passphrase failed: {e}");
@@ -223,8 +230,8 @@ impl LuksHandler {
     ///
     /// Returns: JSON-serialized Option<EncryptionOptionsSettings> ("null" if none)
     ///
-    /// Authorization: org.cosmic.ext.storage-service.luks-read (allow_active)
-    #[authorized_interface(action = "org.cosmic.ext.storage-service.luks-read")]
+    /// Authorization: org.cosmic.ext.storage.service.luks-read (allow_active)
+    #[authorized_interface(action = "org.cosmic.ext.storage.service.luks-read")]
     async fn get_encryption_options(
         &self,
         #[zbus(connection)] _connection: &Connection,
@@ -237,8 +244,10 @@ impl LuksHandler {
             caller.uid
         );
 
-        // Delegate to storage-dbus operation
-        let settings = storage_dbus::get_encryption_options(&device)
+        // Delegate to storage-udisks operation
+        let settings = self
+            .luks_ops
+            .get_encryption_options(&device)
             .await
             .map_err(|e| {
                 tracing::error!("Failed to get encryption options: {e}");
@@ -257,8 +266,8 @@ impl LuksHandler {
     /// - device: Device path (e.g. "/dev/sda1")
     /// - options_json: JSON-serialized EncryptionOptionsSettings (name, unlock_at_startup, require_auth, other_options, optional passphrase)
     ///
-    /// Authorization: org.cosmic.ext.storage-service.luks-set-options
-    #[authorized_interface(action = "org.cosmic.ext.storage-service.luks-set-options")]
+    /// Authorization: org.cosmic.ext.storage.service.luks-set-options
+    #[authorized_interface(action = "org.cosmic.ext.storage.service.luks-set-options")]
     async fn set_encryption_options(
         &self,
         #[zbus(connection)] _connection: &Connection,
@@ -275,8 +284,9 @@ impl LuksHandler {
         let settings: EncryptionOptionsSettings = serde_json::from_str(&options_json)
             .map_err(|e| zbus::fdo::Error::InvalidArgs(format!("Invalid options JSON: {e}")))?;
 
-        // Delegate to storage-dbus operation
-        storage_dbus::set_encryption_options(&device, &settings)
+        // Delegate to storage-udisks operation
+        self.luks_ops
+            .set_encryption_options(&device, &settings)
             .await
             .map_err(|e| {
                 tracing::error!("Failed to set encryption options: {e}");
@@ -289,8 +299,8 @@ impl LuksHandler {
 
     /// Clear encryption options (remove crypttab entry) for a LUKS device
     ///
-    /// Authorization: org.cosmic.ext.storage-service.luks-set-options
-    #[authorized_interface(action = "org.cosmic.ext.storage-service.luks-set-options")]
+    /// Authorization: org.cosmic.ext.storage.service.luks-set-options
+    #[authorized_interface(action = "org.cosmic.ext.storage.service.luks-set-options")]
     async fn default_encryption_options(
         &self,
         #[zbus(connection)] _connection: &Connection,
@@ -303,8 +313,9 @@ impl LuksHandler {
             caller.uid
         );
 
-        // Delegate to storage-dbus operation
-        storage_dbus::clear_encryption_options(&device)
+        // Delegate to storage-udisks operation
+        self.luks_ops
+            .clear_encryption_options(&device)
             .await
             .map_err(|e| {
                 tracing::error!("Failed to clear encryption options: {e}");

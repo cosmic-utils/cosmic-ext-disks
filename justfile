@@ -28,12 +28,12 @@ default:
         exit 1
     fi
     echo "  Installing D-Bus policy..."
-    if ! sudo install -Dm644 data/dbus-1/system.d/org.cosmic.ext.StorageService.conf /usr/share/dbus-1/system.d/; then
+    if ! sudo install -Dm644 data/dbus-1/system.d/org.cosmic.ext.Storage.Service.conf /usr/share/dbus-1/system.d/; then
         echo "✗ Failed to install D-Bus policy"
         exit 1
     fi
     echo "  Installing Polkit policy..."
-    if ! sudo install -Dm644 data/polkit-1/actions/org.cosmic.ext.storage-service.policy /usr/share/polkit-1/actions/; then
+    if ! sudo install -Dm644 data/polkit-1/actions/org.cosmic.ext.storage.service.policy /usr/share/polkit-1/actions/; then
         echo "✗ Failed to install Polkit policy"
         exit 1
     fi
@@ -44,20 +44,20 @@ default:
 
     # Step 3: Stop any existing service
     echo "► Step 3/5: Stopping any existing storage service..."
-    sudo pkill -f cosmic-storage-service || true
+    sudo pkill -f cosmic-ext-storage-service || true
     sleep 1
     echo "✓ Service stopped (if was running)"
     echo ""
 
     # Step 4: Start service in background
     echo "► Step 4/5: Starting storage service in background..."
-    sudo rm -f /tmp/cosmic-storage-service.log
-    sudo bash -c 'nohup env RUST_LOG=storage_service=info ./target/debug/cosmic-storage-service > /tmp/cosmic-storage-service.log 2>&1 &'
+    sudo rm -f /tmp/cosmic-ext-storage-service.log
+    sudo bash -c 'nohup env RUST_LOG=storage_service=info ./target/debug/cosmic-ext-storage-service > /tmp/cosmic-ext-storage-service.log 2>&1 &'
     sleep 2
     if ps aux | grep -q "[c]osmic-storage-service"; then
-        echo "✓ Service started (logs: /tmp/cosmic-storage-service.log)"
+        echo "✓ Service started (logs: /tmp/cosmic-ext-storage-service.log)"
     else
-        echo "✗ Service failed to start. Check logs: sudo cat /tmp/cosmic-storage-service.log"
+        echo "✗ Service failed to start. Check logs: sudo cat /tmp/cosmic-ext-storage-service.log"
         exit 1
     fi
     echo ""
@@ -67,7 +67,7 @@ default:
     echo ""
     echo "==========================================="
     echo "  Development environment ready!"
-    echo "  Service logs: /tmp/cosmic-storage-service.log"
+    echo "  Service logs: /tmp/cosmic-ext-storage-service.log"
     echo "==========================================="
     echo ""
     RUST_LOG=cosmic_ext_storage=debug,info,wgpu=warn,wgpu_core=warn,wgpu_hal=warn,naga=warn,iced_winit=warn,iced_wgpu=warn,i18n_embed=warn ./target/debug/cosmic-ext-storage
@@ -75,7 +75,7 @@ default:
     # Cleanup on exit
     echo ""
     echo "App exited. Stopping service..."
-    sudo pkill -f cosmic-storage-service || true
+    sudo pkill -f cosmic-ext-storage-service || true
     echo "Done."
 
 # Build all workspace crates
@@ -102,27 +102,33 @@ fmt:
 fmt-check:
     cargo fmt --all -- --check
 
+# Canonical workspace verification flow
+verify:
+    cargo fmt --all -- --check
+    cargo clippy --workspace --all-targets
+    cargo test --workspace --no-run
+
 # Build and install system files (requires root)
 install-system-files: build-release
     @echo "Installing systemd service files..."
-    sudo install -Dm644 data/systemd/cosmic-storage-service.service /usr/lib/systemd/system/
-    sudo install -Dm644 data/systemd/cosmic-storage-service.socket /usr/lib/systemd/system/
+    sudo install -Dm644 data/systemd/cosmic-ext-storage-service.service /usr/lib/systemd/system/
+    sudo install -Dm644 data/systemd/cosmic-ext-storage-service.socket /usr/lib/systemd/system/
     @echo "Installing D-Bus policy..."
-    sudo install -Dm644 data/dbus-1/system.d/org.cosmic.ext.StorageService.conf /usr/share/dbus-1/system.d/
+    sudo install -Dm644 data/dbus-1/system.d/org.cosmic.ext.Storage.Service.conf /usr/share/dbus-1/system.d/
     @echo "Installing Polkit policy..."
-    sudo install -Dm644 data/polkit-1/actions/org.cosmic.ext.storage-service.policy /usr/share/polkit-1/actions/
+    sudo install -Dm644 data/polkit-1/actions/org.cosmic.ext.storage.service.policy /usr/share/polkit-1/actions/
     @echo "Installing service binary..."
-    sudo install -Dm755 target/release/cosmic-storage-service /usr/bin/
+    sudo install -Dm755 target/release/cosmic-ext-storage-service /usr/bin/
     @echo "Reloading systemd..."
     sudo systemctl daemon-reload
     @echo ""
     @echo "System files installed. You can now enable the service with:"
-    @echo "  sudo systemctl enable --now cosmic-storage-service.service"
+    @echo "  sudo systemctl enable --now cosmic-ext-storage-service.service"
 
 # Install just the D-Bus policy for development (requires root)
 install-dbus-policy:
     @echo "Installing D-Bus policy..."
-    sudo install -Dm644 data/dbus-1/system.d/org.cosmic.ext.StorageService.conf /usr/share/dbus-1/system.d/
+    sudo install -Dm644 data/dbus-1/system.d/org.cosmic.ext.Storage.Service.conf /usr/share/dbus-1/system.d/
     @echo "Reloading D-Bus configuration..."
     sudo systemctl reload dbus
     @echo ""
@@ -131,7 +137,7 @@ install-dbus-policy:
 # Install just the Polkit policy for development (requires root)
 install-polkit-policy:
     @echo "Installing Polkit policy..."
-    sudo install -Dm644 data/polkit-1/actions/org.cosmic.ext.storage-service.policy /usr/share/polkit-1/actions/
+    sudo install -Dm644 data/polkit-1/actions/org.cosmic.ext.storage.service.policy /usr/share/polkit-1/actions/
     @echo ""
     @echo "Polkit policy installed."
 
@@ -144,8 +150,8 @@ install-dev-policies: install-dbus-policy install-polkit-policy
 service: build
     #!/usr/bin/env bash
     echo "Starting storage service (requires root)..."
-    sudo pkill -f cosmic-storage-service || true
-    sudo RUST_LOG=storage_service=debug,info ./target/debug/cosmic-storage-service
+    sudo pkill -f cosmic-ext-storage-service || true
+    sudo RUST_LOG=storage_service=debug,info ./target/debug/cosmic-ext-storage-service
 
 # Start the storage service in background
 service-bg: build
@@ -153,15 +159,15 @@ service-bg: build
     set -euo pipefail
     echo "Starting storage service in background (requires root)..."
     sudo -v
-    sudo pkill -f cosmic-storage-service || true
-    sudo rm -f /tmp/cosmic-storage-service.log
-    sudo bash -c 'nohup env RUST_LOG=storage_service=info ./target/debug/cosmic-storage-service > /tmp/cosmic-storage-service.log 2>&1 &'
+    sudo pkill -f cosmic-ext-storage-service || true
+    sudo rm -f /tmp/cosmic-ext-storage-service.log
+    sudo bash -c 'nohup env RUST_LOG=storage_service=info ./target/debug/cosmic-ext-storage-service > /tmp/cosmic-ext-storage-service.log 2>&1 &'
     sleep 2
-    echo "Service started. Logs: /tmp/cosmic-storage-service.log"
+    echo "Service started. Logs: /tmp/cosmic-ext-storage-service.log"
     if ps aux | grep -q "[c]osmic-storage-service"; then
         echo "✓ Service is running"
     else
-        echo "✗ Service not running. Check logs: sudo cat /tmp/cosmic-storage-service.log"
+        echo "✗ Service not running. Check logs: sudo cat /tmp/cosmic-ext-storage-service.log"
         exit 1
     fi
 
@@ -169,7 +175,7 @@ service-bg: build
 stop-service:
     #!/usr/bin/env bash
     echo "Stopping storage service..."
-    sudo pkill -f cosmic-storage-service || true
+    sudo pkill -f cosmic-ext-storage-service || true
     echo "Service stopped"
 
 # Start the COSMIC Ext Storage UI
@@ -186,15 +192,15 @@ dev: build
     set -euo pipefail
     echo "Starting storage service in background (requires root)..."
     sudo -v
-    sudo pkill -f cosmic-storage-service || true
-    sudo rm -f /tmp/cosmic-storage-service.log
-    sudo bash -c 'nohup env RUST_LOG=storage_service=info ./target/debug/cosmic-storage-service > /tmp/cosmic-storage-service.log 2>&1 &'
+    sudo pkill -f cosmic-ext-storage-service || true
+    sudo rm -f /tmp/cosmic-ext-storage-service.log
+    sudo bash -c 'nohup env RUST_LOG=storage_service=info ./target/debug/cosmic-ext-storage-service > /tmp/cosmic-ext-storage-service.log 2>&1 &'
     sleep 2
     echo "Starting COSMIC Ext Storage UI..."
     RUST_LOG=cosmic_ext_storage=debug,info,wgpu=warn,wgpu_core=warn,wgpu_hal=warn,naga=warn,iced_winit=warn,iced_wgpu=warn,i18n_embed=warn ./target/debug/cosmic-ext-storage
     echo ""
     echo "App exited. Stopping service..."
-    sudo pkill -f cosmic-storage-service || true
+    sudo pkill -f cosmic-ext-storage-service || true
 
 # Development with complete rebuild
 dev-clean: clean build service-bg
@@ -207,32 +213,32 @@ dev-clean: clean build service-bg
 test-dbus:
     @echo "Testing D-Bus interface..."
     @echo "Listing service..."
-    busctl --system tree org.cosmic.ext.StorageService
+    busctl --system tree org.cosmic.ext.Storage.Service
     @echo ""
     @echo "Introspecting BTRFS interface..."
-    busctl --system introspect org.cosmic.ext.StorageService /org/cosmic/ext/StorageService/btrfs
+    busctl --system introspect org.cosmic.ext.Storage.Service /org/cosmic/ext/Storage/Service/btrfs
 
 # Test BTRFS list command via D-Bus
 test-btrfs-list MOUNTPOINT="/":
     @echo "Testing BTRFS list subvolumes at {{MOUNTPOINT}}..."
-    busctl --system call org.cosmic.ext.StorageService /org/cosmic/ext/StorageService/btrfs org.cosmic.ext.StorageService.Btrfs ListSubvolumes s "{{MOUNTPOINT}}"
+    busctl --system call org.cosmic.ext.Storage.Service /org/cosmic/ext/Storage/Service/btrfs org.cosmic.ext.Storage.Service.Btrfs ListSubvolumes s "{{MOUNTPOINT}}"
 
 # Monitor D-Bus signals
 monitor-dbus:
     @echo "Monitoring D-Bus signals from storage service..."
-    dbus-monitor --system "type='signal',sender='org.cosmic.ext.StorageService'"
+    dbus-monitor --system "type='signal',sender='org.cosmic.ext.Storage.Service'"
 
 # Check service status
 status:
     @echo "Storage service status:"
-    @systemctl status cosmic-storage-service.service || echo "Service not installed as systemd unit"
+    @systemctl status cosmic-ext-storage-service.service || echo "Service not installed as systemd unit"
     @echo ""
     @echo "Process status:"
-    @ps aux | grep cosmic-storage-service | grep -v grep || echo "Service not running"
+    @ps aux | grep cosmic-ext-storage-service | grep -v grep || echo "Service not running"
 
 # View service logs
 logs:
-    @journalctl -u cosmic-storage-service -f
+    @journalctl -u cosmic-ext-storage-service -f
 
 # Clean build artifacts
 clean:

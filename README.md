@@ -40,6 +40,7 @@ This single command builds the workspace, installs development policies (D-Bus +
 
 **Other useful commands:**
 ```bash
+just verify             # Canonical workspace verification (fmt/clippy/test --no-run)
 just build              # Build workspace only
 just dev                # Build, start service, run UI (stops service on exit)
 just service            # Start service attached

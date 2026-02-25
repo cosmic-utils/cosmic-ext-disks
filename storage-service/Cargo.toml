@@ -6,7 +6,7 @@ edition = "2024"
 license = "GPL-3.0-only"
 
 [[bin]]
-name = "cosmic-storage-service"
+name = "cosmic-ext-storage-service"
 path = "src/main.rs"
 
 [features]
@@ -40,6 +40,7 @@ zbus_polkit = "5.0"
 tokio.workspace = true
 tokio-util = "0.7"
 futures-util = "0.3"
+async-trait.workspace = true
 
 # Utilities
 uuid = { version = "1.11", features = ["v4"] }
@@ -67,7 +68,8 @@ enumflags2.workspace = true
 
 # Internal dependencies
 storage-btrfs = { path = "../storage-btrfs" }
-storage-dbus.workspace = true
-storage-common.workspace = true
+storage-udisks.workspace = true
+storage-types.workspace = true
+storage-contracts.workspace = true
 storage-sys = { path = "../storage-sys", package = "cosmic-ext-storage-storage-sys" }
-storage-service-macros = { path = "../storage-service-macros" }
+storage-macros = { path = "../storage-macros" }

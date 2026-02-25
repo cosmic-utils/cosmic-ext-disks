@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-only
 
-//! BTRFS operations library for COSMIC Disks
+//! BTRFS operations library for COSMIC Ext Storage
 //!
 //! This library provides a safe Rust interface for BTRFS subvolume management
 //! operations including creation, deletion, snapshots, and metadata queries.
@@ -15,7 +15,7 @@ pub use subvolume::SubvolumeManager;
 pub use usage::get_filesystem_usage;
 
 // Re-export shared models
-pub use storage_common::btrfs::*;
+pub use storage_types::btrfs::*;
 
 // Re-export btrfsutil types for convenience
 pub use btrfsutil;
