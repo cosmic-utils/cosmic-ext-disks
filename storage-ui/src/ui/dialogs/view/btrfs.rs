@@ -6,6 +6,7 @@ use crate::app::Message;
 use crate::fl;
 use crate::ui::dialogs::message::{BtrfsCreateSnapshotMessage, BtrfsCreateSubvolumeMessage};
 use crate::ui::dialogs::state::{BtrfsCreateSnapshotDialog, BtrfsCreateSubvolumeDialog};
+use crate::ui::wizard::{wizard_action_row, wizard_shell};
 
 pub fn create_subvolume<'a>(state: BtrfsCreateSubvolumeDialog) -> Element<'a, Message> {
     let BtrfsCreateSubvolumeDialog {
@@ -36,13 +37,25 @@ pub fn create_subvolume<'a>(state: BtrfsCreateSubvolumeDialog) -> Element<'a, Me
         create_button = create_button.on_press(BtrfsCreateSubvolumeMessage::Create.into());
     }
 
+    let footer = wizard_action_row(
+        vec![],
+        vec![
+            button::standard(fl!("cancel"))
+                .on_press(BtrfsCreateSubvolumeMessage::Cancel.into())
+                .into(),
+            create_button.into(),
+        ],
+    );
+
+    let shell = wizard_shell(
+        caption(fl!("btrfs-create-subvolume")).into(),
+        content.into(),
+        footer,
+    );
+
     dialog::dialog()
         .title(fl!("btrfs-create-subvolume"))
-        .control(content)
-        .primary_action(create_button)
-        .secondary_action(
-            button::standard(fl!("cancel")).on_press(BtrfsCreateSubvolumeMessage::Cancel.into()),
-        )
+        .control(shell)
         .into()
 }
 
@@ -88,12 +101,24 @@ pub fn create_snapshot<'a>(state: BtrfsCreateSnapshotDialog) -> Element<'a, Mess
         create_button = create_button.on_press(BtrfsCreateSnapshotMessage::Create.into());
     }
 
+    let footer = wizard_action_row(
+        vec![],
+        vec![
+            button::standard(fl!("cancel"))
+                .on_press(BtrfsCreateSnapshotMessage::Cancel.into())
+                .into(),
+            create_button.into(),
+        ],
+    );
+
+    let shell = wizard_shell(
+        caption(fl!("btrfs-create-snapshot")).into(),
+        content.into(),
+        footer,
+    );
+
     dialog::dialog()
         .title(fl!("btrfs-create-snapshot"))
-        .control(content)
-        .primary_action(create_button)
-        .secondary_action(
-            button::standard(fl!("cancel")).on_press(BtrfsCreateSnapshotMessage::Cancel.into()),
-        )
+        .control(shell)
         .into()
 }
