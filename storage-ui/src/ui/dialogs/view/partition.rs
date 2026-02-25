@@ -264,16 +264,11 @@ pub fn create_partition<'a>(state: CreatePartitionDialog) -> Element<'a, Message
         ],
     );
 
-    let shell = wizard_shell(
+    wizard_shell(
         caption(fl!("create-partition")).into(),
         content.spacing(20.).into(),
         footer,
-    );
-
-    dialog::dialog()
-        .title(fl!("create-partition"))
-        .control(shell)
-        .into()
+    )
 }
 
 pub fn format_partition<'a>(state: FormatPartitionDialog) -> Element<'a, Message> {
@@ -407,16 +402,11 @@ pub fn format_partition<'a>(state: FormatPartitionDialog) -> Element<'a, Message
         ],
     );
 
-    let shell = wizard_shell(
+    wizard_shell(
         caption(fl!("format-partition")).into(),
         content.into(),
         footer,
-    );
-
-    dialog::dialog()
-        .title(fl!("format-partition"))
-        .control(shell)
-        .into()
+    )
 }
 
 pub fn edit_partition<'a>(state: EditPartitionDialog) -> Element<'a, Message> {
@@ -471,16 +461,11 @@ pub fn edit_partition<'a>(state: EditPartitionDialog) -> Element<'a, Message> {
         ],
     );
 
-    let shell = wizard_shell(
+    wizard_shell(
         caption(fl!("edit-partition")).into(),
         content.into(),
         footer,
-    );
-
-    dialog::dialog()
-        .title(fl!("edit-partition"))
-        .control(shell)
-        .into()
+    )
 }
 
 pub fn resize_partition<'a>(state: ResizePartitionDialog) -> Element<'a, Message> {
@@ -538,16 +523,11 @@ pub fn resize_partition<'a>(state: ResizePartitionDialog) -> Element<'a, Message
         ],
     );
 
-    let shell = wizard_shell(
+    wizard_shell(
         caption(fl!("resize-partition")).into(),
         content.into(),
         footer,
-    );
-
-    dialog::dialog()
-        .title(fl!("resize-partition"))
-        .control(shell)
-        .into()
+    )
 }
 
 pub fn edit_filesystem_label<'a>(state: EditFilesystemLabelDialog) -> Element<'a, Message> {

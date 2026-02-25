@@ -143,6 +143,20 @@ pub(crate) fn header_center(app: &AppModel) -> Vec<Element<'_, Message>> {
 pub(crate) fn dialog(app: &AppModel) -> Option<Element<'_, Message>> {
     match app.dialog {
         Some(ref d) => match d {
+            crate::ui::dialogs::state::ShowDialog::AddPartition(_)
+            | crate::ui::dialogs::state::ShowDialog::FormatPartition(_)
+            | crate::ui::dialogs::state::ShowDialog::EditPartition(_)
+            | crate::ui::dialogs::state::ShowDialog::ResizePartition(_)
+            | crate::ui::dialogs::state::ShowDialog::EditMountOptions(_)
+            | crate::ui::dialogs::state::ShowDialog::ChangePassphrase(_)
+            | crate::ui::dialogs::state::ShowDialog::EditEncryptionOptions(_)
+            | crate::ui::dialogs::state::ShowDialog::FormatDisk(_)
+            | crate::ui::dialogs::state::ShowDialog::NewDiskImage(_)
+            | crate::ui::dialogs::state::ShowDialog::AttachDiskImage(_)
+            | crate::ui::dialogs::state::ShowDialog::ImageOperation(_)
+            | crate::ui::dialogs::state::ShowDialog::BtrfsCreateSubvolume(_)
+            | crate::ui::dialogs::state::ShowDialog::BtrfsCreateSnapshot(_) => None,
+
             crate::ui::dialogs::state::ShowDialog::DeletePartition(state) => {
                 Some(dialogs::confirmation(
                     fl!("delete", name = state.name.clone()),
@@ -153,28 +167,8 @@ pub(crate) fn dialog(app: &AppModel) -> Option<Element<'_, Message>> {
                 ))
             }
 
-            crate::ui::dialogs::state::ShowDialog::AddPartition(state) => {
-                Some(dialogs::create_partition(state.clone()))
-            }
-
-            crate::ui::dialogs::state::ShowDialog::FormatPartition(state) => {
-                Some(dialogs::format_partition(state.clone()))
-            }
-
-            crate::ui::dialogs::state::ShowDialog::EditPartition(state) => {
-                Some(dialogs::edit_partition(state.clone()))
-            }
-
-            crate::ui::dialogs::state::ShowDialog::ResizePartition(state) => {
-                Some(dialogs::resize_partition(state.clone()))
-            }
-
             crate::ui::dialogs::state::ShowDialog::EditFilesystemLabel(state) => {
                 Some(dialogs::edit_filesystem_label(state.clone()))
-            }
-
-            crate::ui::dialogs::state::ShowDialog::EditMountOptions(state) => {
-                Some(dialogs::edit_mount_options(state.clone()))
             }
 
             crate::ui::dialogs::state::ShowDialog::ConfirmAction(state) => {
@@ -191,48 +185,16 @@ pub(crate) fn dialog(app: &AppModel) -> Option<Element<'_, Message>> {
                 Some(dialogs::take_ownership(state.clone()))
             }
 
-            crate::ui::dialogs::state::ShowDialog::ChangePassphrase(state) => {
-                Some(dialogs::change_passphrase(state.clone()))
-            }
-
-            crate::ui::dialogs::state::ShowDialog::EditEncryptionOptions(state) => {
-                Some(dialogs::edit_encryption_options(state.clone()))
-            }
-
             crate::ui::dialogs::state::ShowDialog::UnlockEncrypted(state) => {
                 Some(dialogs::unlock_encrypted(state.clone()))
-            }
-
-            crate::ui::dialogs::state::ShowDialog::FormatDisk(state) => {
-                Some(dialogs::format_disk(state.clone()))
             }
 
             crate::ui::dialogs::state::ShowDialog::SmartData(state) => {
                 Some(dialogs::smart_data(state.clone()))
             }
 
-            crate::ui::dialogs::state::ShowDialog::NewDiskImage(state) => {
-                Some(dialogs::new_disk_image(state.as_ref().clone()))
-            }
-
-            crate::ui::dialogs::state::ShowDialog::AttachDiskImage(state) => {
-                Some(dialogs::attach_disk_image(state.as_ref().clone()))
-            }
-
-            crate::ui::dialogs::state::ShowDialog::ImageOperation(state) => {
-                Some(dialogs::image_operation(state.as_ref().clone()))
-            }
-
             crate::ui::dialogs::state::ShowDialog::UnmountBusy(state) => {
                 Some(dialogs::unmount_busy(state.clone()))
-            }
-
-            crate::ui::dialogs::state::ShowDialog::BtrfsCreateSubvolume(state) => {
-                Some(dialogs::create_subvolume(state.clone()))
-            }
-
-            crate::ui::dialogs::state::ShowDialog::BtrfsCreateSnapshot(state) => {
-                Some(dialogs::create_snapshot(state.clone()))
             }
 
             crate::ui::dialogs::state::ShowDialog::Info { title, body } => {
@@ -257,6 +219,29 @@ pub(crate) fn dialog(app: &AppModel) -> Option<Element<'_, Message>> {
             }
         },
         None => None,
+    }
+}
+
+fn full_page_wizard_view(dialog: &ShowDialog) -> Option<Element<'_, Message>> {
+    match dialog {
+        ShowDialog::AddPartition(state) => Some(dialogs::create_partition(state.clone())),
+        ShowDialog::FormatPartition(state) => Some(dialogs::format_partition(state.clone())),
+        ShowDialog::EditPartition(state) => Some(dialogs::edit_partition(state.clone())),
+        ShowDialog::ResizePartition(state) => Some(dialogs::resize_partition(state.clone())),
+        ShowDialog::EditMountOptions(state) => Some(dialogs::edit_mount_options(state.clone())),
+        ShowDialog::ChangePassphrase(state) => Some(dialogs::change_passphrase(state.clone())),
+        ShowDialog::EditEncryptionOptions(state) => {
+            Some(dialogs::edit_encryption_options(state.clone()))
+        }
+        ShowDialog::FormatDisk(state) => Some(dialogs::format_disk(state.clone())),
+        ShowDialog::NewDiskImage(state) => Some(dialogs::new_disk_image(state.as_ref().clone())),
+        ShowDialog::AttachDiskImage(state) => {
+            Some(dialogs::attach_disk_image(state.as_ref().clone()))
+        }
+        ShowDialog::ImageOperation(state) => Some(dialogs::image_operation(state.as_ref().clone())),
+        ShowDialog::BtrfsCreateSubvolume(state) => Some(dialogs::create_subvolume(state.clone())),
+        ShowDialog::BtrfsCreateSnapshot(state) => Some(dialogs::create_snapshot(state.clone())),
+        _ => None,
     }
 }
 
@@ -308,6 +293,16 @@ pub(crate) fn context_drawer(
 
 /// Describes the interface based on the current state of the application model.
 pub(crate) fn view(app: &AppModel) -> Element<'_, Message> {
+    if let Some(active_dialog) = app.dialog.as_ref()
+        && let Some(wizard_view) = full_page_wizard_view(active_dialog)
+    {
+        return widget::container(wizard_view)
+            .padding(20)
+            .width(Length::Fill)
+            .height(Length::Fill)
+            .into();
+    }
+
     if app.network.wizard.is_some()
         || app.network.editor.is_some()
         || app.network.selected.is_some()

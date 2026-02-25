@@ -52,12 +52,7 @@ pub fn format_disk<'a>(state: FormatDiskDialog) -> Element<'a, Message> {
         ],
     );
 
-    let shell = wizard_shell(caption(fl!("format-disk")).into(), content.into(), footer);
-
-    dialog::dialog()
-        .title(fl!("format-disk"))
-        .control(shell)
-        .into()
+    wizard_shell(caption(fl!("format-disk")).into(), content.into(), footer)
 }
 
 pub fn smart_data<'a>(state: SmartDataDialog) -> Element<'a, Message> {

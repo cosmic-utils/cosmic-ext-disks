@@ -4,6 +4,7 @@
 pub(crate) struct ProviderIcon {
     pub(crate) primary: Option<&'static str>,
     pub(crate) fallback_symbolic: &'static str,
+    pub(crate) monogram: Option<&'static str>,
 }
 
 impl ProviderIcon {
@@ -19,30 +20,47 @@ pub(crate) fn resolve_provider_icon(provider: &str) -> ProviderIcon {
         "drive" => ProviderIcon {
             primary: Some("google-drive-symbolic"),
             fallback_symbolic: "folder-remote-symbolic",
+            monogram: Some("GD"),
         },
         "dropbox" => ProviderIcon {
             primary: Some("dropbox-symbolic"),
             fallback_symbolic: "folder-remote-symbolic",
+            monogram: Some("DB"),
         },
         "onedrive" => ProviderIcon {
             primary: Some("onedrive-symbolic"),
             fallback_symbolic: "folder-remote-symbolic",
+            monogram: Some("OD"),
         },
         "s3" => ProviderIcon {
+            primary: Some("network-server-symbolic"),
+            fallback_symbolic: "network-server-symbolic",
+            monogram: Some("S3"),
+        },
+        "b2" => ProviderIcon {
             primary: Some("folder-remote-symbolic"),
             fallback_symbolic: "network-server-symbolic",
+            monogram: Some("B2"),
+        },
+        "protondrive" => ProviderIcon {
+            primary: Some("folder-remote-symbolic"),
+            fallback_symbolic: "network-server-symbolic",
+            monogram: Some("PD"),
         },
         "smb" => ProviderIcon {
             primary: Some("network-workgroup-symbolic"),
             fallback_symbolic: "network-server-symbolic",
+            monogram: Some("SMB"),
         },
-        "sftp" | "ftp" | "webdav" | "b2" | "protondrive" => ProviderIcon {
+        "sftp" | "ftp" | "webdav" => ProviderIcon {
             primary: Some("network-server-symbolic"),
             fallback_symbolic: "folder-remote-symbolic",
+            monogram: None,
         },
         _ => ProviderIcon {
             primary: None,
             fallback_symbolic: "folder-remote-symbolic",
+            monogram: None,
         },
     }
 }

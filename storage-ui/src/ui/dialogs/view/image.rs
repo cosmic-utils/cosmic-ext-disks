@@ -13,8 +13,8 @@ use cosmic::{
     Element,
     iced::{Alignment, Length},
     iced_widget,
+    widget::button,
     widget::text::caption,
-    widget::{button, dialog},
 };
 use storage_common::bytes_to_pretty;
 
@@ -78,16 +78,11 @@ pub fn new_disk_image<'a>(state: NewDiskImageDialog) -> Element<'a, Message> {
         ],
     );
 
-    let shell = wizard_shell(
+    wizard_shell(
         caption(fl!("new-disk-image")).into(),
         content.into(),
         footer,
-    );
-
-    dialog::dialog()
-        .title(fl!("new-disk-image"))
-        .control(shell)
-        .into()
+    )
 }
 
 pub fn attach_disk_image<'a>(state: AttachDiskImageDialog) -> Element<'a, Message> {
@@ -131,16 +126,11 @@ pub fn attach_disk_image<'a>(state: AttachDiskImageDialog) -> Element<'a, Messag
         ],
     );
 
-    let shell = wizard_shell(
+    wizard_shell(
         caption(fl!("attach-disk-image")).into(),
         content.into(),
         footer,
-    );
-
-    dialog::dialog()
-        .title(fl!("attach-disk-image"))
-        .control(shell)
-        .into()
+    )
 }
 
 pub fn image_operation<'a>(state: ImageOperationDialog) -> Element<'a, Message> {
@@ -274,7 +264,5 @@ pub fn image_operation<'a>(state: ImageOperationDialog) -> Element<'a, Message> 
         ],
     );
 
-    let shell = wizard_shell(caption(title.clone()).into(), content.into(), footer);
-
-    dialog::dialog().title(title).control(shell).into()
+    wizard_shell(caption(title.clone()).into(), content.into(), footer)
 }

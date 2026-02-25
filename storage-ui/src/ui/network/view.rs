@@ -107,6 +107,26 @@ fn transparent_button_style(
     }
 }
 
+fn provider_logo_widget(provider_type: &str, size: u16) -> Element<'static, NetworkMessage> {
+    let provider_icon = resolve_provider_icon(provider_type);
+    if let Some(monogram) = provider_icon.monogram {
+        return widget::container(
+            widget::text::caption(monogram.to_string())
+                .font(cosmic::font::semibold())
+                .align_x(cosmic::iced::alignment::Horizontal::Center),
+        )
+        .width(size)
+        .height(size)
+        .align_x(cosmic::iced::alignment::Horizontal::Center)
+        .align_y(cosmic::iced::alignment::Vertical::Center)
+        .into();
+    }
+
+    icon::from_name(provider_icon.preferred_name())
+        .size(size)
+        .into()
+}
+
 /// Render a single network mount item for the sidebar
 pub fn network_mount_item(
     state: &NetworkState,
@@ -128,8 +148,7 @@ pub fn network_mount_item(
     let name_text = widget::text::body(config_name).font(cosmic::font::semibold());
 
     // Scope icon (left aligned)
-    let provider_icon = resolve_provider_icon(&mount.config.remote_type);
-    let provider_icon_widget = icon::from_name(provider_icon.preferred_name()).size(16);
+    let provider_icon_widget = provider_logo_widget(&mount.config.remote_type, 16);
 
     let scope_icon_widget = widget::tooltip(
         icon::from_name(scope_icon(scope)).size(14),
@@ -140,7 +159,7 @@ pub fn network_mount_item(
     // Main select button
     let mut select_button = widget::button::custom(
         widget::Row::with_children(vec![
-            provider_icon_widget.into(),
+            provider_icon_widget,
             name_text.into(),
             scope_icon_widget.into(),
         ])
@@ -922,12 +941,16 @@ fn wizard_select_type(wizard: &NetworkWizardState) -> Element<'static, NetworkMe
     for provider in QUICK_SETUP_PROVIDERS {
         let type_name = provider.type_name.to_string();
         let is_selected = wizard.remote_type == type_name;
-        let provider_icon = resolve_provider_icon(provider.type_name);
 
         let card_content = iced_widget::column![
-            icon::from_name(provider_icon.preferred_name()).size(32),
-            widget::text::body(provider.label.to_string()).font(cosmic::font::semibold()),
-            widget::text::caption(provider.description.to_string()),
+            provider_logo_widget(provider.type_name, 32),
+            widget::text::body(provider.label.to_string())
+                .font(cosmic::font::semibold())
+                .width(Length::Fill)
+                .align_x(cosmic::iced::alignment::Horizontal::Center),
+            widget::text::caption(provider.description.to_string())
+                .width(Length::Fill)
+                .align_x(cosmic::iced::alignment::Horizontal::Center),
         ]
         .spacing(6)
         .align_x(cosmic::iced::Alignment::Center)
@@ -945,8 +968,13 @@ fn wizard_select_type(wizard: &NetworkWizardState) -> Element<'static, NetworkMe
     // "Advanced..." card
     let advanced_content = iced_widget::column![
         icon::from_name("preferences-other-symbolic").size(32),
-        widget::text::body("Advanced...".to_string()).font(cosmic::font::semibold()),
-        widget::text::caption("All provider types".to_string()),
+        widget::text::body("Advanced...".to_string())
+            .font(cosmic::font::semibold())
+            .width(Length::Fill)
+            .align_x(cosmic::iced::alignment::Horizontal::Center),
+        widget::text::caption("All provider types".to_string())
+            .width(Length::Fill)
+            .align_x(cosmic::iced::alignment::Horizontal::Center),
     ]
     .spacing(6)
     .align_x(cosmic::iced::Alignment::Center)

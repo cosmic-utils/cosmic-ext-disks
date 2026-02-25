@@ -148,16 +148,11 @@ pub fn edit_mount_options<'a>(state: EditMountOptionsDialog) -> Element<'a, Mess
         ],
     );
 
-    let shell = wizard_shell(
+    wizard_shell(
         caption(fl!("edit-mount-options")).into(),
         content.into(),
         footer,
-    );
-
-    dialog::dialog()
-        .title(fl!("edit-mount-options"))
-        .control(shell)
-        .into()
+    )
 }
 
 pub fn unmount_busy<'a>(state: UnmountBusyDialog) -> Element<'a, Message> {

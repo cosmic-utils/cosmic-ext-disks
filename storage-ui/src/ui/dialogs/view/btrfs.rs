@@ -1,5 +1,5 @@
 use cosmic::widget::text::caption;
-use cosmic::widget::{button, checkbox, dialog, dropdown, text, text_input};
+use cosmic::widget::{button, checkbox, dropdown, text, text_input};
 use cosmic::{Element, iced_widget};
 
 use crate::app::Message;
@@ -47,16 +47,11 @@ pub fn create_subvolume<'a>(state: BtrfsCreateSubvolumeDialog) -> Element<'a, Me
         ],
     );
 
-    let shell = wizard_shell(
+    wizard_shell(
         caption(fl!("btrfs-create-subvolume")).into(),
         content.into(),
         footer,
-    );
-
-    dialog::dialog()
-        .title(fl!("btrfs-create-subvolume"))
-        .control(shell)
-        .into()
+    )
 }
 
 pub fn create_snapshot<'a>(state: BtrfsCreateSnapshotDialog) -> Element<'a, Message> {
@@ -111,14 +106,9 @@ pub fn create_snapshot<'a>(state: BtrfsCreateSnapshotDialog) -> Element<'a, Mess
         ],
     );
 
-    let shell = wizard_shell(
+    wizard_shell(
         caption(fl!("btrfs-create-snapshot")).into(),
         content.into(),
         footer,
-    );
-
-    dialog::dialog()
-        .title(fl!("btrfs-create-snapshot"))
-        .control(shell)
-        .into()
+    )
 }

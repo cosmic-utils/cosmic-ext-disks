@@ -488,12 +488,12 @@ pub(crate) fn sidebar(
     .align_y(cosmic::iced::Alignment::Center)
     .width(Length::Fill);
 
-    rows.push(image_actions.into());
-
     // Network section (RClone, Samba, FTP)
     if network.rclone_available || !network.mounts.is_empty() {
         rows.push(network_section(network, controls_enabled).map(Message::Network));
     }
+
+    rows.push(image_actions.into());
 
     widget::container::Container::new(
         widget::scrollable(widget::Column::with_children(rows).spacing(2)).height(Length::Fill),

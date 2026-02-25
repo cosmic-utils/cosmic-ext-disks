@@ -96,16 +96,11 @@ pub fn change_passphrase<'a>(state: ChangePassphraseDialog) -> Element<'a, Messa
         ],
     );
 
-    let shell = wizard_shell(
+    wizard_shell(
         caption(fl!("change-passphrase")).into(),
         content.into(),
         footer,
-    );
-
-    dialog::dialog()
-        .title(fl!("change-passphrase"))
-        .control(shell)
-        .into()
+    )
 }
 
 pub fn edit_encryption_options<'a>(state: EditEncryptionOptionsDialog) -> Element<'a, Message> {
@@ -205,16 +200,11 @@ pub fn edit_encryption_options<'a>(state: EditEncryptionOptionsDialog) -> Elemen
         ],
     );
 
-    let shell = wizard_shell(
+    wizard_shell(
         caption(fl!("edit-encryption-options")).into(),
         content.into(),
         footer,
-    );
-
-    dialog::dialog()
-        .title(fl!("edit-encryption-options"))
-        .control(shell)
-        .into()
+    )
 }
 
 pub fn unlock_encrypted<'a>(state: UnlockEncryptedDialog) -> Element<'a, Message> {
