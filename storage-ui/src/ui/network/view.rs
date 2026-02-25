@@ -112,9 +112,15 @@ fn transparent_button_style(
 
 fn provider_logo_widget(provider_type: &str, size: u16) -> Element<'static, NetworkMessage> {
     let provider_icon = resolve_provider_icon(provider_type);
-    if let Some(monogram) = provider_icon.monogram {
+    if let Some(brand_icon) = provider_icon.branded {
+        return icon::icon(icon::from_svg_bytes(brand_icon.svg_bytes()))
+            .size(size)
+            .into();
+    }
+
+    if let Some(text_fallback) = provider_icon.text_fallback {
         return widget::container(
-            widget::text::caption(monogram.to_string())
+            widget::text::caption(text_fallback.to_string())
                 .font(cosmic::font::semibold())
                 .align_x(cosmic::iced::alignment::Horizontal::Center),
         )
@@ -125,7 +131,7 @@ fn provider_logo_widget(provider_type: &str, size: u16) -> Element<'static, Netw
         .into();
     }
 
-    icon::from_name(provider_icon.preferred_name())
+    icon::from_name(provider_icon.fallback_symbolic)
         .size(size)
         .into()
 }
