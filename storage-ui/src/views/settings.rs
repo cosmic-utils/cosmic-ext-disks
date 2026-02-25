@@ -15,11 +15,14 @@ pub fn settings<'a>(config: &Config) -> Element<'a, Message> {
     let show_reserved_toggle = widget::checkbox("Show Reserved Space", config.show_reserved)
         .on_toggle(Message::ToggleShowReserved);
 
-    let volumes_section = widget::column()
-        .push(widget::text::title4("Volumes"))
-        .push(show_reserved_toggle)
-        .spacing(space_s)
-        .align_x(Alignment::Start);
+    let volumes_section = widget::container(
+        widget::column()
+            .push(widget::text::title4("Volumes"))
+            .push(show_reserved_toggle)
+            .spacing(space_s)
+            .align_x(Alignment::Start),
+    )
+    .width(Length::Fill);
 
     let parallelism_options = vec![
         fl!("usage-parallelism-low"),
@@ -34,17 +37,51 @@ pub fn settings<'a>(config: &Config) -> Element<'a, Message> {
     )
     .width(cosmic::iced::Length::Shrink);
 
-    let usage_section = widget::column()
-        .push(widget::text::title4("Usage"))
-        .push(widget::text::caption(fl!("usage-scan-parallelism-label")))
-        .push(usage_parallelism_dropdown)
-        .spacing(space_s)
-        .align_x(Alignment::Start);
+    let usage_section = widget::container(
+        widget::column()
+            .push(widget::text::title4("Usage"))
+            .push(widget::text::caption(fl!("usage-scan-parallelism-label")))
+            .push(usage_parallelism_dropdown)
+            .spacing(space_s)
+            .align_x(Alignment::Start),
+    )
+    .width(Length::Fill);
+
+    let logging_level_options = vec![
+        "Error".to_string(),
+        "Warn".to_string(),
+        "Info".to_string(),
+        "Debug".to_string(),
+        "Trace".to_string(),
+    ];
+
+    let logging_level_dropdown = widget::dropdown(
+        logging_level_options,
+        Some(config.log_level.to_index()),
+        Message::LogLevelChanged,
+    )
+    .width(cosmic::iced::Length::Shrink);
+
+    let logging_section = widget::container(
+        widget::column()
+            .push(widget::text::title4("Logging"))
+            .push(widget::text::caption("Log level"))
+            .push(logging_level_dropdown)
+            .push(
+                widget::checkbox("Log to disk", config.log_to_disk)
+                    .on_toggle(Message::ToggleLogToDisk),
+            )
+            .spacing(space_s)
+            .align_x(Alignment::Start),
+    )
+    .width(Length::Fill);
 
     widget::column()
         .push(volumes_section)
         .push(usage_section)
+        .push(logging_section)
         .spacing(space_m)
+        .width(Length::Fill)
         .into()
 }
 

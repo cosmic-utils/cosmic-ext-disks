@@ -12,8 +12,9 @@ use super::message::{ImagePathPickerKind, Message};
 use super::state::AppModel;
 use crate::app::REPOSITORY;
 use crate::client::FilesystemsClient;
-use crate::config::Config;
+use crate::config::{Config, LoggingLevel};
 use crate::fl;
+use crate::logging;
 use crate::models::load_all_drives;
 use crate::ui::dialogs::state::ShowDialog;
 use crate::ui::error::{UiErrorContext, log_error_and_show_dialog};
@@ -768,6 +769,25 @@ pub(crate) fn update(app: &mut AppModel, message: Message) -> Task<Message> {
             if let Ok(helper) = cosmic::cosmic_config::Config::new(APP_ID, Config::VERSION) {
                 let _ = app.config.write_entry(&helper);
             }
+        }
+        Message::ToggleLogToDisk(log_to_disk) => {
+            app.config.log_to_disk = log_to_disk;
+
+            if let Ok(helper) = cosmic::cosmic_config::Config::new(APP_ID, Config::VERSION) {
+                let _ = app.config.write_entry(&helper);
+            }
+
+            logging::set_log_to_disk(log_to_disk);
+        }
+        Message::LogLevelChanged(index) => {
+            let level = LoggingLevel::from_index(index);
+            app.config.log_level = level;
+
+            if let Ok(helper) = cosmic::cosmic_config::Config::new(APP_ID, Config::VERSION) {
+                let _ = app.config.write_entry(&helper);
+            }
+
+            logging::set_log_level(level);
         }
         Message::OpenImagePathPicker(kind) => {
             let title = match kind {

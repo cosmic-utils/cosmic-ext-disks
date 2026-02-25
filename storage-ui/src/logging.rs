@@ -4,26 +4,35 @@ use std::ffi::OsString;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
+use std::sync::atomic::{AtomicBool, AtomicU8, Ordering};
 use std::time::{Duration, SystemTime};
 
+use crate::config::{Config, LoggingLevel};
+use tracing::Level;
 use tracing_appender::non_blocking::WorkerGuard;
 use tracing_subscriber::EnvFilter;
+use tracing_subscriber::Layer;
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
 
 static LOG_GUARD: OnceLock<WorkerGuard> = OnceLock::new();
+static LOG_LEVEL: AtomicU8 = AtomicU8::new(3);
+static LOG_TO_DISK: AtomicBool = AtomicBool::new(true);
 
 const DEFAULT_LOG_PREFIX: &str = "cosmic-ext-storage.log";
 const KEEP_DAYS: u64 = 7;
 
-pub(crate) fn init() {
+pub(crate) fn init(config: &Config) {
+    set_log_level(config.log_level);
+    set_log_to_disk(config.log_to_disk);
+
     let env_filter = EnvFilter::try_from_default_env().unwrap_or_else(|_| {
         // Default verbosity: keep our crates at INFO, but quiet very chatty GPU logging.
-        EnvFilter::new("info")
+        EnvFilter::new(config.log_level.as_directive())
             .add_directive(
-                "cosmic_ext_storage=info"
+                format!("cosmic_ext_storage={}", config.log_level.as_directive())
                     .parse()
-                    .expect("Invalid log directive: cosmic_ext_storage=info"),
+                    .expect("Invalid log directive: cosmic_ext_storage level"),
             )
             .add_directive(
                 "wgpu=warn"
@@ -65,7 +74,10 @@ pub(crate) fn init() {
     let stdout_layer = tracing_subscriber::fmt::layer()
         .with_writer(std::io::stdout)
         .with_target(true)
-        .with_timer(tracing_subscriber::fmt::time::SystemTime);
+        .with_timer(tracing_subscriber::fmt::time::SystemTime)
+        .with_filter(tracing_subscriber::filter::filter_fn(|metadata| {
+            log_level_allows(*metadata.level())
+        }));
 
     match file_writer() {
         Ok((writer, guard)) => {
@@ -73,7 +85,10 @@ pub(crate) fn init() {
                 .with_writer(writer)
                 .with_target(true)
                 .with_ansi(false)
-                .with_timer(tracing_subscriber::fmt::time::SystemTime);
+                .with_timer(tracing_subscriber::fmt::time::SystemTime)
+                .with_filter(tracing_subscriber::filter::filter_fn(|metadata| {
+                    LOG_TO_DISK.load(Ordering::Relaxed) && log_level_allows(*metadata.level())
+                }));
 
             tracing_subscriber::registry()
                 .with(env_filter)
@@ -92,6 +107,38 @@ pub(crate) fn init() {
                 .init();
         }
     }
+}
+
+pub(crate) fn set_log_level(level: LoggingLevel) {
+    LOG_LEVEL.store(level_to_int(level), Ordering::Relaxed);
+}
+
+pub(crate) fn set_log_to_disk(enabled: bool) {
+    LOG_TO_DISK.store(enabled, Ordering::Relaxed);
+}
+
+fn level_to_int(level: LoggingLevel) -> u8 {
+    match level {
+        LoggingLevel::Error => 1,
+        LoggingLevel::Warn => 2,
+        LoggingLevel::Info => 3,
+        LoggingLevel::Debug => 4,
+        LoggingLevel::Trace => 5,
+    }
+}
+
+fn severity(level: Level) -> u8 {
+    match level {
+        Level::ERROR => 1,
+        Level::WARN => 2,
+        Level::INFO => 3,
+        Level::DEBUG => 4,
+        Level::TRACE => 5,
+    }
+}
+
+fn log_level_allows(level: Level) -> bool {
+    severity(level) <= LOG_LEVEL.load(Ordering::Relaxed)
 }
 
 fn file_writer() -> anyhow::Result<(tracing_appender::non_blocking::NonBlocking, WorkerGuard)> {

@@ -124,6 +124,8 @@ pub enum Message {
     ImagePathPicked(ImagePathPickerKind, Option<String>),
     ToggleShowReserved(bool),
     UsageScanParallelismChanged(usize),
+    ToggleLogToDisk(bool),
+    LogLevelChanged(usize),
 
     // BTRFS management
     BtrfsLoadSubvolumes {

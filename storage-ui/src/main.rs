@@ -12,7 +12,8 @@ mod views;
 
 //#[tokio::main]
 fn main() -> cosmic::iced::Result {
-    logging::init();
+    let config = config::Config::load(ui::app::APP_ID);
+    logging::init(&config);
 
     // Get the system's preferred languages.
     let requested_languages = i18n_embed::DesktopLanguageRequester::requested_languages();

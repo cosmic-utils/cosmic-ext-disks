@@ -15,7 +15,6 @@ use crate::config::Config;
 use crate::ui::network::NetworkState;
 use crate::ui::sidebar::SidebarState;
 use cosmic::app::{Core, Task};
-use cosmic::cosmic_config::{self, CosmicConfigEntry};
 use cosmic::widget::nav_bar;
 use cosmic::{Application, Element};
 
@@ -56,18 +55,7 @@ impl Application for AppModel {
             filesystem_tools: vec![],
             network: NetworkState::new(),
             // Optional configuration file for an application.
-            config: cosmic_config::Config::new(Self::APP_ID, Config::VERSION)
-                .map(|context| match Config::get_entry(&context) {
-                    Ok(config) => config,
-                    Err((_errors, config)) => {
-                        // for why in errors {
-                        //     tracing::error!(%why, "error loading app config");
-                        // }
-
-                        config
-                    }
-                })
-                .unwrap_or_default(),
+            config: Config::load(Self::APP_ID),
         };
 
         // Create a startup command that sets the window title.
