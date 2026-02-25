@@ -54,6 +54,10 @@ working = Working…
 # Common
 close = Close
 refresh = Refresh
+next = Next
+behavior = Behavior
+credentials = Credentials
+review = Review
 details = Details
 
 # Format disk dialog

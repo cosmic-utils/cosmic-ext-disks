@@ -43,6 +43,10 @@ working = Arbetar…
 # Common
 close = Stäng
 refresh = Uppdatera
+next = Nästa
+behavior = Beteende
+credentials = Inloggningsuppgifter
+review = Granskning
 details = Detaljer
 
 # Formatera disk dialogruta

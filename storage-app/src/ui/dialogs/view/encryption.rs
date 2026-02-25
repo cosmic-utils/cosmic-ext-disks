@@ -222,12 +222,9 @@ pub fn edit_encryption_options<'a>(state: EditEncryptionOptionsDialog) -> Elemen
 
     let current_number = step.number();
     let steps = [
-        (EditEncryptionOptionsStep::Behavior, "Behavior".to_string()),
-        (
-            EditEncryptionOptionsStep::Credentials,
-            "Credentials".to_string(),
-        ),
-        (EditEncryptionOptionsStep::Review, "Review".to_string()),
+        (EditEncryptionOptionsStep::Behavior, fl!("behavior")),
+        (EditEncryptionOptionsStep::Credentials, fl!("credentials")),
+        (EditEncryptionOptionsStep::Review, fl!("review")),
     ];
 
     let breadcrumb = wizard_breadcrumb(
@@ -274,7 +271,7 @@ pub fn edit_encryption_options<'a>(state: EditEncryptionOptionsDialog) -> Elemen
         )
     } else {
         (
-            "Next".to_string(),
+            fl!("next"),
             if !running {
                 Some(EditEncryptionOptionsMessage::NextStep.into())
             } else {

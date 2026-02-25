@@ -180,9 +180,9 @@ pub fn edit_mount_options<'a>(state: EditMountOptionsDialog) -> Element<'a, Mess
 
     let current_number = step.number();
     let steps = [
-        (EditMountOptionsStep::Behavior, "Behavior".to_string()),
-        (EditMountOptionsStep::Details, "Details".to_string()),
-        (EditMountOptionsStep::Review, "Review".to_string()),
+        (EditMountOptionsStep::Behavior, fl!("behavior")),
+        (EditMountOptionsStep::Details, fl!("details")),
+        (EditMountOptionsStep::Review, fl!("review")),
     ];
 
     let breadcrumb = wizard_breadcrumb(
@@ -229,7 +229,7 @@ pub fn edit_mount_options<'a>(state: EditMountOptionsDialog) -> Element<'a, Mess
         )
     } else {
         (
-            "Next".to_string(),
+            fl!("next"),
             if !running {
                 Some(EditMountOptionsMessage::NextStep.into())
             } else {
