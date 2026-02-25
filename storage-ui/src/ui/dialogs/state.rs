@@ -191,9 +191,27 @@ pub struct DeletePartitionDialog {
 #[derive(Debug, Clone)]
 pub struct CreatePartitionDialog {
     pub info: CreatePartitionInfo,
+    pub step: CreatePartitionStep,
     pub running: bool,
     pub error: Option<String>,
     pub filesystem_tools: Vec<FilesystemToolInfo>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CreatePartitionStep {
+    Basics,
+    Sizing,
+    Options,
+}
+
+impl CreatePartitionStep {
+    pub const fn number(self) -> usize {
+        match self {
+            Self::Basics => 1,
+            Self::Sizing => 2,
+            Self::Options => 3,
+        }
+    }
 }
 
 #[derive(Debug, Clone)]

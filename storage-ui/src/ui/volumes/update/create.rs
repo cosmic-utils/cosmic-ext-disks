@@ -5,7 +5,7 @@ use crate::app::Message;
 use crate::client::{FilesystemsClient, PartitionsClient};
 use crate::fl;
 use crate::ui::dialogs::message::CreateMessage;
-use crate::ui::dialogs::state::ShowDialog;
+use crate::ui::dialogs::state::{CreatePartitionStep, ShowDialog};
 use crate::ui::error::{UiErrorContext, log_error_and_show_dialog};
 use crate::ui::volumes::helpers;
 use storage_common::CreatePartitionInfo;
@@ -31,6 +31,26 @@ pub(super) fn create_message(
         ShowDialog::EditMountOptions(_) | ShowDialog::EditEncryptionOptions(_) => {}
 
         ShowDialog::AddPartition(state) => match create_message {
+            CreateMessage::PrevStep => {
+                if state.running {
+                    return Task::none();
+                }
+                state.step = match state.step {
+                    CreatePartitionStep::Basics => CreatePartitionStep::Basics,
+                    CreatePartitionStep::Sizing => CreatePartitionStep::Basics,
+                    CreatePartitionStep::Options => CreatePartitionStep::Sizing,
+                };
+            }
+            CreateMessage::NextStep => {
+                if state.running {
+                    return Task::none();
+                }
+                state.step = match state.step {
+                    CreatePartitionStep::Basics => CreatePartitionStep::Sizing,
+                    CreatePartitionStep::Sizing => CreatePartitionStep::Options,
+                    CreatePartitionStep::Options => CreatePartitionStep::Options,
+                };
+            }
             CreateMessage::SizeUpdate(size) => {
                 state.info.size = size;
                 state.error = None;

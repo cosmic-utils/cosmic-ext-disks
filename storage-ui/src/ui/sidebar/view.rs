@@ -138,6 +138,42 @@ fn section_header(label: String) -> Element<'static, Message> {
         .into()
 }
 
+fn image_section_header(controls_enabled: bool) -> Element<'static, Message> {
+    let mut children: Vec<Element<'static, Message>> = vec![
+        widget::text::caption_heading(Section::Images.label()).into(),
+        widget::Space::new(Length::Fill, 0).into(),
+    ];
+
+    if controls_enabled {
+        let new_image_button = widget::tooltip(
+            widget::button::custom(icon::from_name("list-add-symbolic").size(20))
+                .padding(4)
+                .class(cosmic::theme::Button::Link)
+                .on_press(Message::NewDiskImage),
+            widget::text(crate::fl!("new-disk-image")),
+            widget::tooltip::Position::Bottom,
+        );
+
+        let attach_image_button = widget::tooltip(
+            widget::button::custom(icon::from_name("document-open-symbolic").size(20))
+                .padding(4)
+                .class(cosmic::theme::Button::Link)
+                .on_press(Message::AttachDisk),
+            widget::text(crate::fl!("attach-disk-image")),
+            widget::tooltip::Position::Bottom,
+        );
+
+        children.push(new_image_button.into());
+        children.push(attach_image_button.into());
+    }
+
+    widget::Row::with_children(children)
+        .padding([8, 12, 4, 12])
+        .spacing(6)
+        .align_y(cosmic::iced::Alignment::Center)
+        .into()
+}
+
 fn row_container<'a>(
     row: impl Into<Element<'a, Message>>,
     selected: bool,
@@ -422,7 +458,11 @@ pub(crate) fn sidebar(
             if section != Section::Images && drives.is_empty() {
                 return;
             }
-            rows.push(section_header(section.label()));
+            if section == Section::Images {
+                rows.push(image_section_header(controls_enabled));
+            } else {
+                rows.push(section_header(section.label()));
+            }
 
             for drive in drives {
                 rows.push(drive_row(
@@ -467,33 +507,12 @@ pub(crate) fn sidebar(
     add_section(&mut rows, Section::Logical, logical);
     add_section(&mut rows, Section::Internal, internal);
     add_section(&mut rows, Section::External, external);
-    add_section(&mut rows, Section::Images, images);
-
-    // Image operations row belongs to the Images section and is always available.
-    let image_actions = widget::Row::with_children(vec![
-        widget::Space::new(Length::Fill, 0).into(),
-        widget::button::custom(widget::text::caption(crate::fl!("new-disk-image")))
-            .class(cosmic::theme::Button::Link)
-            .on_press(Message::NewDiskImage)
-            .padding([6, 8])
-            .into(),
-        widget::button::custom(widget::text::caption(crate::fl!("attach-disk-image")))
-            .class(cosmic::theme::Button::Link)
-            .on_press(Message::AttachDisk)
-            .padding([6, 8])
-            .into(),
-    ])
-    .spacing(6)
-    .padding([0, 12, 6, 12])
-    .align_y(cosmic::iced::Alignment::Center)
-    .width(Length::Fill);
 
     // Network section (RClone, Samba, FTP)
-    if network.rclone_available || !network.mounts.is_empty() {
-        rows.push(network_section(network, controls_enabled).map(Message::Network));
-    }
+    rows.push(network_section(network, controls_enabled).map(Message::Network));
 
-    rows.push(image_actions.into());
+    // Images must remain the bottom-most section.
+    add_section(&mut rows, Section::Images, images);
 
     widget::container::Container::new(
         widget::scrollable(widget::Column::with_children(rows).spacing(2)).height(Length::Fill),

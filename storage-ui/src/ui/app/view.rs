@@ -1721,6 +1721,7 @@ fn build_free_space_info<'a>(
             Box::new(ShowDialog::AddPartition(
                 crate::ui::dialogs::state::CreatePartitionDialog {
                     info: segment.get_create_info(),
+                    step: crate::ui::dialogs::state::CreatePartitionStep::Basics,
                     running: false,
                     error: None,
                     filesystem_tools: filesystem_tools_clone,
