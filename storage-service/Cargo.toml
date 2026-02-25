@@ -58,8 +58,8 @@ serde_json.workspace = true
 
 # System integration
 libc.workspace = true
-nix = { version = "0.29", features = ["fs"] }
-which = "7.0"
+nix.workspace = true
+which.workspace = true
 
 # UDisks2 bindings
 udisks2.workspace = true

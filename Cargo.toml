@@ -18,28 +18,28 @@ open = "5.3.2"
 rust-embed = "8.7.2"
 tokio = { version = "1.45.1", features = ["full"] }
 tracing = "0.1.41"
-anyhow = "1.0.98"
-libc = "0.2.170"
+anyhow = "1.0.102"
+libc = "0.2.180"
 duct = "1.0.0"
 serde = { version = "1.0.219", features = ["derive"] }
 serde_json = "1.0.140"
-toml = "0.8.19"
+toml = "0.9.8"
 thiserror = "2.0.18"
 which = "8.0.0"
 udisks2 = "0.3.1"
-zbus = "5.13.2"
-zbus_macros = "5.13.2"
+zbus = "5.14.0"
+zbus_macros = "5.14.0"
 tracing-subscriber = { version = "0.3.19", features = ["env-filter"] }
 tracing-appender = "0.2.3"
 num-format = "0.4.4"
-futures = "0.3.31"
+futures = "0.3.32"
 enumflags2 = "0.7.12"
 procfs = "0.18.0"
-nix = { version = "0.31.1", features = ["signal"] }
+nix = { version = "0.31.1", features = ["signal", "fs"] }
 btrfsutil = "0.2.0"
-uuid = { version = "1.10", features = ["serde"] }
-chrono = { version = "0.4", features = ["serde"] }
-clap = { version = "4.5", features = ["derive"] }
+uuid = { version = "1.21.0", features = ["serde"] }
+chrono = { version = "0.4.44", features = ["serde"] }
+clap = { version = "4.5.60", features = ["derive"] }
 
 # workspace dependencies
 storage-dbus = { package = "cosmic-ext-storage-dbus", path = "storage-dbus", version = "0.1.0" }
