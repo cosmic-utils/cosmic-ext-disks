@@ -7,6 +7,7 @@ use crate::ui::dialogs::state::{
     CreatePartitionDialog, EditFilesystemLabelDialog, EditPartitionDialog, FormatPartitionDialog,
     ResizePartitionDialog,
 };
+use crate::ui::wizard::{wizard_action_row, wizard_shell};
 use crate::utils::SizeUnit;
 use crate::utils::labelled_spinner;
 use cosmic::{
@@ -253,11 +254,25 @@ pub fn create_partition<'a>(state: CreatePartitionDialog) -> Element<'a, Message
         content = content.push(caption(fl!("working")));
     }
 
+    let footer = wizard_action_row(
+        vec![],
+        vec![
+            button::standard(fl!("cancel"))
+                .on_press(CreateMessage::Cancel.into())
+                .into(),
+            continue_button.into(),
+        ],
+    );
+
+    let shell = wizard_shell(
+        caption(fl!("create-partition")).into(),
+        content.spacing(20.).into(),
+        footer,
+    );
+
     dialog::dialog()
         .title(fl!("create-partition"))
-        .control(content.spacing(20.))
-        .primary_action(continue_button)
-        .secondary_action(button::standard(fl!("cancel")).on_press(CreateMessage::Cancel.into()))
+        .control(shell)
         .into()
 }
 
@@ -382,11 +397,25 @@ pub fn format_partition<'a>(state: FormatPartitionDialog) -> Element<'a, Message
         confirm = confirm.on_press(CreateMessage::Partition.into());
     }
 
+    let footer = wizard_action_row(
+        vec![],
+        vec![
+            button::standard(fl!("cancel"))
+                .on_press(CreateMessage::Cancel.into())
+                .into(),
+            confirm.into(),
+        ],
+    );
+
+    let shell = wizard_shell(
+        caption(fl!("format-partition")).into(),
+        content.into(),
+        footer,
+    );
+
     dialog::dialog()
         .title(fl!("format-partition"))
-        .control(content)
-        .primary_action(confirm)
-        .secondary_action(button::standard(fl!("cancel")).on_press(CreateMessage::Cancel.into()))
+        .control(shell)
         .into()
 }
 
@@ -432,13 +461,25 @@ pub fn edit_partition<'a>(state: EditPartitionDialog) -> Element<'a, Message> {
         apply = apply.on_press(EditPartitionMessage::Confirm.into());
     }
 
+    let footer = wizard_action_row(
+        vec![],
+        vec![
+            button::standard(fl!("cancel"))
+                .on_press(EditPartitionMessage::Cancel.into())
+                .into(),
+            apply.into(),
+        ],
+    );
+
+    let shell = wizard_shell(
+        caption(fl!("edit-partition")).into(),
+        content.into(),
+        footer,
+    );
+
     dialog::dialog()
         .title(fl!("edit-partition"))
-        .control(content)
-        .primary_action(apply)
-        .secondary_action(
-            button::standard(fl!("cancel")).on_press(EditPartitionMessage::Cancel.into()),
-        )
+        .control(shell)
         .into()
 }
 
@@ -487,13 +528,25 @@ pub fn resize_partition<'a>(state: ResizePartitionDialog) -> Element<'a, Message
         apply = apply.on_press(ResizePartitionMessage::Confirm.into());
     }
 
+    let footer = wizard_action_row(
+        vec![],
+        vec![
+            button::standard(fl!("cancel"))
+                .on_press(ResizePartitionMessage::Cancel.into())
+                .into(),
+            apply.into(),
+        ],
+    );
+
+    let shell = wizard_shell(
+        caption(fl!("resize-partition")).into(),
+        content.into(),
+        footer,
+    );
+
     dialog::dialog()
         .title(fl!("resize-partition"))
-        .control(content)
-        .primary_action(apply)
-        .secondary_action(
-            button::standard(fl!("cancel")).on_press(ResizePartitionMessage::Cancel.into()),
-        )
+        .control(shell)
         .into()
 }
 

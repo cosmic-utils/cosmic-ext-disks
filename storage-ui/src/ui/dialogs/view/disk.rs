@@ -2,6 +2,7 @@ use crate::app::Message;
 use crate::fl;
 use crate::ui::dialogs::message::{FormatDiskMessage, SmartDialogMessage};
 use crate::ui::dialogs::state::{FormatDiskDialog, SmartDataDialog};
+use crate::ui::wizard::{wizard_action_row, wizard_shell};
 use cosmic::{
     Element, iced_widget,
     widget::text::{caption, caption_heading},
@@ -41,13 +42,21 @@ pub fn format_disk<'a>(state: FormatDiskDialog) -> Element<'a, Message> {
         confirm = confirm.on_press(FormatDiskMessage::Confirm.into());
     }
 
+    let footer = wizard_action_row(
+        vec![],
+        vec![
+            button::standard(fl!("cancel"))
+                .on_press(FormatDiskMessage::Cancel.into())
+                .into(),
+            confirm.into(),
+        ],
+    );
+
+    let shell = wizard_shell(caption(fl!("format-disk")).into(), content.into(), footer);
+
     dialog::dialog()
         .title(fl!("format-disk"))
-        .control(content)
-        .primary_action(confirm)
-        .secondary_action(
-            button::standard(fl!("cancel")).on_press(FormatDiskMessage::Cancel.into()),
-        )
+        .control(shell)
         .into()
 }
 
