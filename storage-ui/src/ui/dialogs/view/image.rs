@@ -7,6 +7,7 @@ use crate::ui::dialogs::message::{
 use crate::ui::dialogs::state::{
     AttachDiskImageDialog, ImageOperationDialog, ImageOperationKind, NewDiskImageDialog,
 };
+use crate::ui::wizard::{wizard_action_row, wizard_shell};
 use crate::utils::labelled_spinner;
 use cosmic::{
     Element,
@@ -67,11 +68,25 @@ pub fn new_disk_image<'a>(state: NewDiskImageDialog) -> Element<'a, Message> {
     // while running, still allow closing (it will not cancel the file create, which is fast)
     let cancel_msg = NewDiskImageDialogMessage::Cancel;
 
+    let footer = wizard_action_row(
+        vec![],
+        vec![
+            button::standard(fl!("cancel"))
+                .on_press(cancel_msg.into())
+                .into(),
+            create_button.into(),
+        ],
+    );
+
+    let shell = wizard_shell(
+        caption(fl!("new-disk-image")).into(),
+        content.into(),
+        footer,
+    );
+
     dialog::dialog()
         .title(fl!("new-disk-image"))
-        .control(content)
-        .primary_action(create_button)
-        .secondary_action(button::standard(fl!("cancel")).on_press(cancel_msg.into()))
+        .control(shell)
         .into()
 }
 
@@ -106,13 +121,25 @@ pub fn attach_disk_image<'a>(state: AttachDiskImageDialog) -> Element<'a, Messag
         attach_button = attach_button.on_press(AttachDiskImageDialogMessage::Attach.into());
     }
 
+    let footer = wizard_action_row(
+        vec![],
+        vec![
+            button::standard(fl!("cancel"))
+                .on_press(AttachDiskImageDialogMessage::Cancel.into())
+                .into(),
+            attach_button.into(),
+        ],
+    );
+
+    let shell = wizard_shell(
+        caption(fl!("attach-disk-image")).into(),
+        content.into(),
+        footer,
+    );
+
     dialog::dialog()
         .title(fl!("attach-disk-image"))
-        .control(content)
-        .primary_action(attach_button)
-        .secondary_action(
-            button::standard(fl!("cancel")).on_press(AttachDiskImageDialogMessage::Cancel.into()),
-        )
+        .control(shell)
         .into()
 }
 
@@ -237,10 +264,17 @@ pub fn image_operation<'a>(state: ImageOperationDialog) -> Element<'a, Message> 
 
     let cancel_msg = ImageOperationDialogMessage::CancelOperation;
 
-    dialog::dialog()
-        .title(title)
-        .control(content)
-        .primary_action(start_button)
-        .secondary_action(button::standard(fl!("cancel")).on_press(cancel_msg.into()))
-        .into()
+    let footer = wizard_action_row(
+        vec![],
+        vec![
+            button::standard(fl!("cancel"))
+                .on_press(cancel_msg.into())
+                .into(),
+            start_button.into(),
+        ],
+    );
+
+    let shell = wizard_shell(caption(title.clone()).into(), content.into(), footer);
+
+    dialog::dialog().title(title).control(shell).into()
 }
