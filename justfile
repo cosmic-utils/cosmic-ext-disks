@@ -28,12 +28,12 @@ default:
         exit 1
     fi
     echo "  Installing D-Bus policy..."
-    if ! sudo install -Dm644 data/dbus-1/system.d/org.cosmic.ext.Storage.Service.conf /usr/share/dbus-1/system.d/; then
+    if ! sudo install -Dm644 data/systemd/org.cosmic.ext.Storage.Service.conf /usr/share/dbus-1/system.d/; then
         echo "✗ Failed to install D-Bus policy"
         exit 1
     fi
     echo "  Installing Polkit policy..."
-    if ! sudo install -Dm644 data/polkit-1/actions/org.cosmic.ext.storage.service.policy /usr/share/polkit-1/actions/; then
+    if ! sudo install -Dm644 data/systemd/org.cosmic.ext.storage.service.policy /usr/share/polkit-1/actions/; then
         echo "✗ Failed to install Polkit policy"
         exit 1
     fi
@@ -114,9 +114,9 @@ install-system-files: build-release
     sudo install -Dm644 data/systemd/cosmic-ext-storage-service.service /usr/lib/systemd/system/
     sudo install -Dm644 data/systemd/cosmic-ext-storage-service.socket /usr/lib/systemd/system/
     @echo "Installing D-Bus policy..."
-    sudo install -Dm644 data/dbus-1/system.d/org.cosmic.ext.Storage.Service.conf /usr/share/dbus-1/system.d/
+    sudo install -Dm644 data/systemd/org.cosmic.ext.Storage.Service.conf /usr/share/dbus-1/system.d/
     @echo "Installing Polkit policy..."
-    sudo install -Dm644 data/polkit-1/actions/org.cosmic.ext.storage.service.policy /usr/share/polkit-1/actions/
+    sudo install -Dm644 data/systemd/org.cosmic.ext.storage.service.policy /usr/share/polkit-1/actions/
     @echo "Installing service binary..."
     sudo install -Dm755 target/release/cosmic-ext-storage-service /usr/bin/
     @echo "Reloading systemd..."
@@ -128,7 +128,7 @@ install-system-files: build-release
 # Install just the D-Bus policy for development (requires root)
 install-dbus-policy:
     @echo "Installing D-Bus policy..."
-    sudo install -Dm644 data/dbus-1/system.d/org.cosmic.ext.Storage.Service.conf /usr/share/dbus-1/system.d/
+    sudo install -Dm644 data/systemd/org.cosmic.ext.Storage.Service.conf /usr/share/dbus-1/system.d/
     @echo "Reloading D-Bus configuration..."
     sudo systemctl reload dbus
     @echo ""
@@ -137,7 +137,7 @@ install-dbus-policy:
 # Install just the Polkit policy for development (requires root)
 install-polkit-policy:
     @echo "Installing Polkit policy..."
-    sudo install -Dm644 data/polkit-1/actions/org.cosmic.ext.storage.service.policy /usr/share/polkit-1/actions/
+    sudo install -Dm644 data/systemd/org.cosmic.ext.storage.service.policy /usr/share/polkit-1/actions/
     @echo ""
     @echo "Polkit policy installed."
 
