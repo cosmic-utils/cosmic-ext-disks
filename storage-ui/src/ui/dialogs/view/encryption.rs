@@ -6,6 +6,7 @@ use crate::ui::dialogs::message::{
 use crate::ui::dialogs::state::{
     ChangePassphraseDialog, EditEncryptionOptionsDialog, TakeOwnershipDialog, UnlockEncryptedDialog,
 };
+use crate::ui::wizard::{wizard_action_row, wizard_shell};
 use cosmic::{
     Element, iced_widget,
     widget::text::caption,
@@ -85,13 +86,25 @@ pub fn change_passphrase<'a>(state: ChangePassphraseDialog) -> Element<'a, Messa
         apply = apply.on_press(ChangePassphraseMessage::Confirm.into());
     }
 
+    let footer = wizard_action_row(
+        vec![],
+        vec![
+            button::standard(fl!("cancel"))
+                .on_press(ChangePassphraseMessage::Cancel.into())
+                .into(),
+            apply.into(),
+        ],
+    );
+
+    let shell = wizard_shell(
+        caption(fl!("change-passphrase")).into(),
+        content.into(),
+        footer,
+    );
+
     dialog::dialog()
         .title(fl!("change-passphrase"))
-        .control(content)
-        .primary_action(apply)
-        .secondary_action(
-            button::standard(fl!("cancel")).on_press(ChangePassphraseMessage::Cancel.into()),
-        )
+        .control(shell)
         .into()
 }
 
@@ -182,13 +195,25 @@ pub fn edit_encryption_options<'a>(state: EditEncryptionOptionsDialog) -> Elemen
         apply = apply.on_press(EditEncryptionOptionsMessage::Confirm.into());
     }
 
+    let footer = wizard_action_row(
+        vec![],
+        vec![
+            button::standard(fl!("cancel"))
+                .on_press(EditEncryptionOptionsMessage::Cancel.into())
+                .into(),
+            apply.into(),
+        ],
+    );
+
+    let shell = wizard_shell(
+        caption(fl!("edit-encryption-options")).into(),
+        content.into(),
+        footer,
+    );
+
     dialog::dialog()
         .title(fl!("edit-encryption-options"))
-        .control(content)
-        .primary_action(apply)
-        .secondary_action(
-            button::standard(fl!("cancel")).on_press(EditEncryptionOptionsMessage::Cancel.into()),
-        )
+        .control(shell)
         .into()
 }
 

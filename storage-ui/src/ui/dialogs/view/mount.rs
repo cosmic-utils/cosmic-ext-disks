@@ -2,6 +2,7 @@ use crate::app::Message;
 use crate::fl;
 use crate::ui::dialogs::message::{EditMountOptionsMessage, UnmountBusyMessage};
 use crate::ui::dialogs::state::{EditMountOptionsDialog, UnmountBusyDialog};
+use crate::ui::wizard::{wizard_action_row, wizard_shell};
 use cosmic::{
     Element, iced_widget,
     widget::text::{caption, caption_heading},
@@ -137,13 +138,25 @@ pub fn edit_mount_options<'a>(state: EditMountOptionsDialog) -> Element<'a, Mess
         apply = apply.on_press(EditMountOptionsMessage::Confirm.into());
     }
 
+    let footer = wizard_action_row(
+        vec![],
+        vec![
+            button::standard(fl!("cancel"))
+                .on_press(EditMountOptionsMessage::Cancel.into())
+                .into(),
+            apply.into(),
+        ],
+    );
+
+    let shell = wizard_shell(
+        caption(fl!("edit-mount-options")).into(),
+        content.into(),
+        footer,
+    );
+
     dialog::dialog()
         .title(fl!("edit-mount-options"))
-        .control(content)
-        .primary_action(apply)
-        .secondary_action(
-            button::standard(fl!("cancel")).on_press(EditMountOptionsMessage::Cancel.into()),
-        )
+        .control(shell)
         .into()
 }
 
