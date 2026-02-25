@@ -113,7 +113,7 @@ fn transparent_button_style(
 fn provider_logo_widget(provider_type: &str, size: u16) -> Element<'static, NetworkMessage> {
     let provider_icon = resolve_provider_icon(provider_type);
     if let Some(brand_icon) = provider_icon.branded {
-        return icon::icon(icon::from_svg_bytes(brand_icon.svg_bytes()))
+        return icon::icon(icon::from_svg_bytes(brand_icon.svg_bytes()).symbolic(true))
             .size(size)
             .into();
     }
