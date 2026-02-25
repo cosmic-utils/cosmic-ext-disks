@@ -32,19 +32,17 @@ pub fn settings<'a>(config: &Config) -> Element<'a, Message> {
         Some(config.usage_scan_parallelism.to_index()),
         Message::UsageScanParallelismChanged,
     )
-    .width(cosmic::iced::Length::Fill);
+    .width(cosmic::iced::Length::Shrink);
 
     let usage_section = widget::column()
         .push(widget::text::title4("Usage"))
         .push(widget::text::caption(fl!("usage-scan-parallelism-label")))
         .push(usage_parallelism_dropdown)
-        .push(widget::divider::horizontal::default())
         .spacing(space_s)
         .align_x(Alignment::Start);
 
     widget::column()
         .push(volumes_section)
-        .push(widget::divider::horizontal::default())
         .push(usage_section)
         .spacing(space_m)
         .into()
@@ -62,14 +60,16 @@ pub fn settings_footer<'a>(filesystem_tools: &[FilesystemToolInfo]) -> Element<'
     let short_hash: String = hash.chars().take(7).collect();
     let date = env!("VERGEN_GIT_COMMIT_DATE");
 
-    let commit_caption = widget::button::custom(widget::text::caption(fl!(
-        "git-description",
-        hash = short_hash.as_str(),
-        date = date
-    )))
-    .class(cosmic::theme::Button::Link)
-    .on_press(Message::LaunchUrl(format!("{REPOSITORY}/commits/{hash}")))
-    .padding(0);
+    let commit_hash_link = widget::button::custom(widget::text::caption(short_hash.clone()))
+        .class(cosmic::theme::Button::Link)
+        .on_press(Message::LaunchUrl(format!("{REPOSITORY}/commits/{hash}")))
+        .padding(0);
+
+    let commit_info = widget::row::with_capacity(2)
+        .push(widget::text::caption(format!("{} ", date)))
+        .push(commit_hash_link)
+        .spacing(0)
+        .align_y(Alignment::Center);
 
     let github_icon = widget::icon::icon(
         widget::icon::from_svg_bytes(include_bytes!("../../resources/icons/github.svg"))
@@ -77,33 +77,31 @@ pub fn settings_footer<'a>(filesystem_tools: &[FilesystemToolInfo]) -> Element<'
     )
     .size(16);
 
-    let repo_footer = widget::row::with_capacity(4)
-        .push(widget::Space::new(Length::Fill, 0))
-        .push(commit_caption)
-        .push(
-            widget::button::custom(
-                widget::row::with_capacity(2)
-                    .push(github_icon)
-                    .push(widget::text::caption("GitHub"))
-                    .spacing(space_xxs)
-                    .align_y(Alignment::Center),
+    let repo_footer = widget::container(
+        widget::row::with_capacity(3)
+            .push(widget::Space::new(Length::Fill, 0))
+            .push(commit_info)
+            .push(
+                widget::button::custom(github_icon)
+                    .class(cosmic::theme::Button::Link)
+                    .on_press(Message::OpenRepositoryUrl)
+                    .padding(0),
             )
-            .class(cosmic::theme::Button::Link)
-            .on_press(Message::OpenRepositoryUrl)
-            .padding(0),
-        )
-        .spacing(space_xxs)
-        .align_y(Alignment::Center);
+            .spacing(space_xxs)
+            .align_y(Alignment::Center)
+            .width(Length::Fill),
+    )
+    .padding([0, 0, 3, 0])
+    .width(Length::Fill);
 
     let missing_tools: Vec<_> = filesystem_tools.iter().filter(|t| !t.available).collect();
 
     if !missing_tools.is_empty() {
-        let tools_title = widget::text::title4(fl!("fs-tools-missing-title"));
-        let tools_description = widget::text::body(fl!("fs-tools-missing-desc"));
+        let tools_description = widget::text::caption(fl!("fs-tools-missing-desc"));
 
         let mut tools_list = widget::column().spacing(space_xxs);
         for tool in &missing_tools {
-            let tool_text = widget::text::body(format!(
+            let tool_text = widget::text::caption(format!(
                 "• {} - {}",
                 tool.package_hint,
                 fl!("fs-tools-required-for", fs_name = tool.fs_name.clone())
@@ -111,15 +109,40 @@ pub fn settings_footer<'a>(filesystem_tools: &[FilesystemToolInfo]) -> Element<'
             tools_list = tools_list.push(tool_text);
         }
 
+        let warning_callout = widget::container(
+            widget::column()
+                .push(tools_description)
+                .push(tools_list)
+                .spacing(space_xxs),
+        )
+        .padding([space_s, space_s, space_s, space_s])
+        .width(Length::Fill)
+        .style(|theme| {
+            let cosmic = theme.cosmic();
+            widget::container::Style {
+                icon_color: Some(cosmic.warning_color().into()),
+                text_color: Some(cosmic.warning_color().into()),
+                background: None,
+                border: cosmic::iced::Border {
+                    color: cosmic.warning_color().into(),
+                    width: 1.0,
+                    radius: cosmic.corner_radii.radius_s.into(),
+                },
+                shadow: cosmic::iced::Shadow::default(),
+            }
+        });
+
         widget::column()
-            .push(tools_title)
-            .push(tools_description)
-            .push(tools_list)
-            .push(widget::divider::horizontal::default())
+            .push(warning_callout)
             .push(repo_footer)
             .spacing(space_s)
+            .width(Length::Fill)
             .into()
     } else {
-        widget::column().push(repo_footer).spacing(space_m).into()
+        widget::column()
+            .push(repo_footer)
+            .spacing(space_m)
+            .width(Length::Fill)
+            .into()
     }
 }
