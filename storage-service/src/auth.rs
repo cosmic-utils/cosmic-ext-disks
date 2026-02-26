@@ -3,9 +3,9 @@
 //! Authorization module
 //!
 //! Primary authorization for D-Bus interface methods is handled by the `#[authorized_interface]`
-//! procedural macro from the `storage-service-macros` crate.
+//! procedural macro from the `storage-macros` crate.
 //!
-//! See `storage-service-macros/src/lib.rs` for the macro implementation.
+//! See `storage-macros/src/lib.rs` for the macro implementation.
 //!
 //! The macro:
 //! 1. Gets the actual caller's sender from `header.sender()` (NOT `connection.unique_name()`)

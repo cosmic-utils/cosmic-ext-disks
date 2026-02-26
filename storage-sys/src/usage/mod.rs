@@ -9,13 +9,13 @@ pub mod types;
 
 pub use classifier::classify_path;
 pub use error::UsageScanError;
+pub use mounts::{discover_local_mounts_under, estimate_used_bytes_for_mounts};
+pub use progress::{compute_progress_percent, format_bytes};
 pub use scanner::{scan_paths, scan_paths_with_progress};
 pub use types::{Category, CategoryTopFiles, CategoryTotal, ScanConfig, ScanResult, TopFileEntry};
 
 use std::path::Path;
 use std::sync::mpsc::Sender;
-
-use mounts::discover_local_mounts_under;
 
 pub fn scan_local_mounts(root: &Path, config: &ScanConfig) -> Result<ScanResult, UsageScanError> {
     let roots = discover_local_mounts_under(root)?;

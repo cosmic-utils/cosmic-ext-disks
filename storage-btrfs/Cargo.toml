@@ -17,21 +17,18 @@ required-features = ["cli"]
 
 [features]
 default = []
-cli = ["dep:clap"]
+cli = ["dep:anyhow", "dep:clap", "dep:serde_json", "dep:tracing-subscriber"]
 
 [dependencies]
 # Core dependencies
 btrfsutil.workspace = true
-uuid.workspace = true
-chrono.workspace = true
-anyhow.workspace = true
 thiserror.workspace = true
-serde.workspace = true
-serde_json.workspace = true
-storage-common.workspace = true
+storage-types.workspace = true
 libc.workspace = true
 tracing.workspace = true
 
 # CLI-only dependencies
+anyhow = { workspace = true, optional = true }
 clap = { workspace = true, optional = true }
+serde_json = { workspace = true, optional = true }
 tracing-subscriber = { workspace = true, optional = true }

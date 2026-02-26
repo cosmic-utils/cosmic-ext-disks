@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: GPL-3.0-only
 
-pub type Category = storage_common::UsageCategory;
-pub type CategoryTotal = storage_common::UsageCategoryTotal;
-pub type TopFileEntry = storage_common::UsageTopFileEntry;
-pub type CategoryTopFiles = storage_common::UsageCategoryTopFiles;
-pub type ScanResult = storage_common::UsageScanResult;
+pub type Category = storage_types::UsageCategory;
+pub type CategoryTotal = storage_types::UsageCategoryTotal;
+pub type TopFileEntry = storage_types::UsageTopFileEntry;
+pub type CategoryTopFiles = storage_types::UsageCategoryTopFiles;
+pub type ScanResult = storage_types::UsageScanResult;
 
 #[derive(Debug, Clone)]
 pub struct ScanConfig {

@@ -40,6 +40,7 @@ This single command builds the workspace, installs development policies (D-Bus +
 
 **Other useful commands:**
 ```bash
+just verify             # Canonical workspace verification (fmt/clippy/test --no-run)
 just build              # Build workspace only
 just dev                # Build, start service, run UI (stops service on exit)
 just service            # Start service attached
@@ -64,17 +65,11 @@ just clippy             # Run linter
    - Subvolumes Management
    - Snapshot Management & Scheduling
    - Optional Usage breakdown (requires enablement of quotas)
-- ⌛ New UI
-   - **Deferred**: Modal dialog windows blocked by upstream libcosmic limitations
-   - Settings pane is a mess still
-   - Create/Format partition dialog rework planned.
-   - General polish and cleanup required.
 - ✅ Rclone configuration
    - Setup wizard for common mount types
    - Mount on boot option
    - Supports all providers/types
    - Supports System & User mounts
-   - 🎯 Brand icons
 - ✅ Automatic "Resource Busy" resolution on unmount
    - List processes that are holding the mount open, and give you the option to kill them.
 - ⌛ Detection for required packages:
@@ -89,7 +84,7 @@ just clippy             # Run linter
 - Any feature requests welcome!
 
 
-![Screenshot of Storage App](https://github.com/cosmic-utils/cosmic-ext-storage/blob/main/screenshots/cosmic-ext-storage.png)
+![Screenshot of Storage App](https://github.com/cosmic-utils/cosmic-ext-storage/blob/main/resources/screenshots/cosmic-ext-storage.png)
 
 
 ### Notes on use of AI

@@ -53,6 +53,3 @@ impl From<zbus::Error> for ServiceError {
         ServiceError::DBus(err.to_string())
     }
 }
-
-#[allow(dead_code)]
-pub type Result<T> = std::result::Result<T, ServiceError>;

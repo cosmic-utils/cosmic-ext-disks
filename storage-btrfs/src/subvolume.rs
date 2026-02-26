@@ -4,7 +4,7 @@ use crate::error::{BtrfsError, Result};
 use btrfsutil::subvolume::{DeleteFlags, SnapshotFlags, Subvolume};
 use std::path::{Path, PathBuf};
 use std::process::Command;
-use storage_common::btrfs::BtrfsSubvolume;
+use storage_types::btrfs::BtrfsSubvolume;
 
 /// Manager for BTRFS subvolume operations
 pub struct SubvolumeManager {
@@ -70,7 +70,14 @@ impl SubvolumeManager {
 
             // Strip "<FS_TREE>/" prefix from paths (comes from -a flag)
             if path.starts_with("<FS_TREE>/") {
-                path = path.strip_prefix("<FS_TREE>/").unwrap().to_string();
+                path = path
+                    .strip_prefix("<FS_TREE>/")
+                    .ok_or_else(|| {
+                        BtrfsError::OperationFailed(
+                            "Failed to strip <FS_TREE>/ prefix from subvolume path".to_string(),
+                        )
+                    })?
+                    .to_string();
             }
 
             // Find UUID field (after "uuid" keyword)
