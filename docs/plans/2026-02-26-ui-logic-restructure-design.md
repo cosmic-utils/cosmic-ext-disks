@@ -4,9 +4,9 @@
 
 Adopt an aggressive, non-compat migration from `storage-app/src/ui/**` to a new canonical structure centered on:
 
-- `storage-app/src/messages/{feature}.rs`
+- `storage-app/src/message/{feature}.rs`
 - `storage-app/src/state/{feature}.rs`
-- `storage-app/src/updates/{feature}/...`
+- `storage-app/src/update/{feature}/...`
 
 and reduce/remove `ui/` usage entirely.
 
@@ -14,7 +14,7 @@ This follows the explicit direction: move fast, no legacy shims, no intermediate
 
 ## Goals
 
-1. Replace feature-scoped `ui/<feature>/{message,state,update}` with layer-scoped `messages/state/updates`.
+1. Replace feature-scoped `ui/<feature>/{message,state,update}` with layer-scoped `message/state/update`.
 2. Keep `views/{view_name}.rs` as canonical rendering layer.
 3. Eliminate duplicated action-button/style patterns via shared controls.
 4. Remove `ui/` as an architectural bucket (or leave only minimal transitory files for one commit max).
@@ -51,7 +51,7 @@ Why:
 
 ```text
 storage-app/src/
-  messages/
+  message/
     mod.rs
     app.rs
     dialogs.rs
@@ -65,7 +65,7 @@ storage-app/src/
     network.rs
     sidebar.rs
     volumes.rs
-  updates/
+  update/
     mod.rs
     btrfs.rs
     drive.rs
@@ -105,7 +105,7 @@ To finish reducing `ui/` usage, move remaining helper modules to feature-root lo
 ## 3) Views contract
 
 `views/*` imports only from:
-- `messages::*`
+- `message::*`
 - `state::*`
 - `controls::*`
 - feature helper modules (`network::*`, `volumes::*`, etc.)
@@ -137,23 +137,23 @@ Centralize recurring style closures in `controls/layout.rs`:
 ## Data Flow After Restructure
 
 - `state/*` owns UI state structs and enums.
-- `messages/*` owns message enums.
-- `updates/*` owns transition/update logic and side effects.
+- `message/*` owns message enums.
+- `update/*` owns transition/update logic and side effects.
 - `views/*` maps `state + messages` to widgets.
 - `controls/*` provides reusable composition primitives.
 
 Dependency direction:
 
-- `views` -> `state`, `messages`, `controls`
-- `updates` -> `state`, `messages`, clients/services
-- `state` and `messages` do not depend on `views`
+- `views` -> `state`, `message`, `controls`
+- `update` -> `state`, `message`, clients/services
+- `state` and `message` do not depend on `views`
 
 ## Risk Profile
 
 Primary risk is import breakage due to broad moves.
 
 Mitigation:
-1. Move files in coherent buckets (messages/state/updates).
+1. Move files in coherent buckets (message/state/update).
 2. Immediately run `cargo clippy --workspace --all-targets` after each bucket.
 3. Keep commits small and thematic.
 4. Use grep-driven rewrites for `crate::ui::...` imports.
@@ -161,7 +161,7 @@ Mitigation:
 ## Success Criteria
 
 1. No `storage-app/src/ui/**` feature logic remains.
-2. All state/message/update imports resolve from `state/messages/updates`.
+2. All state/message/update imports resolve from `state/message/update`.
 3. Views do not import from `ui::*`.
 4. Shared action/style duplication is reduced through controls.
 5. Verification passes:

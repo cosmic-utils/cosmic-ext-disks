@@ -11,20 +11,20 @@ Mode: aggressive, no compatibility wrappers
 
 ## B. Module Skeleton
 
-- [ ] Create `storage-app/src/messages/mod.rs`
+- [ ] Create `storage-app/src/message/mod.rs`
 - [ ] Create `storage-app/src/state/mod.rs`
-- [ ] Create `storage-app/src/updates/mod.rs`
-- [ ] Create `storage-app/src/updates/volumes/mod.rs`
+- [ ] Create `storage-app/src/update/mod.rs`
+- [ ] Create `storage-app/src/update/volumes/mod.rs`
 - [ ] Wire modules in `storage-app/src/main.rs`
 
 ## C. File Move Matrix (Exhaustive)
 
 ## C1. Messages
 
-- [ ] `storage-app/src/ui/app/message.rs` -> `storage-app/src/messages/app.rs`
-- [ ] `storage-app/src/ui/dialogs/message.rs` -> `storage-app/src/messages/dialogs.rs`
-- [ ] `storage-app/src/ui/network/message.rs` -> `storage-app/src/messages/network.rs`
-- [ ] `storage-app/src/ui/volumes/message.rs` -> `storage-app/src/messages/volumes.rs`
+- [ ] `storage-app/src/ui/app/message.rs` -> `storage-app/src/message/app.rs`
+- [ ] `storage-app/src/ui/dialogs/message.rs` -> `storage-app/src/message/dialogs.rs`
+- [ ] `storage-app/src/ui/network/message.rs` -> `storage-app/src/message/network.rs`
+- [ ] `storage-app/src/ui/volumes/message.rs` -> `storage-app/src/message/volumes.rs`
 
 ## C2. State
 
@@ -37,27 +37,27 @@ Mode: aggressive, no compatibility wrappers
 
 ## C3. Updates (App)
 
-- [ ] `storage-app/src/ui/app/update/mod.rs` -> `storage-app/src/updates/mod.rs`
-- [ ] `storage-app/src/ui/app/update/btrfs.rs` -> `storage-app/src/updates/btrfs.rs`
-- [ ] `storage-app/src/ui/app/update/drive.rs` -> `storage-app/src/updates/drive.rs`
-- [ ] `storage-app/src/ui/app/update/image.rs` -> `storage-app/src/updates/image.rs`
-- [ ] `storage-app/src/ui/app/update/nav.rs` -> `storage-app/src/updates/nav.rs`
-- [ ] `storage-app/src/ui/app/update/network.rs` -> `storage-app/src/updates/network.rs`
-- [ ] `storage-app/src/ui/app/update/smart.rs` -> `storage-app/src/updates/smart.rs`
-- [ ] `storage-app/src/ui/app/update/image/dialogs.rs` -> `storage-app/src/updates/image/dialogs.rs`
-- [ ] `storage-app/src/ui/app/update/image/ops.rs` -> `storage-app/src/updates/image/ops.rs`
+- [ ] `storage-app/src/ui/app/update/mod.rs` -> `storage-app/src/update/mod.rs`
+- [ ] `storage-app/src/ui/app/update/btrfs.rs` -> `storage-app/src/update/btrfs.rs`
+- [ ] `storage-app/src/ui/app/update/drive.rs` -> `storage-app/src/update/drive.rs`
+- [ ] `storage-app/src/ui/app/update/image.rs` -> `storage-app/src/update/image.rs`
+- [ ] `storage-app/src/ui/app/update/nav.rs` -> `storage-app/src/update/nav.rs`
+- [ ] `storage-app/src/ui/app/update/network.rs` -> `storage-app/src/update/network.rs`
+- [ ] `storage-app/src/ui/app/update/smart.rs` -> `storage-app/src/update/smart.rs`
+- [ ] `storage-app/src/ui/app/update/image/dialogs.rs` -> `storage-app/src/update/image/dialogs.rs`
+- [ ] `storage-app/src/ui/app/update/image/ops.rs` -> `storage-app/src/update/image/ops.rs`
 
 ## C4. Updates (Volumes)
 
-- [ ] `storage-app/src/ui/volumes/update.rs` -> `storage-app/src/updates/volumes/mod.rs`
-- [ ] `storage-app/src/ui/volumes/update/btrfs.rs` -> `storage-app/src/updates/volumes/btrfs.rs`
-- [ ] `storage-app/src/ui/volumes/update/create.rs` -> `storage-app/src/updates/volumes/create.rs`
-- [ ] `storage-app/src/ui/volumes/update/encryption.rs` -> `storage-app/src/updates/volumes/encryption.rs`
-- [ ] `storage-app/src/ui/volumes/update/filesystem.rs` -> `storage-app/src/updates/volumes/filesystem.rs`
-- [ ] `storage-app/src/ui/volumes/update/mount.rs` -> `storage-app/src/updates/volumes/mount.rs`
-- [ ] `storage-app/src/ui/volumes/update/mount_options.rs` -> `storage-app/src/updates/volumes/mount_options.rs`
-- [ ] `storage-app/src/ui/volumes/update/partition.rs` -> `storage-app/src/updates/volumes/partition.rs`
-- [ ] `storage-app/src/ui/volumes/update/selection.rs` -> `storage-app/src/updates/volumes/selection.rs`
+- [ ] `storage-app/src/ui/volumes/update.rs` -> `storage-app/src/update/volumes/mod.rs`
+- [ ] `storage-app/src/ui/volumes/update/btrfs.rs` -> `storage-app/src/update/volumes/btrfs.rs`
+- [ ] `storage-app/src/ui/volumes/update/create.rs` -> `storage-app/src/update/volumes/create.rs`
+- [ ] `storage-app/src/ui/volumes/update/encryption.rs` -> `storage-app/src/update/volumes/encryption.rs`
+- [ ] `storage-app/src/ui/volumes/update/filesystem.rs` -> `storage-app/src/update/volumes/filesystem.rs`
+- [ ] `storage-app/src/ui/volumes/update/mount.rs` -> `storage-app/src/update/volumes/mount.rs`
+- [ ] `storage-app/src/ui/volumes/update/mount_options.rs` -> `storage-app/src/update/volumes/mount_options.rs`
+- [ ] `storage-app/src/ui/volumes/update/partition.rs` -> `storage-app/src/update/volumes/partition.rs`
+- [ ] `storage-app/src/ui/volumes/update/selection.rs` -> `storage-app/src/update/volumes/selection.rs`
 
 ## C5. Remaining `ui` Helper Modules
 
@@ -70,20 +70,20 @@ Mode: aggressive, no compatibility wrappers
 
 ## D. Import Rewrite Sweep
 
-- [ ] Rewrite all `crate::ui::app::message::*` -> `crate::messages::app::*`
-- [ ] Rewrite all `crate::ui::dialogs::message::*` -> `crate::messages::dialogs::*`
-- [ ] Rewrite all `crate::ui::network::message::*` -> `crate::messages::network::*`
-- [ ] Rewrite all `crate::ui::volumes::message::*` -> `crate::messages::volumes::*`
+- [ ] Rewrite all `crate::ui::app::message::*` -> `crate::message::app::*`
+- [ ] Rewrite all `crate::ui::dialogs::message::*` -> `crate::message::dialogs::*`
+- [ ] Rewrite all `crate::ui::network::message::*` -> `crate::message::network::*`
+- [ ] Rewrite all `crate::ui::volumes::message::*` -> `crate::message::volumes::*`
 - [ ] Rewrite all `crate::ui::<feature>::state::*` -> `crate::state::<feature>::*`
-- [ ] Rewrite all `crate::ui::app::update::*` -> `crate::updates::*`
-- [ ] Rewrite all `crate::ui::volumes::update::*` -> `crate::updates::volumes::*`
+- [ ] Rewrite all `crate::ui::app::update::*` -> `crate::update::*`
+- [ ] Rewrite all `crate::ui::volumes::update::*` -> `crate::update::volumes::*`
 - [ ] Rewrite all moved helper imports (`network`, `volumes`, `subscriptions`, `errors`)
 
 ## E. App Entry and Re-exports
 
 - [ ] Update `storage-app/src/app.rs` re-exports:
   - [ ] `AppModel` from `crate::state::app::AppModel`
-  - [ ] `Message` from `crate::messages::app::Message`
+  - [ ] `Message` from `crate::message::app::Message`
 - [ ] Update `storage-app/src/views/*.rs` imports away from `crate::ui::*`
 - [ ] Update module wiring where `ui/*/mod.rs` was the previous gateway
 

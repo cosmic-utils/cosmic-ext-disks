@@ -2,9 +2,9 @@
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
-**Goal:** Move feature logic from `ui/*` to `messages/state/updates` layer-first modules, remove `ui` architectural usage, and finish deduplicating action/styling primitives.
+**Goal:** Move feature logic from `ui/*` to `message/state/update` layer-first modules, remove `ui` architectural usage, and finish deduplicating action/styling primitives.
 
-**Architecture:** Use a direct, no-compat migration. Physically move files into `messages/*`, `state/*`, `updates/*`, and feature helper roots, then rewrite imports globally and delete `ui/*` leftovers. Keep behavior unchanged while reducing duplication via `controls/actions` and `controls/layout`.
+**Architecture:** Use a direct, no-compat migration. Physically move files into `message/*`, `state/*`, `update/*`, and feature helper roots, then rewrite imports globally and delete `ui/*` leftovers. Keep behavior unchanged while reducing duplication via `controls/actions` and `controls/layout`.
 
 **Tech Stack:** Rust, libcosmic/iced, cargo workspace verification (`cargo clippy`, `cargo test --no-run`).
 
@@ -13,34 +13,34 @@
 ### Task 1: Create destination module skeletons
 
 **Files:**
-- Create: `storage-app/src/messages/mod.rs`
+- Create: `storage-app/src/message/mod.rs`
 - Create: `storage-app/src/state/mod.rs`
-- Create: `storage-app/src/updates/mod.rs`
-- Create: `storage-app/src/updates/volumes/mod.rs`
+- Create: `storage-app/src/update/mod.rs`
+- Create: `storage-app/src/update/volumes/mod.rs`
 - Modify: `storage-app/src/main.rs` (module wiring)
 
 **Steps:**
 1. Create destination module directories/files.
 2. Export canonical module names from each `mod.rs`.
-3. Wire `mod messages; mod state; mod updates;` in `main.rs`.
+3. Wire `mod message; mod state; mod update;` in `main.rs`.
 4. Run: `cargo check -p cosmic-ext-storage`.
-5. Commit: `refactor(storage-app): scaffold messages state updates layers`.
+5. Commit: `refactor(storage-app): scaffold message state update layers`.
 
 ### Task 2: Migrate message modules
 
 **Files:**
-- Move: `storage-app/src/ui/app/message.rs` -> `storage-app/src/messages/app.rs`
-- Move: `storage-app/src/ui/dialogs/message.rs` -> `storage-app/src/messages/dialogs.rs`
-- Move: `storage-app/src/ui/network/message.rs` -> `storage-app/src/messages/network.rs`
-- Move: `storage-app/src/ui/volumes/message.rs` -> `storage-app/src/messages/volumes.rs`
+- Move: `storage-app/src/ui/app/message.rs` -> `storage-app/src/message/app.rs`
+- Move: `storage-app/src/ui/dialogs/message.rs` -> `storage-app/src/message/dialogs.rs`
+- Move: `storage-app/src/ui/network/message.rs` -> `storage-app/src/message/network.rs`
+- Move: `storage-app/src/ui/volumes/message.rs` -> `storage-app/src/message/volumes.rs`
 - Modify: call sites importing `crate::ui::*::message`
 
 **Steps:**
 1. Move files physically to new locations.
-2. Rewrite imports to `crate::messages::*`.
+2. Rewrite imports to `crate::message::*`.
 3. Fix cross-message references (e.g., dialogs step enums pointing to `state::*`).
 4. Run: `cargo clippy --workspace --all-targets`.
-5. Commit: `refactor(storage-app): move ui messages into messages layer`.
+5. Commit: `refactor(storage-app): move ui messages into message layer`.
 
 ### Task 3: Migrate state modules
 
@@ -56,7 +56,7 @@
 **Steps:**
 1. Move files physically.
 2. Rewrite all `state` imports to `crate::state::*`.
-3. Fix enum/type path references from messages/views/updates.
+3. Fix enum/type path references from message/views/update.
 4. Run: `cargo clippy --workspace --all-targets`.
 5. Commit: `refactor(storage-app): move ui state into state layer`.
 
@@ -64,14 +64,15 @@
 
 **Files:**
 - Move: `storage-app/src/ui/app/update/mod.rs` -> `storage-app/src/updates/mod.rs`
-- Move: `storage-app/src/ui/app/update/{btrfs,drive,image,nav,network,smart}.rs` -> `storage-app/src/updates/`
-- Move: `storage-app/src/ui/app/update/image/{dialogs,ops}.rs` -> `storage-app/src/updates/image/`
-- Modify: imports from `super::message/state` to `crate::messages::app` and `crate::state::app`
+- Move: `storage-app/src/ui/app/update/mod.rs` -> `storage-app/src/update/mod.rs`
+- Move: `storage-app/src/ui/app/update/{btrfs,drive,image,nav,network,smart}.rs` -> `storage-app/src/update/`
+- Move: `storage-app/src/ui/app/update/image/{dialogs,ops}.rs` -> `storage-app/src/update/image/`
+- Modify: imports from `super::message/state` to `crate::message::app` and `crate::state::app`
 
 **Steps:**
 1. Move update files preserving tree.
 2. Fix module declarations and import paths.
-3. Rewire app entrypoint to call `crate::updates::*`.
+3. Rewire app entrypoint to call `crate::update::*`.
 4. Run: `cargo clippy --workspace --all-targets`.
 5. Commit: `refactor(storage-app): migrate app update graph to updates layer`.
 
@@ -79,13 +80,14 @@
 
 **Files:**
 - Move: `storage-app/src/ui/volumes/update.rs` -> `storage-app/src/updates/volumes/mod.rs`
-- Move: `storage-app/src/ui/volumes/update/{btrfs,create,encryption,filesystem,mount,mount_options,partition,selection}.rs` -> `storage-app/src/updates/volumes/`
-- Modify: imports for dialogs/messages/state paths
+- Move: `storage-app/src/ui/volumes/update.rs` -> `storage-app/src/update/volumes/mod.rs`
+- Move: `storage-app/src/ui/volumes/update/{btrfs,create,encryption,filesystem,mount,mount_options,partition,selection}.rs` -> `storage-app/src/update/volumes/`
+- Modify: imports for dialogs/message/state paths
 
 **Steps:**
 1. Move root and child update files.
 2. Fix module declarations and imports.
-3. Rewire `VolumesControl::update` call sites to `crate::updates::volumes`.
+3. Rewire `VolumesControl::update` call sites to `crate::update::volumes`.
 4. Run: `cargo clippy --workspace --all-targets`.
 5. Commit: `refactor(storage-app): migrate volumes update graph to updates layer`.
 
@@ -111,8 +113,8 @@
 
 **Files:**
 - Modify/Delete: `storage-app/src/ui/mod.rs` and feature `ui/*/mod.rs` files
-- Modify: `storage-app/src/app.rs` (re-export from `messages::app` and `state::app`)
-- Modify: any remaining module wiring across `views/*`, `app.rs`, `updates/*`
+- Modify: `storage-app/src/app.rs` (re-export from `message::app` and `state::app`)
+- Modify: any remaining module wiring across `views/*`, `app.rs`, `update/*`
 
 **Steps:**
 1. Remove obsolete `ui/*` module declarations.
