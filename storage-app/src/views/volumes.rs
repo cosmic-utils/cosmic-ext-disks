@@ -10,8 +10,10 @@ use cosmic::{
 };
 
 use crate::fl;
-use crate::ui::volumes::{Segment, ToggleState, VolumesControl, VolumesControlMessage, helpers};
+use crate::message::volumes::VolumesControlMessage;
+use crate::state::volumes::{Segment, ToggleState, VolumesControl};
 use crate::utils::DiskSegmentKind;
+use crate::volumes::helpers;
 use crate::{app::Message, models::UiVolume};
 use storage_types::{VolumeKind, bytes_to_pretty};
 

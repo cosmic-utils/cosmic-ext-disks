@@ -1,9 +1,9 @@
 use crate::app::Message;
 use crate::fl;
-use crate::ui::dialogs::message::{
+use crate::message::dialogs::{
     CreateMessage, EditFilesystemLabelMessage, EditPartitionMessage, ResizePartitionMessage,
 };
-use crate::ui::dialogs::state::{
+use crate::state::dialogs::{
     CreatePartitionDialog, CreatePartitionStep, EditFilesystemLabelDialog, EditPartitionDialog,
     EditPartitionStep, FormatPartitionDialog, FormatPartitionStep, ResizePartitionDialog,
     ResizePartitionStep,

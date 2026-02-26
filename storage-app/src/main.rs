@@ -4,16 +4,22 @@ mod app;
 mod client;
 mod config;
 mod controls;
+mod errors;
 mod i18n;
 mod logging;
+mod message;
 mod models;
-mod ui;
+mod network;
+mod state;
+mod subscriptions;
+mod update;
 mod utils;
 mod views;
+mod volumes;
 
 //#[tokio::main]
 fn main() -> cosmic::iced::Result {
-    let config = config::Config::load(ui::app::APP_ID);
+    let config = config::Config::load(app::APP_ID);
     logging::init(&config);
 
     // Get the system's preferred languages.

@@ -1,7 +1,8 @@
 use crate::app::Message;
 use crate::fl;
-use crate::ui::btrfs::state::BtrfsState;
-use crate::ui::volumes::usage_pie;
+use crate::message::volumes::VolumesControlMessage;
+use crate::state::btrfs::BtrfsState;
+use crate::volumes::usage_pie;
 use cosmic::iced::Length;
 use cosmic::widget;
 use cosmic::{Element, iced_widget};
@@ -124,7 +125,7 @@ pub fn btrfs_management_section<'a>(
                     widget::tooltip(
                         widget::button::icon(widget::icon::from_name("list-add-symbolic"))
                             .on_press(Message::VolumesMessage(
-                                crate::ui::volumes::VolumesControlMessage::OpenBtrfsCreateSubvolume
+                                VolumesControlMessage::OpenBtrfsCreateSubvolume
                             )),
                         widget::text(fl!("btrfs-create-subvolume")),
                         widget::tooltip::Position::Bottom,
@@ -132,7 +133,7 @@ pub fn btrfs_management_section<'a>(
                     widget::tooltip(
                         widget::button::icon(widget::icon::from_name("camera-photo-symbolic"))
                             .on_press(Message::VolumesMessage(
-                                crate::ui::volumes::VolumesControlMessage::OpenBtrfsCreateSnapshot
+                                VolumesControlMessage::OpenBtrfsCreateSnapshot
                             )),
                         widget::text(fl!("btrfs-create-snapshot")),
                         widget::tooltip::Position::Bottom,

@@ -1,19 +1,21 @@
-use crate::ui::app::message::Message;
-use crate::ui::app::state::{AppModel, ContextPage};
+use crate::message::app::Message;
+use crate::state::app::{AppModel, ContextPage};
 use crate::fl;
+use crate::message::volumes::VolumesControlMessage;
 use crate::models::{UiDrive, UiVolume};
-use crate::ui::btrfs::btrfs_management_section;
-use crate::ui::dialogs::state::{DeletePartitionDialog, ShowDialog};
-use crate::ui::network::NetworkMessage;
-use crate::ui::volumes::{DetailTab, VolumesControl, VolumesControlMessage, disk_header, helpers};
+use crate::state::dialogs::{DeletePartitionDialog, ShowDialog};
+use crate::message::network::NetworkMessage;
+use crate::state::volumes::{DetailTab, Segment, VolumesControl};
 use crate::controls::wizard::{
     option_tile_grid, selectable_tile, wizard_action_row, wizard_shell,
 };
 use crate::utils::DiskSegmentKind;
+use crate::views::btrfs::btrfs_management_section;
 use crate::views::dialogs;
 use crate::views::network::network_main_view;
 use crate::views::settings::{settings, settings_footer};
 use crate::views::sidebar;
+use crate::volumes::{disk_header, helpers};
 use cosmic::app::context_drawer as cosmic_context_drawer;
 use cosmic::cosmic_theme::palette::WithAlpha;
 use cosmic::iced::Color;
@@ -150,21 +152,21 @@ pub(crate) fn header_center(app: &AppModel) -> Vec<Element<'_, Message>> {
 pub(crate) fn dialog(app: &AppModel) -> Option<Element<'_, Message>> {
     match app.dialog {
         Some(ref d) => match d {
-            crate::ui::dialogs::state::ShowDialog::AddPartition(_)
-            | crate::ui::dialogs::state::ShowDialog::FormatPartition(_)
-            | crate::ui::dialogs::state::ShowDialog::EditPartition(_)
-            | crate::ui::dialogs::state::ShowDialog::ResizePartition(_)
-            | crate::ui::dialogs::state::ShowDialog::EditMountOptions(_)
-            | crate::ui::dialogs::state::ShowDialog::ChangePassphrase(_)
-            | crate::ui::dialogs::state::ShowDialog::EditEncryptionOptions(_)
-            | crate::ui::dialogs::state::ShowDialog::FormatDisk(_)
-            | crate::ui::dialogs::state::ShowDialog::NewDiskImage(_)
-            | crate::ui::dialogs::state::ShowDialog::AttachDiskImage(_)
-            | crate::ui::dialogs::state::ShowDialog::ImageOperation(_)
-            | crate::ui::dialogs::state::ShowDialog::BtrfsCreateSubvolume(_)
-            | crate::ui::dialogs::state::ShowDialog::BtrfsCreateSnapshot(_) => None,
+            crate::state::dialogs::ShowDialog::AddPartition(_)
+            | crate::state::dialogs::ShowDialog::FormatPartition(_)
+            | crate::state::dialogs::ShowDialog::EditPartition(_)
+            | crate::state::dialogs::ShowDialog::ResizePartition(_)
+            | crate::state::dialogs::ShowDialog::EditMountOptions(_)
+            | crate::state::dialogs::ShowDialog::ChangePassphrase(_)
+            | crate::state::dialogs::ShowDialog::EditEncryptionOptions(_)
+            | crate::state::dialogs::ShowDialog::FormatDisk(_)
+            | crate::state::dialogs::ShowDialog::NewDiskImage(_)
+            | crate::state::dialogs::ShowDialog::AttachDiskImage(_)
+            | crate::state::dialogs::ShowDialog::ImageOperation(_)
+            | crate::state::dialogs::ShowDialog::BtrfsCreateSubvolume(_)
+            | crate::state::dialogs::ShowDialog::BtrfsCreateSnapshot(_) => None,
 
-            crate::ui::dialogs::state::ShowDialog::DeletePartition(state) => {
+            crate::state::dialogs::ShowDialog::DeletePartition(state) => {
                 Some(dialogs::confirmation(
                     fl!("delete", name = state.name.clone()),
                     fl!("delete-confirmation", name = state.name.clone()),
@@ -174,11 +176,11 @@ pub(crate) fn dialog(app: &AppModel) -> Option<Element<'_, Message>> {
                 ))
             }
 
-            crate::ui::dialogs::state::ShowDialog::EditFilesystemLabel(state) => {
+            crate::state::dialogs::ShowDialog::EditFilesystemLabel(state) => {
                 Some(dialogs::edit_filesystem_label(state.clone()))
             }
 
-            crate::ui::dialogs::state::ShowDialog::ConfirmAction(state) => {
+            crate::state::dialogs::ShowDialog::ConfirmAction(state) => {
                 Some(dialogs::confirmation(
                     &state.title,
                     &state.body,
@@ -188,27 +190,27 @@ pub(crate) fn dialog(app: &AppModel) -> Option<Element<'_, Message>> {
                 ))
             }
 
-            crate::ui::dialogs::state::ShowDialog::TakeOwnership(state) => {
+            crate::state::dialogs::ShowDialog::TakeOwnership(state) => {
                 Some(dialogs::take_ownership(state.clone()))
             }
 
-            crate::ui::dialogs::state::ShowDialog::UnlockEncrypted(state) => {
+            crate::state::dialogs::ShowDialog::UnlockEncrypted(state) => {
                 Some(dialogs::unlock_encrypted(state.clone()))
             }
 
-            crate::ui::dialogs::state::ShowDialog::SmartData(state) => {
+            crate::state::dialogs::ShowDialog::SmartData(state) => {
                 Some(dialogs::smart_data(state.clone()))
             }
 
-            crate::ui::dialogs::state::ShowDialog::UnmountBusy(state) => {
+            crate::state::dialogs::ShowDialog::UnmountBusy(state) => {
                 Some(dialogs::unmount_busy(state.clone()))
             }
 
-            crate::ui::dialogs::state::ShowDialog::Info { title, body } => {
+            crate::state::dialogs::ShowDialog::Info { title, body } => {
                 Some(dialogs::info(title, body, Message::CloseDialog))
             }
 
-            crate::ui::dialogs::state::ShowDialog::ConfirmDeleteRemote { name, scope } => {
+            crate::state::dialogs::ShowDialog::ConfirmDeleteRemote { name, scope } => {
                 let body = format!(
                     "Are you sure you want to delete the remote '{}'? This action cannot be undone.",
                     name
@@ -370,7 +372,7 @@ pub(crate) fn view(app: &AppModel) -> Element<'_, Message> {
                 .map(|volume_model| {
                     // Look up the corresponding UiVolume to check if it's a LUKS container
                     if let Some(volume_node) =
-                        crate::ui::volumes::helpers::find_volume_for_partition(
+                        crate::volumes::helpers::find_volume_for_partition(
                             &volumes_control.volumes,
                             volume_model,
                         )
@@ -437,7 +439,7 @@ pub(crate) fn view(app: &AppModel) -> Element<'_, Message> {
 /// Renders the volume detail view for the selected volume with action buttons.
 fn volume_detail_view<'a>(
     volumes_control: &'a VolumesControl,
-    segment: &'a crate::ui::volumes::Segment,
+    segment: &'a Segment,
     filesystem_tools: &'a [storage_types::FilesystemToolInfo],
 ) -> Element<'a, Message> {
     if segment.kind == DiskSegmentKind::Reserved {
@@ -449,7 +451,7 @@ fn volume_detail_view<'a>(
 
     let selected_volume_node = volumes_control.selected_volume_node();
     let selected_volume = segment.volume.as_ref().and_then(|p| {
-        crate::ui::volumes::helpers::find_volume_for_partition(&volumes_control.volumes, p)
+        crate::volumes::helpers::find_volume_for_partition(&volumes_control.volumes, p)
     });
 
     // Determine if this segment contains a BTRFS filesystem (directly or inside LUKS)
@@ -504,7 +506,7 @@ fn usage_category_button_style(
     active: bool,
     theme: &cosmic::theme::Theme,
 ) -> cosmic::widget::button::Style {
-    let base_color = crate::ui::volumes::usage_pie::segment_color(index);
+    let base_color = crate::volumes::usage_pie::segment_color(index);
     let text_color = if active { Color::WHITE } else { base_color };
 
     cosmic::widget::button::Style {
@@ -652,8 +654,8 @@ fn usage_tab_view<'a>(volumes_control: &'a VolumesControl) -> Element<'a, Messag
                 let color = UsageCategory::ALL
                     .iter()
                     .position(|candidate| *candidate == category.category)
-                    .map(crate::ui::volumes::usage_pie::segment_color)
-                    .unwrap_or(crate::ui::volumes::usage_pie::segment_color(0));
+                    .map(crate::volumes::usage_pie::segment_color)
+                    .unwrap_or(crate::volumes::usage_pie::segment_color(0));
                 row.push(
                     widget::container(widget::Space::new(Length::Fill, Length::Fixed(36.0)))
                         .style(
@@ -838,7 +840,7 @@ fn usage_tab_view<'a>(volumes_control: &'a VolumesControl) -> Element<'a, Messag
                 .iter()
                 .position(|candidate| candidate == category)
                 .unwrap_or(0);
-            let category_color = crate::ui::volumes::usage_pie::segment_color(category_index);
+            let category_color = crate::volumes::usage_pie::segment_color(category_index);
 
             let row_content = widget::container(
                 iced_widget::row![
@@ -933,7 +935,7 @@ fn usage_tab_view<'a>(volumes_control: &'a VolumesControl) -> Element<'a, Messag
 }
 
 fn usage_scan_wizard_view<'a>(
-    usage_state: &'a crate::ui::volumes::state::UsageTabState,
+    usage_state: &'a crate::state::volumes::UsageTabState,
 ) -> Element<'a, Message> {
     let mut show_all_toggle = widget::checkbox(
         fl!("usage-show-all-root-mode"),
@@ -1067,10 +1069,10 @@ fn usage_row_selection_message(
 fn build_volume_node_info<'a>(
     v: &'a UiVolume,
     _volumes_control: &'a VolumesControl,
-    _segment: &'a crate::ui::volumes::Segment,
+    _segment: &'a Segment,
     _selected_volume: Option<&'a UiVolume>,
 ) -> Element<'a, Message> {
-    use crate::ui::volumes::usage_pie;
+    use crate::volumes::usage_pie;
 
     // Pie chart showing usage (right side, matching disk header layout)
     // For LUKS containers, aggregate children's usage
@@ -1311,9 +1313,9 @@ fn build_partition_info<'a>(
     v: &'a VolumeInfo,
     volume_node: Option<&'a UiVolume>,
     volumes_control: &'a VolumesControl,
-    segment: &'a crate::ui::volumes::Segment,
+    segment: &'a Segment,
 ) -> Element<'a, Message> {
-    use crate::ui::volumes::usage_pie;
+    use crate::volumes::usage_pie;
 
     // Look up the corresponding PartitionInfo using device_path from segment
     let partition_info = segment.device_path.as_ref().and_then(|device| {
@@ -1428,7 +1430,7 @@ fn build_partition_info<'a>(
                 widget::tooltip(
                     widget::button::icon(icon::from_name("changes-allow-symbolic")).on_press(
                         Message::Dialog(Box::new(ShowDialog::UnlockEncrypted(
-                            crate::ui::dialogs::state::UnlockEncryptedDialog {
+                            crate::state::dialogs::UnlockEncryptedDialog {
                                 partition_path: p.device.to_string(),
                                 partition_name: partition_name.clone(),
                                 passphrase: String::new(),
@@ -1684,10 +1686,10 @@ fn build_partition_info<'a>(
 
 /// Build info display for free space - mirrors disk header layout
 fn build_free_space_info<'a>(
-    segment: &'a crate::ui::volumes::Segment,
+    segment: &'a Segment,
     filesystem_tools: &'a [storage_types::FilesystemToolInfo],
 ) -> Element<'a, Message> {
-    use crate::ui::volumes::usage_pie;
+    use crate::volumes::usage_pie;
 
     // Empty pie chart for free space (0% used)
     let pie_segment = usage_pie::PieSegmentData {
@@ -1727,9 +1729,9 @@ fn build_free_space_info<'a>(
     let add_partition_button = widget::tooltip(
         widget::button::icon(icon::from_name("list-add-symbolic")).on_press(Message::Dialog(
             Box::new(ShowDialog::AddPartition(
-                crate::ui::dialogs::state::CreatePartitionDialog {
+                crate::state::dialogs::CreatePartitionDialog {
                     info: segment.get_create_info(),
-                    step: crate::ui::dialogs::state::CreatePartitionStep::Basics,
+                    step: crate::state::dialogs::CreatePartitionStep::Basics,
                     running: false,
                     error: None,
                     filesystem_tools: filesystem_tools_clone,

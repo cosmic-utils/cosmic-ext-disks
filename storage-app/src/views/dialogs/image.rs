@@ -1,10 +1,10 @@
 use crate::app::Message;
 use crate::fl;
-use crate::ui::app::message::ImagePathPickerKind;
-use crate::ui::dialogs::message::{
+use crate::message::app::ImagePathPickerKind;
+use crate::message::dialogs::{
     AttachDiskImageDialogMessage, ImageOperationDialogMessage, NewDiskImageDialogMessage,
 };
-use crate::ui::dialogs::state::{
+use crate::state::dialogs::{
     AttachDiskImageDialog, ImageOperationDialog, ImageOperationKind, NewDiskImageDialog,
 };
 use crate::controls::wizard::{wizard_action_row, wizard_shell};

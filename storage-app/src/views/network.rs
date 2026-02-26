@@ -2,9 +2,9 @@
 
 //! View components for network mount management
 
-use crate::ui::network::icons::resolve_provider_icon;
-use crate::ui::network::message::NetworkMessage;
-use crate::ui::network::state::{
+use crate::network::icons::resolve_provider_icon;
+use crate::message::network::NetworkMessage;
+use crate::state::network::{
     NetworkEditorState, NetworkMountState, NetworkState, NetworkWizardState,
     QUICK_SETUP_PROVIDERS, SECTION_ORDER, WizardStep, section_display_name,
 };

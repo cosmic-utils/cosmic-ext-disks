@@ -1,7 +1,7 @@
 use crate::app::Message;
 use crate::fl;
-use crate::ui::dialogs::message::{FormatDiskMessage, SmartDialogMessage};
-use crate::ui::dialogs::state::{FormatDiskDialog, SmartDataDialog};
+use crate::message::dialogs::{FormatDiskMessage, SmartDialogMessage};
+use crate::state::dialogs::{FormatDiskDialog, SmartDataDialog};
 use crate::controls::wizard::{wizard_action_row, wizard_shell};
 use cosmic::{
     Element, iced_widget,

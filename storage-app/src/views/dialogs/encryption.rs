@@ -1,9 +1,9 @@
 use crate::app::Message;
 use crate::fl;
-use crate::ui::dialogs::message::{
+use crate::message::dialogs::{
     ChangePassphraseMessage, EditEncryptionOptionsMessage, TakeOwnershipMessage, UnlockMessage,
 };
-use crate::ui::dialogs::state::{
+use crate::state::dialogs::{
     ChangePassphraseDialog, EditEncryptionOptionsDialog, EditEncryptionOptionsStep,
     TakeOwnershipDialog, UnlockEncryptedDialog,
 };

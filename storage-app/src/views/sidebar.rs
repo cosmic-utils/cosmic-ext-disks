@@ -1,9 +1,9 @@
 use crate::app::Message;
 use crate::controls::layout::{row_container, transparent_button_class};
 use crate::models::{UiDrive, UiVolume};
-use crate::ui::network::NetworkState;
+use crate::state::network::NetworkState;
 use crate::views::network::network_section;
-use crate::ui::sidebar::state::{SidebarNodeKey, SidebarState};
+use crate::state::sidebar::{SidebarNodeKey, SidebarState};
 use cosmic::iced::Length;
 use cosmic::widget::{self, icon};
 use cosmic::{Apply, Element};
