@@ -6,6 +6,8 @@
 
 **Architecture:** Use a direct, no-compat migration. Physically move files into `message/*`, `state/*`, `update/*`, and feature helper roots, then rewrite imports globally and delete `ui/*` leftovers. Keep behavior unchanged while reducing duplication via `controls/actions` and `controls/layout`.
 
+**Commit Strategy:** One commit for the entire migration (no intermediate commits, no compatibility shims).
+
 **Tech Stack:** Rust, libcosmic/iced, cargo workspace verification (`cargo clippy`, `cargo test --no-run`).
 
 ---
@@ -24,7 +26,6 @@
 2. Export canonical module names from each `mod.rs`.
 3. Wire `mod message; mod state; mod update;` in `main.rs`.
 4. Run: `cargo check -p cosmic-ext-storage`.
-5. Commit: `refactor(storage-app): scaffold message state update layers`.
 
 ### Task 2: Migrate message modules
 
@@ -40,7 +41,6 @@
 2. Rewrite imports to `crate::message::*`.
 3. Fix cross-message references (e.g., dialogs step enums pointing to `state::*`).
 4. Run: `cargo clippy --workspace --all-targets`.
-5. Commit: `refactor(storage-app): move ui messages into message layer`.
 
 ### Task 3: Migrate state modules
 
@@ -58,7 +58,6 @@
 2. Rewrite all `state` imports to `crate::state::*`.
 3. Fix enum/type path references from message/views/update.
 4. Run: `cargo clippy --workspace --all-targets`.
-5. Commit: `refactor(storage-app): move ui state into state layer`.
 
 ### Task 4: Migrate app update graph
 
@@ -74,7 +73,6 @@
 2. Fix module declarations and import paths.
 3. Rewire app entrypoint to call `crate::update::*`.
 4. Run: `cargo clippy --workspace --all-targets`.
-5. Commit: `refactor(storage-app): migrate app update graph to updates layer`.
 
 ### Task 5: Migrate volumes update graph
 
@@ -89,7 +87,6 @@
 2. Fix module declarations and imports.
 3. Rewire `VolumesControl::update` call sites to `crate::update::volumes`.
 4. Run: `cargo clippy --workspace --all-targets`.
-5. Commit: `refactor(storage-app): migrate volumes update graph to updates layer`.
 
 ### Task 6: Move remaining ui helper modules out of ui
 
@@ -107,7 +104,6 @@
 2. Re-export from new roots if necessary (`network`, `volumes`, `subscriptions`, `errors`).
 3. Replace all `crate::ui::*` helper imports.
 4. Run: `cargo clippy --workspace --all-targets`.
-5. Commit: `refactor(storage-app): move remaining ui helpers to feature roots`.
 
 ### Task 7: Remove ui module tree and dead module glue
 
@@ -121,7 +117,6 @@
 2. Delete empty/unreferenced `ui` directories/files.
 3. Ensure no `crate::ui::` imports remain.
 4. Run: `cargo clippy --workspace --all-targets`.
-5. Commit: `refactor(storage-app): remove ui layer after logic migration`.
 
 ### Task 8: Finish action/styling deduplication pass
 
@@ -135,9 +130,8 @@
 2. Extract common builders/styles into controls.
 3. Replace repeated inline style/button builders in views.
 4. Run: `cargo clippy --workspace --all-targets`.
-5. Commit: `refactor(storage-app): deduplicate view action and style primitives`.
 
-### Task 9: Final verification and cleanup
+### Task 9: Final verification and single commit
 
 **Files:**
 - Modify: docs/plan files if structure changed during implementation
@@ -147,4 +141,4 @@
 2. Run: `cargo clippy --workspace --all-targets`.
 3. Run: `cargo test --workspace --no-run`.
 4. Confirm clean working tree.
-5. Commit: `chore(storage-app): finalize ui logic restructure verification`.
+5. Commit once: `refactor(storage-app): migrate ui logic to message/state/update layers`.

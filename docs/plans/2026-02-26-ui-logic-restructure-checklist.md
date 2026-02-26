@@ -107,13 +107,7 @@ Mode: aggressive, no compatibility wrappers
 - [ ] `cargo test --workspace --no-run`
 - [ ] `git status --short` is clean
 
-## I. Commit Cadence (Recommended)
+## I. Commit Strategy
 
-- [ ] Commit 1: scaffold layer modules
-- [ ] Commit 2: message moves + import rewrites
-- [ ] Commit 3: state moves + import rewrites
-- [ ] Commit 4: app updates migration
-- [ ] Commit 5: volumes updates migration
-- [ ] Commit 6: helper module moves out of ui
-- [ ] Commit 7: controls dedup pass
-- [ ] Commit 8: ui tree deletion + final verification
+- [ ] No intermediate commits during migration
+- [ ] One final commit after all verification gates pass

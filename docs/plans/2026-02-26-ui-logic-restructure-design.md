@@ -34,6 +34,10 @@ Why:
 - avoids long-lived mixed architecture,
 - minimizes time spent on compatibility glue.
 
+Execution constraint:
+- single final commit only,
+- no compatibility or intermediary stabilizing states required during implementation.
+
 ## Current Pain Points
 
 1. Layering mismatch:
