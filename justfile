@@ -20,8 +20,8 @@ release:
 # Canonical workspace verification flow
 check:
     cargo clippy --workspace --all-targets
-    cargo fmt --all -- --check
-    cargo test --workspace --no-run
+    cargo fmt --all
+    cargo test --workspace
 
 # Clean build artifacts
 clean:
