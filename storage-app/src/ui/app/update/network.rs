@@ -815,16 +815,13 @@ pub(crate) fn handle_network_message(app: &mut AppModel, message: NetworkMessage
                     }
                 },
                 move |result| {
-                    Message::Network(NetworkMessage::TestCompleted {
-                        name: name.clone(),
-                        result,
-                    })
+                    Message::Network(NetworkMessage::TestCompleted { result })
                     .into()
                 },
             );
         }
 
-        NetworkMessage::TestCompleted { name: _, result } => {
+        NetworkMessage::TestCompleted { result } => {
             // Show test result in a dialog
             let (title, body) = match result {
                 Ok(msg) => ("Connection Test".to_string(), msg),

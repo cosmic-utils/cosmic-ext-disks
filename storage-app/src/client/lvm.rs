@@ -76,12 +76,10 @@ pub trait LvmInterface {
 }
 
 /// Client for LVM operations
-#[allow(dead_code)]
 pub struct LvmClient {
     proxy: LvmInterfaceProxy<'static>,
 }
 
-#[allow(dead_code)]
 impl LvmClient {
     /// Create a new LVM client connected to the storage service
     pub async fn new() -> Result<Self, ClientError> {

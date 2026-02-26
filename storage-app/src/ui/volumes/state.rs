@@ -27,7 +27,6 @@ pub struct UsageTabState {
     pub result: Option<UsageScanResult>,
     pub selected_categories: Vec<UsageCategory>,
     pub show_all_files: bool,
-    #[allow(dead_code)]
     pub show_all_files_authorized_for_session: bool,
     pub top_files_per_category: u32,
     pub selected_paths: Vec<String>,
@@ -109,7 +108,6 @@ pub struct VolumesControl {
 pub struct Segment {
     pub label: String,
     pub name: String,
-    #[allow(dead_code)]
     pub partition_type: String,
     pub size: u64,
     pub offset: u64,

@@ -50,8 +50,6 @@ pub struct ProgressInfo {
 
 /// State of an active operation
 struct OperationState {
-    #[allow(dead_code)]
-    id: String,
     kind: OperationType,
     source: String,
     destination: String,
@@ -292,7 +290,6 @@ impl ImageHandler {
 
         // Track operation
         let op_state = OperationState {
-            id: operation_id.clone(),
             kind: OperationType::BackupDrive,
             source: device.clone(),
             destination: output_path.clone(),
@@ -379,7 +376,6 @@ impl ImageHandler {
         });
 
         let op_state = OperationState {
-            id: operation_id.clone(),
             kind: OperationType::BackupPartition,
             source: device.clone(),
             destination: output_path.clone(),
@@ -469,7 +465,6 @@ impl ImageHandler {
         });
 
         let op_state = OperationState {
-            id: operation_id.clone(),
             kind: OperationType::RestoreDrive,
             source: image_path.clone(),
             destination: device.clone(),
@@ -559,7 +554,6 @@ impl ImageHandler {
         });
 
         let op_state = OperationState {
-            id: operation_id.clone(),
             kind: OperationType::RestorePartition,
             source: image_path.clone(),
             destination: device.clone(),

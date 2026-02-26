@@ -276,27 +276,6 @@ fn extract_user_info(
     (0, "root".to_string())
 }
 
-/// Resolve UID to username by reading /etc/passwd
-/// Note: This function reads /etc/passwd each time. For bulk lookups,
-/// use build_uid_map() instead for better performance.
-#[allow(dead_code)]
-fn resolve_username(uid: u32) -> Option<String> {
-    // Simple approach: read /etc/passwd and find matching UID
-    let passwd_content = std::fs::read_to_string("/etc/passwd").ok()?;
-
-    for line in passwd_content.lines() {
-        let parts: Vec<&str> = line.split(':').collect();
-        if parts.len() >= 3
-            && let Ok(line_uid) = parts[2].parse::<u32>()
-            && line_uid == uid
-        {
-            return Some(parts[0].to_string());
-        }
-    }
-
-    None
-}
-
 /// Build a UID to username map from /etc/passwd
 /// This is more efficient than calling resolve_username repeatedly
 fn build_uid_map() -> HashMap<u32, String> {
@@ -324,20 +303,6 @@ fn build_uid_map() -> HashMap<u32, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn resolve_username_finds_root() {
-        // UID 0 should always be root on Linux
-        let username = resolve_username(0);
-        assert_eq!(username, Some("root".to_string()));
-    }
-
-    #[test]
-    fn resolve_username_handles_invalid_uid() {
-        // Very high UID unlikely to exist
-        let username = resolve_username(99999);
-        assert!(username.is_none());
-    }
 
     #[tokio::test]
     async fn find_processes_returns_empty_for_nonexistent_mount() {

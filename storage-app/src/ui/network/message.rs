@@ -105,8 +105,6 @@ pub enum NetworkMessage {
     TestRemote { name: String, scope: ConfigScope },
     /// Test result received
     TestCompleted {
-        #[allow(dead_code)]
-        name: String,
         result: Result<String, String>,
     },
     /// Refresh mount status for a remote

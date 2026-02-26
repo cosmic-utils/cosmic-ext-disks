@@ -72,7 +72,6 @@ impl LuksClient {
     }
 
     /// List all encrypted devices
-    #[allow(dead_code)]
     pub async fn list_encrypted_devices(&self) -> Result<Vec<LuksInfo>, ClientError> {
         let json = self.proxy.list_encrypted_devices().await?;
         let devices: Vec<LuksInfo> = serde_json::from_str(&json).map_err(|e| {
@@ -82,7 +81,6 @@ impl LuksClient {
     }
 
     /// Format a device with LUKS encryption (luks1 or luks2)
-    #[allow(dead_code)]
     pub async fn format(
         &self,
         device: &str,

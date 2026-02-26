@@ -1,8 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-only
 
-// RClone UI integration is partial; keep API surface available without dead-code failures.
-#![allow(dead_code)]
-
 use crate::client::connection::shared_connection;
 use crate::client::error::ClientError;
 use storage_types::rclone::{MountStatusResult, RemoteConfig, RemoteConfigList, TestResult};

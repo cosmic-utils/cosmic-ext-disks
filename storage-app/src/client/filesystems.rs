@@ -165,7 +165,6 @@ impl FilesystemsClient {
     }
 
     /// List all filesystems
-    #[allow(dead_code)]
     pub async fn list_filesystems(&self) -> Result<Vec<FilesystemInfo>, ClientError> {
         let json = self.proxy.list_filesystems().await?;
         let filesystems: Vec<FilesystemInfo> = serde_json::from_str(&json).map_err(|e| {
@@ -175,7 +174,6 @@ impl FilesystemsClient {
     }
 
     /// Get list of supported filesystem types
-    #[allow(dead_code)]
     pub async fn get_supported_filesystems(&self) -> Result<Vec<String>, ClientError> {
         let json = self.proxy.get_supported_filesystems().await?;
         let types: Vec<String> = serde_json::from_str(&json).map_err(|e| {
@@ -185,7 +183,6 @@ impl FilesystemsClient {
     }
 
     /// Get detailed filesystem tool information
-    #[allow(dead_code)]
     pub async fn get_filesystem_tools(&self) -> Result<Vec<FilesystemToolInfo>, ClientError> {
         let json = self.proxy.get_filesystem_tools().await?;
         let tools: Vec<FilesystemToolInfo> = serde_json::from_str(&json).map_err(|e| {
@@ -238,7 +235,6 @@ impl FilesystemsClient {
     }
 
     /// Get processes blocking unmount
-    #[allow(dead_code)]
     pub async fn get_blocking_processes(
         &self,
         device_or_mount: &str,
@@ -260,7 +256,6 @@ impl FilesystemsClient {
     }
 
     /// Get filesystem usage statistics
-    #[allow(dead_code)]
     pub async fn get_usage(&self, mount_point: &str) -> Result<FilesystemUsage, ClientError> {
         let json = self.proxy.get_usage(mount_point).await?;
         let usage: FilesystemUsage = serde_json::from_str(&json)
@@ -298,7 +293,6 @@ impl FilesystemsClient {
     }
 
     /// Delete selected usage files and return structured result.
-    #[allow(dead_code)]
     pub async fn delete_usage_files(
         &self,
         paths: &[String],

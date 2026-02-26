@@ -26,7 +26,6 @@ pub struct UiVolume {
     client: Arc<FilesystemsClient>,
 }
 
-#[allow(dead_code)]
 impl UiVolume {
     /// Create a new UiVolume from VolumeInfo
     ///
@@ -63,7 +62,6 @@ impl UiVolume {
     ///     println!("Found: {:?}", volume.volume.label);
     /// }
     /// ```
-    #[allow(dead_code)]
     pub fn find_by_device(&self, device: &str) -> Option<&UiVolume> {
         // Check self
         if self
@@ -86,7 +84,6 @@ impl UiVolume {
     }
 
     /// Find a volume by device path (mutable, recursive search)
-    #[allow(dead_code)]
     pub fn find_by_device_mut(&mut self, device: &str) -> Option<&mut UiVolume> {
         // Check self
         if self
@@ -120,7 +117,6 @@ impl UiVolume {
     ///     fs_client.unmount(&descendant, false, false).await?;
     /// }
     /// ```
-    #[allow(dead_code)]
     pub fn collect_mounted_descendants(&self) -> Vec<String> {
         let mut result = Vec::new();
 
@@ -150,7 +146,6 @@ impl UiVolume {
     ///     // Volume not found in this subtree
     /// }
     /// ```
-    #[allow(dead_code)]
     pub fn update_volume(&mut self, device: &str, updated_info: &VolumeInfo) -> bool {
         // Check if this is the target volume
         if self

@@ -58,7 +58,6 @@ pub fn labelled_spinner<'a, Message: 'static + Clone>(
 
 /// Displays information in a labeled row format.
 /// Planned for future property editors and detail views.
-#[allow(dead_code)]
 pub fn labelled_info<'a, Message: 'static + Clone>(
     label: impl Into<String>,
     info: impl Into<String>,
@@ -76,7 +75,6 @@ pub fn labelled_info<'a, Message: 'static + Clone>(
 
 /// Displays a clickable link in a labeled row format.
 /// Planned for future help links and external references.
-#[allow(dead_code)]
 pub fn link_info<'a, Message: 'static + Clone>(
     label: impl Into<String>,
     info: impl Into<String>,
@@ -101,7 +99,6 @@ pub fn link_info<'a, Message: 'static + Clone>(
 
 /// Generic alert container with customizable styling.
 /// Base function for warning/error/success/info alert variants.
-#[allow(dead_code)]
 fn alert<'a, Message: 'static + Clone>(
     message: impl Into<String>,
     on_close: Message,
@@ -114,7 +111,6 @@ fn alert<'a, Message: 'static + Clone>(
 }
 
 /// Warning alert for non-critical issues requiring user attention.
-#[allow(dead_code)]
 pub fn warning<'a, Message: 'static + Clone>(
     message: impl Into<String>,
     on_close: Message,
@@ -123,7 +119,6 @@ pub fn warning<'a, Message: 'static + Clone>(
 }
 
 /// Error alert for critical issues requiring immediate action.
-#[allow(dead_code)]
 pub fn error<'a, Message: 'static + Clone>(
     message: impl Into<String>,
     on_close: Message,
@@ -132,7 +127,6 @@ pub fn error<'a, Message: 'static + Clone>(
 }
 
 /// Success alert for confirming completed operations.
-#[allow(dead_code)]
 pub fn success<'a, Message: 'static + Clone>(
     message: impl Into<String>,
     on_close: Message,
@@ -141,7 +135,6 @@ pub fn success<'a, Message: 'static + Clone>(
 }
 
 /// Informational alert for general notices.
-#[allow(dead_code)]
 pub fn info<'a, Message: 'static + Clone>(
     message: impl Into<String>,
     on_close: Message,
@@ -150,7 +143,6 @@ pub fn info<'a, Message: 'static + Clone>(
 }
 
 /// Theme styling for warning alerts.
-#[allow(dead_code)]
 pub fn warning_style(theme: &Theme) -> widget::container::Style {
     let cosmic = theme.cosmic();
     widget::container::Style {
@@ -171,7 +163,6 @@ pub fn warning_style(theme: &Theme) -> widget::container::Style {
 }
 
 /// Theme styling for error alerts.
-#[allow(dead_code)]
 pub fn error_style(theme: &Theme) -> widget::container::Style {
     let cosmic = theme.cosmic();
     widget::container::Style {
@@ -192,7 +183,6 @@ pub fn error_style(theme: &Theme) -> widget::container::Style {
 }
 
 /// Theme styling for success alerts.
-#[allow(dead_code)]
 pub fn success_style(theme: &Theme) -> widget::container::Style {
     let cosmic = theme.cosmic();
     widget::container::Style {
@@ -213,7 +203,6 @@ pub fn success_style(theme: &Theme) -> widget::container::Style {
 }
 
 /// Theme styling for informational alerts.
-#[allow(dead_code)]
 pub fn info_style(theme: &Theme) -> widget::container::Style {
     let cosmic = theme.cosmic();
     widget::container::Style {

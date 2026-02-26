@@ -71,23 +71,6 @@ fn usage_filtered_file_paths(state: &crate::ui::volumes::state::UsageTabState) -
     files.into_iter().map(|(_, path)| path).collect()
 }
 
-/// Recursively search for a volume child by device_path
-#[allow(dead_code)]
-fn find_volume_child_recursive<'a>(
-    children: &'a [crate::models::UiVolume],
-    device_path: &str,
-) -> Option<&'a crate::models::UiVolume> {
-    for child in children {
-        if child.device() == Some(device_path) {
-            return Some(child);
-        }
-        if let Some(found) = find_volume_child_recursive(&child.children, device_path) {
-            return Some(found);
-        }
-    }
-    None
-}
-
 /// Find the segment index and whether the volume is a child for a given device path
 fn find_segment_for_volume(
     volumes_control: &VolumesControl,

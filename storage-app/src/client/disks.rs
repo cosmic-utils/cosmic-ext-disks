@@ -113,7 +113,6 @@ impl DisksClient {
     /// Get information about a specific volume
     ///
     /// This supports atomic updates - query a single volume instead of refreshing the entire list.
-    #[allow(dead_code)]
     pub async fn get_volume_info(&self, device: &str) -> Result<VolumeInfo, ClientError> {
         let json = self.proxy.get_volume_info(device).await?;
         let volume: VolumeInfo = serde_json::from_str(&json)
@@ -149,7 +148,6 @@ impl DisksClient {
     /// Eject removable media (optical drives, USB sticks)
     ///
     /// Requires no authentication for active sessions.
-    #[allow(dead_code)]
     pub async fn eject(&self, device: &str) -> Result<(), ClientError> {
         Ok(self.proxy.eject(device).await?)
     }
