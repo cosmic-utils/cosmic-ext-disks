@@ -251,7 +251,7 @@ pub struct RcloneProvider {
     pub options: Vec<RcloneProviderOption>,
 }
 
-const RCLONE_PROVIDERS_JSON: &str = include_str!("../../data/rclone/providers.json");
+const RCLONE_PROVIDERS_JSON: &str = include_str!("../../resources/rclone/providers.json");
 
 static RCLONE_PROVIDERS: OnceLock<Vec<RcloneProvider>> = OnceLock::new();
 static RCLONE_PROVIDER_TYPES: OnceLock<Vec<String>> = OnceLock::new();

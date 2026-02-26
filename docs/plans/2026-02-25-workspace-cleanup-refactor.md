@@ -138,16 +138,16 @@
   - `org.cosmic.ext.StorageService.Rclone` -> `org.cosmic.ext.Storage.Service.Rclone`
 
 ### Policy/config naming updates for DBus rename
-- `data/dbus-1/system.d/org.cosmic.ext.StorageService.conf` -> `data/dbus-1/system.d/org.cosmic.ext.Storage.Service.conf`
-- `data/polkit-1/actions/org.cosmic.ext.storage-service.policy` -> `data/polkit-1/actions/org.cosmic.ext.storage.service.policy`
+- `resources/dbus-1/system.d/org.cosmic.ext.StorageService.conf` -> `resources/dbus-1/system.d/org.cosmic.ext.Storage.Service.conf`
+- `resources/polkit-1/actions/org.cosmic.ext.storage-service.policy` -> `resources/polkit-1/actions/org.cosmic.ext.storage.service.policy`
 - Polkit action IDs namespace:
   - `org.cosmic.ext.storage-service.*` -> `org.cosmic.ext.storage.service.*`
   - keep concern-scoped action IDs (no broad consolidated read/modify-only action model)
 
 ### systemd unit/service naming updates
 - Rename systemd unit files:
-  - `data/systemd/cosmic-storage-service.service` -> `data/systemd/cosmic-ext-storage-service.service`
-  - `data/systemd/cosmic-storage-service.socket` -> `data/systemd/cosmic-ext-storage-service.socket`
+  - `resources/systemd/cosmic-storage-service.service` -> `resources/systemd/cosmic-ext-storage-service.service`
+  - `resources/systemd/cosmic-storage-service.socket` -> `resources/systemd/cosmic-ext-storage-service.socket`
 - Rename service executable:
   - `cosmic-storage-service` -> `cosmic-ext-storage-service` (exact target name)
 - Update unit internals (`ExecStart=`, `Also=`, `SyslogIdentifier=`, and related references) to renamed unit/binary identity.

@@ -84,7 +84,7 @@ just clippy             # Run linter
 - Any feature requests welcome!
 
 
-![Screenshot of Storage App](https://github.com/cosmic-utils/cosmic-ext-storage/blob/main/screenshots/cosmic-ext-storage.png)
+![Screenshot of Storage App](https://github.com/cosmic-utils/cosmic-ext-storage/blob/main/resources/screenshots/cosmic-ext-storage.png)
 
 
 ### Notes on use of AI

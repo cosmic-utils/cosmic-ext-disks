@@ -100,11 +100,11 @@ pub fn get_all_partition_type_infos(table_type: &str) -> Vec<PartitionTypeInfo> 
 }
 
 // Load TOML data at compile time from storage-udisks data directory
-const GPT_TOML: &str = include_str!("../../data/types/gpt_types.toml");
-const DOS_TOML: &str = include_str!("../../data/types/dos_types.toml");
-const APM_TOML: &str = include_str!("../../data/types/apm_types.toml");
-const COMMON_GPT_TOML: &str = include_str!("../../data/types/common_gpt_types.toml");
-const COMMON_DOS_TOML: &str = include_str!("../../data/types/common_dos_types.toml");
+const GPT_TOML: &str = include_str!("../../resources/types/gpt_types.toml");
+const DOS_TOML: &str = include_str!("../../resources/types/dos_types.toml");
+const APM_TOML: &str = include_str!("../../resources/types/apm_types.toml");
+const COMMON_GPT_TOML: &str = include_str!("../../resources/types/common_gpt_types.toml");
+const COMMON_DOS_TOML: &str = include_str!("../../resources/types/common_dos_types.toml");
 
 #[derive(Deserialize)]
 struct PartitionTypeCatalog {
