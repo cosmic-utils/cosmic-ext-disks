@@ -5,8 +5,8 @@ use crate::state::btrfs::BtrfsState;
 use crate::state::dialogs::ShowDialog;
 use crate::volumes::helpers;
 
-use crate::state::volumes::VolumesControl;
 use crate::state::volumes::DetailTab;
+use crate::state::volumes::VolumesControl;
 
 fn maybe_initialize_btrfs_state_for_segment(
     control: &mut VolumesControl,
