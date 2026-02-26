@@ -7,7 +7,7 @@ use crate::ui::dialogs::message::{
 use crate::ui::dialogs::state::{
     AttachDiskImageDialog, ImageOperationDialog, ImageOperationKind, NewDiskImageDialog,
 };
-use crate::ui::wizard::{wizard_action_row, wizard_shell};
+use crate::controls::wizard::{wizard_action_row, wizard_shell};
 use crate::utils::labelled_spinner;
 use cosmic::{
     Element,

@@ -2,7 +2,7 @@ use crate::app::Message;
 use crate::fl;
 use crate::ui::dialogs::message::{EditMountOptionsMessage, UnmountBusyMessage};
 use crate::ui::dialogs::state::{EditMountOptionsDialog, EditMountOptionsStep, UnmountBusyDialog};
-use crate::ui::wizard::{
+use crate::controls::wizard::{
     WizardBreadcrumbStatus, WizardBreadcrumbStep, wizard_breadcrumb, wizard_step_is_clickable,
     wizard_step_nav, wizard_step_shell,
 };

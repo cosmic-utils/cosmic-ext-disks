@@ -7,7 +7,7 @@ use crate::ui::dialogs::state::{
     ChangePassphraseDialog, EditEncryptionOptionsDialog, EditEncryptionOptionsStep,
     TakeOwnershipDialog, UnlockEncryptedDialog,
 };
-use crate::ui::wizard::{
+use crate::controls::wizard::{
     WizardBreadcrumbStatus, WizardBreadcrumbStep, wizard_action_row, wizard_breadcrumb,
     wizard_shell, wizard_step_is_clickable, wizard_step_nav, wizard_step_shell,
 };

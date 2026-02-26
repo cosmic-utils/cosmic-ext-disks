@@ -9,7 +9,9 @@ use crate::ui::network::NetworkMessage;
 use crate::ui::network::view::network_main_view;
 use crate::ui::sidebar;
 use crate::ui::volumes::{DetailTab, VolumesControl, VolumesControlMessage, disk_header, helpers};
-use crate::ui::wizard::{option_tile_grid, selectable_tile, wizard_action_row, wizard_shell};
+use crate::controls::wizard::{
+    option_tile_grid, selectable_tile, wizard_action_row, wizard_shell,
+};
 use crate::utils::DiskSegmentKind;
 use crate::views::settings::{settings, settings_footer};
 use cosmic::app::context_drawer as cosmic_context_drawer;

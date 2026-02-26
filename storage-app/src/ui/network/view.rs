@@ -8,7 +8,7 @@ use super::state::{
     NetworkEditorState, NetworkState, NetworkWizardState, QUICK_SETUP_PROVIDERS, SECTION_ORDER,
     WizardStep,
 };
-use crate::ui::wizard::{
+use crate::controls::wizard::{
     WizardBreadcrumbStatus, WizardBreadcrumbStep, option_tile_grid, selectable_tile,
     wizard_breadcrumb, wizard_shell, wizard_step_nav,
 };

@@ -6,7 +6,7 @@ use crate::app::Message;
 use crate::fl;
 use crate::ui::dialogs::message::{BtrfsCreateSnapshotMessage, BtrfsCreateSubvolumeMessage};
 use crate::ui::dialogs::state::{BtrfsCreateSnapshotDialog, BtrfsCreateSubvolumeDialog};
-use crate::ui::wizard::{wizard_action_row, wizard_shell};
+use crate::controls::wizard::{wizard_action_row, wizard_shell};
 
 pub fn create_subvolume<'a>(state: BtrfsCreateSubvolumeDialog) -> Element<'a, Message> {
     let BtrfsCreateSubvolumeDialog {
