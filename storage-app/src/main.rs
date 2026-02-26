@@ -3,6 +3,7 @@
 mod app;
 mod client;
 mod config;
+mod controls;
 mod i18n;
 mod logging;
 mod models;
