@@ -2,7 +2,6 @@ pub(crate) mod message;
 pub(crate) mod state;
 pub(crate) mod subscriptions;
 pub(crate) mod update;
-pub(crate) mod view;
 
 pub(crate) use message::Message;
 pub(crate) use state::{AppModel, ContextPage};
@@ -136,43 +135,43 @@ impl Application for AppModel {
 
     /// Elements to pack at the start of the header bar.
     fn header_start(&self) -> Vec<Element<'_, Self::Message>> {
-        view::header_start(self)
+        crate::views::app::header_start(self)
     }
 
     /// Elements to pack at the center of the header bar.
     fn header_center(&self) -> Vec<Element<'_, Self::Message>> {
-        view::header_center(self)
+        crate::views::app::header_center(self)
     }
 
     /// Elements to pack at the end of the header bar.
     fn header_end(&self) -> Vec<Element<'_, Self::Message>> {
-        view::header_end(self)
+        crate::views::app::header_end(self)
     }
 
     fn dialog(&self) -> Option<Element<'_, Self::Message>> {
-        view::dialog(self)
+        crate::views::app::dialog(self)
     }
 
     /// Allows overriding the default nav bar widget.
     fn nav_bar(&self) -> Option<Element<'_, cosmic::Action<Self::Message>>> {
-        view::nav_bar(self)
+        crate::views::app::nav_bar(self)
     }
 
     /// Enables the COSMIC application to create a nav bar with this model.
     fn nav_model(&self) -> Option<&nav_bar::Model> {
-        view::nav_model(self)
+        crate::views::app::nav_model(self)
     }
 
     /// Display a context drawer if the context page is requested.
     fn context_drawer(
         &self,
     ) -> Option<cosmic::app::context_drawer::ContextDrawer<'_, Self::Message>> {
-        view::context_drawer(self)
+        crate::views::app::context_drawer(self)
     }
 
     /// Describes the interface based on the current state of the application model.
     fn view(&self) -> Element<'_, Self::Message> {
-        view::view(self)
+        crate::views::app::view(self)
     }
 
     /// Register subscriptions for this application.
