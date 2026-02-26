@@ -53,4 +53,3 @@ impl From<zbus::Error> for ServiceError {
         ServiceError::DBus(err.to_string())
     }
 }
-

@@ -2,18 +2,18 @@
 
 //! View components for network mount management
 
-use crate::network::icons::resolve_provider_icon;
-use crate::message::network::NetworkMessage;
-use crate::state::network::{
-    NetworkEditorState, NetworkMountState, NetworkState, NetworkWizardState,
-    QUICK_SETUP_PROVIDERS, SECTION_ORDER, WizardStep, section_display_name,
-};
 use crate::controls::actions::{icon_tooltip_action, trailing_actions_row};
 use crate::controls::form::bounded_form;
 use crate::controls::layout::{row_container, transparent_button_class};
 use crate::controls::wizard::{
     WizardBreadcrumbStatus, WizardBreadcrumbStep, option_tile_grid, selectable_tile,
     wizard_breadcrumb, wizard_shell, wizard_step_nav,
+};
+use crate::message::network::NetworkMessage;
+use crate::network::icons::resolve_provider_icon;
+use crate::state::network::{
+    NetworkEditorState, NetworkMountState, NetworkState, NetworkWizardState, QUICK_SETUP_PROVIDERS,
+    SECTION_ORDER, WizardStep, section_display_name,
 };
 use cosmic::cosmic_theme::palette::WithAlpha;
 use cosmic::iced::Length;
@@ -39,7 +39,6 @@ fn scope_label(scope: ConfigScope) -> &'static str {
         ConfigScope::System => "System",
     }
 }
-
 
 fn provider_logo_widget(provider_type: &str, size: u16) -> Element<'static, NetworkMessage> {
     let provider_icon = resolve_provider_icon(provider_type);

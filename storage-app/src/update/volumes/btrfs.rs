@@ -3,12 +3,10 @@ use crate::models::load_all_drives;
 use cosmic::Task;
 
 use crate::app::Message;
+use crate::errors::ui::{UiErrorContext, log_error_and_show_dialog};
 use crate::fl;
 use crate::message::dialogs::{BtrfsCreateSnapshotMessage, BtrfsCreateSubvolumeMessage};
-use crate::state::dialogs::{
-    BtrfsCreateSnapshotDialog, BtrfsCreateSubvolumeDialog, ShowDialog,
-};
-use crate::errors::ui::{UiErrorContext, log_error_and_show_dialog};
+use crate::state::dialogs::{BtrfsCreateSnapshotDialog, BtrfsCreateSubvolumeDialog, ShowDialog};
 use crate::state::volumes::VolumesControl;
 
 pub(super) fn open_create_subvolume(

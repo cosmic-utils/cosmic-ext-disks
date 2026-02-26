@@ -159,5 +159,4 @@ impl PartitionsClient {
     pub async fn set_partition_name(&self, partition: &str, name: &str) -> Result<(), ClientError> {
         Ok(self.proxy.set_partition_name(partition, name).await?)
     }
-
 }

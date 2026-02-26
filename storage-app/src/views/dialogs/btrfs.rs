@@ -3,10 +3,10 @@ use cosmic::widget::{button, checkbox, dropdown, text, text_input};
 use cosmic::{Element, iced_widget};
 
 use crate::app::Message;
+use crate::controls::wizard::{wizard_action_row, wizard_shell};
 use crate::fl;
 use crate::message::dialogs::{BtrfsCreateSnapshotMessage, BtrfsCreateSubvolumeMessage};
 use crate::state::dialogs::{BtrfsCreateSnapshotDialog, BtrfsCreateSubvolumeDialog};
-use crate::controls::wizard::{wizard_action_row, wizard_shell};
 
 pub fn create_subvolume<'a>(state: BtrfsCreateSubvolumeDialog) -> Element<'a, Message> {
     let BtrfsCreateSubvolumeDialog {

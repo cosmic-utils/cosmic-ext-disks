@@ -104,9 +104,7 @@ pub enum NetworkMessage {
     /// Test remote configuration
     TestRemote { name: String, scope: ConfigScope },
     /// Test result received
-    TestCompleted {
-        result: Result<String, String>,
-    },
+    TestCompleted { result: Result<String, String> },
     /// Refresh mount status for a remote
     RefreshStatus { name: String, scope: ConfigScope },
     /// Status refreshed

@@ -4,15 +4,15 @@ use cosmic::Task;
 
 use crate::app::Message;
 use crate::client::{FilesystemsClient, LuksClient, PartitionsClient};
+use crate::errors::ui::{UiErrorContext, log_error_and_show_dialog};
 use crate::fl;
 use crate::message::dialogs::{EditPartitionMessage, ResizePartitionMessage};
 use crate::state::dialogs::{
     EditPartitionDialog, EditPartitionStep, FormatPartitionDialog, FormatPartitionStep,
     ResizePartitionDialog, ResizePartitionStep, ShowDialog,
 };
-use crate::errors::ui::{UiErrorContext, log_error_and_show_dialog};
-use crate::volumes::helpers;
 use crate::utils::DiskSegmentKind;
+use crate::volumes::helpers;
 use storage_types::{CreatePartitionInfo, VolumeKind};
 
 use crate::state::volumes::VolumesControl;

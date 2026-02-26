@@ -1,4 +1,3 @@
-use crate::state::volumes::DetailTab;
 use crate::app::Message;
 use crate::message::dialogs::{
     BtrfsCreateSnapshotMessage, BtrfsCreateSubvolumeMessage, ChangePassphraseMessage,
@@ -6,6 +5,7 @@ use crate::message::dialogs::{
     EditMountOptionsMessage, EditPartitionMessage, ResizePartitionMessage, TakeOwnershipMessage,
     UnlockMessage,
 };
+use crate::state::volumes::DetailTab;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum VolumesControlMessage {

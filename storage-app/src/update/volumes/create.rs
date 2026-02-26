@@ -3,18 +3,16 @@ use cosmic::Task;
 
 use crate::app::Message;
 use crate::client::{FilesystemsClient, PartitionsClient};
+use crate::errors::ui::{UiErrorContext, log_error_and_show_dialog};
 use crate::fl;
 use crate::message::dialogs::CreateMessage;
 use crate::state::dialogs::{CreatePartitionStep, FormatPartitionStep, ShowDialog};
-use crate::errors::ui::{UiErrorContext, log_error_and_show_dialog};
 use crate::volumes::helpers;
 use storage_types::CreatePartitionInfo;
 
 use crate::state::volumes::VolumesControl;
 
-fn create_partition_step_can_advance(
-    state: &crate::state::dialogs::CreatePartitionDialog,
-) -> bool {
+fn create_partition_step_can_advance(state: &crate::state::dialogs::CreatePartitionDialog) -> bool {
     match state.step {
         CreatePartitionStep::Basics => {
             let filesystem_type = helpers::common_partition_filesystem_type(

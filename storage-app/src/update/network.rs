@@ -2,12 +2,12 @@
 
 //! Network mount message handling
 
-use crate::message::app::Message;
-use crate::state::app::AppModel;
 use crate::client::RcloneClient;
-use crate::state::dialogs::ShowDialog;
 use crate::errors::ui::{UiErrorContext, log_error_and_show_dialog};
+use crate::message::app::Message;
 use crate::message::network::NetworkMessage;
+use crate::state::app::AppModel;
+use crate::state::dialogs::ShowDialog;
 use cosmic::app::Task;
 use storage_types::rclone::{
     ConfigScope, MountStatus, RemoteConfig, rclone_provider, supported_remote_types,
@@ -814,10 +814,7 @@ pub(crate) fn handle_network_message(app: &mut AppModel, message: NetworkMessage
                         Err(e) => Err(e.to_string()),
                     }
                 },
-                move |result| {
-                    Message::Network(NetworkMessage::TestCompleted { result })
-                    .into()
-                },
+                move |result| Message::Network(NetworkMessage::TestCompleted { result }).into(),
             );
         }
 

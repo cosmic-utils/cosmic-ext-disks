@@ -1,14 +1,12 @@
-use crate::message::app::Message;
-use crate::state::app::{AppModel, ContextPage};
+use crate::controls::wizard::{option_tile_grid, selectable_tile, wizard_action_row, wizard_shell};
 use crate::fl;
+use crate::message::app::Message;
+use crate::message::network::NetworkMessage;
 use crate::message::volumes::VolumesControlMessage;
 use crate::models::{UiDrive, UiVolume};
+use crate::state::app::{AppModel, ContextPage};
 use crate::state::dialogs::{DeletePartitionDialog, ShowDialog};
-use crate::message::network::NetworkMessage;
 use crate::state::volumes::{DetailTab, Segment, VolumesControl};
-use crate::controls::wizard::{
-    option_tile_grid, selectable_tile, wizard_action_row, wizard_shell,
-};
 use crate::utils::DiskSegmentKind;
 use crate::views::btrfs::btrfs_management_section;
 use crate::views::dialogs;
@@ -180,15 +178,13 @@ pub(crate) fn dialog(app: &AppModel) -> Option<Element<'_, Message>> {
                 Some(dialogs::edit_filesystem_label(state.clone()))
             }
 
-            crate::state::dialogs::ShowDialog::ConfirmAction(state) => {
-                Some(dialogs::confirmation(
-                    &state.title,
-                    &state.body,
-                    state.ok_message.clone(),
-                    Some(Message::CloseDialog),
-                    state.running,
-                ))
-            }
+            crate::state::dialogs::ShowDialog::ConfirmAction(state) => Some(dialogs::confirmation(
+                &state.title,
+                &state.body,
+                state.ok_message.clone(),
+                Some(Message::CloseDialog),
+                state.running,
+            )),
 
             crate::state::dialogs::ShowDialog::TakeOwnership(state) => {
                 Some(dialogs::take_ownership(state.clone()))
@@ -371,12 +367,10 @@ pub(crate) fn view(app: &AppModel) -> Element<'_, Message> {
                 .filter_map(|s| s.volume.as_ref())
                 .map(|volume_model| {
                     // Look up the corresponding UiVolume to check if it's a LUKS container
-                    if let Some(volume_node) =
-                        crate::volumes::helpers::find_volume_for_partition(
-                            &volumes_control.volumes,
-                            volume_model,
-                        )
-                    {
+                    if let Some(volume_node) = crate::volumes::helpers::find_volume_for_partition(
+                        &volumes_control.volumes,
+                        volume_model,
+                    ) {
                         if volume_node.volume.kind == storage_types::VolumeKind::CryptoContainer
                             && !volume_node.children.is_empty()
                         {

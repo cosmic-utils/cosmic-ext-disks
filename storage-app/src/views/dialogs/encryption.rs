@@ -1,4 +1,8 @@
 use crate::app::Message;
+use crate::controls::wizard::{
+    WizardBreadcrumbStatus, WizardBreadcrumbStep, wizard_action_row, wizard_breadcrumb,
+    wizard_shell, wizard_step_is_clickable, wizard_step_nav, wizard_step_shell,
+};
 use crate::fl;
 use crate::message::dialogs::{
     ChangePassphraseMessage, EditEncryptionOptionsMessage, TakeOwnershipMessage, UnlockMessage,
@@ -6,10 +10,6 @@ use crate::message::dialogs::{
 use crate::state::dialogs::{
     ChangePassphraseDialog, EditEncryptionOptionsDialog, EditEncryptionOptionsStep,
     TakeOwnershipDialog, UnlockEncryptedDialog,
-};
-use crate::controls::wizard::{
-    WizardBreadcrumbStatus, WizardBreadcrumbStep, wizard_action_row, wizard_breadcrumb,
-    wizard_shell, wizard_step_is_clickable, wizard_step_nav, wizard_step_shell,
 };
 use cosmic::{
     Element, iced_widget,

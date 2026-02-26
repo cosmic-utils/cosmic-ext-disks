@@ -1,9 +1,9 @@
 use crate::fl;
-use crate::models::load_all_drives;
 use crate::message::dialogs::{
     AttachDiskImageDialogMessage, AttachDiskResult, ImageOperationDialogMessage,
     NewDiskImageDialogMessage,
 };
+use crate::models::load_all_drives;
 use crate::state::dialogs::{AttachDiskImageDialog, NewDiskImageDialog, ShowDialog};
 use cosmic::app::Task;
 use tokio::fs::OpenOptions;

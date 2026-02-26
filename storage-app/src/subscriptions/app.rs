@@ -1,6 +1,6 @@
-use crate::message::app::Message;
 use crate::client::{DisksClient, FilesystemsClient, ImageClient, LuksClient};
 use crate::config::Config;
+use crate::message::app::Message;
 use crate::message::dialogs::ImageOperationDialogMessage;
 use cosmic::Application;
 use cosmic::iced::Subscription;

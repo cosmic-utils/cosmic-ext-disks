@@ -1,9 +1,9 @@
 use crate::client::{DisksClient, PartitionsClient};
-use crate::fl;
-use crate::models::{UiDrive, load_all_drives};
-use crate::message::dialogs::FormatDiskMessage;
-use crate::state::dialogs::{FormatDiskDialog, ShowDialog, SmartDataDialog};
 use crate::errors::ui::{UiErrorContext, log_error_and_show_dialog};
+use crate::fl;
+use crate::message::dialogs::FormatDiskMessage;
+use crate::models::{UiDrive, load_all_drives};
+use crate::state::dialogs::{FormatDiskDialog, ShowDialog, SmartDataDialog};
 use cosmic::app::Task;
 
 use crate::message::app::Message;
@@ -219,10 +219,7 @@ pub(super) fn smart_data_for(app: &mut AppModel, drive: UiDrive) -> Task<Message
                 .map_err(|e| format!("Failed to get SMART attributes: {}", e))?;
             Ok((status, attributes))
         },
-        |res| {
-            Message::SmartDialog(crate::message::dialogs::SmartDialogMessage::Loaded(res))
-                .into()
-        },
+        |res| Message::SmartDialog(crate::message::dialogs::SmartDialogMessage::Loaded(res)).into(),
     )
 }
 

@@ -144,5 +144,4 @@ impl RcloneClient {
     pub async fn delete_remote(&self, name: &str, scope: &str) -> Result<(), ClientError> {
         Ok(self.proxy.delete_remote(name, scope).await?)
     }
-
 }

@@ -1,4 +1,6 @@
 use crate::app::Message;
+use crate::controls::fields::labelled_spinner;
+use crate::controls::wizard::{wizard_action_row, wizard_shell};
 use crate::fl;
 use crate::message::app::ImagePathPickerKind;
 use crate::message::dialogs::{
@@ -7,8 +9,6 @@ use crate::message::dialogs::{
 use crate::state::dialogs::{
     AttachDiskImageDialog, ImageOperationDialog, ImageOperationKind, NewDiskImageDialog,
 };
-use crate::controls::wizard::{wizard_action_row, wizard_shell};
-use crate::controls::fields::labelled_spinner;
 use cosmic::{
     Element,
     iced::{Alignment, Length},

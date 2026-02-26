@@ -6,9 +6,9 @@ use crate::app::Message;
 use crate::fl;
 use crate::models::{UiDrive, UiVolume};
 use crate::state::volumes::Segment;
+use crate::utils::DiskSegmentKind;
 use crate::volumes::helpers;
 use crate::volumes::usage_pie::{self, PieSegmentData};
-use crate::utils::DiskSegmentKind;
 
 /// Renders the disk info header with icon, name/partitioning/serial, and multi-partition pie chart.
 pub fn disk_header<'a>(

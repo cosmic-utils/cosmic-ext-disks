@@ -2,8 +2,8 @@ use crate::app::Message;
 use crate::controls::layout::{row_container, transparent_button_class};
 use crate::models::{UiDrive, UiVolume};
 use crate::state::network::NetworkState;
-use crate::views::network::network_section;
 use crate::state::sidebar::{SidebarNodeKey, SidebarState};
+use crate::views::network::network_section;
 use cosmic::iced::Length;
 use cosmic::widget::{self, icon};
 use cosmic::{Apply, Element};
@@ -92,7 +92,6 @@ fn drive_title(drive: &UiDrive) -> String {
         format!("{vendor} {model}")
     }
 }
-
 
 fn section_header(label: String) -> Element<'static, Message> {
     widget::text::caption_heading(label)
