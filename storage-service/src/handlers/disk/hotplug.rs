@@ -2,7 +2,7 @@
 
 use anyhow::Result;
 
-use crate::handlers::disks::DisksHandler;
+use crate::handlers::disk::DiskHandler;
 
 /// Monitor UDisks2 for disk hotplug events and emit D-Bus signals.
 pub(crate) async fn monitor_hotplug_events(
@@ -24,7 +24,7 @@ pub(crate) async fn monitor_hotplug_events(
 
     let object_server = connection.object_server();
     let iface_ref = object_server
-        .interface::<_, DisksHandler>(object_path)
+        .interface::<_, DiskHandler>(object_path)
         .await?;
 
     let mut added_stream = obj_manager.receive_signal("InterfacesAdded").await?;
@@ -50,7 +50,7 @@ pub(crate) async fn monitor_hotplug_events(
                                     Ok(json) => {
                                         tracing::info!("Disk added: {}", device);
 
-                                        if let Err(e) = DisksHandler::disk_added(
+                                        if let Err(e) = DiskHandler::disk_added(
                                             iface_ref_clone.signal_emitter(),
                                             &device,
                                             &json,
@@ -104,7 +104,7 @@ pub(crate) async fn monitor_hotplug_events(
                         tracing::info!("Disk removed: {} ({})", device, object_path);
 
                         if let Err(e) =
-                            DisksHandler::disk_removed(iface_ref_clone.signal_emitter(), &device)
+                            DiskHandler::disk_removed(iface_ref_clone.signal_emitter(), &device)
                                 .await
                         {
                             tracing::error!("Failed to emit disk_removed signal: {}", e);

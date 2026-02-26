@@ -5,7 +5,6 @@ use std::future::Future;
 use crate::app::Message;
 use crate::client::FilesystemsClient;
 use crate::state::dialogs::{ShowDialog, UnmountBusyDialog};
-use crate::volumes::helpers;
 
 use crate::state::volumes::VolumesControl;
 
@@ -173,7 +172,8 @@ pub(super) fn child_mount(
     control: &mut VolumesControl,
     device_path: String,
 ) -> Task<cosmic::Action<Message>> {
-    let Some(node) = helpers::find_volume_in_ui_tree(&control.volumes, &device_path).cloned()
+    let Some(node) =
+        crate::state::volumes::find_volume_in_ui_tree(&control.volumes, &device_path).cloned()
     else {
         return Task::none();
     };
@@ -205,7 +205,8 @@ pub(super) fn child_unmount(
     control: &mut VolumesControl,
     device_path: String,
 ) -> Task<cosmic::Action<Message>> {
-    let Some(node) = helpers::find_volume_in_ui_tree(&control.volumes, &device_path).cloned()
+    let Some(node) =
+        crate::state::volumes::find_volume_in_ui_tree(&control.volumes, &device_path).cloned()
     else {
         return Task::none();
     };

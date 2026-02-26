@@ -13,7 +13,7 @@ use crate::state::dialogs::{
     ChangePassphraseDialog, EditEncryptionOptionsDialog, EditEncryptionOptionsStep,
     FilesystemTarget, ShowDialog, TakeOwnershipDialog, UnlockEncryptedDialog,
 };
-use crate::volumes::helpers;
+
 use storage_types::VolumeKind;
 
 use crate::state::volumes::VolumesControl;
@@ -70,8 +70,9 @@ pub(super) fn open_change_passphrase(
         return Task::none();
     };
 
-    let is_crypto_container = helpers::find_volume_for_partition(&control.volumes, &volume)
-        .is_some_and(|n| n.volume.kind == VolumeKind::CryptoContainer);
+    let is_crypto_container =
+        crate::state::volumes::find_volume_for_partition(&control.volumes, &volume)
+            .is_some_and(|n| n.volume.kind == VolumeKind::CryptoContainer);
     if !is_crypto_container {
         return Task::none();
     }
@@ -103,8 +104,9 @@ pub(super) fn open_edit_encryption_options(
         return Task::none();
     };
 
-    let is_crypto_container = helpers::find_volume_for_partition(&control.volumes, &volume)
-        .is_some_and(|n| n.volume.kind == VolumeKind::CryptoContainer);
+    let is_crypto_container =
+        crate::state::volumes::find_volume_for_partition(&control.volumes, &volume)
+            .is_some_and(|n| n.volume.kind == VolumeKind::CryptoContainer);
     if !is_crypto_container {
         return Task::none();
     }
@@ -556,8 +558,8 @@ pub(super) fn lock_container(control: &mut VolumesControl) -> Task<cosmic::Actio
         && let Some(p) = s.volume
     {
         let mounted_children: Vec<String> =
-            helpers::find_volume_for_partition(&control.volumes, &p)
-                .map(helpers::collect_mounted_descendants_leaf_first)
+            crate::state::volumes::find_volume_for_partition(&control.volumes, &p)
+                .map(crate::update::volumes::helpers::collect_mounted_descendants_leaf_first)
                 .unwrap_or_default();
 
         let device_path_for_selection = p.device_path.clone().unwrap_or_else(|| p.label.clone());

@@ -22,7 +22,6 @@ use crate::state::app::AppModel;
 use crate::state::dialogs::ShowDialog;
 use crate::state::sidebar::SidebarNodeKey;
 use crate::state::volumes::{DetailTab, UsageTabState, VolumesControl};
-use crate::volumes::helpers as volumes_helpers;
 use cosmic::app::Task;
 use cosmic::cosmic_config::CosmicConfigEntry;
 use cosmic::dialog::file_chooser;
@@ -73,64 +72,6 @@ fn usage_filtered_file_paths(state: &UsageTabState) -> Vec<String> {
 }
 
 /// Find the segment index and whether the volume is a child for a given device path
-fn find_segment_for_volume(
-    volumes_control: &VolumesControl,
-    device_path: &str,
-) -> Option<(usize, bool)> {
-    for (segment_idx, segment) in volumes_control.segments.iter().enumerate() {
-        let Some(segment_vol) = &segment.volume else {
-            continue;
-        };
-
-        // Direct match (partition itself)
-        if segment_vol
-            .device_path
-            .as_ref()
-            .is_some_and(|p| p == device_path)
-        {
-            return Some((segment_idx, false));
-        }
-
-        // Check if volume is a child of this segment's partition
-        let Some(segment_device) = &segment_vol.device_path else {
-            continue;
-        };
-
-        // Search for the segment volume in the tree
-        let segment_node = volumes_control
-            .volumes
-            .iter()
-            .find(|v| v.device() == Some(segment_device.as_str()));
-
-        let Some(segment_node) = segment_node else {
-            continue;
-        };
-
-        // Recursively check children
-        if find_volume_in_tree(&segment_node.children, device_path).is_some() {
-            return Some((segment_idx, true));
-        }
-    }
-
-    None
-}
-
-/// Find a volume by device path in the tree
-fn find_volume_in_tree<'a>(
-    volumes: &'a [crate::models::UiVolume],
-    device_path: &str,
-) -> Option<&'a crate::models::UiVolume> {
-    for vol in volumes {
-        if vol.device() == Some(device_path) {
-            return Some(vol);
-        }
-        if let Some(found) = find_volume_in_tree(&vol.children, device_path) {
-            return Some(found);
-        }
-    }
-    None
-}
-
 /// Handles messages emitted by the application and its widgets.
 pub(crate) fn update(app: &mut AppModel, message: Message) -> Task<Message> {
     match message {
@@ -944,7 +885,7 @@ pub(crate) fn update(app: &mut AppModel, message: Message) -> Task<Message> {
 
                 if let Some(control) = app.nav.active_data_mut::<VolumesControl>()
                     && let Some((segment_idx, is_child)) =
-                        find_segment_for_volume(control, &device_path)
+                        crate::state::volumes::find_segment_for_volume(control, &device_path)
                 {
                     control.selected_volume = if is_child {
                         Some(device_path.clone())
@@ -1040,7 +981,8 @@ pub(crate) fn update(app: &mut AppModel, message: Message) -> Task<Message> {
                 .drives
                 .iter()
                 .find(|d| {
-                    volumes_helpers::find_volume_in_ui_tree(&d.volumes, &device_path).is_some()
+                    crate::state::volumes::find_volume_in_ui_tree(&d.volumes, &device_path)
+                        .is_some()
                 })
                 .cloned();
 
@@ -1064,14 +1006,15 @@ pub(crate) fn update(app: &mut AppModel, message: Message) -> Task<Message> {
                 return Task::none();
             };
 
-            let Some(vol_node) =
-                volumes_helpers::find_volume_in_ui_tree(&volumes_control.volumes, &device_path)
-            else {
+            let Some(vol_node) = crate::state::volumes::find_volume_in_ui_tree(
+                &volumes_control.volumes,
+                &device_path,
+            ) else {
                 return Task::none();
             };
 
             let Some((segment_idx, is_child)) =
-                find_segment_for_volume(volumes_control, &device_path)
+                crate::state::volumes::find_segment_for_volume(volumes_control, &device_path)
             else {
                 return Task::none();
             };
@@ -1107,7 +1050,7 @@ pub(crate) fn update(app: &mut AppModel, message: Message) -> Task<Message> {
             };
 
             let Some(node) =
-                volumes_helpers::find_volume_in_ui_tree(&drive_model.volumes, &device_path)
+                crate::state::volumes::find_volume_in_ui_tree(&drive_model.volumes, &device_path)
             else {
                 return Task::none();
             };
@@ -1343,7 +1286,8 @@ pub(crate) fn on_nav_select(app: &mut AppModel, id: nav_bar::Id) -> Task<Message
 /// Helper function to retry unmount operation on a volume by device path
 fn retry_unmount(volumes: &VolumesControl, device_path: String) -> Task<Message> {
     // Find the volume node
-    let node = volumes_helpers::find_volume_in_ui_tree(&volumes.volumes, &device_path).cloned();
+    let node =
+        crate::state::volumes::find_volume_in_ui_tree(&volumes.volumes, &device_path).cloned();
 
     if let Some(node) = node {
         let device = node

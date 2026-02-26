@@ -1,7 +1,5 @@
 mod dbus;
-mod options;
-mod udisks_block_config;
-mod usage;
+mod infra;
 
 // Error types
 pub mod error;
@@ -16,7 +14,6 @@ pub mod lvm;
 pub mod manager;
 pub mod partition;
 pub mod smart;
-pub mod util;
 pub mod volume;
 
 // Re-export storage-types models (canonical domain models)
@@ -67,8 +64,8 @@ pub use disk::{
     },
 };
 pub use gpt::{fallback_gpt_usable_range_bytes, probe_gpt_usable_range_bytes};
+pub use infra::process::{find_processes_using_mount, kill_processes};
 pub use lvm::list_lvs_for_pv;
-pub use util::{find_processes_using_mount, kill_processes};
 
 // Partition operations (from new partition module)
 pub use partition::{
@@ -95,10 +92,10 @@ pub use encryption::{
 pub use smart::{get_smart_info_by_device, start_drive_smart_selftest_by_device};
 
 // Explicit exports from options module (mount/encryption option parsing)
-pub use options::{
+pub use infra::options::{
     join_options, merge_other_with_managed, normalize_options, remove_prefixed, remove_token,
     set_prefixed_value, set_token_present, split_options, stable_dedup,
 };
 
 // Explicit exports from usage module (filesystem usage statistics)
-pub use usage::{Usage, usage_for_mount_point};
+pub use infra::usage::{Usage, usage_for_mount_point};

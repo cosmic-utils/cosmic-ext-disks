@@ -4,7 +4,7 @@ use crate::state::app::AppModel;
 use crate::state::btrfs::BtrfsState;
 use crate::state::dialogs::ShowDialog;
 use crate::state::volumes::VolumesControl;
-use crate::volumes::helpers;
+
 use cosmic::app::Task;
 use cosmic::widget::icon;
 use std::collections::HashMap;
@@ -79,7 +79,7 @@ pub(super) fn update_nav(
         if let Some(segment) = volumes_control.segments.get(selected_idx)
             && let Some(volume) = &segment.volume
         {
-            let btrfs_info = helpers::detect_btrfs_for_volume(&drive.volumes, volume);
+            let btrfs_info = crate::state::btrfs::detect_btrfs_for_volume(&drive.volumes, volume);
             tracing::info!(
                 "update_nav: drive={}, segment={}, btrfs_detected={}, has_filesystem={}, mount_points={:?}",
                 drive.name(),

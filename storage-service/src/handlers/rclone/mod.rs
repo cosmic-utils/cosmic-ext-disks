@@ -5,6 +5,11 @@
 //! This module provides D-Bus methods for managing RClone remotes and mounts,
 //! including listing remotes, mounting/unmounting, and configuration management.
 
+mod authz;
+mod config;
+mod mount;
+mod query;
+
 use std::sync::Arc;
 use storage_macros::authorized_interface;
 use storage_sys::{RCloneCli, is_mount_on_boot_enabled, set_mount_on_boot};
@@ -93,32 +98,6 @@ impl RcloneHandler {
             }
             ConfigScope::System => scope.mount_point(remote_name),
         }
-    }
-
-    /// Get the caller UID from a message header
-    async fn get_caller_uid(
-        connection: &Connection,
-        header: &MessageHeader<'_>,
-    ) -> zbus::fdo::Result<u32> {
-        let sender = header
-            .sender()
-            .ok_or_else(|| zbus::fdo::Error::Failed("No sender in message header".to_string()))?
-            .as_str()
-            .to_string();
-
-        let dbus_proxy = zbus::fdo::DBusProxy::new(connection)
-            .await
-            .map_err(|e| zbus::fdo::Error::Failed(format!("D-Bus connection error: {}", e)))?;
-
-        let bus_name: zbus::names::BusName = sender
-            .clone()
-            .try_into()
-            .map_err(|e| zbus::fdo::Error::Failed(format!("Invalid bus name: {}", e)))?;
-
-        dbus_proxy
-            .get_connection_unix_user(bus_name)
-            .await
-            .map_err(|e| zbus::fdo::Error::Failed(format!("Failed to get caller UID: {}", e)))
     }
 
     /// Convert scope string to ConfigScope enum
@@ -349,6 +328,7 @@ impl RcloneHandler {
     }
 
     /// Mount a remote
+    #[authorized_interface(action = "org.cosmic.ext.storage.service.rclone-mount")]
     async fn mount(
         &self,
         #[zbus(connection)] connection: &Connection,
@@ -360,7 +340,7 @@ impl RcloneHandler {
         tracing::info!("Mounting remote {} (scope: {})", name, scope);
 
         let scope_enum = self.parse_scope(scope)?;
-        let caller_uid = Self::get_caller_uid(connection, &header).await?;
+        let caller_uid = caller.uid;
 
         // For system scope, check polkit authorization
         if scope_enum == ConfigScope::System {
@@ -407,6 +387,7 @@ impl RcloneHandler {
     }
 
     /// Unmount a remote
+    #[authorized_interface(action = "org.cosmic.ext.storage.service.rclone-mount")]
     async fn unmount(
         &self,
         #[zbus(connection)] connection: &Connection,
@@ -418,7 +399,7 @@ impl RcloneHandler {
         tracing::info!("Unmounting remote {} (scope: {})", name, scope);
 
         let scope_enum = self.parse_scope(scope)?;
-        let caller_uid = Self::get_caller_uid(connection, &header).await?;
+        let caller_uid = caller.uid;
 
         // For system scope, check polkit authorization
         if scope_enum == ConfigScope::System {
@@ -500,7 +481,7 @@ impl RcloneHandler {
         scope: &str,
     ) -> zbus::fdo::Result<bool> {
         let scope_enum = self.parse_scope(scope)?;
-        let caller_uid = Self::get_caller_uid(connection, &header).await?;
+        let caller_uid = caller.uid;
         let home = if scope_enum == ConfigScope::User {
             Self::get_home_for_uid(caller_uid)
         } else {
@@ -521,6 +502,7 @@ impl RcloneHandler {
     }
 
     /// Enable or disable mount on boot
+    #[authorized_interface(action = "org.cosmic.ext.storage.service.rclone-mount")]
     async fn set_mount_on_boot(
         &self,
         #[zbus(connection)] connection: &Connection,
@@ -530,7 +512,7 @@ impl RcloneHandler {
         enabled: bool,
     ) -> zbus::fdo::Result<()> {
         let scope_enum = self.parse_scope(scope)?;
-        let caller_uid = Self::get_caller_uid(connection, &header).await?;
+        let caller_uid = caller.uid;
 
         if scope_enum == ConfigScope::System {
             let sender = header
@@ -589,6 +571,7 @@ impl RcloneHandler {
     }
 
     /// Create a new remote configuration
+    #[authorized_interface(action = "org.cosmic.ext.storage.service.rclone-config")]
     async fn create_remote(
         &self,
         #[zbus(connection)] connection: &Connection,
@@ -599,7 +582,7 @@ impl RcloneHandler {
         tracing::info!("Creating remote (scope: {})", scope);
 
         let scope_enum = self.parse_scope(scope)?;
-        let caller_uid = Self::get_caller_uid(connection, &header).await?;
+        let caller_uid = caller.uid;
 
         // For system scope, check polkit authorization
         if scope_enum == ConfigScope::System {
@@ -668,6 +651,7 @@ impl RcloneHandler {
     }
 
     /// Update an existing remote configuration
+    #[authorized_interface(action = "org.cosmic.ext.storage.service.rclone-config")]
     async fn update_remote(
         &self,
         #[zbus(connection)] connection: &Connection,
@@ -679,7 +663,7 @@ impl RcloneHandler {
         tracing::info!("Updating remote {} (scope: {})", name, scope);
 
         let scope_enum = self.parse_scope(scope)?;
-        let caller_uid = Self::get_caller_uid(connection, &header).await?;
+        let caller_uid = caller.uid;
 
         // For system scope, check polkit authorization
         if scope_enum == ConfigScope::System {
@@ -745,6 +729,7 @@ impl RcloneHandler {
     }
 
     /// Delete a remote configuration
+    #[authorized_interface(action = "org.cosmic.ext.storage.service.rclone-config")]
     async fn delete_remote(
         &self,
         #[zbus(connection)] connection: &Connection,
@@ -755,7 +740,7 @@ impl RcloneHandler {
         tracing::info!("Deleting remote {} (scope: {})", name, scope);
 
         let scope_enum = self.parse_scope(scope)?;
-        let caller_uid = Self::get_caller_uid(connection, &header).await?;
+        let caller_uid = caller.uid;
 
         // For system scope, check polkit authorization
         if scope_enum == ConfigScope::System {

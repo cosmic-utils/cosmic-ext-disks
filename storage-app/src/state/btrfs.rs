@@ -1,6 +1,10 @@
 use std::collections::HashMap;
 use storage_types::{BtrfsSubvolume, DeletedSubvolume};
 
+use crate::models::UiVolume;
+use crate::state::volumes::find_volume_for_partition;
+use storage_types::{VolumeInfo, VolumeKind};
+
 /// State for BTRFS management UI
 #[derive(Debug, Clone, Default)]
 pub struct BtrfsState {
@@ -48,4 +52,53 @@ impl BtrfsState {
             show_properties_dialog: false,
         }
     }
+}
+
+pub(crate) fn detect_btrfs_in_node(node: &UiVolume) -> Option<Option<String>> {
+    if node.volume.id_type.eq_ignore_ascii_case("btrfs") {
+        return Some(node.volume.mount_points.first().cloned());
+    }
+
+    if node.volume.kind == VolumeKind::CryptoContainer {
+        for child in &node.children {
+            if let Some(mp) = detect_btrfs_in_node(child) {
+                return Some(mp);
+            }
+        }
+    }
+
+    None
+}
+
+pub(crate) fn detect_btrfs_for_volume(
+    volumes: &[UiVolume],
+    volume: &VolumeInfo,
+) -> Option<(Option<String>, String)> {
+    if volume.id_type.eq_ignore_ascii_case("btrfs") {
+        let mount_point = volume.mount_points.first().cloned();
+        let device_path = volume.device_path.clone()?;
+        return Some((mount_point, device_path));
+    }
+
+    if let Some(node) = find_volume_for_partition(volumes, volume)
+        && let Some(mp) = detect_btrfs_in_node(node)
+        && let Some(btrfs_child) = find_btrfs_child(node)
+    {
+        let device_path = btrfs_child.device()?.to_string();
+        return Some((mp, device_path));
+    }
+
+    None
+}
+
+fn find_btrfs_child(node: &UiVolume) -> Option<&UiVolume> {
+    for child in &node.children {
+        if child.volume.id_type.eq_ignore_ascii_case("btrfs") {
+            return Some(child);
+        }
+        if let Some(found) = find_btrfs_child(child) {
+            return Some(found);
+        }
+    }
+    None
 }

@@ -13,11 +13,11 @@ use zbus::zvariant::OwnedValue;
 
 use crate::dbus::bytestring as bs;
 use crate::disk::resolve;
-use crate::options::{
+use crate::infra::options::{
     join_options, remove_prefixed, remove_token, set_prefixed_value, set_token_present,
     split_options, stable_dedup,
 };
-use crate::udisks_block_config::{ConfigurationItem, UDisks2BlockConfigurationProxy};
+use crate::infra::udisks_block_config::{ConfigurationItem, UDisks2BlockConfigurationProxy};
 
 // Re-export from storage-types (canonical domain model)
 pub use storage_types::MountOptionsSettings;

@@ -15,7 +15,4 @@ pub use subvolume::SubvolumeManager;
 pub use usage::get_filesystem_usage;
 
 // Re-export shared models
-pub use storage_types::btrfs::*;
-
-// Re-export btrfsutil types for convenience
-pub use btrfsutil;
+pub use storage_types::btrfs::{BtrfsSubvolume, DeletedSubvolume, FilesystemUsage, SubvolumeList};

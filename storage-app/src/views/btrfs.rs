@@ -1,8 +1,8 @@
 use crate::app::Message;
+use crate::controls::usage_pie;
 use crate::fl;
 use crate::message::volumes::VolumesControlMessage;
 use crate::state::btrfs::BtrfsState;
-use crate::volumes::usage_pie;
 use cosmic::iced::Length;
 use cosmic::widget;
 use cosmic::{Element, iced_widget};

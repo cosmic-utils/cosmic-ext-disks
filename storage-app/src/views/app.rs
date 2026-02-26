@@ -10,10 +10,10 @@ use crate::state::volumes::{DetailTab, Segment, VolumesControl};
 use crate::utils::DiskSegmentKind;
 use crate::views::btrfs::btrfs_management_section;
 use crate::views::dialogs;
+use crate::views::disk as disk_header;
 use crate::views::network::network_main_view;
 use crate::views::settings::{settings, settings_footer};
 use crate::views::sidebar;
-use crate::volumes::{disk_header, helpers};
 use cosmic::app::context_drawer as cosmic_context_drawer;
 use cosmic::cosmic_theme::palette::WithAlpha;
 use cosmic::iced::Color;
@@ -90,20 +90,18 @@ pub(crate) fn header_center(app: &AppModel) -> Vec<Element<'_, Message>> {
             .or_else(|| volumes_control.segments.first())
     {
         // Determine if this segment contains BTRFS
-        let selected_volume_node = segment
-            .volume
-            .as_ref()
-            .and_then(|p| helpers::find_volume_for_partition(&volumes_control.volumes, p));
+        let selected_volume_node = segment.volume.as_ref().and_then(|p| {
+            crate::state::volumes::find_volume_for_partition(&volumes_control.volumes, p)
+        });
 
-        let selected_volume = segment
-            .volume
-            .as_ref()
-            .and_then(|p| helpers::find_volume_for_partition(&volumes_control.volumes, p));
+        let selected_volume = segment.volume.as_ref().and_then(|p| {
+            crate::state::volumes::find_volume_for_partition(&volumes_control.volumes, p)
+        });
 
         let has_btrfs = if let Some(v) = selected_volume_node {
-            helpers::detect_btrfs_in_node(v).is_some()
+            crate::state::btrfs::detect_btrfs_in_node(v).is_some()
         } else if let Some(v) = selected_volume {
-            helpers::detect_btrfs_in_node(v).is_some()
+            crate::state::btrfs::detect_btrfs_in_node(v).is_some()
         } else {
             false
         };
@@ -367,7 +365,7 @@ pub(crate) fn view(app: &AppModel) -> Element<'_, Message> {
                 .filter_map(|s| s.volume.as_ref())
                 .map(|volume_model| {
                     // Look up the corresponding UiVolume to check if it's a LUKS container
-                    if let Some(volume_node) = crate::volumes::helpers::find_volume_for_partition(
+                    if let Some(volume_node) = crate::state::volumes::find_volume_for_partition(
                         &volumes_control.volumes,
                         volume_model,
                     ) {
@@ -445,14 +443,14 @@ fn volume_detail_view<'a>(
 
     let selected_volume_node = volumes_control.selected_volume_node();
     let selected_volume = segment.volume.as_ref().and_then(|p| {
-        crate::volumes::helpers::find_volume_for_partition(&volumes_control.volumes, p)
+        crate::state::volumes::find_volume_for_partition(&volumes_control.volumes, p)
     });
 
     // Determine if this segment contains a BTRFS filesystem (directly or inside LUKS)
     let has_btrfs = if let Some(v) = selected_volume_node {
-        helpers::detect_btrfs_in_node(v).is_some()
+        crate::state::btrfs::detect_btrfs_in_node(v).is_some()
     } else if let Some(v) = selected_volume {
-        helpers::detect_btrfs_in_node(v).is_some()
+        crate::state::btrfs::detect_btrfs_in_node(v).is_some()
     } else {
         false
     };
@@ -500,7 +498,7 @@ fn usage_category_button_style(
     active: bool,
     theme: &cosmic::theme::Theme,
 ) -> cosmic::widget::button::Style {
-    let base_color = crate::volumes::usage_pie::segment_color(index);
+    let base_color = crate::controls::usage_pie::segment_color(index);
     let text_color = if active { Color::WHITE } else { base_color };
 
     cosmic::widget::button::Style {
@@ -648,8 +646,8 @@ fn usage_tab_view<'a>(volumes_control: &'a VolumesControl) -> Element<'a, Messag
                 let color = UsageCategory::ALL
                     .iter()
                     .position(|candidate| *candidate == category.category)
-                    .map(crate::volumes::usage_pie::segment_color)
-                    .unwrap_or(crate::volumes::usage_pie::segment_color(0));
+                    .map(crate::controls::usage_pie::segment_color)
+                    .unwrap_or(crate::controls::usage_pie::segment_color(0));
                 row.push(
                     widget::container(widget::Space::new(Length::Fill, Length::Fixed(36.0)))
                         .style(
@@ -834,7 +832,7 @@ fn usage_tab_view<'a>(volumes_control: &'a VolumesControl) -> Element<'a, Messag
                 .iter()
                 .position(|candidate| candidate == category)
                 .unwrap_or(0);
-            let category_color = crate::volumes::usage_pie::segment_color(category_index);
+            let category_color = crate::controls::usage_pie::segment_color(category_index);
 
             let row_content = widget::container(
                 iced_widget::row![
@@ -1066,7 +1064,7 @@ fn build_volume_node_info<'a>(
     _segment: &'a Segment,
     _selected_volume: Option<&'a UiVolume>,
 ) -> Element<'a, Message> {
-    use crate::volumes::usage_pie;
+    use crate::controls::usage_pie;
 
     // Pie chart showing usage (right side, matching disk header layout)
     // For LUKS containers, aggregate children's usage
@@ -1309,7 +1307,7 @@ fn build_partition_info<'a>(
     volumes_control: &'a VolumesControl,
     segment: &'a Segment,
 ) -> Element<'a, Message> {
-    use crate::volumes::usage_pie;
+    use crate::controls::usage_pie;
 
     // Look up the corresponding PartitionInfo using device_path from segment
     let partition_info = segment.device_path.as_ref().and_then(|device| {
@@ -1683,7 +1681,7 @@ fn build_free_space_info<'a>(
     segment: &'a Segment,
     filesystem_tools: &'a [storage_types::FilesystemToolInfo],
 ) -> Element<'a, Message> {
-    use crate::volumes::usage_pie;
+    use crate::controls::usage_pie;
 
     // Empty pie chart for free space (0% used)
     let pie_segment = usage_pie::PieSegmentData {

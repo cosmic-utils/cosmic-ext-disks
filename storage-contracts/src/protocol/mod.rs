@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-only
 
-pub mod errors;
-pub mod ids;
-pub mod operations;
+pub mod error;
+pub mod id;
+pub mod operation;
 
-pub use errors::{StorageError, StorageErrorKind};
-pub use ids::OperationId;
-pub use operations::{OperationEvent, OperationKind, OperationProgress};
+pub use error::{StorageError, StorageErrorKind};
+pub use id::OperationId;
+pub use operation::{OperationEvent, OperationKind, OperationProgress};

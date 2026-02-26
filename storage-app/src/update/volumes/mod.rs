@@ -9,6 +9,7 @@ mod btrfs;
 mod create;
 mod encryption;
 mod filesystem;
+pub(crate) mod helpers;
 mod mount;
 mod mount_options;
 mod partition;

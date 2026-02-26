@@ -4,13 +4,13 @@
 
 use crate::controls::actions::{icon_tooltip_action, trailing_actions_row};
 use crate::controls::form::bounded_form;
+use crate::controls::icons::{resolve_provider_icon, scope_icon, scope_label};
 use crate::controls::layout::{row_container, transparent_button_class};
 use crate::controls::wizard::{
     WizardBreadcrumbStatus, WizardBreadcrumbStep, option_tile_grid, selectable_tile,
     wizard_breadcrumb, wizard_shell, wizard_step_nav,
 };
 use crate::message::network::NetworkMessage;
-use crate::network::icons::resolve_provider_icon;
 use crate::state::network::{
     NetworkEditorState, NetworkMountState, NetworkState, NetworkWizardState, QUICK_SETUP_PROVIDERS,
     SECTION_ORDER, WizardStep, section_display_name,
@@ -23,22 +23,6 @@ use std::collections::BTreeMap;
 use storage_types::rclone::{ConfigScope, MountStatus, rclone_provider, supported_remote_types};
 
 // ─── Sidebar helpers ─────────────────────────────────────────────────────────
-
-/// Icon for scope badge
-fn scope_icon(scope: ConfigScope) -> &'static str {
-    match scope {
-        ConfigScope::User => "user-home-symbolic",
-        ConfigScope::System => "computer-symbolic",
-    }
-}
-
-/// Scope label for accessibility/tooltips
-fn scope_label(scope: ConfigScope) -> &'static str {
-    match scope {
-        ConfigScope::User => "User",
-        ConfigScope::System => "System",
-    }
-}
 
 fn provider_logo_widget(provider_type: &str, size: u16) -> Element<'static, NetworkMessage> {
     let provider_icon = resolve_provider_icon(provider_type);

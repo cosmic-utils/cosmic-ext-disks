@@ -401,6 +401,69 @@ impl Segment {
     }
 }
 
+pub(crate) fn find_volume_in_ui_tree<'a>(
+    volumes: &'a [UiVolume],
+    device_path: &str,
+) -> Option<&'a UiVolume> {
+    for v in volumes {
+        if v.device() == Some(device_path) {
+            return Some(v);
+        }
+        if let Some(child) = find_volume_in_ui_tree(&v.children, device_path) {
+            return Some(child);
+        }
+    }
+    None
+}
+
+pub(crate) fn find_volume_for_partition<'a>(
+    volumes: &'a [UiVolume],
+    partition_volume: &VolumeInfo,
+) -> Option<&'a UiVolume> {
+    let Some(target) = &partition_volume.device_path else {
+        return None;
+    };
+    find_volume_in_ui_tree(volumes, target)
+}
+
+pub(crate) fn find_segment_for_volume(
+    volumes_control: &VolumesControl,
+    device_path: &str,
+) -> Option<(usize, bool)> {
+    for (segment_idx, segment) in volumes_control.segments.iter().enumerate() {
+        let Some(segment_vol) = &segment.volume else {
+            continue;
+        };
+
+        if segment_vol
+            .device_path
+            .as_ref()
+            .is_some_and(|p| p == device_path)
+        {
+            return Some((segment_idx, false));
+        }
+
+        let Some(segment_device) = &segment_vol.device_path else {
+            continue;
+        };
+
+        let segment_node = volumes_control
+            .volumes
+            .iter()
+            .find(|v| v.device() == Some(segment_device.as_str()));
+
+        let Some(segment_node) = segment_node else {
+            continue;
+        };
+
+        if find_volume_in_ui_tree(&segment_node.children, device_path).is_some() {
+            return Some((segment_idx, true));
+        }
+    }
+
+    None
+}
+
 impl VolumesControl {
     pub fn new(
         drive: &UiDrive,

@@ -14,15 +14,14 @@ mod error;
 mod handlers;
 mod policies;
 mod protected_paths;
-mod utilities;
 
 use handlers::btrfs::BtrfsHandler;
-use handlers::disks::DisksHandler;
-use handlers::filesystems::FilesystemsHandler;
+use handlers::disk::DiskHandler;
+use handlers::filesystem::FilesystemHandler;
 use handlers::image::ImageHandler;
 use handlers::luks::LuksHandler;
-use handlers::lvm::LVMHandler;
-use handlers::partitions::PartitionsHandler;
+use handlers::lvm::LvmHandler;
+use handlers::partition::PartitionHandler;
 use handlers::rclone::RcloneHandler;
 use handlers::service::StorageService;
 
@@ -49,7 +48,7 @@ async fn main() -> Result<()> {
     }
 
     // Build D-Bus connection with socket activation support
-    let disks_handler = DisksHandler::new();
+    let disk_handler = DiskHandler::new();
 
     // Create RcloneHandler (rclone binary must be installed)
     let rclone_handler = match RcloneHandler::new() {
@@ -64,16 +63,16 @@ async fn main() -> Result<()> {
         .name("org.cosmic.ext.Storage.Service")?
         .serve_at("/org/cosmic/ext/Storage/Service", StorageService::new())?
         .serve_at("/org/cosmic/ext/Storage/Service/btrfs", BtrfsHandler::new())?
-        .serve_at("/org/cosmic/ext/Storage/Service/disks", disks_handler)?
+        .serve_at("/org/cosmic/ext/Storage/Service/disks", disk_handler)?
         .serve_at(
             "/org/cosmic/ext/Storage/Service/partitions",
-            PartitionsHandler::new(),
+            PartitionHandler::new(),
         )?
         .serve_at(
             "/org/cosmic/ext/Storage/Service/filesystems",
-            FilesystemsHandler::new()?,
+            FilesystemHandler::new()?,
         )?
-        .serve_at("/org/cosmic/ext/Storage/Service/lvm", LVMHandler::new())?
+        .serve_at("/org/cosmic/ext/Storage/Service/lvm", LvmHandler::new())?
         .serve_at("/org/cosmic/ext/Storage/Service/luks", LuksHandler::new())?
         .serve_at("/org/cosmic/ext/Storage/Service/image", ImageHandler::new())?;
 
@@ -97,7 +96,7 @@ async fn main() -> Result<()> {
     tracing::info!("  - RClone interface at /org/cosmic/ext/Storage/Service/rclone");
 
     // Start disk hotplug monitoring
-    utilities::udisks::monitor_hotplug_events(
+    handlers::disk::hotplug::monitor_hotplug_events(
         connection.clone(),
         "/org/cosmic/ext/Storage/Service/disks",
     )

@@ -3,12 +3,11 @@ use cosmic::widget::{self, icon};
 use cosmic::{Element, iced_widget};
 
 use crate::app::Message;
+use crate::controls::usage_pie::{self, PieSegmentData};
 use crate::fl;
 use crate::models::{UiDrive, UiVolume};
 use crate::state::volumes::Segment;
 use crate::utils::DiskSegmentKind;
-use crate::volumes::helpers;
-use crate::volumes::usage_pie::{self, PieSegmentData};
 
 /// Renders the disk info header with icon, name/partitioning/serial, and multi-partition pie chart.
 pub fn disk_header<'a>(
@@ -163,7 +162,8 @@ pub fn disk_header<'a>(
         .map(|s| {
             let used = if let Some(ref volume_model) = s.volume {
                 // Look up the corresponding UiVolume to check if it's a LUKS container
-                if let Some(volume_node) = helpers::find_volume_for_partition(volumes, volume_model)
+                if let Some(volume_node) =
+                    crate::state::volumes::find_volume_for_partition(volumes, volume_model)
                 {
                     if volume_node.volume.kind == storage_types::VolumeKind::CryptoContainer
                         && !volume_node.children.is_empty()

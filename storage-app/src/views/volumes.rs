@@ -13,7 +13,7 @@ use crate::fl;
 use crate::message::volumes::VolumesControlMessage;
 use crate::state::volumes::{Segment, ToggleState, VolumesControl};
 use crate::utils::DiskSegmentKind;
-use crate::volumes::helpers;
+
 use crate::{app::Message, models::UiVolume};
 use storage_types::{VolumeKind, bytes_to_pretty};
 
@@ -81,7 +81,9 @@ impl VolumesControl {
                 let container_volume = segment
                     .volume
                     .as_ref()
-                    .and_then(|p| helpers::find_volume_for_partition(&self.volumes, p))
+                    .and_then(|p| {
+                        crate::state::volumes::find_volume_for_partition(&self.volumes, p)
+                    })
                     .filter(|v| v.volume.kind == VolumeKind::CryptoContainer);
 
                 if let Some(v) = container_volume {

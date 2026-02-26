@@ -1,3 +1,4 @@
+pub mod partition_types;
 mod segments;
 pub mod unit_size_input;
 

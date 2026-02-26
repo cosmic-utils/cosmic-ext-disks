@@ -17,6 +17,6 @@ pub trait Partitioning: Send + Sync {
 }
 
 #[async_trait]
-pub trait FilesystemOps: Send + Sync {
+pub trait FilesystemDiscovery: Send + Sync {
     async fn list_filesystems(&self) -> Result<Vec<FilesystemInfo>, StorageError>;
 }

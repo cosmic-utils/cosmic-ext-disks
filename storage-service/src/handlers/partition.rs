@@ -10,15 +10,15 @@ use storage_macros::authorized_interface;
 use zbus::message::Header as MessageHeader;
 use zbus::{Connection, interface};
 
-use crate::policies::partitions::{PartitionsDomain, PartitionsPolicy};
+use crate::policies::partition::{PartitionsDomain, PartitionsPolicy};
 
 /// D-Bus interface for partition management operations
-pub struct PartitionsHandler {
+pub struct PartitionHandler {
     domain: Arc<dyn PartitionsDomain>,
 }
 
-impl PartitionsHandler {
-    /// Create a new PartitionsHandler
+impl PartitionHandler {
+    /// Create a new PartitionHandler
     pub fn new() -> Self {
         Self {
             domain: Arc::new(PartitionsPolicy),
@@ -27,7 +27,7 @@ impl PartitionsHandler {
 }
 
 #[interface(name = "org.cosmic.ext.Storage.Service.Partitions")]
-impl PartitionsHandler {
+impl PartitionHandler {
     /// Signal emitted when a partition is created
     ///
     /// Args:
@@ -554,7 +554,7 @@ impl PartitionsHandler {
 }
 
 /// Helper methods
-impl PartitionsHandler {
+impl PartitionHandler {
     /// Find UDisks2 partition object path from device path
     async fn find_partition_path(&self, partition: &str) -> zbus::fdo::Result<String> {
         let device = if partition.starts_with("/dev/") {

@@ -12,7 +12,7 @@ use crate::state::dialogs::{
     ResizePartitionDialog, ResizePartitionStep, ShowDialog,
 };
 use crate::utils::DiskSegmentKind;
-use crate::volumes::helpers;
+
 use storage_types::{CreatePartitionInfo, VolumeKind};
 
 use crate::state::volumes::VolumesControl;
@@ -48,7 +48,8 @@ pub(super) fn delete(
         return Task::none();
     };
 
-    let volume_node = helpers::find_volume_for_partition(&control.volumes, &p).cloned();
+    let volume_node =
+        crate::state::volumes::find_volume_for_partition(&control.volumes, &p).cloned();
     let is_unlocked_crypto = matches!(
         volume_node.as_ref(),
         Some(v) if v.volume.kind == VolumeKind::CryptoContainer && !v.volume.locked
@@ -56,7 +57,7 @@ pub(super) fn delete(
     let mounted_children: Vec<String> = if is_unlocked_crypto {
         volume_node
             .as_ref()
-            .map(helpers::collect_mounted_descendants_leaf_first)
+            .map(crate::update::volumes::helpers::collect_mounted_descendants_leaf_first)
             .unwrap_or_default()
     } else {
         Vec::new()
@@ -139,14 +140,15 @@ pub(super) fn open_format_partition(
         segment.table_type.clone()
     };
 
-    let selected_partition_type_index = helpers::common_partition_type_index_for(
-        &table_type,
-        if volume.id_type.trim().is_empty() {
-            None
-        } else {
-            Some(volume.id_type.as_str())
-        },
-    );
+    let selected_partition_type_index =
+        crate::utils::partition_types::common_partition_type_index_for(
+            &table_type,
+            if volume.id_type.trim().is_empty() {
+                None
+            } else {
+                Some(volume.id_type.as_str())
+            },
+        );
 
     let info = CreatePartitionInfo {
         name: volume.label.clone(),

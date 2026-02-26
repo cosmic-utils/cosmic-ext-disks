@@ -3,7 +3,6 @@ use cosmic::Task;
 use crate::app::Message;
 use crate::state::btrfs::BtrfsState;
 use crate::state::dialogs::ShowDialog;
-use crate::volumes::helpers;
 
 use crate::state::volumes::DetailTab;
 use crate::state::volumes::VolumesControl;
@@ -17,7 +16,7 @@ fn maybe_initialize_btrfs_state_for_segment(
     if let Some(segment) = control.segments.get(segment_index)
         && let Some(volume) = &segment.volume
     {
-        let btrfs_info = helpers::detect_btrfs_for_volume(&control.volumes, volume);
+        let btrfs_info = crate::state::btrfs::detect_btrfs_for_volume(&control.volumes, volume);
         tracing::info!(
             "{}: segment_index={}, btrfs_detected={}, id_type={}, has_filesystem={}, mount_points={:?}",
             log_context,

@@ -37,21 +37,35 @@ pub mod smart;
 pub mod usage_scan;
 pub mod volume;
 
-// Re-export all public types
-pub use btrfs::*;
-pub use caller::*;
-pub use common::*;
-pub use disk::*;
-pub use encryption::*;
-pub use filesystem::*;
-pub use lvm::*;
-pub use partition::*;
-pub use partition_types::*;
-pub use rclone::*;
-pub use smart::*;
+pub use btrfs::{BtrfsSubvolume, DeletedSubvolume, FilesystemUsage, SubvolumeList};
+pub use caller::CallerInfo;
+pub use common::{
+    ByteRange, GPT_ALIGNMENT_BYTES, Usage, bytes_to_pretty, get_numeric, get_step, pretty_to_bytes,
+};
+pub use disk::{DiskEvent, DiskInfo, SmartAttribute, SmartStatus};
+pub use encryption::{EncryptionOptionsSettings, LuksInfo, LuksVersion};
+pub use filesystem::{
+    CheckResult, FilesystemInfo, FilesystemToolInfo, FilesystemType, FormatOptions, KillResult,
+    MountOptions, MountOptionsSettings, ProcessInfo, UnmountResult,
+};
+pub use lvm::{LogicalVolumeInfo, PhysicalVolumeInfo, VolumeGroupInfo};
+pub use partition::{
+    CreatePartitionInfo, PartitionInfo, PartitionTableInfo, PartitionTableType,
+    make_partition_flags_bits,
+};
+pub use partition_types::{
+    COMMON_DOS_TYPES, COMMON_GPT_TYPES, PARTITION_TYPES, PartitionTypeInfo, PartitionTypeInfoFlags,
+    get_all_partition_type_infos, get_valid_partition_names,
+};
+pub use rclone::{
+    ConfigScope, MountStatus, MountStatusResult, MountType, NetworkMount, RcloneProvider,
+    RcloneProviderOption, RcloneProviderOptionExample, RemoteConfig, RemoteConfigList, TestResult,
+    rclone_provider, rclone_providers, supported_remote_types,
+};
+pub use smart::{SmartInfo, SmartSelfTestKind};
 pub use usage_scan::{
     UsageCategory, UsageCategoryTopFiles, UsageCategoryTotal, UsageDeleteFailure,
     UsageDeleteResult, UsageScanParallelismPreset, UsageScanRequest, UsageScanResult,
     UsageTopFileEntry,
 };
-pub use volume::*;
+pub use volume::{VolumeInfo, VolumeKind, VolumeType};

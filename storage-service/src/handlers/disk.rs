@@ -11,15 +11,17 @@ use storage_types::SmartSelfTestKind;
 use zbus::message::Header as MessageHeader;
 use zbus::{Connection, interface};
 
-use crate::policies::disks::{DisksDomain, DisksPolicy};
+use crate::policies::disk::{DisksDomain, DisksPolicy};
+
+pub mod hotplug;
 
 /// D-Bus interface for disk discovery and SMART operations
-pub struct DisksHandler {
+pub struct DiskHandler {
     domain: Arc<dyn DisksDomain>,
 }
 
-impl DisksHandler {
-    /// Create a new DisksHandler
+impl DiskHandler {
+    /// Create a new DiskHandler
     pub fn new() -> Self {
         Self {
             domain: Arc::new(DisksPolicy),
@@ -58,7 +60,7 @@ impl DisksHandler {
 }
 
 #[interface(name = "org.cosmic.ext.Storage.Service.Disks")]
-impl DisksHandler {
+impl DiskHandler {
     /// Signal emitted when a disk is added to the system
     ///
     /// Args:

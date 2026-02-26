@@ -9,13 +9,11 @@ mod i18n;
 mod logging;
 mod message;
 mod models;
-mod network;
 mod state;
 mod subscriptions;
 mod update;
 mod utils;
 mod views;
-mod volumes;
 
 //#[tokio::main]
 fn main() -> cosmic::iced::Result {

@@ -7,7 +7,7 @@ use crate::errors::ui::{UiErrorContext, log_error_and_show_dialog};
 use crate::fl;
 use crate::message::dialogs::CreateMessage;
 use crate::state::dialogs::{CreatePartitionStep, FormatPartitionStep, ShowDialog};
-use crate::volumes::helpers;
+
 use storage_types::CreatePartitionInfo;
 
 use crate::state::volumes::VolumesControl;
@@ -15,7 +15,7 @@ use crate::state::volumes::VolumesControl;
 fn create_partition_step_can_advance(state: &crate::state::dialogs::CreatePartitionDialog) -> bool {
     match state.step {
         CreatePartitionStep::Basics => {
-            let filesystem_type = helpers::common_partition_filesystem_type(
+            let filesystem_type = crate::utils::partition_types::common_partition_filesystem_type(
                 &state.info.table_type,
                 state.info.selected_partition_type_index,
             );
@@ -150,7 +150,7 @@ pub(super) fn create_message(
                 // Populate filesystem_type from selected partition type index
                 if create_partition_info.filesystem_type.is_empty() {
                     create_partition_info.filesystem_type =
-                        helpers::common_partition_filesystem_type(
+                        crate::utils::partition_types::common_partition_filesystem_type(
                             &create_partition_info.table_type,
                             create_partition_info.selected_partition_type_index,
                         )
@@ -228,11 +228,12 @@ pub(super) fn create_message(
                 let info = state.info.clone();
                 return Task::perform(
                     async move {
-                        let fs_type = helpers::common_partition_filesystem_type(
-                            info.table_type.as_str(),
-                            info.selected_partition_type_index,
-                        )
-                        .ok_or_else(|| anyhow::anyhow!("Invalid filesystem selection"))?;
+                        let fs_type =
+                            crate::utils::partition_types::common_partition_filesystem_type(
+                                info.table_type.as_str(),
+                                info.selected_partition_type_index,
+                            )
+                            .ok_or_else(|| anyhow::anyhow!("Invalid filesystem selection"))?;
 
                         let filesystems_client = FilesystemsClient::new().await.map_err(|e| {
                             anyhow::anyhow!("Failed to create filesystems client: {}", e)

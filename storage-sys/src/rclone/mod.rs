@@ -8,50 +8,19 @@
 use crate::error::{Result, SysError};
 use configparser::ini::Ini;
 use std::collections::HashMap;
-use std::ffi::CString;
-use std::os::unix::ffi::OsStrExt;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::process::Command;
 use std::time::Instant;
 use storage_types::ConfigScope;
 use tracing::{debug, info, warn};
 use which::which;
 
-/// Unescape octal sequences in /proc/mounts paths (e.g. `\040` -> ` `)
-fn unescape_mount_path(s: &str) -> String {
-    let mut result = String::with_capacity(s.len());
-    let mut chars = s.chars();
-    while let Some(c) = chars.next() {
-        if c == '\\' {
-            // Try to read 3 octal digits
-            let mut octal = String::with_capacity(3);
-            for _ in 0..3 {
-                if let Some(&next) = chars.as_str().as_bytes().first() {
-                    if (b'0'..=b'7').contains(&next) {
-                        octal.push(next as char);
-                        chars.next();
-                    } else {
-                        break;
-                    }
-                }
-            }
-            if octal.len() == 3 {
-                if let Ok(byte) = u8::from_str_radix(&octal, 8) {
-                    result.push(byte as char);
-                } else {
-                    result.push('\\');
-                    result.push_str(&octal);
-                }
-            } else {
-                result.push('\\');
-                result.push_str(&octal);
-            }
-        } else {
-            result.push(c);
-        }
-    }
-    result
-}
+mod mount_state;
+mod systemd;
+mod unix_user;
+
+use mount_state::is_mounted;
+use unix_user::{chown_path, uid_gid_for_uid};
 
 /// RClone CLI wrapper for low-level operations
 pub struct RCloneCli {
@@ -162,48 +131,7 @@ impl RCloneCli {
     ///    FUSE mounts created by user systemd units that may not be visible via `mountpoint`
     ///    when checked from a root service context.
     pub fn is_mounted(mount_point: &PathBuf) -> Result<bool> {
-        debug!("Checking if {:?} is mounted", mount_point);
-
-        // Canonicalize the path for comparison, but fall back to the original if it
-        // doesn't exist on disk yet (the mount point directory may not have been created)
-        let canonical = mount_point
-            .canonicalize()
-            .unwrap_or_else(|_| mount_point.clone());
-
-        // First try: `mountpoint -q` is the most reliable for accessible paths
-        if canonical.exists() {
-            let output = Command::new("mountpoint")
-                .arg("-q")
-                .arg(&canonical)
-                .output()
-                .map_err(|e| {
-                    SysError::OperationFailed(format!("Failed to run mountpoint: {}", e))
-                })?;
-            if output.status.success() {
-                return Ok(true);
-            }
-        }
-
-        // Fallback: check /proc/mounts directly. This catches FUSE mounts that may
-        // be in a different mount namespace or not visible to `mountpoint` when run as root.
-        let mount_path_str = canonical.to_string_lossy();
-        if let Ok(mounts) = std::fs::read_to_string("/proc/mounts") {
-            for line in mounts.lines() {
-                // /proc/mounts format: device mountpoint fstype options dump pass
-                let mut fields = line.split_whitespace();
-                if let Some(_device) = fields.next()
-                    && let Some(mp) = fields.next()
-                {
-                    // Unescape octal sequences in mount paths (e.g. \040 for space)
-                    let unescaped = unescape_mount_path(mp);
-                    if unescaped == mount_path_str.as_ref() {
-                        return Ok(true);
-                    }
-                }
-            }
-        }
-
-        Ok(false)
+        is_mounted(mount_point)
     }
 
     /// Mount a remote using `rclone mount`
@@ -396,185 +324,6 @@ impl std::fmt::Debug for RCloneCli {
     }
 }
 
-const SYSTEMD_UNIT_PREFIX: &str = "storage-rclone-mount";
-
-fn systemd_unit_name(remote_name: &str) -> String {
-    format!("{}@{}.service", SYSTEMD_UNIT_PREFIX, remote_name)
-}
-
-fn systemd_template_name() -> String {
-    format!("{}@.service", SYSTEMD_UNIT_PREFIX)
-}
-
-fn systemd_unit_dir(scope: ConfigScope, home: Option<&std::path::Path>) -> Result<PathBuf> {
-    match scope {
-        ConfigScope::User => {
-            let home = home.ok_or_else(|| {
-                SysError::OperationFailed("Missing home directory for user scope".to_string())
-            })?;
-            Ok(home.join(".config/systemd/user"))
-        }
-        ConfigScope::System => Ok(PathBuf::from("/etc/systemd/system")),
-    }
-}
-
-fn systemctl_command(
-    scope: ConfigScope,
-    uid: Option<u32>,
-    home: Option<&std::path::Path>,
-) -> Command {
-    let mut command = Command::new("systemctl");
-    if scope == ConfigScope::User {
-        command.arg("--user");
-        if let Some(uid) = uid {
-            if let Some(username) = username_for_uid(uid) {
-                command.arg("--machine").arg(format!("{username}@.host"));
-            }
-            command.env("XDG_RUNTIME_DIR", format!("/run/user/{uid}"));
-        }
-        if let Some(home) = home {
-            command.env("HOME", home);
-        }
-    }
-    command
-}
-
-fn username_for_uid(uid: u32) -> Option<String> {
-    unsafe {
-        let pw = libc::getpwuid(uid);
-        if pw.is_null() {
-            return None;
-        }
-        let name = std::ffi::CStr::from_ptr((*pw).pw_name);
-        name.to_str().ok().map(|name| name.to_string())
-    }
-}
-
-fn uid_gid_for_uid(uid: u32) -> Option<(u32, u32)> {
-    unsafe {
-        let pw = libc::getpwuid(uid);
-        if pw.is_null() {
-            return None;
-        }
-        Some(((*pw).pw_uid as u32, (*pw).pw_gid as u32))
-    }
-}
-
-fn chown_path(path: &Path, uid: u32, gid: u32) -> Result<()> {
-    let c_path = CString::new(path.as_os_str().as_bytes()).map_err(|e| {
-        SysError::OperationFailed(format!("Invalid path for chown {}: {}", path.display(), e))
-    })?;
-    let result = unsafe { libc::chown(c_path.as_ptr(), uid as libc::uid_t, gid as libc::gid_t) };
-    if result != 0 {
-        return Err(SysError::OperationFailed(format!(
-            "Failed to chown {}: {}",
-            path.display(),
-            std::io::Error::last_os_error()
-        )));
-    }
-    Ok(())
-}
-
-fn run_systemctl(
-    scope: ConfigScope,
-    uid: Option<u32>,
-    home: Option<&std::path::Path>,
-    args: &[&str],
-) -> Result<String> {
-    let output = systemctl_command(scope, uid, home)
-        .args(args)
-        .output()
-        .map_err(|e| SysError::OperationFailed(format!("Failed to run systemctl: {}", e)))?;
-
-    if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(SysError::OperationFailed(format!(
-            "systemctl failed: {}",
-            stderr
-        )));
-    }
-
-    Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
-}
-
-fn build_unit_contents(
-    scope: ConfigScope,
-    rclone_path: &std::path::Path,
-    mkdir_path: &std::path::Path,
-    fusermount_path: &std::path::Path,
-) -> String {
-    let (mount_prefix, config_path, wanted_by) = match scope {
-        ConfigScope::User => (
-            "%h/mnt".to_string(),
-            "%h/.config/rclone/rclone.conf".to_string(),
-            "default.target".to_string(),
-        ),
-        ConfigScope::System => (
-            "/mnt/rclone".to_string(),
-            "/etc/rclone.conf".to_string(),
-            "multi-user.target".to_string(),
-        ),
-    };
-
-    format!(
-        "[Unit]\n\
-Description=RClone mount for %i\n\
-After=network-online.target\n\
-Wants=network-online.target\n\n\
-[Service]\n\
-Type=simple\n\
-ExecStartPre={} -p {}/%i\n\
-ExecStart={} mount %i: {}/%i --config {} --vfs-cache-mode writes\n\
-ExecStop={} -u {}/%i\n\
-Restart=on-failure\n\
-RestartSec=5\n\n\
-[Install]\n\
-WantedBy={}\n",
-        mkdir_path.display(),
-        mount_prefix,
-        rclone_path.display(),
-        mount_prefix,
-        config_path,
-        fusermount_path.display(),
-        mount_prefix,
-        wanted_by
-    )
-}
-
-fn ensure_systemd_template(
-    scope: ConfigScope,
-    home: Option<&std::path::Path>,
-    uid: Option<u32>,
-) -> Result<PathBuf> {
-    let unit_dir = systemd_unit_dir(scope, home)?;
-    if !unit_dir.exists() {
-        std::fs::create_dir_all(&unit_dir).map_err(SysError::Io)?;
-    }
-
-    let unit_path = unit_dir.join(systemd_template_name());
-
-    let rclone_path = RCloneCli::find_rclone_binary()?;
-    let mkdir_path = which("mkdir")
-        .map_err(|e| SysError::OperationFailed(format!("Failed to locate mkdir: {}", e)))?;
-    let fusermount_path = which("fusermount3")
-        .or_else(|_| which("fusermount"))
-        .map_err(|e| SysError::OperationFailed(format!("Failed to locate fusermount: {}", e)))?;
-
-    let contents = build_unit_contents(scope, &rclone_path, &mkdir_path, &fusermount_path);
-
-    let needs_write = match std::fs::read_to_string(&unit_path) {
-        Ok(existing) => existing != contents,
-        Err(_) => true,
-    };
-
-    if needs_write {
-        std::fs::write(&unit_path, contents).map_err(SysError::Io)?;
-        run_systemctl(scope, uid, home, &["daemon-reload"])?;
-    }
-
-    Ok(unit_path)
-}
-
 pub fn set_mount_on_boot(
     scope: ConfigScope,
     remote_name: &str,
@@ -582,16 +331,7 @@ pub fn set_mount_on_boot(
     uid: Option<u32>,
     home: Option<&std::path::Path>,
 ) -> Result<()> {
-    ensure_systemd_template(scope, home, uid)?;
-
-    let unit_name = systemd_unit_name(remote_name);
-    if enabled {
-        run_systemctl(scope, uid, home, &["enable", "--now", &unit_name])?;
-    } else {
-        run_systemctl(scope, uid, home, &["disable", "--now", &unit_name])?;
-    }
-
-    Ok(())
+    systemd::set_mount_on_boot(scope, remote_name, enabled, uid, home)
 }
 
 pub fn is_mount_on_boot_enabled(
@@ -600,17 +340,5 @@ pub fn is_mount_on_boot_enabled(
     uid: Option<u32>,
     home: Option<&std::path::Path>,
 ) -> Result<bool> {
-    let unit_name = systemd_unit_name(remote_name);
-    let output = systemctl_command(scope, uid, home)
-        .args(["is-enabled", &unit_name])
-        .output()
-        .map_err(|e| SysError::OperationFailed(format!("Failed to run systemctl: {}", e)))?;
-
-    if !output.status.success() {
-        return Ok(false);
-    }
-
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    let status = stdout.trim();
-    Ok(status == "enabled" || status == "enabled-runtime")
+    systemd::is_mount_on_boot_enabled(scope, remote_name, uid, home)
 }

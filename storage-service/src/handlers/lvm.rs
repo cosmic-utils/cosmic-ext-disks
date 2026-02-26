@@ -15,12 +15,12 @@ use zbus::{Connection, interface};
 use crate::policies::lvm::{LvmDomain, LvmPolicy};
 
 /// D-Bus interface for LVM management operations
-pub struct LVMHandler {
+pub struct LvmHandler {
     domain: Arc<dyn LvmDomain>,
 }
 
-impl LVMHandler {
-    /// Create a new LVMHandler
+impl LvmHandler {
+    /// Create a new LvmHandler
     pub fn new() -> Self {
         let domain: Arc<dyn LvmDomain> = Arc::new(LvmPolicy::new());
         if let Err(error) = domain.require_lvm() {
@@ -36,7 +36,7 @@ impl LVMHandler {
 }
 
 #[interface(name = "org.cosmic.ext.Storage.Service.LVM")]
-impl LVMHandler {
+impl LvmHandler {
     /// Signal emitted when a volume group is created
     #[zbus(signal)]
     async fn volume_group_created(

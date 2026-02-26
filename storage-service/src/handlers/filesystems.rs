@@ -828,7 +828,7 @@ impl FilesystemsHandler {
             }
         }
 
-        let estimate = storage_sys::usage::mounts::estimate_used_bytes_for_mounts(&mounts);
+        let estimate = storage_sys::usage::estimate_used_bytes_for_mounts(&mounts);
         let estimated_total_bytes = estimate.used_bytes.max(1);
         let scan_config = storage_sys::usage::ScanConfig {
             threads: Some(scan_threads),

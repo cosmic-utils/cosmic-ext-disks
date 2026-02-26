@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 
+use storage_types::rclone::ConfigScope;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum ProviderBrandIcon {
     GoogleDrive,
@@ -98,6 +100,20 @@ pub(crate) fn resolve_provider_icon(provider: &str) -> ProviderIcon {
             fallback_symbolic: "folder-remote-symbolic",
             text_fallback: None,
         },
+    }
+}
+
+pub(crate) fn scope_icon(scope: ConfigScope) -> &'static str {
+    match scope {
+        ConfigScope::User => "user-home-symbolic",
+        ConfigScope::System => "computer-symbolic",
+    }
+}
+
+pub(crate) fn scope_label(scope: ConfigScope) -> &'static str {
+    match scope {
+        ConfigScope::User => "User",
+        ConfigScope::System => "System",
     }
 }
 

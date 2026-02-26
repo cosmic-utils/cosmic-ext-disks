@@ -5276,16 +5276,13 @@ version = "0.2.0"
 dependencies = [
  "anyhow",
  "btrfsutil",
- "chrono",
  "clap",
  "libc",
- "serde",
  "serde_json",
  "storage-types",
  "thiserror 2.0.18",
  "tracing",
  "tracing-subscriber",
- "uuid 1.21.0",
 ]
 
 [[package]]
