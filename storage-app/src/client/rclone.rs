@@ -79,13 +79,6 @@ impl RcloneClient {
         Ok(list)
     }
 
-    /// Get detailed configuration for a specific remote
-    pub async fn get_remote(&self, name: &str, scope: &str) -> Result<RemoteConfig, ClientError> {
-        let json = self.proxy.get_remote(name, scope).await?;
-        let config: RemoteConfig = serde_json::from_str(&json)?;
-        Ok(config)
-    }
-
     /// Test connectivity and authentication for a remote
     pub async fn test_remote(&self, name: &str, scope: &str) -> Result<TestResult, ClientError> {
         let json = self.proxy.test_remote(name, scope).await?;
@@ -152,8 +145,4 @@ impl RcloneClient {
         Ok(self.proxy.delete_remote(name, scope).await?)
     }
 
-    /// Get list of supported remote types
-    pub async fn supported_remote_types(&self) -> Result<Vec<String>, ClientError> {
-        Ok(self.proxy.supported_remote_types().await?)
-    }
 }

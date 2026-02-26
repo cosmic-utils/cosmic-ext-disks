@@ -2,7 +2,7 @@
 
 use crate::client::connection::shared_connection;
 use crate::client::error::ClientError;
-use storage_types::{EncryptionOptionsSettings, LuksInfo};
+use storage_types::EncryptionOptionsSettings;
 use zbus::proxy;
 
 /// D-Bus proxy interface for LUKS encryption operations
@@ -69,25 +69,6 @@ impl LuksClient {
             .map_err(|e| ClientError::Connection(format!("Failed to create LUKS proxy: {}", e)))?;
 
         Ok(Self { proxy })
-    }
-
-    /// List all encrypted devices
-    pub async fn list_encrypted_devices(&self) -> Result<Vec<LuksInfo>, ClientError> {
-        let json = self.proxy.list_encrypted_devices().await?;
-        let devices: Vec<LuksInfo> = serde_json::from_str(&json).map_err(|e| {
-            ClientError::ParseError(format!("Failed to parse encrypted device list: {}", e))
-        })?;
-        Ok(devices)
-    }
-
-    /// Format a device with LUKS encryption (luks1 or luks2)
-    pub async fn format(
-        &self,
-        device: &str,
-        passphrase: &str,
-        version: &str,
-    ) -> Result<(), ClientError> {
-        Ok(self.proxy.format(device, passphrase, version).await?)
     }
 
     /// Unlock a LUKS volume, returns cleartext device path (e.g., /dev/mapper/luks-...)

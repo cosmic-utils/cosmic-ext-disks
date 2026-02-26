@@ -68,15 +68,9 @@ trait ImageInterface {
 /// Operation status information
 #[derive(Debug, Clone, serde::Deserialize)]
 pub struct OperationStatus {
-    pub operation_id: String,
-    pub operation_type: String,
-    pub source: String,
-    pub destination: String,
     pub bytes_completed: u64,
     pub total_bytes: u64,
     pub speed_bytes_per_sec: u64,
-    pub elapsed_seconds: u64,
-    pub is_finished: bool,
 }
 
 /// Client for disk imaging operations
@@ -180,17 +174,6 @@ impl ImageClient {
             ClientError::ParseError(format!("Failed to parse operation status: {}", e))
         })?;
         Ok(status)
-    }
-
-    /// List all active backup/restore operations
-    ///
-    /// Returns a list of operation statuses.
-    pub async fn list_active_operations(&self) -> Result<Vec<OperationStatus>, ClientError> {
-        let json = self.proxy.list_active_operations().await?;
-        let operations: Vec<OperationStatus> = serde_json::from_str(&json).map_err(|e| {
-            ClientError::ParseError(format!("Failed to parse operations list: {}", e))
-        })?;
-        Ok(operations)
     }
 
     /// Wait for an operation to complete (success or failure).

@@ -4,18 +4,10 @@
 use crate::client::connection::shared_connection;
 use crate::client::error::ClientError;
 use storage_types::{
-    FilesystemInfo, FilesystemToolInfo, MountOptionsSettings, ProcessInfo, UnmountResult,
-    UsageDeleteResult, UsageScanParallelismPreset, UsageScanResult,
+    FilesystemToolInfo, MountOptionsSettings, UnmountResult, UsageDeleteResult,
+    UsageScanParallelismPreset, UsageScanResult,
 };
 use zbus::proxy;
-
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-pub struct FilesystemUsage {
-    pub size: u64,
-    pub used: u64,
-    pub available: u64,
-    pub percent: u8,
-}
 
 /// D-Bus proxy interface for filesystem operations
 #[allow(clippy::too_many_arguments)]
@@ -164,24 +156,6 @@ impl FilesystemsClient {
         Ok(Self { proxy })
     }
 
-    /// List all filesystems
-    pub async fn list_filesystems(&self) -> Result<Vec<FilesystemInfo>, ClientError> {
-        let json = self.proxy.list_filesystems().await?;
-        let filesystems: Vec<FilesystemInfo> = serde_json::from_str(&json).map_err(|e| {
-            ClientError::ParseError(format!("Failed to parse filesystem list: {}", e))
-        })?;
-        Ok(filesystems)
-    }
-
-    /// Get list of supported filesystem types
-    pub async fn get_supported_filesystems(&self) -> Result<Vec<String>, ClientError> {
-        let json = self.proxy.get_supported_filesystems().await?;
-        let types: Vec<String> = serde_json::from_str(&json).map_err(|e| {
-            ClientError::ParseError(format!("Failed to parse filesystem types: {}", e))
-        })?;
-        Ok(types)
-    }
-
     /// Get detailed filesystem tool information
     pub async fn get_filesystem_tools(&self) -> Result<Vec<FilesystemToolInfo>, ClientError> {
         let json = self.proxy.get_filesystem_tools().await?;
@@ -234,17 +208,6 @@ impl FilesystemsClient {
         Ok(result)
     }
 
-    /// Get processes blocking unmount
-    pub async fn get_blocking_processes(
-        &self,
-        device_or_mount: &str,
-    ) -> Result<Vec<ProcessInfo>, ClientError> {
-        let json = self.proxy.get_blocking_processes(device_or_mount).await?;
-        let processes: Vec<ProcessInfo> = serde_json::from_str(&json)
-            .map_err(|e| ClientError::ParseError(format!("Failed to parse process list: {}", e)))?;
-        Ok(processes)
-    }
-
     /// Check and repair a filesystem
     pub async fn check(&self, device: &str, repair: bool) -> Result<String, ClientError> {
         Ok(self.proxy.check(device, repair).await?)
@@ -253,14 +216,6 @@ impl FilesystemsClient {
     /// Set filesystem label
     pub async fn set_label(&self, device: &str, label: &str) -> Result<(), ClientError> {
         Ok(self.proxy.set_label(device, label).await?)
-    }
-
-    /// Get filesystem usage statistics
-    pub async fn get_usage(&self, mount_point: &str) -> Result<FilesystemUsage, ClientError> {
-        let json = self.proxy.get_usage(mount_point).await?;
-        let usage: FilesystemUsage = serde_json::from_str(&json)
-            .map_err(|e| ClientError::ParseError(format!("Failed to parse usage stats: {}", e)))?;
-        Ok(usage)
     }
 
     /// Run a global usage scan and return categorized usage with top files.

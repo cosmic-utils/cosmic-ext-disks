@@ -66,6 +66,7 @@ pub struct UiDrive {
     filesystems_client: Arc<crate::client::FilesystemsClient>,
 }
 
+#[allow(dead_code)]
 impl UiDrive {
     /// Create a new UiDrive, loading initial data from storage-service
     ///
@@ -136,39 +137,6 @@ impl UiDrive {
             .list_partitions(&self.disk.device)
             .await?;
         Ok(())
-    }
-
-    /// Atomically refresh a single volume by device path
-    ///
-    /// This is much faster than refreshing the entire tree (3-5x speedup).
-    /// Returns true if the volume was found and updated, false if not found.
-    ///
-    /// # Example
-    /// ```no_run
-    /// // After mounting /dev/sda1
-    /// if drive.refresh_volume("/dev/sda1").await? {
-    ///     // Volume was updated atomically
-    /// } else {
-    ///     // Volume not found, fall back to full refresh
-    ///     drive.refresh_volumes().await?;
-    /// }
-    /// ```
-    pub async fn refresh_volume(&mut self, device: &str) -> Result<bool, ClientError> {
-        match self.client.get_volume_info(device).await {
-            Ok(updated_vol_info) => {
-                // Find the volume in the tree and update it
-                for root in &mut self.volumes {
-                    if root.update_volume(device, &updated_vol_info) {
-                        return Ok(true);
-                    }
-                }
-                Ok(false)
-            }
-            Err(e) => {
-                tracing::warn!("Failed to atomically refresh volume {}: {}", device, e);
-                Ok(false)
-            }
-        }
     }
 
     /// Add a partition to the tree after creation

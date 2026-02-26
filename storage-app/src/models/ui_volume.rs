@@ -26,6 +26,7 @@ pub struct UiVolume {
     client: Arc<FilesystemsClient>,
 }
 
+#[allow(dead_code)]
 impl UiVolume {
     /// Create a new UiVolume from VolumeInfo
     ///

@@ -107,20 +107,6 @@ impl PartitionsClient {
         Ok(self.proxy.create_partition_table(disk, table_type).await?)
     }
 
-    /// Create a new partition, returns the device path (e.g., /dev/sda1)
-    pub async fn create_partition(
-        &self,
-        disk: &str,
-        offset: u64,
-        size: u64,
-        type_id: &str,
-    ) -> Result<String, ClientError> {
-        Ok(self
-            .proxy
-            .create_partition(disk, offset, size, type_id)
-            .await?)
-    }
-
     /// Create a new partition with filesystem formatting (all-in-one)
     /// This handles partition creation, optional LUKS encryption, and filesystem formatting.
     pub async fn create_partition_with_filesystem(

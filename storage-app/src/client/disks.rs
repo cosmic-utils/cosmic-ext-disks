@@ -110,16 +110,6 @@ impl DisksClient {
         Ok(volumes)
     }
 
-    /// Get information about a specific volume
-    ///
-    /// This supports atomic updates - query a single volume instead of refreshing the entire list.
-    pub async fn get_volume_info(&self, device: &str) -> Result<VolumeInfo, ClientError> {
-        let json = self.proxy.get_volume_info(device).await?;
-        let volume: VolumeInfo = serde_json::from_str(&json)
-            .map_err(|e| ClientError::ParseError(format!("Failed to parse volume info: {}", e)))?;
-        Ok(volume)
-    }
-
     /// Get SMART status for a disk
     pub async fn get_smart_status(&self, device: &str) -> Result<SmartStatus, ClientError> {
         let json = self.proxy.get_smart_status(device).await?;
@@ -143,13 +133,6 @@ impl DisksClient {
     /// Start a SMART self-test (short, long, or conveyance)
     pub async fn start_smart_test(&self, device: &str, test_type: &str) -> Result<(), ClientError> {
         Ok(self.proxy.start_smart_test(device, test_type).await?)
-    }
-
-    /// Eject removable media (optical drives, USB sticks)
-    ///
-    /// Requires no authentication for active sessions.
-    pub async fn eject(&self, device: &str) -> Result<(), ClientError> {
-        Ok(self.proxy.eject(device).await?)
     }
 
     /// Power off an external drive

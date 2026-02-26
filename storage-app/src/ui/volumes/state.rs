@@ -108,6 +108,7 @@ pub struct VolumesControl {
 pub struct Segment {
     pub label: String,
     pub name: String,
+    #[allow(dead_code)]
     pub partition_type: String,
     pub size: u64,
     pub offset: u64,

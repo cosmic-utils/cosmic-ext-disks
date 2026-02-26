@@ -9,7 +9,6 @@ pub mod error;
 pub mod filesystems;
 pub mod image;
 pub mod luks;
-pub mod lvm;
 pub mod partitions;
 pub mod rclone;
 

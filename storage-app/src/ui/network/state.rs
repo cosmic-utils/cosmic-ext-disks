@@ -336,6 +336,7 @@ impl NetworkState {
     }
 
     /// Get a mutable mount by name and scope
+    #[allow(dead_code)]
     pub fn get_mount_mut(
         &mut self,
         name: &str,
@@ -377,6 +378,7 @@ impl NetworkState {
     }
 
     /// Get list of remotes sorted by name
+    #[allow(dead_code)]
     pub fn sorted_mounts(&self) -> Vec<&NetworkMountState> {
         let mut mounts: Vec<_> = self.mounts.values().collect();
         mounts.sort_by(|a, b| {
@@ -391,6 +393,7 @@ impl NetworkState {
     }
 
     /// Get user-scope remotes only
+    #[allow(dead_code)]
     pub fn user_mounts(&self) -> Vec<&NetworkMountState> {
         let mut mounts: Vec<_> = self
             .mounts
@@ -402,6 +405,7 @@ impl NetworkState {
     }
 
     /// Get system-scope remotes only
+    #[allow(dead_code)]
     pub fn system_mounts(&self) -> Vec<&NetworkMountState> {
         let mut mounts: Vec<_> = self
             .mounts
