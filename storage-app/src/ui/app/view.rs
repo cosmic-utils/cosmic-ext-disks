@@ -4,16 +4,16 @@ use crate::fl;
 use crate::models::{UiDrive, UiVolume};
 use crate::ui::btrfs::btrfs_management_section;
 use crate::ui::dialogs::state::{DeletePartitionDialog, ShowDialog};
-use crate::ui::dialogs::view as dialogs;
 use crate::ui::network::NetworkMessage;
-use crate::ui::network::view::network_main_view;
-use crate::ui::sidebar;
 use crate::ui::volumes::{DetailTab, VolumesControl, VolumesControlMessage, disk_header, helpers};
 use crate::controls::wizard::{
     option_tile_grid, selectable_tile, wizard_action_row, wizard_shell,
 };
 use crate::utils::DiskSegmentKind;
+use crate::views::dialogs;
+use crate::views::network::network_main_view;
 use crate::views::settings::{settings, settings_footer};
+use crate::views::sidebar;
 use cosmic::app::context_drawer as cosmic_context_drawer;
 use cosmic::cosmic_theme::palette::WithAlpha;
 use cosmic::iced::Color;
@@ -260,7 +260,7 @@ pub(crate) fn nav_bar(app: &AppModel) -> Option<Element<'_, cosmic::Action<Messa
 
     let controls_enabled = app.dialog.is_none();
 
-    let mut nav = sidebar::view::sidebar(&app.nav, &app.sidebar, &app.network, controls_enabled)
+    let mut nav = sidebar::sidebar(&app.nav, &app.sidebar, &app.network, controls_enabled)
         .map(Into::into)
         .apply(widget::container)
         .padding(8)
