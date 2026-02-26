@@ -5,7 +5,6 @@
 //! This module provides D-Bus methods for managing LUKS encrypted volumes.
 
 use std::sync::Arc;
-use storage_contracts::LuksOpsAdapter;
 use storage_macros::authorized_interface;
 use storage_types::EncryptionOptionsSettings;
 use zbus::message::Header as MessageHeader;
@@ -15,15 +14,13 @@ use crate::policies::luks::{LuksDomain, LuksPolicy};
 
 /// D-Bus interface for LUKS encryption operations
 pub struct LuksHandler {
-    luks_ops: Arc<dyn LuksOpsAdapter>,
     domain: Arc<dyn LuksDomain>,
 }
 
 impl LuksHandler {
     /// Create a new LuksHandler
-    pub fn new(luks_ops: Arc<dyn LuksOpsAdapter>) -> Self {
+    pub fn new() -> Self {
         Self {
-            luks_ops,
             domain: Arc::new(LuksPolicy),
         }
     }
@@ -67,7 +64,7 @@ impl LuksHandler {
         tracing::debug!("Listing encrypted devices (UID {})", caller.uid);
 
         // Delegate to storage-udisks operation
-        let luks_devices = self.luks_ops.list_luks_devices().await.map_err(|e| {
+        let luks_devices = storage_udisks::list_luks_devices().await.map_err(|e| {
             tracing::error!("Failed to list encrypted devices: {e}");
             zbus::fdo::Error::Failed(format!("Failed to list encrypted devices: {e}"))
         })?;
@@ -107,8 +104,7 @@ impl LuksHandler {
         let luks_version = self.domain.normalize_luks_version(&version)?;
 
         // Delegate to storage-udisks operation
-        self.luks_ops
-            .format_luks(&device, &passphrase, luks_version)
+        storage_udisks::format_luks(&device, &passphrase, luks_version)
             .await
             .map_err(|e| {
                 tracing::error!("LUKS format failed: {e}");
@@ -141,9 +137,7 @@ impl LuksHandler {
         tracing::info!("Unlocking LUKS device '{}' (UID {})", device, caller.uid);
 
         // Delegate to storage-udisks operation
-        let cleartext_device = self
-            .luks_ops
-            .unlock_luks(&device, &passphrase)
+        let cleartext_device = storage_udisks::unlock_luks(&device, &passphrase)
             .await
             .map_err(|e| {
                 tracing::error!("Unlock failed: {e}");
@@ -176,7 +170,7 @@ impl LuksHandler {
         tracing::info!("Locking LUKS device '{}' (UID {})", device, caller.uid);
 
         // Delegate to storage-udisks operation
-        self.luks_ops.lock_luks(&device).await.map_err(|e| {
+        storage_udisks::lock_luks(&device).await.map_err(|e| {
             tracing::error!("Lock failed: {e}");
             zbus::fdo::Error::Failed(format!("Lock failed: {e}"))
         })?;
@@ -210,8 +204,7 @@ impl LuksHandler {
         );
 
         // Delegate to storage-udisks operation
-        self.luks_ops
-            .change_luks_passphrase(&device, &current_passphrase, &new_passphrase)
+        storage_udisks::change_luks_passphrase(&device, &current_passphrase, &new_passphrase)
             .await
             .map_err(|e| {
                 tracing::error!("Change passphrase failed: {e}");
@@ -245,9 +238,7 @@ impl LuksHandler {
         );
 
         // Delegate to storage-udisks operation
-        let settings = self
-            .luks_ops
-            .get_encryption_options(&device)
+        let settings = storage_udisks::get_encryption_options(&device)
             .await
             .map_err(|e| {
                 tracing::error!("Failed to get encryption options: {e}");
@@ -285,8 +276,7 @@ impl LuksHandler {
             .map_err(|e| zbus::fdo::Error::InvalidArgs(format!("Invalid options JSON: {e}")))?;
 
         // Delegate to storage-udisks operation
-        self.luks_ops
-            .set_encryption_options(&device, &settings)
+        storage_udisks::set_encryption_options(&device, &settings)
             .await
             .map_err(|e| {
                 tracing::error!("Failed to set encryption options: {e}");
@@ -314,8 +304,7 @@ impl LuksHandler {
         );
 
         // Delegate to storage-udisks operation
-        self.luks_ops
-            .clear_encryption_options(&device)
+        storage_udisks::clear_encryption_options(&device)
             .await
             .map_err(|e| {
                 tracing::error!("Failed to clear encryption options: {e}");

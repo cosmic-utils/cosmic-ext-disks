@@ -6,7 +6,6 @@
 //! including creating/deleting partitions and partition tables.
 
 use std::sync::Arc;
-use storage_contracts::PartitionOpsAdapter;
 use storage_macros::authorized_interface;
 use zbus::message::Header as MessageHeader;
 use zbus::{Connection, interface};
@@ -15,15 +14,13 @@ use crate::policies::partitions::{PartitionsDomain, PartitionsPolicy};
 
 /// D-Bus interface for partition management operations
 pub struct PartitionsHandler {
-    partition_ops: Arc<dyn PartitionOpsAdapter>,
     domain: Arc<dyn PartitionsDomain>,
 }
 
 impl PartitionsHandler {
     /// Create a new PartitionsHandler
-    pub fn new(partition_ops: Arc<dyn PartitionOpsAdapter>) -> Self {
+    pub fn new() -> Self {
         Self {
-            partition_ops,
             domain: Arc::new(PartitionsPolicy),
         }
     }
@@ -100,9 +97,12 @@ impl PartitionsHandler {
     ) -> zbus::fdo::Result<String> {
         tracing::debug!("Listing partitions for disk: {disk} (UID {})", caller.uid);
 
-        let disk_volumes = self
-            .partition_ops
-            .list_disks_with_partitions()
+        let manager = storage_udisks::DiskManager::new().await.map_err(|e| {
+            tracing::error!("Failed to initialize disk manager: {e}");
+            zbus::fdo::Error::Failed(format!("Failed to initialize disk manager: {e}"))
+        })?;
+
+        let disk_volumes = storage_udisks::disk::get_disks_with_partitions(&manager)
             .await
             .map_err(|e| {
                 tracing::error!("Failed to get drives: {e}");
@@ -161,17 +161,14 @@ impl PartitionsHandler {
 
         let disk_device = self.domain.normalize_disk_device(&disk);
 
-        let block_path = self
-            .partition_ops
-            .resolve_block_path_for_device(&disk_device)
+        let block_path = storage_udisks::block_object_path_for_device(&disk_device)
             .await
             .map_err(|e| {
                 tracing::error!("Failed to resolve device: {e}");
                 zbus::fdo::Error::Failed(format!("Device not found: {e}"))
             })?;
 
-        self.partition_ops
-            .create_partition_table(block_path.as_str(), &normalized_type)
+        storage_udisks::create_partition_table(block_path.as_str(), &normalized_type)
             .await
             .map_err(|e| {
                 tracing::error!("Failed to create partition table: {e}");
@@ -220,23 +217,20 @@ impl PartitionsHandler {
 
         let disk_device = self.domain.normalize_disk_device(&disk);
 
-        let block_path = self
-            .partition_ops
-            .resolve_block_path_for_device(&disk_device)
+        let block_path = storage_udisks::block_object_path_for_device(&disk_device)
             .await
             .map_err(|e| {
                 tracing::error!("Failed to resolve device: {e}");
                 zbus::fdo::Error::Failed(format!("Device not found: {e}"))
             })?;
 
-        let device_path = self
-            .partition_ops
-            .create_partition(block_path.as_str(), offset, size, &type_id)
-            .await
-            .map_err(|e| {
-                tracing::error!("Failed to create partition: {e}");
-                zbus::fdo::Error::Failed(format!("Failed to create partition: {e}"))
-            })?;
+        let device_path =
+            storage_udisks::create_partition(block_path.as_str(), offset, size, &type_id)
+                .await
+                .map_err(|e| {
+                    tracing::error!("Failed to create partition: {e}");
+                    zbus::fdo::Error::Failed(format!("Failed to create partition: {e}"))
+                })?;
 
         tracing::info!("Successfully created partition: {}", device_path);
         let partition_info_json = serde_json::to_string(&storage_types::PartitionInfo {
@@ -299,23 +293,20 @@ impl PartitionsHandler {
 
         let disk_device = self.domain.normalize_disk_device(&disk);
 
-        let block_path = self
-            .partition_ops
-            .resolve_block_path_for_device(&disk_device)
+        let block_path = storage_udisks::block_object_path_for_device(&disk_device)
             .await
             .map_err(|e| {
                 tracing::error!("Failed to resolve device: {e}");
                 zbus::fdo::Error::Failed(format!("Device not found: {e}"))
             })?;
 
-        let device_path = self
-            .partition_ops
-            .create_partition_with_filesystem(block_path.as_str(), &info)
-            .await
-            .map_err(|e| {
-                tracing::error!("Failed to create partition with filesystem: {e}");
-                zbus::fdo::Error::Failed(format!("Failed to create partition: {e}"))
-            })?;
+        let device_path =
+            storage_udisks::create_partition_with_filesystem(block_path.as_str(), &info)
+                .await
+                .map_err(|e| {
+                    tracing::error!("Failed to create partition with filesystem: {e}");
+                    zbus::fdo::Error::Failed(format!("Failed to create partition: {e}"))
+                })?;
 
         tracing::info!(
             "Successfully created partition with filesystem: {}",
@@ -369,8 +360,7 @@ impl PartitionsHandler {
         let partition_path = self.find_partition_path(&partition).await?;
 
         // Delegate to storage-udisks operation
-        self.partition_ops
-            .delete_partition(&partition_path)
+        storage_udisks::delete_partition(&partition_path)
             .await
             .map_err(|e| {
                 tracing::error!("Failed to delete partition: {e}");
@@ -412,8 +402,7 @@ impl PartitionsHandler {
         let partition_path = self.find_partition_path(&partition).await?;
 
         // Delegate to storage-udisks operation
-        self.partition_ops
-            .resize_partition(&partition_path, new_size)
+        storage_udisks::resize_partition(&partition_path, new_size)
             .await
             .map_err(|e| {
                 tracing::error!("Failed to resize partition: {e}");
@@ -455,8 +444,7 @@ impl PartitionsHandler {
         let partition_path = self.find_partition_path(&partition).await?;
 
         // Delegate to storage-udisks operation
-        self.partition_ops
-            .set_partition_type(&partition_path, &type_id)
+        storage_udisks::set_partition_type(&partition_path, &type_id)
             .await
             .map_err(|e| {
                 tracing::error!("Failed to set partition type: {e}");
@@ -498,8 +486,7 @@ impl PartitionsHandler {
         let partition_path = self.find_partition_path(&partition).await?;
 
         // Delegate to storage-udisks operation
-        self.partition_ops
-            .set_partition_flags(&partition_path, flags)
+        storage_udisks::set_partition_flags(&partition_path, flags)
             .await
             .map_err(|e| {
                 tracing::error!("Failed to set partition flags: {e}");
@@ -550,8 +537,7 @@ impl PartitionsHandler {
         let partition_path = self.find_partition_path(&partition).await?;
 
         // Delegate to storage-udisks operation
-        self.partition_ops
-            .set_partition_name(&partition_path, &name)
+        storage_udisks::set_partition_name(&partition_path, &name)
             .await
             .map_err(|e| {
                 tracing::error!("Failed to set partition name: {e}");
@@ -576,8 +562,7 @@ impl PartitionsHandler {
         } else {
             format!("/dev/{}", partition)
         };
-        self.partition_ops
-            .resolve_block_path_for_device(&device)
+        storage_udisks::block_object_path_for_device(&device)
             .await
             .map_err(|e| {
                 tracing::warn!("Partition not found: {} - {}", partition, e);

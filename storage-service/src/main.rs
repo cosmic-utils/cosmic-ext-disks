@@ -9,15 +9,12 @@ use anyhow::Result;
 use tracing_subscriber::{EnvFilter, fmt};
 use zbus::connection::Builder as ConnectionBuilder;
 
-mod adapters;
 mod auth;
-mod policies;
 mod error;
-mod protected_paths;
-mod routing;
 mod handlers;
+mod policies;
+mod protected_paths;
 
-use routing::{AdapterRegistry, Concern};
 use handlers::btrfs::BtrfsHandler;
 use handlers::disks::DisksHandler;
 use handlers::filesystems::FilesystemsHandler;
@@ -50,23 +47,8 @@ async fn main() -> Result<()> {
         anyhow::bail!("Service must run with root privileges");
     }
 
-    // Build fixed adapter routing at startup and fail fast if required concerns are missing.
-    let adapters = AdapterRegistry::build_default().await?;
-    tracing::info!(
-        "Adapter routing: Disks -> {}, Partitions -> {}, Filesystems -> {}, Luks -> {}, Image -> {}",
-        adapters.route_for(Concern::Disks).unwrap_or("<missing>"),
-        adapters
-            .route_for(Concern::Partitions)
-            .unwrap_or("<missing>"),
-        adapters
-            .route_for(Concern::Filesystems)
-            .unwrap_or("<missing>"),
-        adapters.route_for(Concern::Luks).unwrap_or("<missing>"),
-        adapters.route_for(Concern::Image).unwrap_or("<missing>")
-    );
-
     // Build D-Bus connection with socket activation support
-    let disks_handler = DisksHandler::new(adapters.disk_query(), adapters.disk_ops());
+    let disks_handler = DisksHandler::new();
 
     // Create RcloneHandler (rclone binary must be installed)
     let rclone_handler = match RcloneHandler::new() {
@@ -84,21 +66,15 @@ async fn main() -> Result<()> {
         .serve_at("/org/cosmic/ext/Storage/Service/disks", disks_handler)?
         .serve_at(
             "/org/cosmic/ext/Storage/Service/partitions",
-            PartitionsHandler::new(adapters.partition_ops()),
+            PartitionsHandler::new(),
         )?
         .serve_at(
             "/org/cosmic/ext/Storage/Service/filesystems",
-            FilesystemsHandler::new(adapters.filesystem_ops())?,
+            FilesystemsHandler::new()?,
         )?
         .serve_at("/org/cosmic/ext/Storage/Service/lvm", LVMHandler::new())?
-        .serve_at(
-            "/org/cosmic/ext/Storage/Service/luks",
-            LuksHandler::new(adapters.luks_ops()),
-        )?
-        .serve_at(
-            "/org/cosmic/ext/Storage/Service/image",
-            ImageHandler::new(adapters.image_ops()),
-        )?;
+        .serve_at("/org/cosmic/ext/Storage/Service/luks", LuksHandler::new())?
+        .serve_at("/org/cosmic/ext/Storage/Service/image", ImageHandler::new())?;
 
     // Conditionally serve RClone interface if available
     if let Some(handler) = rclone_handler {
@@ -123,7 +99,6 @@ async fn main() -> Result<()> {
     handlers::disks::monitor_hotplug_events(
         connection.clone(),
         "/org/cosmic/ext/Storage/Service/disks",
-        adapters.disk_query(),
     )
     .await?;
     tracing::info!("Disk hotplug monitoring enabled");

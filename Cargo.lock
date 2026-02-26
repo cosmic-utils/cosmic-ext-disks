@@ -5323,7 +5323,6 @@ dependencies = [
  "serde",
  "serde_json",
  "storage-btrfs",
- "storage-contracts",
  "storage-macros",
  "storage-types",
  "storage-udisks",

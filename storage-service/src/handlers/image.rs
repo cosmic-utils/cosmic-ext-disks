@@ -9,7 +9,6 @@ use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::Instant;
-use storage_contracts::ImageOpsAdapter;
 use storage_macros::authorized_interface;
 use tokio::sync::Mutex;
 use tokio::task::JoinHandle;
@@ -64,15 +63,13 @@ struct OperationState {
 /// Image operations handler with operation tracking
 pub struct ImageHandler {
     active_operations: Arc<Mutex<HashMap<String, OperationState>>>,
-    image_ops: Arc<dyn ImageOpsAdapter>,
     domain: Arc<dyn ImageDomain>,
 }
 
 impl ImageHandler {
-    pub fn new(image_ops: Arc<dyn ImageOpsAdapter>) -> Self {
+    pub fn new() -> Self {
         Self {
             active_operations: Arc::new(Mutex::new(HashMap::new())),
-            image_ops,
             domain: Arc::new(ImagePolicy),
         }
     }
@@ -84,7 +81,6 @@ impl ImageHandler {
 
     /// Background task for backup operation
     async fn backup_task(
-        image_ops: Arc<dyn ImageOpsAdapter>,
         device_path: String,
         output_path: String,
         cancel_token: CancellationToken,
@@ -96,8 +92,7 @@ impl ImageHandler {
         }
 
         // Open source device (privileged) via storage-udisks
-        let source_fd = image_ops
-            .open_for_backup_by_device(&device_path)
+        let source_fd = storage_udisks::open_for_backup_by_device(&device_path)
             .await
             .map_err(|e| format!("Failed to open source device: {e}"))?;
 
@@ -161,7 +156,6 @@ impl ImageHandler {
 
     /// Background task for restore operation
     async fn restore_task(
-        image_ops: Arc<dyn ImageOpsAdapter>,
         input_path: String,
         device_path: String,
         cancel_token: CancellationToken,
@@ -185,8 +179,7 @@ impl ImageHandler {
         }
 
         // Open destination device (privileged) via storage-udisks
-        let dest_fd = image_ops
-            .open_for_restore_by_device(&device_path)
+        let dest_fd = storage_udisks::open_for_restore_by_device(&device_path)
             .await
             .map_err(|e| format!("Failed to open destination device: {e}"))?;
 
@@ -284,13 +277,11 @@ impl ImageHandler {
         // Spawn background task
         let task_cancel = cancel_token.clone();
         let task_progress = progress.clone();
-        let task_image_ops = self.image_ops.clone();
         let task_output_path = output_path.clone();
         let task_device_path = device_path.clone();
 
         let handle = tokio::spawn(async move {
             Self::backup_task(
-                task_image_ops,
                 task_device_path,
                 task_output_path,
                 task_cancel,
@@ -374,13 +365,11 @@ impl ImageHandler {
 
         let task_progress = progress.clone();
         let task_cancel = cancel_token.clone();
-        let task_image_ops = self.image_ops.clone();
         let task_output_path = output_path.clone();
         let task_device_path = device_path.clone();
 
         let handle = tokio::spawn(async move {
             Self::backup_task(
-                task_image_ops,
                 task_device_path,
                 task_output_path,
                 task_cancel,
@@ -466,13 +455,11 @@ impl ImageHandler {
 
         let task_progress = progress.clone();
         let task_cancel = cancel_token.clone();
-        let task_image_ops = self.image_ops.clone();
         let task_image_path = image_path.clone();
         let task_device_path = device_path.clone();
 
         let handle = tokio::spawn(async move {
             Self::restore_task(
-                task_image_ops,
                 task_image_path,
                 task_device_path,
                 task_cancel,
@@ -558,13 +545,11 @@ impl ImageHandler {
 
         let task_progress = progress.clone();
         let task_cancel = cancel_token.clone();
-        let task_image_ops = self.image_ops.clone();
         let task_image_path = image_path.clone();
         let task_device_path = device_path.clone();
 
         let handle = tokio::spawn(async move {
             Self::restore_task(
-                task_image_ops,
                 task_image_path,
                 task_device_path,
                 task_cancel,
@@ -628,9 +613,7 @@ impl ImageHandler {
         }
 
         // Call storage-udisks loop_setup_device_path (returns device path directly)
-        let device_path = self
-            .image_ops
-            .loop_setup_device_path(&image_path)
+        let device_path = storage_udisks::loop_setup_device_path(&image_path)
             .await
             .map_err(|e| {
                 tracing::error!("Loop setup failed: {e}");

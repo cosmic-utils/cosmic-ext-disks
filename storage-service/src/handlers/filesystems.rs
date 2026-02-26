@@ -13,7 +13,6 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::sync::mpsc;
 use std::time::Duration;
-use storage_contracts::FilesystemOpsAdapter;
 use storage_macros::authorized_interface;
 use storage_types::{
     CheckResult, FilesystemInfo, FilesystemToolInfo, FormatOptions, MountOptions,
@@ -31,15 +30,13 @@ pub struct FilesystemsHandler {
     supported_tools: Vec<String>,
     /// Detailed filesystem tool information
     filesystem_tools: Vec<FilesystemToolInfo>,
-    /// Adapter for filesystem and disk operations
-    filesystem_ops: Arc<dyn FilesystemOpsAdapter>,
     /// Domain delegate for feature/capability policies
     domain: Arc<dyn FilesystemsDomain>,
 }
 
 impl FilesystemsHandler {
     /// Create a new FilesystemsHandler and detect available tools
-    pub fn new(filesystem_ops: Arc<dyn FilesystemOpsAdapter>) -> anyhow::Result<Self> {
+    pub fn new() -> anyhow::Result<Self> {
         let domain: Arc<dyn FilesystemsDomain> = Arc::new(FilesystemsPolicy);
         let filesystem_tools = domain.detect_all_filesystem_tools();
         let supported_tools: Vec<String> = filesystem_tools
@@ -50,7 +47,6 @@ impl FilesystemsHandler {
         Ok(Self {
             supported_tools,
             filesystem_tools,
-            filesystem_ops,
             domain,
         })
     }
@@ -272,9 +268,12 @@ impl FilesystemsHandler {
         tracing::debug!("Listing filesystems for UID {}", caller.uid);
 
         // Get all drives using cached connection
-        let drives = self
-            .filesystem_ops
-            .list_disks_with_volumes()
+        let manager = storage_udisks::DiskManager::new().await.map_err(|e| {
+            tracing::error!("Failed to initialize disk manager: {e}");
+            zbus::fdo::Error::Failed(format!("Failed to initialize disk manager: {e}"))
+        })?;
+
+        let drives = storage_udisks::disk::get_disks_with_volumes(&manager)
             .await
             .map_err(|e| {
                 tracing::error!("Failed to get drives: {e}");
@@ -312,9 +311,7 @@ impl FilesystemsHandler {
             let mut batch = Vec::new();
             collect_volumes(volumes, &mut batch);
             for mut fs in batch {
-                fs.label = self
-                    .filesystem_ops
-                    .get_filesystem_label(&fs.device)
+                fs.label = storage_udisks::get_filesystem_label(&fs.device)
                     .await
                     .unwrap_or_default();
                 filesystems.push(fs);
@@ -412,8 +409,7 @@ impl FilesystemsHandler {
         let options: FormatOptions = serde_json::from_str(&options_json).unwrap_or_default();
 
         // Delegate to storage-udisks operation
-        self.filesystem_ops
-            .format_filesystem(&device, &fs_type, &label, options)
+        storage_udisks::format_filesystem(&device, &fs_type, &label, options)
             .await
             .map_err(|e| {
                 tracing::error!("Failed to format device: {e}");
@@ -460,14 +456,13 @@ impl FilesystemsHandler {
         let mount_opts: MountOptions = serde_json::from_str(&options_json).unwrap_or_default();
 
         // Delegate to storage-udisks operation with caller UID
-        let actual_mount_point = self
-            .filesystem_ops
-            .mount_filesystem(&device, &mount_point, mount_opts, Some(caller.uid))
-            .await
-            .map_err(|e| {
-                tracing::error!("Failed to mount filesystem: {e}");
-                zbus::fdo::Error::Failed(format!("Failed to mount filesystem: {e}"))
-            })?;
+        let actual_mount_point =
+            storage_udisks::mount_filesystem(&device, &mount_point, mount_opts, Some(caller.uid))
+                .await
+                .map_err(|e| {
+                    tracing::error!("Failed to mount filesystem: {e}");
+                    zbus::fdo::Error::Failed(format!("Failed to mount filesystem: {e}"))
+                })?;
 
         tracing::info!("Successfully mounted at: {}", actual_mount_point);
         let _ = Self::mounted(&signal_ctx, &device, &actual_mount_point).await;
@@ -506,8 +501,7 @@ impl FilesystemsHandler {
         // Determine if input is device or mount point (for finding processes later)
         let mount_point = if device_or_mount.starts_with("/dev/") {
             // It's a device, get mount point via storage-udisks
-            self.filesystem_ops
-                .get_mount_point(&device_or_mount)
+            storage_udisks::get_mount_point(&device_or_mount)
                 .await
                 .unwrap_or_else(|_| device_or_mount.clone())
         } else {
@@ -516,10 +510,7 @@ impl FilesystemsHandler {
         };
 
         // Attempt unmount via storage-udisks operation
-        let unmount_result = self
-            .filesystem_ops
-            .unmount_filesystem(&device_or_mount, force)
-            .await;
+        let unmount_result = storage_udisks::unmount_filesystem(&device_or_mount, force).await;
 
         match unmount_result {
             Ok(_) => {
@@ -545,9 +536,7 @@ impl FilesystemsHandler {
                     tracing::warn!("Unmount failed: device busy");
 
                     // Find blocking processes
-                    let processes = self
-                        .filesystem_ops
-                        .find_processes_using_mount(&mount_point)
+                    let processes = storage_udisks::find_processes_using_mount(&mount_point)
                         .await
                         .unwrap_or_default();
 
@@ -608,17 +597,13 @@ impl FilesystemsHandler {
                         let pids: Vec<i32> = processes.iter().map(|p| p.pid).collect();
                         tracing::info!("Killing {} blocking processes", pids.len());
 
-                        let _ = self.filesystem_ops.kill_processes(&pids).await;
+                        let _ = storage_udisks::kill_processes(&pids);
 
                         // Wait a moment for processes to die
                         tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
 
                         // Retry unmount via storage-udisks
-                        match self
-                            .filesystem_ops
-                            .unmount_filesystem(&device_or_mount, force)
-                            .await
-                        {
+                        match storage_udisks::unmount_filesystem(&device_or_mount, force).await {
                             Ok(_) => {
                                 tracing::info!("Successfully unmounted after killing processes");
 
@@ -710,8 +695,7 @@ impl FilesystemsHandler {
 
         // Determine mount point via storage-udisks
         let mount_point = if device_or_mount.starts_with("/dev/") {
-            self.filesystem_ops
-                .get_mount_point(&device_or_mount)
+            storage_udisks::get_mount_point(&device_or_mount)
                 .await
                 .map_err(|e| {
                     tracing::error!("Failed to get mount point: {e}");
@@ -722,9 +706,7 @@ impl FilesystemsHandler {
         };
 
         // Find blocking processes
-        let processes = self
-            .filesystem_ops
-            .find_processes_using_mount(&mount_point)
+        let processes = storage_udisks::find_processes_using_mount(&mount_point)
             .await
             .map_err(|e| {
                 tracing::error!("Failed to find processes: {e}");
@@ -774,9 +756,7 @@ impl FilesystemsHandler {
         self.domain.require_filesystem_check_support()?;
 
         // Delegate to storage-udisks operation
-        let clean = self
-            .filesystem_ops
-            .check_filesystem(&device, repair)
+        let clean = storage_udisks::check_filesystem(&device, repair)
             .await
             .map_err(|e| {
                 tracing::error!("Filesystem check failed: {e}");
@@ -826,8 +806,7 @@ impl FilesystemsHandler {
         );
 
         // Delegate to storage-udisks operation
-        self.filesystem_ops
-            .set_filesystem_label(&device, &label)
+        storage_udisks::set_filesystem_label(&device, &label)
             .await
             .map_err(|e| {
                 tracing::error!("Failed to set label: {e}");
@@ -1312,7 +1291,7 @@ impl FilesystemsHandler {
     ) -> zbus::fdo::Result<String> {
         tracing::debug!("Getting mount options for {} (UID {})", device, caller.uid);
 
-        match self.filesystem_ops.get_mount_options(&device).await {
+        match storage_udisks::get_mount_options(&device).await {
             Ok(Some(s)) => {
                 let out = MountOptionsSettings {
                     identify_as: s.identify_as,
@@ -1353,8 +1332,7 @@ impl FilesystemsHandler {
             caller.uid
         );
 
-        self.filesystem_ops
-            .reset_mount_options(&device)
+        storage_udisks::reset_mount_options(&device)
             .await
             .map_err(|e| {
                 tracing::error!("reset_mount_options failed: {e}");
@@ -1401,25 +1379,24 @@ impl FilesystemsHandler {
             Some(symbolic_icon_name)
         };
 
-        self.filesystem_ops
-            .set_mount_options(
-                &device,
-                mount_at_startup,
-                show_in_ui,
-                require_auth,
-                display_opt,
-                icon_opt,
-                symbolic_icon_opt,
-                other_options,
-                mount_point,
-                identify_as,
-                filesystem_type,
-            )
-            .await
-            .map_err(|e| {
-                tracing::error!("set_mount_options failed: {e}");
-                zbus::fdo::Error::Failed(format!("Failed to set mount options: {e}"))
-            })
+        storage_udisks::set_mount_options(
+            &device,
+            mount_at_startup,
+            show_in_ui,
+            require_auth,
+            display_opt,
+            icon_opt,
+            symbolic_icon_opt,
+            other_options,
+            mount_point,
+            identify_as,
+            filesystem_type,
+        )
+        .await
+        .map_err(|e| {
+            tracing::error!("set_mount_options failed: {e}");
+            zbus::fdo::Error::Failed(format!("Failed to set mount options: {e}"))
+        })
     }
 
     /// Take ownership of a mounted filesystem (e.g. for fstab/crypttab)
@@ -1445,8 +1422,7 @@ impl FilesystemsHandler {
         );
 
         // Delegate to storage-udisks operation
-        self.filesystem_ops
-            .take_filesystem_ownership(&device, recursive)
+        storage_udisks::take_filesystem_ownership(&device, recursive)
             .await
             .map_err(|e| {
                 tracing::error!("Take ownership failed: {e}");
