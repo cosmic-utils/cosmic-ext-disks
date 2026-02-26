@@ -4,3 +4,4 @@ pub(crate) mod dialogs;
 pub(crate) mod network;
 pub(crate) mod settings;
 pub(crate) mod sidebar;
+pub(crate) mod volumes;
