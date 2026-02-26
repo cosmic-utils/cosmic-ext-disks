@@ -5,7 +5,6 @@
 //! This module provides D-Bus methods for listing disks, getting disk information,
 //! and monitoring disk hotplug events.
 
-use anyhow::Result;
 use std::sync::Arc;
 use storage_macros::authorized_interface;
 use storage_types::SmartSelfTestKind;
@@ -66,7 +65,7 @@ impl DisksHandler {
     /// - device: Device path (e.g., "/dev/sda")
     /// - disk_info: JSON-serialized DiskInfo
     #[zbus(signal)]
-    async fn disk_added(
+    pub(crate) async fn disk_added(
         signal_ctxt: &zbus::object_server::SignalEmitter<'_>,
         device: &str,
         disk_info: &str,
@@ -77,7 +76,7 @@ impl DisksHandler {
     /// Args:
     /// - device: Device path (e.g., "/dev/sda")
     #[zbus(signal)]
-    async fn disk_removed(
+    pub(crate) async fn disk_removed(
         signal_ctxt: &zbus::object_server::SignalEmitter<'_>,
         device: &str,
     ) -> zbus::Result<()>;
@@ -814,146 +813,4 @@ impl DisksHandler {
         );
         Ok(())
     }
-}
-
-/// Monitor UDisks2 for disk hotplug events and emit D-Bus signals
-///
-/// This function subscribes to UDisks2's InterfacesAdded and InterfacesRemoved signals
-/// and emits DiskAdded/DiskRemoved signals when drives are hotplugged.
-pub async fn monitor_hotplug_events(connection: zbus::Connection, object_path: &str) -> Result<()> {
-    use std::collections::HashMap;
-    use zbus::zvariant::{OwnedObjectPath, OwnedValue};
-
-    tracing::info!("Starting disk hotplug monitoring");
-
-    // Create proxy to UDisks2 ObjectManager
-    let obj_manager = zbus::Proxy::new(
-        &connection,
-        "org.freedesktop.UDisks2",
-        "/org/freedesktop/UDisks2",
-        "org.freedesktop.DBus.ObjectManager",
-    )
-    .await?;
-
-    // Get signal emitter for our DisksHandler
-    let object_server = connection.object_server();
-    let iface_ref = object_server
-        .interface::<_, DisksHandler>(object_path)
-        .await?;
-
-    // Subscribe to InterfacesAdded signal
-    let mut added_stream = obj_manager.receive_signal("InterfacesAdded").await?;
-
-    // Subscribe to InterfacesRemoved signal
-    let mut removed_stream = obj_manager.receive_signal("InterfacesRemoved").await?;
-
-    // Spawn task to handle added signals
-    let iface_ref_clone = iface_ref.clone();
-    tokio::spawn(async move {
-        use futures_util::StreamExt;
-
-        while let Some(signal) = added_stream.next().await {
-            match signal.body().deserialize::<(
-                OwnedObjectPath,
-                HashMap<String, HashMap<String, OwnedValue>>,
-            )>() {
-                Ok((object_path, interfaces)) => {
-                    // Check if this is a Drive interface being added
-                    if interfaces.contains_key("org.freedesktop.UDisks2.Drive") {
-                        tracing::debug!("Drive added: {}", object_path);
-
-                        // Get the drive info
-                        match get_disk_info_for_path(&object_path.as_ref()).await {
-                            Ok(disk_info) => {
-                                let device = disk_info.device.clone();
-                                match serde_json::to_string(&disk_info) {
-                                    Ok(json) => {
-                                        tracing::info!("Disk added: {}", device);
-
-                                        // Emit signal
-                                        if let Err(e) = DisksHandler::disk_added(
-                                            iface_ref_clone.signal_emitter(),
-                                            &device,
-                                            &json,
-                                        )
-                                        .await
-                                        {
-                                            tracing::error!(
-                                                "Failed to emit disk_added signal: {}",
-                                                e
-                                            );
-                                        }
-                                    }
-                                    Err(e) => {
-                                        tracing::error!("Failed to serialize disk info: {}", e);
-                                    }
-                                }
-                            }
-                            Err(e) => {
-                                tracing::error!(
-                                    "Failed to get disk info for {}: {}",
-                                    object_path,
-                                    e
-                                );
-                            }
-                        }
-                    }
-                }
-                Err(e) => {
-                    tracing::error!("Failed to parse InterfacesAdded signal: {}", e);
-                }
-            }
-        }
-    });
-
-    // Spawn task to handle removed signals
-    let iface_ref_clone = iface_ref.clone();
-    tokio::spawn(async move {
-        use futures_util::StreamExt;
-
-        while let Some(signal) = removed_stream.next().await {
-            match signal
-                .body()
-                .deserialize::<(OwnedObjectPath, Vec<String>)>()
-            {
-                Ok((object_path, interfaces)) => {
-                    // Check if Drive interface is being removed
-                    if interfaces.contains(&"org.freedesktop.UDisks2.Drive".to_string()) {
-                        // Extract device name from object path
-                        // e.g., /org/freedesktop/UDisks2/drives/Samsung_SSD_970_EVO_S1234 -> device path
-                        let device = format!(
-                            "/dev/{}",
-                            object_path.as_str().rsplit('/').next().unwrap_or("unknown")
-                        );
-
-                        tracing::info!("Disk removed: {} ({})", device, object_path);
-
-                        // Emit signal
-                        if let Err(e) =
-                            DisksHandler::disk_removed(iface_ref_clone.signal_emitter(), &device)
-                                .await
-                        {
-                            tracing::error!("Failed to emit disk_removed signal: {}", e);
-                        }
-                    }
-                }
-                Err(e) => {
-                    tracing::error!("Failed to parse InterfacesRemoved signal: {}", e);
-                }
-            }
-        }
-    });
-
-    tracing::info!("Disk hotplug monitoring started");
-    Ok(())
-}
-
-/// Helper function to get DiskInfo for a specific UDisks2 drive object path
-async fn get_disk_info_for_path(
-    object_path: &zbus::zvariant::ObjectPath<'_>,
-) -> Result<storage_types::DiskInfo> {
-    let manager = storage_udisks::DiskManager::new().await?;
-    storage_udisks::get_disk_info_for_drive_path(&manager, object_path.as_str())
-        .await
-        .map_err(|e| anyhow::anyhow!("{}", e))
 }

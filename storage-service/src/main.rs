@@ -14,6 +14,7 @@ mod error;
 mod handlers;
 mod policies;
 mod protected_paths;
+mod utilities;
 
 use handlers::btrfs::BtrfsHandler;
 use handlers::disks::DisksHandler;
@@ -96,7 +97,7 @@ async fn main() -> Result<()> {
     tracing::info!("  - RClone interface at /org/cosmic/ext/Storage/Service/rclone");
 
     // Start disk hotplug monitoring
-    handlers::disks::monitor_hotplug_events(
+    utilities::udisks::monitor_hotplug_events(
         connection.clone(),
         "/org/cosmic/ext/Storage/Service/disks",
     )

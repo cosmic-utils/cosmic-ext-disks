@@ -6,9 +6,7 @@
 //! including formatting, mounting, unmounting, and process management.
 
 use std::collections::HashSet;
-use std::ffi::{CStr, CString};
 use std::fs;
-use std::os::unix::fs::MetadataExt;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::sync::mpsc;
@@ -23,6 +21,9 @@ use zbus::message::Header as MessageHeader;
 use zbus::{Connection, interface};
 
 use crate::policies::filesystems::{FilesystemsDomain, FilesystemsPolicy};
+use crate::utilities::filesystem::{caller_can_unlink, is_owned_tree, path_requires_admin_delete};
+use crate::utilities::uid::resolve_caller_groups;
+use crate::utilities::usage::map_parallelism_threads;
 
 /// D-Bus interface for filesystem management operations
 pub struct FilesystemsHandler {
@@ -49,165 +50,6 @@ impl FilesystemsHandler {
             filesystem_tools,
             domain,
         })
-    }
-}
-
-fn current_process_groups() -> Vec<u32> {
-    let mut gids = vec![unsafe { libc::getegid() } as u32];
-
-    let group_count = unsafe { libc::getgroups(0, std::ptr::null_mut()) };
-    if group_count > 0 {
-        let mut groups = vec![0 as libc::gid_t; group_count as usize];
-        let read_count = unsafe { libc::getgroups(group_count, groups.as_mut_ptr()) };
-        if read_count > 0 {
-            groups.truncate(read_count as usize);
-            gids.extend(groups);
-        }
-    }
-
-    gids.sort_unstable();
-    gids.dedup();
-    gids
-}
-
-fn resolve_caller_groups(uid: u32, username: Option<&str>) -> Vec<u32> {
-    let process_uid = unsafe { libc::geteuid() } as u32;
-    if uid == process_uid {
-        return current_process_groups();
-    }
-
-    let mut pwd = std::mem::MaybeUninit::<libc::passwd>::uninit();
-    let mut pwd_ptr: *mut libc::passwd = std::ptr::null_mut();
-    let mut buffer = vec![0_u8; 4096];
-
-    let lookup_result = unsafe {
-        libc::getpwuid_r(
-            uid,
-            pwd.as_mut_ptr(),
-            buffer.as_mut_ptr() as *mut libc::c_char,
-            buffer.len(),
-            &mut pwd_ptr,
-        )
-    };
-
-    if lookup_result != 0 || pwd_ptr.is_null() {
-        tracing::warn!("Failed to resolve passwd entry for UID {}", uid);
-        return Vec::new();
-    }
-
-    let passwd = unsafe { pwd.assume_init() };
-    let primary_gid = passwd.pw_gid;
-    let username_cstr = if let Some(name) = username {
-        CString::new(name).ok()
-    } else {
-        unsafe { Some(CStr::from_ptr(passwd.pw_name).to_owned()) }
-    };
-
-    let Some(username_cstr) = username_cstr else {
-        tracing::warn!("Failed to construct username for UID {}", uid);
-        return vec![primary_gid];
-    };
-
-    let mut ngroups = 32_i32;
-    let mut groups = vec![0 as libc::gid_t; ngroups as usize];
-
-    let result = unsafe {
-        libc::getgrouplist(
-            username_cstr.as_ptr(),
-            primary_gid,
-            groups.as_mut_ptr(),
-            &mut ngroups,
-        )
-    };
-
-    if result == -1 {
-        if ngroups <= 0 {
-            return vec![primary_gid];
-        }
-
-        groups.resize(ngroups as usize, 0);
-        let retry = unsafe {
-            libc::getgrouplist(
-                username_cstr.as_ptr(),
-                primary_gid,
-                groups.as_mut_ptr(),
-                &mut ngroups,
-            )
-        };
-
-        if retry == -1 {
-            return vec![primary_gid];
-        }
-    }
-
-    groups.truncate(ngroups.max(0) as usize);
-    let mut gids: Vec<u32> = groups.into_iter().collect();
-    gids.push(primary_gid);
-    gids.sort_unstable();
-    gids.dedup();
-    gids
-}
-
-fn is_owned_tree(path: &Path, uid: u32) -> std::io::Result<bool> {
-    let metadata = fs::symlink_metadata(path)?;
-    if metadata.uid() != uid {
-        return Ok(false);
-    }
-
-    if metadata.is_dir() {
-        for entry in fs::read_dir(path)? {
-            let entry = entry?;
-            if !is_owned_tree(&entry.path(), uid)? {
-                return Ok(false);
-            }
-        }
-    }
-
-    Ok(true)
-}
-
-fn caller_can_unlink(path: &Path, uid: u32, caller_gids: &[u32]) -> std::io::Result<bool> {
-    let Some(parent) = path.parent() else {
-        return Ok(false);
-    };
-
-    let metadata = fs::symlink_metadata(parent)?;
-    let mode = metadata.mode();
-
-    if metadata.uid() == uid {
-        return Ok(mode & 0o300 == 0o300);
-    }
-
-    if caller_gids.contains(&metadata.gid()) {
-        return Ok(mode & 0o030 == 0o030);
-    }
-
-    Ok(mode & 0o003 == 0o003)
-}
-
-fn path_requires_admin_delete(path: &Path, caller_uid: u32, caller_gids: &[u32]) -> bool {
-    let metadata = match fs::symlink_metadata(path) {
-        Ok(metadata) => metadata,
-        Err(_) => return true,
-    };
-
-    if !metadata.is_file() {
-        return false;
-    }
-
-    if metadata.uid() != caller_uid {
-        return true;
-    }
-
-    !matches!(caller_can_unlink(path, caller_uid, caller_gids), Ok(true))
-}
-
-fn map_parallelism_threads(preset: UsageScanParallelismPreset, cpu_count: usize) -> usize {
-    let cpus = cpu_count.max(1);
-    match preset {
-        UsageScanParallelismPreset::Low => cpus.div_ceil(4).max(1),
-        UsageScanParallelismPreset::Balanced => cpus.div_ceil(2).max(1),
-        UsageScanParallelismPreset::High => cpus,
     }
 }
 
