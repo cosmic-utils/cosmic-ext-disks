@@ -81,6 +81,12 @@ just clippy             # Run linter
 
 #### Later
 - Potential move from udisks2.
+- Out-of-v1 logical storage scope (planned future work):
+   - Stratis pools/filesystems
+   - ZFS pools/datasets
+   - dm-cache / dm-writecache
+   - VDO
+   - bcache / bcachefs
 - Any feature requests welcome!
 
 

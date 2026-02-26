@@ -9,6 +9,7 @@
 
 - [x] Confirm branch scope remains structural-only (no feature work bundled).
 - [x] Capture baseline output of `just check`.
+- [x] 2026-02-26T21:29:33+00:00 baseline re-check for logical-volume planning: `just check` passed (`clippy`, `fmt --check`, `test --no-run`).
 - [x] Record current module trees per crate for before/after comparison.
 - [x] Define naming glossary (`disk/disks`, `filesystem/filesystems`, `encryption/luks`) for consistency.
 
