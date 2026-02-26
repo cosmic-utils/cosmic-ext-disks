@@ -1,6 +1,7 @@
 use crate::app::Message;
 use crate::models::{UiDrive, UiVolume};
-use crate::ui::network::{NetworkState, view::network_section};
+use crate::ui::network::NetworkState;
+use crate::views::network::network_section;
 use crate::ui::sidebar::state::{SidebarNodeKey, SidebarState};
 use cosmic::cosmic_theme::palette::WithAlpha;
 use cosmic::iced::Length;
