@@ -67,16 +67,14 @@ storage-app/src/
     volumes.rs
   updates/
     mod.rs
-    app/
-      mod.rs
-      btrfs.rs
-      drive.rs
-      image.rs
-      image/dialogs.rs
-      image/ops.rs
-      nav.rs
-      network.rs
-      smart.rs
+    btrfs.rs
+    drive.rs
+    image.rs
+    image/dialogs.rs
+    image/ops.rs
+    nav.rs
+    network.rs
+    smart.rs
     volumes/
       mod.rs
       btrfs.rs

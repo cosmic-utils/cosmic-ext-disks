@@ -14,7 +14,6 @@ Mode: aggressive, no compatibility wrappers
 - [ ] Create `storage-app/src/messages/mod.rs`
 - [ ] Create `storage-app/src/state/mod.rs`
 - [ ] Create `storage-app/src/updates/mod.rs`
-- [ ] Create `storage-app/src/updates/app/mod.rs`
 - [ ] Create `storage-app/src/updates/volumes/mod.rs`
 - [ ] Wire modules in `storage-app/src/main.rs`
 
@@ -38,15 +37,15 @@ Mode: aggressive, no compatibility wrappers
 
 ## C3. Updates (App)
 
-- [ ] `storage-app/src/ui/app/update/mod.rs` -> `storage-app/src/updates/app/mod.rs`
-- [ ] `storage-app/src/ui/app/update/btrfs.rs` -> `storage-app/src/updates/app/btrfs.rs`
-- [ ] `storage-app/src/ui/app/update/drive.rs` -> `storage-app/src/updates/app/drive.rs`
-- [ ] `storage-app/src/ui/app/update/image.rs` -> `storage-app/src/updates/app/image.rs`
-- [ ] `storage-app/src/ui/app/update/nav.rs` -> `storage-app/src/updates/app/nav.rs`
-- [ ] `storage-app/src/ui/app/update/network.rs` -> `storage-app/src/updates/app/network.rs`
-- [ ] `storage-app/src/ui/app/update/smart.rs` -> `storage-app/src/updates/app/smart.rs`
-- [ ] `storage-app/src/ui/app/update/image/dialogs.rs` -> `storage-app/src/updates/app/image/dialogs.rs`
-- [ ] `storage-app/src/ui/app/update/image/ops.rs` -> `storage-app/src/updates/app/image/ops.rs`
+- [ ] `storage-app/src/ui/app/update/mod.rs` -> `storage-app/src/updates/mod.rs`
+- [ ] `storage-app/src/ui/app/update/btrfs.rs` -> `storage-app/src/updates/btrfs.rs`
+- [ ] `storage-app/src/ui/app/update/drive.rs` -> `storage-app/src/updates/drive.rs`
+- [ ] `storage-app/src/ui/app/update/image.rs` -> `storage-app/src/updates/image.rs`
+- [ ] `storage-app/src/ui/app/update/nav.rs` -> `storage-app/src/updates/nav.rs`
+- [ ] `storage-app/src/ui/app/update/network.rs` -> `storage-app/src/updates/network.rs`
+- [ ] `storage-app/src/ui/app/update/smart.rs` -> `storage-app/src/updates/smart.rs`
+- [ ] `storage-app/src/ui/app/update/image/dialogs.rs` -> `storage-app/src/updates/image/dialogs.rs`
+- [ ] `storage-app/src/ui/app/update/image/ops.rs` -> `storage-app/src/updates/image/ops.rs`
 
 ## C4. Updates (Volumes)
 
@@ -76,7 +75,7 @@ Mode: aggressive, no compatibility wrappers
 - [ ] Rewrite all `crate::ui::network::message::*` -> `crate::messages::network::*`
 - [ ] Rewrite all `crate::ui::volumes::message::*` -> `crate::messages::volumes::*`
 - [ ] Rewrite all `crate::ui::<feature>::state::*` -> `crate::state::<feature>::*`
-- [ ] Rewrite all `crate::ui::app::update::*` -> `crate::updates::app::*`
+- [ ] Rewrite all `crate::ui::app::update::*` -> `crate::updates::*`
 - [ ] Rewrite all `crate::ui::volumes::update::*` -> `crate::updates::volumes::*`
 - [ ] Rewrite all moved helper imports (`network`, `volumes`, `subscriptions`, `errors`)
 

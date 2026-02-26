@@ -16,7 +16,6 @@
 - Create: `storage-app/src/messages/mod.rs`
 - Create: `storage-app/src/state/mod.rs`
 - Create: `storage-app/src/updates/mod.rs`
-- Create: `storage-app/src/updates/app/mod.rs`
 - Create: `storage-app/src/updates/volumes/mod.rs`
 - Modify: `storage-app/src/main.rs` (module wiring)
 
@@ -64,15 +63,15 @@
 ### Task 4: Migrate app update graph
 
 **Files:**
-- Move: `storage-app/src/ui/app/update/mod.rs` -> `storage-app/src/updates/app/mod.rs`
-- Move: `storage-app/src/ui/app/update/{btrfs,drive,image,nav,network,smart}.rs` -> `storage-app/src/updates/app/`
-- Move: `storage-app/src/ui/app/update/image/{dialogs,ops}.rs` -> `storage-app/src/updates/app/image/`
+- Move: `storage-app/src/ui/app/update/mod.rs` -> `storage-app/src/updates/mod.rs`
+- Move: `storage-app/src/ui/app/update/{btrfs,drive,image,nav,network,smart}.rs` -> `storage-app/src/updates/`
+- Move: `storage-app/src/ui/app/update/image/{dialogs,ops}.rs` -> `storage-app/src/updates/image/`
 - Modify: imports from `super::message/state` to `crate::messages::app` and `crate::state::app`
 
 **Steps:**
 1. Move update files preserving tree.
 2. Fix module declarations and import paths.
-3. Rewire app entrypoint to call `crate::updates::app::*`.
+3. Rewire app entrypoint to call `crate::updates::*`.
 4. Run: `cargo clippy --workspace --all-targets`.
 5. Commit: `refactor(storage-app): migrate app update graph to updates layer`.
 
