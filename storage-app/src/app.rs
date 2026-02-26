@@ -6,9 +6,11 @@ pub(crate) use crate::message::app::Message;
 pub(crate) use crate::state::app::{AppModel, ContextPage};
 
 use crate::client::FilesystemsClient;
+use crate::client::LogicalClient;
 use crate::client::RcloneClient;
 use crate::config::Config;
 use crate::models::load_all_drives;
+use crate::state::logical::LogicalState;
 use crate::state::network::NetworkState;
 use crate::state::sidebar::SidebarState;
 use cosmic::app::{Core, Task};
@@ -41,6 +43,7 @@ impl Application for AppModel {
             image_op_operation_id: None,
             filesystem_tools: vec![],
             network: NetworkState::new(),
+            logical: LogicalState::default(),
             config: Config::load(Self::APP_ID),
         };
 
@@ -108,12 +111,26 @@ impl Application for AppModel {
             },
         );
 
+        let logical_command = Task::perform(
+            async {
+                match LogicalClient::new().await {
+                    Ok(client) => client
+                        .list_logical_entities()
+                        .await
+                        .map_err(|e| e.to_string()),
+                    Err(e) => Err(e.to_string()),
+                }
+            },
+            |result| Message::LogicalEntitiesLoaded(result).into(),
+        );
+
         (
             app,
             command
                 .chain(nav_command)
                 .chain(tools_command)
-                .chain(network_command),
+                .chain(network_command)
+                .chain(logical_command),
         )
     }
 

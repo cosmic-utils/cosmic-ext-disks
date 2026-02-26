@@ -1,13 +1,14 @@
 use crate::app::Message;
 use crate::controls::layout::{row_container, transparent_button_class};
 use crate::models::{UiDrive, UiVolume};
+use crate::state::logical::LogicalState;
 use crate::state::network::NetworkState;
 use crate::state::sidebar::{SidebarNodeKey, SidebarState};
 use crate::views::network::network_section;
 use cosmic::iced::Length;
 use cosmic::widget::{self, icon};
 use cosmic::{Apply, Element};
-use storage_types::VolumeKind;
+use storage_types::{LogicalEntity, LogicalEntityKind, VolumeKind};
 
 /// Fixed width for expander button (icon 16px + padding 2px * 2)
 const EXPANDER_WIDTH: u16 = 20;
@@ -59,6 +60,19 @@ fn expander_icon(expanded: bool) -> &'static str {
         "go-down-symbolic"
     } else {
         "go-next-symbolic"
+    }
+}
+
+fn logical_icon(kind: LogicalEntityKind) -> &'static str {
+    match kind {
+        LogicalEntityKind::LvmVolumeGroup => "folder-visiting-symbolic",
+        LogicalEntityKind::LvmLogicalVolume => "drive-harddisk-symbolic",
+        LogicalEntityKind::LvmPhysicalVolume => "drive-harddisk-symbolic",
+        LogicalEntityKind::MdRaidArray => "drive-multidisk-symbolic",
+        LogicalEntityKind::MdRaidMember => "drive-harddisk-symbolic",
+        LogicalEntityKind::BtrfsFilesystem => "folder-symbolic",
+        LogicalEntityKind::BtrfsDevice => "drive-harddisk-symbolic",
+        LogicalEntityKind::BtrfsSubvolume => "folder-symbolic",
     }
 }
 
@@ -315,6 +329,56 @@ fn volume_row(
     }
 }
 
+fn logical_row(
+    sidebar: &SidebarState,
+    entity: &LogicalEntity,
+    controls_enabled: bool,
+) -> Element<'static, Message> {
+    let key = SidebarNodeKey::Logical(entity.id.clone());
+    let selected = sidebar.selected_child.as_ref() == Some(&key);
+
+    let mut select_button = widget::button::custom(
+        widget::Row::with_children(vec![
+            icon::from_name(logical_icon(entity.kind)).size(16).into(),
+            widget::text::body(entity.name.clone())
+                .font(cosmic::font::semibold())
+                .into(),
+        ])
+        .spacing(8)
+        .align_y(cosmic::iced::Alignment::Center)
+        .width(Length::Fill),
+    )
+    .padding(0)
+    .width(Length::Fill)
+    .class(transparent_button_class(selected));
+
+    if controls_enabled {
+        select_button = select_button.on_press(Message::SidebarSelectLogical {
+            entity_id: entity.id.clone(),
+        });
+    }
+
+    let row = widget::Row::with_children(vec![
+        widget::Space::new(EXPANDER_WIDTH, EXPANDER_WIDTH).into(),
+        select_button.into(),
+    ])
+    .spacing(8)
+    .align_y(cosmic::iced::Alignment::Center)
+    .width(Length::Fill);
+
+    row_container(row, selected, controls_enabled)
+}
+
+fn logical_sidebar_entities(logical_state: &LogicalState) -> Vec<&LogicalEntity> {
+    let mut entities: Vec<&LogicalEntity> = logical_state.entities.iter().collect();
+    entities.sort_by(|left, right| {
+        left.name
+            .cmp(&right.name)
+            .then_with(|| left.id.cmp(&right.id))
+    });
+    entities
+}
+
 fn push_volume_tree(
     out: &mut Vec<Element<'static, Message>>,
     sidebar: &SidebarState,
@@ -360,6 +424,7 @@ fn push_volume_tree(
 pub(crate) fn sidebar(
     app_nav: &cosmic::widget::nav_bar::Model,
     sidebar: &SidebarState,
+    logical_state: &LogicalState,
     network: &NetworkState,
     controls_enabled: bool,
 ) -> Element<'static, Message> {
@@ -380,6 +445,13 @@ pub(crate) fn sidebar(
     }
 
     let mut rows: Vec<Element<'static, Message>> = Vec::new();
+
+    if !logical_state.entities.is_empty() {
+        rows.push(section_header(Section::Logical.label()));
+        for entity in logical_sidebar_entities(logical_state) {
+            rows.push(logical_row(sidebar, entity, controls_enabled));
+        }
+    }
 
     let add_section =
         |rows: &mut Vec<Element<'static, Message>>, section: Section, drives: Vec<&UiDrive>| {
@@ -447,4 +519,48 @@ pub(crate) fn sidebar(
     )
     .class(cosmic::style::Container::Card)
     .into()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use storage_types::LogicalCapabilities;
+
+    fn logical_entity(id: &str, name: &str) -> LogicalEntity {
+        LogicalEntity {
+            id: id.to_string(),
+            kind: LogicalEntityKind::LvmVolumeGroup,
+            name: name.to_string(),
+            uuid: None,
+            parent_id: None,
+            device_path: None,
+            size_bytes: 1,
+            used_bytes: None,
+            free_bytes: None,
+            health_status: None,
+            progress_fraction: None,
+            members: vec![],
+            capabilities: LogicalCapabilities::default(),
+            metadata: Default::default(),
+        }
+    }
+
+    #[test]
+    fn logical_entities_are_sorted_for_sidebar_section() {
+        let logical_state = LogicalState {
+            entities: vec![
+                logical_entity("2", "beta"),
+                logical_entity("3", "alpha"),
+                logical_entity("1", "alpha"),
+            ],
+            ..Default::default()
+        };
+
+        let ids: Vec<String> = logical_sidebar_entities(&logical_state)
+            .iter()
+            .map(|entity| entity.id.clone())
+            .collect();
+
+        assert_eq!(ids, vec!["1", "3", "2"]);
+    }
 }

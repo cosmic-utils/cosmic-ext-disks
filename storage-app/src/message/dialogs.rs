@@ -185,3 +185,59 @@ pub enum BtrfsCreateSnapshotMessage {
     Create,
     Cancel,
 }
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum LogicalLvmDialogMessage {
+    PrevStep,
+    NextStep,
+    SetStep(crate::state::dialogs::LogicalWizardStep),
+    VgNameUpdate(String),
+    LvNameUpdate(String),
+    LvPathUpdate(String),
+    PvDeviceUpdate(String),
+    SizeBytesUpdate(u64),
+    DevicesCsvUpdate(String),
+    Submit,
+    Complete(Result<(), String>),
+    Cancel,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum LogicalMdRaidDialogMessage {
+    PrevStep,
+    NextStep,
+    SetStep(crate::state::dialogs::LogicalWizardStep),
+    ArrayDeviceUpdate(String),
+    LevelUpdate(String),
+    DevicesCsvUpdate(String),
+    MemberDeviceUpdate(String),
+    Submit,
+    Complete(Result<(), String>),
+    Cancel,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum LogicalBtrfsDialogMessage {
+    PrevStep,
+    NextStep,
+    SetStep(crate::state::dialogs::LogicalWizardStep),
+    MemberDeviceUpdate(String),
+    MountPointUpdate(String),
+    SizeSpecUpdate(String),
+    LabelUpdate(String),
+    SubvolumeIdUpdate(String),
+    Submit,
+    Complete(Result<(), String>),
+    Cancel,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum LogicalControlDialogMessage {
+    LvPathUpdate(String),
+    ArrayDeviceUpdate(String),
+    MdNameUpdate(String),
+    ActionUpdate(String),
+    Submit,
+    Complete(Result<(), String>),
+    Cancel,
+}

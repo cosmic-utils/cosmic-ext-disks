@@ -1,16 +1,18 @@
 use crate::config::Config;
 use crate::message::dialogs::{
     AttachDiskImageDialogMessage, FormatDiskMessage, ImageOperationDialogMessage,
-    NewDiskImageDialogMessage, SmartDialogMessage, UnmountBusyMessage,
+    LogicalBtrfsDialogMessage, LogicalControlDialogMessage, LogicalLvmDialogMessage,
+    LogicalMdRaidDialogMessage, NewDiskImageDialogMessage, SmartDialogMessage, UnmountBusyMessage,
 };
 use crate::message::network::NetworkMessage;
 use crate::message::volumes::VolumesControlMessage;
 use crate::models::UiDrive;
 use crate::state::app::ContextPage;
 use crate::state::dialogs::ShowDialog;
+use crate::state::logical::LogicalDetailTab;
 use storage_types::{
-    FilesystemToolInfo, UsageCategory, UsageDeleteResult, UsageScanParallelismPreset,
-    UsageScanResult,
+    FilesystemToolInfo, LogicalEntity, LogicalOperation, UsageCategory, UsageDeleteResult,
+    UsageScanParallelismPreset, UsageScanResult,
 };
 
 /// Messages emitted by the application and its widgets.
@@ -206,6 +208,33 @@ pub enum Message {
     Network(NetworkMessage),
     LoadNetworkRemotes,
     NetworkRemotesLoaded(Result<Vec<storage_types::rclone::RemoteConfig>, String>),
+
+    // Logical entities
+    LoadLogicalEntities,
+    LogicalEntitiesLoaded(Result<Vec<LogicalEntity>, String>),
+    LogicalDetailTabSelected(LogicalDetailTab),
+    LogicalActionPrompt {
+        entity_id: String,
+        operation: LogicalOperation,
+    },
+    OpenLogicalOperationDialog {
+        entity_id: String,
+        operation: LogicalOperation,
+    },
+    LogicalLvmDialog(LogicalLvmDialogMessage),
+    LogicalMdRaidDialog(LogicalMdRaidDialogMessage),
+    LogicalBtrfsDialog(LogicalBtrfsDialogMessage),
+    LogicalControlDialog(LogicalControlDialogMessage),
+    LogicalActionCancel,
+    LogicalActionConfirm,
+    LogicalActionFinished {
+        entity_id: String,
+        operation: LogicalOperation,
+        result: Result<(), String>,
+    },
+    SidebarSelectLogical {
+        entity_id: String,
+    },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -249,6 +278,30 @@ impl From<ImageOperationDialogMessage> for Message {
 impl From<UnmountBusyMessage> for Message {
     fn from(val: UnmountBusyMessage) -> Self {
         Message::UnmountBusy(val)
+    }
+}
+
+impl From<LogicalLvmDialogMessage> for Message {
+    fn from(val: LogicalLvmDialogMessage) -> Self {
+        Message::LogicalLvmDialog(val)
+    }
+}
+
+impl From<LogicalMdRaidDialogMessage> for Message {
+    fn from(val: LogicalMdRaidDialogMessage) -> Self {
+        Message::LogicalMdRaidDialog(val)
+    }
+}
+
+impl From<LogicalBtrfsDialogMessage> for Message {
+    fn from(val: LogicalBtrfsDialogMessage) -> Self {
+        Message::LogicalBtrfsDialog(val)
+    }
+}
+
+impl From<LogicalControlDialogMessage> for Message {
+    fn from(val: LogicalControlDialogMessage) -> Self {
+        Message::LogicalControlDialog(val)
     }
 }
 

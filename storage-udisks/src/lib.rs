@@ -10,6 +10,7 @@ pub mod encryption;
 pub mod filesystem;
 pub mod gpt;
 pub mod image;
+pub mod logical;
 pub mod lvm;
 pub mod manager;
 pub mod partition;
@@ -65,6 +66,7 @@ pub use disk::{
 };
 pub use gpt::{fallback_gpt_usable_range_bytes, probe_gpt_usable_range_bytes};
 pub use infra::process::{find_processes_using_mount, kill_processes};
+pub use logical::discover_logical_entities;
 pub use lvm::list_lvs_for_pv;
 
 // Partition operations (from new partition module)

@@ -35,6 +35,10 @@ pub(super) fn update_nav(
         Some(ShowDialog::DeletePartition(s)) => s.running,
         Some(ShowDialog::BtrfsCreateSubvolume(s)) => s.running,
         Some(ShowDialog::BtrfsCreateSnapshot(s)) => s.running,
+        Some(ShowDialog::LogicalLvmWizard(s)) => s.running,
+        Some(ShowDialog::LogicalMdRaidWizard(s)) => s.running,
+        Some(ShowDialog::LogicalBtrfsWizard(s)) => s.running,
+        Some(ShowDialog::LogicalControl(s)) => s.running,
         _ => false,
     };
 

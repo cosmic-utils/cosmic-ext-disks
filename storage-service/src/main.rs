@@ -19,6 +19,7 @@ use handlers::btrfs::BtrfsHandler;
 use handlers::disk::DiskHandler;
 use handlers::filesystem::FilesystemHandler;
 use handlers::image::ImageHandler;
+use handlers::logical::LogicalHandler;
 use handlers::luks::LuksHandler;
 use handlers::lvm::LvmHandler;
 use handlers::partition::PartitionHandler;
@@ -72,6 +73,10 @@ async fn main() -> Result<()> {
             "/org/cosmic/ext/Storage/Service/filesystems",
             FilesystemHandler::new()?,
         )?
+        .serve_at(
+            "/org/cosmic/ext/Storage/Service/logical",
+            LogicalHandler::new(),
+        )?
         .serve_at("/org/cosmic/ext/Storage/Service/lvm", LvmHandler::new())?
         .serve_at("/org/cosmic/ext/Storage/Service/luks", LuksHandler::new())?
         .serve_at("/org/cosmic/ext/Storage/Service/image", ImageHandler::new())?;
@@ -90,6 +95,7 @@ async fn main() -> Result<()> {
     tracing::info!("  - Disks interface at /org/cosmic/ext/Storage/Service/disks");
     tracing::info!("  - Partitions interface at /org/cosmic/ext/Storage/Service/partitions");
     tracing::info!("  - Filesystems interface at /org/cosmic/ext/Storage/Service/filesystems");
+    tracing::info!("  - Logical interface at /org/cosmic/ext/Storage/Service/logical");
     tracing::info!("  - LVM interface at /org/cosmic/ext/Storage/Service/lvm");
     tracing::info!("  - LUKS interface at /org/cosmic/ext/Storage/Service/luks");
     tracing::info!("  - Image interface at /org/cosmic/ext/Storage/Service/image");

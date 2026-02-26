@@ -6,6 +6,7 @@ use std::collections::{HashMap, HashSet};
 pub enum SidebarNodeKey {
     Drive(String),
     Volume(String),
+    Logical(String),
 }
 
 #[derive(Debug, Default)]

@@ -1,7 +1,7 @@
 use crate::models::{UiDrive, UiVolume};
 use storage_types::{
-    CreatePartitionInfo, FilesystemToolInfo, PartitionTypeInfo, ProcessInfo, SmartAttribute,
-    SmartStatus, VolumeInfo,
+    CreatePartitionInfo, FilesystemToolInfo, LogicalOperation, PartitionTypeInfo, ProcessInfo,
+    SmartAttribute, SmartStatus, VolumeInfo,
 };
 
 #[derive(Debug, Clone)]
@@ -26,6 +26,10 @@ pub enum ShowDialog {
     UnmountBusy(UnmountBusyDialog),
     BtrfsCreateSubvolume(BtrfsCreateSubvolumeDialog),
     BtrfsCreateSnapshot(BtrfsCreateSnapshotDialog),
+    LogicalLvmWizard(LogicalLvmWizardDialog),
+    LogicalMdRaidWizard(LogicalMdRaidWizardDialog),
+    LogicalBtrfsWizard(LogicalBtrfsWizardDialog),
+    LogicalControl(LogicalControlDialog),
     Info {
         title: String,
         body: String,
@@ -342,6 +346,75 @@ pub struct BtrfsCreateSnapshotDialog {
     pub selected_source_index: usize,
     pub snapshot_name: String,
     pub read_only: bool,
+    pub running: bool,
+    pub error: Option<String>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum LogicalWizardStep {
+    Configure,
+    Review,
+}
+
+impl LogicalWizardStep {
+    pub const fn number(self) -> usize {
+        match self {
+            Self::Configure => 1,
+            Self::Review => 2,
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct LogicalLvmWizardDialog {
+    pub entity_id: String,
+    pub operation: LogicalOperation,
+    pub step: LogicalWizardStep,
+    pub vg_name: String,
+    pub lv_name: String,
+    pub lv_path: String,
+    pub pv_device: String,
+    pub size_bytes: u64,
+    pub devices_csv: String,
+    pub running: bool,
+    pub error: Option<String>,
+}
+
+#[derive(Debug, Clone)]
+pub struct LogicalMdRaidWizardDialog {
+    pub entity_id: String,
+    pub operation: LogicalOperation,
+    pub step: LogicalWizardStep,
+    pub array_device: String,
+    pub level: String,
+    pub devices_csv: String,
+    pub member_device: String,
+    pub running: bool,
+    pub error: Option<String>,
+}
+
+#[derive(Debug, Clone)]
+pub struct LogicalBtrfsWizardDialog {
+    pub entity_id: String,
+    pub operation: LogicalOperation,
+    pub step: LogicalWizardStep,
+    pub member_device: String,
+    pub mount_point: String,
+    pub size_spec: String,
+    pub label: String,
+    pub subvolume_id: String,
+    pub running: bool,
+    pub error: Option<String>,
+}
+
+#[derive(Debug, Clone)]
+pub struct LogicalControlDialog {
+    pub entity_id: String,
+    pub operation: LogicalOperation,
+    pub lv_path: String,
+    pub array_device: String,
+    pub md_name: String,
+    pub action: String,
     pub running: bool,
     pub error: Option<String>,
 }
