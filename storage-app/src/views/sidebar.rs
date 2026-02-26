@@ -1,9 +1,9 @@
 use crate::app::Message;
+use crate::controls::layout::{row_container, transparent_button_class};
 use crate::models::{UiDrive, UiVolume};
 use crate::ui::network::NetworkState;
 use crate::views::network::network_section;
 use crate::ui::sidebar::state::{SidebarNodeKey, SidebarState};
-use cosmic::cosmic_theme::palette::WithAlpha;
 use cosmic::iced::Length;
 use cosmic::widget::{self, icon};
 use cosmic::{Apply, Element};
@@ -93,44 +93,6 @@ fn drive_title(drive: &UiDrive) -> String {
     }
 }
 
-fn transparent_button_class(selected: bool) -> cosmic::theme::Button {
-    cosmic::theme::Button::Custom {
-        active: Box::new(move |_b, theme| transparent_button_style(selected, false, theme)),
-        disabled: Box::new(move |theme| transparent_button_style(selected, true, theme)),
-        hovered: Box::new(move |_b, theme| transparent_button_style(selected, false, theme)),
-        pressed: Box::new(move |_b, theme| transparent_button_style(selected, false, theme)),
-    }
-}
-
-fn transparent_button_style(
-    selected: bool,
-    disabled: bool,
-    theme: &cosmic::theme::Theme,
-) -> cosmic::widget::button::Style {
-    use cosmic::cosmic_theme::palette::WithAlpha;
-
-    let component = &theme.cosmic().background.component;
-
-    let mut on = component.on;
-    if !disabled && selected {
-        on = theme.cosmic().accent_color();
-    } else if disabled {
-        on = on.with_alpha(0.35);
-    }
-
-    cosmic::widget::button::Style {
-        shadow_offset: Default::default(),
-        background: None,
-        overlay: None,
-        border_radius: (theme.cosmic().corner_radii.radius_xs).into(),
-        border_width: 0.0,
-        border_color: component.base.with_alpha(0.0).into(),
-        outline_width: 0.0,
-        outline_color: component.base.with_alpha(0.0).into(),
-        icon_color: Some(on.into()),
-        text_color: Some(on.into()),
-    }
-}
 
 fn section_header(label: String) -> Element<'static, Message> {
     widget::text::caption_heading(label)
@@ -172,42 +134,6 @@ fn image_section_header(controls_enabled: bool) -> Element<'static, Message> {
         .padding([8, 12, 4, 12])
         .spacing(6)
         .align_y(cosmic::iced::Alignment::Center)
-        .into()
-}
-
-fn row_container<'a>(
-    row: impl Into<Element<'a, Message>>,
-    selected: bool,
-    enabled: bool,
-) -> Element<'a, Message> {
-    widget::container(row)
-        .padding([6, 8])
-        .class(cosmic::style::Container::custom(move |theme| {
-            use cosmic::iced::{Border, Shadow};
-
-            // Match the visual background used by `cosmic::style::Container::Card`.
-            let component = &theme.cosmic().background.component;
-
-            let mut on = component.on;
-
-            if !enabled {
-                // Keep the card background, but visually de-emphasize content.
-                on = component.on.with_alpha(0.35);
-            } else if selected {
-                on = theme.cosmic().accent_color();
-            }
-
-            cosmic::iced_widget::container::Style {
-                icon_color: Some(on.into()),
-                text_color: Some(on.into()),
-                background: None,
-                border: Border {
-                    radius: theme.cosmic().corner_radii.radius_s.into(),
-                    ..Default::default()
-                },
-                shadow: Shadow::default(),
-            }
-        }))
         .into()
 }
 

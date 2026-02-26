@@ -8,6 +8,9 @@ use crate::ui::network::state::{
     NetworkEditorState, NetworkMountState, NetworkState, NetworkWizardState,
     QUICK_SETUP_PROVIDERS, SECTION_ORDER, WizardStep, section_display_name,
 };
+use crate::controls::actions::{icon_tooltip_action, trailing_actions_row};
+use crate::controls::form::bounded_form;
+use crate::controls::layout::{row_container, transparent_button_class};
 use crate::controls::wizard::{
     WizardBreadcrumbStatus, WizardBreadcrumbStep, option_tile_grid, selectable_tile,
     wizard_breadcrumb, wizard_shell, wizard_step_nav,
@@ -37,78 +40,6 @@ fn scope_label(scope: ConfigScope) -> &'static str {
     }
 }
 
-/// Container for a row matching sidebar style
-fn row_container(
-    row: impl Into<Element<'static, NetworkMessage>>,
-    selected: bool,
-    enabled: bool,
-) -> Element<'static, NetworkMessage> {
-    widget::container(row)
-        .padding([6, 8])
-        .class(cosmic::style::Container::custom(move |theme| {
-            use cosmic::iced::{Border, Shadow};
-
-            let component = &theme.cosmic().background.component;
-
-            let mut on = component.on;
-
-            if !enabled {
-                on = component.on.with_alpha(0.35);
-            } else if selected {
-                on = theme.cosmic().accent_color();
-            }
-
-            cosmic::iced_widget::container::Style {
-                icon_color: Some(on.into()),
-                text_color: Some(on.into()),
-                background: None,
-                border: Border {
-                    radius: theme.cosmic().corner_radii.radius_s.into(),
-                    ..Default::default()
-                },
-                shadow: Shadow::default(),
-            }
-        }))
-        .into()
-}
-
-/// Transparent button class matching sidebar style
-fn transparent_button_class(selected: bool) -> cosmic::theme::Button {
-    cosmic::theme::Button::Custom {
-        active: Box::new(move |_b, theme| transparent_button_style(selected, false, theme)),
-        disabled: Box::new(move |theme| transparent_button_style(selected, true, theme)),
-        hovered: Box::new(move |_b, theme| transparent_button_style(selected, false, theme)),
-        pressed: Box::new(move |_b, theme| transparent_button_style(selected, false, theme)),
-    }
-}
-
-fn transparent_button_style(
-    selected: bool,
-    disabled: bool,
-    theme: &cosmic::theme::Theme,
-) -> cosmic::widget::button::Style {
-    let component = &theme.cosmic().background.component;
-
-    let mut on = component.on;
-    if !disabled && selected {
-        on = theme.cosmic().accent_color();
-    } else if disabled {
-        on = on.with_alpha(0.35);
-    }
-
-    cosmic::widget::button::Style {
-        shadow_offset: Default::default(),
-        background: None,
-        overlay: None,
-        border_radius: (theme.cosmic().corner_radii.radius_xs).into(),
-        border_width: 0.0,
-        border_color: component.base.with_alpha(0.0).into(),
-        outline_width: 0.0,
-        outline_color: component.base.with_alpha(0.0).into(),
-        icon_color: Some(on.into()),
-        text_color: Some(on.into()),
-    }
-}
 
 fn provider_logo_widget(provider_type: &str, size: u16) -> Element<'static, NetworkMessage> {
     let provider_icon = resolve_provider_icon(provider_type);
@@ -326,24 +257,6 @@ fn status_label(status: &MountStatus) -> &'static str {
     }
 }
 
-fn action_button(
-    icon_name: &'static str,
-    label: &'static str,
-    message: Option<NetworkMessage>,
-    enabled: bool,
-) -> Element<'static, NetworkMessage> {
-    let mut button = widget::button::icon(icon::from_name(icon_name).size(16));
-    if enabled && let Some(message) = message {
-        button = button.on_press(message);
-    }
-    widget::tooltip(
-        button,
-        widget::text(label),
-        widget::tooltip::Position::Bottom,
-    )
-    .into()
-}
-
 fn status_badge(text: String, running: bool, unsaved: bool) -> Element<'static, NetworkMessage> {
     use cosmic::iced_widget::container;
 
@@ -438,7 +351,7 @@ fn editor_header(
     let mut actions: Vec<Element<'static, NetworkMessage>> = Vec::new();
 
     if let Some(mount) = selected_mount {
-        actions.push(action_button(
+        actions.push(icon_tooltip_action(
             "media-playback-start-symbolic",
             "Start",
             Some(NetworkMessage::MountRemote {
@@ -448,7 +361,7 @@ fn editor_header(
             can_control && !is_mounted,
         ));
 
-        actions.push(action_button(
+        actions.push(icon_tooltip_action(
             "media-playback-stop-symbolic",
             "Stop",
             Some(NetworkMessage::UnmountRemote {
@@ -458,7 +371,7 @@ fn editor_header(
             can_control && is_mounted,
         ));
 
-        actions.push(action_button(
+        actions.push(icon_tooltip_action(
             "view-refresh-symbolic",
             "Restart",
             Some(NetworkMessage::RestartRemote {
@@ -468,7 +381,7 @@ fn editor_header(
             can_control,
         ));
 
-        actions.push(action_button(
+        actions.push(icon_tooltip_action(
             "emblem-system-symbolic",
             "Test",
             Some(NetworkMessage::TestRemote {
@@ -478,28 +391,33 @@ fn editor_header(
             can_control,
         ));
     } else {
-        actions.push(action_button(
+        actions.push(icon_tooltip_action(
             "media-playback-start-symbolic",
             "Start",
             None,
             false,
         ));
-        actions.push(action_button(
+        actions.push(icon_tooltip_action(
             "media-playback-stop-symbolic",
             "Stop",
             None,
             false,
         ));
-        actions.push(action_button(
+        actions.push(icon_tooltip_action(
             "view-refresh-symbolic",
             "Restart",
             None,
             false,
         ));
-        actions.push(action_button("emblem-system-symbolic", "Test", None, false));
+        actions.push(icon_tooltip_action(
+            "emblem-system-symbolic",
+            "Test",
+            None,
+            false,
+        ));
     }
 
-    actions.push(action_button(
+    actions.push(icon_tooltip_action(
         "document-save-symbolic",
         if editor.is_new { "Create" } else { "Save" },
         Some(NetworkMessage::SaveRemote),
@@ -511,7 +429,7 @@ fn editor_header(
             name: mount.config.name.clone(),
             scope: mount.config.scope,
         });
-        actions.push(action_button(
+        actions.push(icon_tooltip_action(
             "edit-delete-symbolic",
             "Delete",
             delete_message,
@@ -519,11 +437,7 @@ fn editor_header(
         ));
     }
 
-    let actions_row = widget::Row::from_vec(actions)
-        .spacing(4)
-        .align_y(cosmic::iced::Alignment::Center)
-        .apply(widget::container)
-        .padding([0, 10, 0, 0]);
+    let actions_row = trailing_actions_row(actions);
 
     iced_widget::row![
         widget::text::title2(title),
@@ -784,7 +698,7 @@ fn editor_view(
     let provider = rclone_provider(&editor.remote_type);
 
     let form = editor_form(editor, provider, controls_enabled);
-    let form = widget::container(form).width(Length::Fill).max_width(720);
+    let form = bounded_form(form, 720);
 
     let mut layout = iced_widget::column![editor_header(editor, selected_mount, controls_enabled)]
         .spacing(16)
