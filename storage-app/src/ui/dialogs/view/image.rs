@@ -8,7 +8,7 @@ use crate::ui::dialogs::state::{
     AttachDiskImageDialog, ImageOperationDialog, ImageOperationKind, NewDiskImageDialog,
 };
 use crate::controls::wizard::{wizard_action_row, wizard_shell};
-use crate::utils::labelled_spinner;
+use crate::controls::fields::labelled_spinner;
 use cosmic::{
     Element,
     iced::{Alignment, Length},

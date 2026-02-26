@@ -13,7 +13,7 @@ use crate::controls::wizard::{
     wizard_step_nav, wizard_step_shell,
 };
 use crate::utils::SizeUnit;
-use crate::utils::labelled_spinner;
+use crate::controls::fields::labelled_spinner;
 use cosmic::{
     Element, Theme, iced, iced_widget,
     widget::text::caption,
