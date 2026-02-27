@@ -60,7 +60,7 @@ impl HarnessTest for BtrfsSubvolumeCreateDeleteRoundtrip {
             }
         };
 
-        let result = (|| async {
+        let result = async {
             support::client_result(
                 client.create_subvolume(&mounted_at, name).await,
                 "create btrfs subvolume",
@@ -94,7 +94,7 @@ impl HarnessTest for BtrfsSubvolumeCreateDeleteRoundtrip {
             }
 
             Ok(())
-        })()
+        }
         .await;
 
         let _ = support::client_result(

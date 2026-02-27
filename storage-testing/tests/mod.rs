@@ -42,7 +42,9 @@ pub fn instantiate_tests() -> Vec<TestRef> {
         Arc::new(filesystem::check_readonly_path::FilesystemCheckReadonlyPath),
         Arc::new(filesystem::usage_scan_basic::FilesystemUsageScanBasic),
         Arc::new(filesystem::mount_options_roundtrip::FilesystemMountOptionsReadWriteRoundtrip),
-        Arc::new(partition::list_partitions_expected_from_spec::PartitionListPartitionsExpectedFromSpec),
+        Arc::new(
+            partition::list_partitions_expected_from_spec::PartitionListPartitionsExpectedFromSpec,
+        ),
         Arc::new(partition::create_delete_roundtrip::PartitionCreateDeleteRoundtrip),
         Arc::new(partition::set_name_type_flags_roundtrip::PartitionSetNameTypeFlagsRoundtrip),
         Arc::new(luks::unlock_lock_roundtrip::LuksUnlockLockRoundtrip),

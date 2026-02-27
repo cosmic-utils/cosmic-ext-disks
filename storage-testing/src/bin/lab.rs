@@ -98,10 +98,7 @@ fn main() -> Result<()> {
                 Ok(())
             }
             ImageCommand::Mount { spec_name, dry_run } => {
-                print_outcomes(orchestrator::mount(
-                    &spec_name,
-                    ExecuteOptions { dry_run },
-                )?);
+                print_outcomes(orchestrator::mount(&spec_name, ExecuteOptions { dry_run })?);
                 Ok(())
             }
             ImageCommand::Unmount { spec_name, dry_run } => {
@@ -137,10 +134,7 @@ fn main() -> Result<()> {
             } else {
                 let spec = spec_name.expect("spec name is required unless --all is used");
                 let _ = spec::load_by_name(&spec)?;
-                print_outcomes(orchestrator::cleanup(
-                    &spec,
-                    ExecuteOptions { dry_run },
-                )?);
+                print_outcomes(orchestrator::cleanup(&spec, ExecuteOptions { dry_run })?);
                 Ok(())
             }
         }

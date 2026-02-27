@@ -21,7 +21,9 @@ impl HarnessTest for ImageLoopSetupValidImage {
 
     async fn execute(&self, _ctx: &HarnessContext) -> storage_testing::errors::Result<()> {
         if support::env("STORAGE_TESTING_ENABLE_IMAGE_TESTS").as_deref() != Some("1") {
-            return support::skip("set STORAGE_TESTING_ENABLE_IMAGE_TESTS=1 to run image loop setup");
+            return support::skip(
+                "set STORAGE_TESTING_ENABLE_IMAGE_TESTS=1 to run image loop setup",
+            );
         }
         let client = support::image_client().await?;
         let image_path = support::env("STORAGE_TESTING_IMAGE_SOURCE_PATH")

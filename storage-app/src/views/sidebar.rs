@@ -5,9 +5,9 @@ use crate::state::logical::LogicalState;
 use crate::state::network::NetworkState;
 use crate::state::sidebar::{SidebarNodeKey, SidebarState};
 use crate::views::network::network_section;
+use cosmic::Element;
 use cosmic::iced::Length;
 use cosmic::widget::{self, icon};
-use cosmic::{Apply, Element};
 use storage_types::{LogicalEntity, LogicalEntityKind, VolumeKind};
 
 /// Fixed width for expander button (icon 16px + padding 2px * 2)
@@ -107,18 +107,49 @@ fn drive_title(drive: &UiDrive) -> String {
     }
 }
 
-fn section_header(label: String) -> Element<'static, Message> {
-    widget::text::caption_heading(label)
-        .apply(widget::container)
+fn spinner_frame_glyph(frame: u8) -> &'static str {
+    const GLYPHS: [&str; 10] = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
+    GLYPHS[(frame as usize) % GLYPHS.len()]
+}
+
+fn section_header(label: String, loading: bool, spinner_frame: u8) -> Element<'static, Message> {
+    let mut children: Vec<Element<'static, Message>> =
+        vec![widget::text::caption_heading(label).into()];
+
+    if loading {
+        children.push(
+            widget::text::caption(spinner_frame_glyph(spinner_frame).to_string())
+                .font(cosmic::font::semibold())
+                .into(),
+        );
+    }
+
+    children.push(widget::Space::new(Length::Fill, 0).into());
+
+    widget::Row::with_children(children)
         .padding([8, 12, 4, 12])
+        .spacing(6)
+        .align_y(cosmic::iced::Alignment::Center)
         .into()
 }
 
-fn image_section_header(controls_enabled: bool) -> Element<'static, Message> {
-    let mut children: Vec<Element<'static, Message>> = vec![
-        widget::text::caption_heading(Section::Images.label()).into(),
-        widget::Space::new(Length::Fill, 0).into(),
-    ];
+fn image_section_header(
+    controls_enabled: bool,
+    loading: bool,
+    spinner_frame: u8,
+) -> Element<'static, Message> {
+    let mut children: Vec<Element<'static, Message>> =
+        vec![widget::text::caption_heading(Section::Images.label()).into()];
+
+    if loading {
+        children.push(
+            widget::text::caption(spinner_frame_glyph(spinner_frame).to_string())
+                .font(cosmic::font::semibold())
+                .into(),
+        );
+    }
+
+    children.push(widget::Space::new(Length::Fill, 0).into());
 
     if controls_enabled {
         let new_image_button = widget::tooltip(
@@ -446,73 +477,105 @@ pub(crate) fn sidebar(
 
     let mut rows: Vec<Element<'static, Message>> = Vec::new();
 
-    if !logical_state.entities.is_empty() {
-        rows.push(section_header(Section::Logical.label()));
+    if sidebar.logical_loading || !logical_state.entities.is_empty() {
+        rows.push(section_header(
+            Section::Logical.label(),
+            sidebar.logical_loading,
+            sidebar.spinner_frame,
+        ));
         for entity in logical_sidebar_entities(logical_state) {
             rows.push(logical_row(sidebar, entity, controls_enabled));
         }
     }
 
-    let add_section =
-        |rows: &mut Vec<Element<'static, Message>>, section: Section, drives: Vec<&UiDrive>| {
-            if section != Section::Images && drives.is_empty() {
-                return;
-            }
-            if section == Section::Images {
-                rows.push(image_section_header(controls_enabled));
-            } else {
-                rows.push(section_header(section.label()));
-            }
+    let add_section = |rows: &mut Vec<Element<'static, Message>>,
+                       section: Section,
+                       drives: Vec<&UiDrive>,
+                       loading: bool| {
+        if section != Section::Images && drives.is_empty() && !loading {
+            return;
+        }
+        if section == Section::Images {
+            rows.push(image_section_header(
+                controls_enabled,
+                loading,
+                sidebar.spinner_frame,
+            ));
+        } else {
+            rows.push(section_header(
+                section.label(),
+                loading,
+                sidebar.spinner_frame,
+            ));
+        }
 
-            for drive in drives {
-                rows.push(drive_row(
-                    sidebar,
-                    drive,
-                    active_drive.as_deref(),
-                    controls_enabled,
-                ));
+        for drive in drives {
+            rows.push(drive_row(
+                sidebar,
+                drive,
+                active_drive.as_deref(),
+                controls_enabled,
+            ));
 
-                let drive_key = SidebarNodeKey::Drive(drive.device().to_string());
-                if sidebar.is_expanded(&drive_key) {
-                    // Sort volumes by offset to maintain disk order
-                    let mut sorted_volumes: Vec<&UiVolume> = drive.volumes.iter().collect();
+            let drive_key = SidebarNodeKey::Drive(drive.device().to_string());
+            if sidebar.is_expanded(&drive_key) {
+                // Sort volumes by offset to maintain disk order
+                let mut sorted_volumes: Vec<&UiVolume> = drive.volumes.iter().collect();
 
-                    // To get offset, we need to look up the corresponding PartitionInfo by matching device_path with device
-                    sorted_volumes.sort_by(|a, b| {
-                        // Find offset for each volume by matching device_path with partitions
-                        let offset_a = a
-                            .volume
-                            .device_path
-                            .as_ref()
-                            .and_then(|dev| drive.partitions.iter().find(|p| &p.device == dev))
-                            .map(|p| p.offset)
-                            .unwrap_or(0);
-                        let offset_b = b
-                            .volume
-                            .device_path
-                            .as_ref()
-                            .and_then(|dev| drive.partitions.iter().find(|p| &p.device == dev))
-                            .map(|p| p.offset)
-                            .unwrap_or(0);
-                        offset_a.cmp(&offset_b)
-                    });
+                // To get offset, we need to look up the corresponding PartitionInfo by matching device_path with device
+                sorted_volumes.sort_by(|a, b| {
+                    // Find offset for each volume by matching device_path with partitions
+                    let offset_a = a
+                        .volume
+                        .device_path
+                        .as_ref()
+                        .and_then(|dev| drive.partitions.iter().find(|p| &p.device == dev))
+                        .map(|p| p.offset)
+                        .unwrap_or(0);
+                    let offset_b = b
+                        .volume
+                        .device_path
+                        .as_ref()
+                        .and_then(|dev| drive.partitions.iter().find(|p| &p.device == dev))
+                        .map(|p| p.offset)
+                        .unwrap_or(0);
+                    offset_a.cmp(&offset_b)
+                });
 
-                    for v in sorted_volumes {
-                        push_volume_tree(rows, sidebar, drive.device(), v, 1, controls_enabled);
-                    }
+                for v in sorted_volumes {
+                    push_volume_tree(rows, sidebar, drive.device(), v, 1, controls_enabled);
                 }
             }
-        };
+        }
+    };
 
-    add_section(&mut rows, Section::Logical, logical);
-    add_section(&mut rows, Section::Internal, internal);
-    add_section(&mut rows, Section::External, external);
+    add_section(&mut rows, Section::Logical, logical, false);
+    add_section(
+        &mut rows,
+        Section::Internal,
+        internal,
+        sidebar.drives_loading,
+    );
+    add_section(
+        &mut rows,
+        Section::External,
+        external,
+        sidebar.drives_loading,
+    );
 
     // Network section (RClone, Samba, FTP)
-    rows.push(network_section(network, controls_enabled).map(Message::Network));
+    rows.push(
+        network_section(
+            network,
+            controls_enabled,
+            sidebar.network_loading,
+            sidebar.spinner_frame,
+        )
+        .map(Message::Network),
+    );
 
     // Images must remain the bottom-most section.
-    add_section(&mut rows, Section::Images, images);
+    add_section(&mut rows, Section::Images, images, sidebar.drives_loading);
 
     widget::container::Container::new(
         widget::scrollable(widget::Column::with_children(rows).spacing(2)).height(Length::Fill),

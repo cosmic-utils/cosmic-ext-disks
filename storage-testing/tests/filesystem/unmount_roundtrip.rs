@@ -52,7 +52,11 @@ impl HarnessTest for FilesystemMountUnmountRoundtrip {
             .ok_or_else(|| storage_testing::errors::TestingError::TestFailed {
                 reason: format!("mounted device not visible in volume list: {device}"),
             })?;
-        if !mounted_volume.mount_points.iter().any(|entry| entry == &mounted_at) {
+        if !mounted_volume
+            .mount_points
+            .iter()
+            .any(|entry| entry == &mounted_at)
+        {
             return support::failure(format!(
                 "expected mount point {mounted_at} to be present for {device}"
             ));

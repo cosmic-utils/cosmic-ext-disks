@@ -40,8 +40,10 @@ impl HarnessTest for LogicalMdraidCreateStartStopDelete {
             Err(_) => return support::skip("create mdraid array timed out after 4s"),
         }
 
-        let entities_after_create =
-            support::client_result(client.list_logical_entities().await, "list logical entities")?;
+        let entities_after_create = support::client_result(
+            client.list_logical_entities().await,
+            "list logical entities",
+        )?;
         let mut md_present = entities_after_create
             .iter()
             .any(|entity| entity.device_path.as_deref() == Some(array_device.as_str()));
@@ -85,8 +87,10 @@ impl HarnessTest for LogicalMdraidCreateStartStopDelete {
             "delete mdraid array",
         )?;
 
-        let entities_after_delete =
-            support::client_result(client.list_logical_entities().await, "list logical entities")?;
+        let entities_after_delete = support::client_result(
+            client.list_logical_entities().await,
+            "list logical entities",
+        )?;
         if entities_after_delete
             .iter()
             .any(|entity| entity.device_path.as_deref() == Some(array_device.as_str()))

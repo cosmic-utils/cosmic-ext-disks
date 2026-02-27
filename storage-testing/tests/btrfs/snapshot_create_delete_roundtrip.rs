@@ -31,7 +31,8 @@ impl HarnessTest for BtrfsSnapshotCreateDeleteRoundtrip {
         let source_device = support::require_env("STORAGE_TESTING_BTRFS_SOURCE_DEVICE")?;
         let mountpoint = support::env("STORAGE_TESTING_BTRFS_MOUNT")
             .unwrap_or_else(|| "/tmp/storage-testing-btrfs".to_string());
-        let source = support::env("STORAGE_TESTING_BTRFS_SOURCE").unwrap_or_else(|| "@".to_string());
+        let source =
+            support::env("STORAGE_TESTING_BTRFS_SOURCE").unwrap_or_else(|| "@".to_string());
         let dest = "storage-testing-snapshot";
 
         let _ = support::client_result(
@@ -61,7 +62,7 @@ impl HarnessTest for BtrfsSnapshotCreateDeleteRoundtrip {
             }
         };
 
-        let result = (|| async {
+        let result = async {
             let listed = support::client_result(
                 client.list_subvolumes(&mounted_at).await,
                 "list subvolumes",
@@ -83,7 +84,9 @@ impl HarnessTest for BtrfsSnapshotCreateDeleteRoundtrip {
                 })?;
 
             support::client_result(
-                client.create_snapshot(&mounted_at, &source_path, dest, true).await,
+                client
+                    .create_snapshot(&mounted_at, &source_path, dest, true)
+                    .await,
                 "create btrfs snapshot",
             )?;
             let after_create = support::client_result(
@@ -115,7 +118,7 @@ impl HarnessTest for BtrfsSnapshotCreateDeleteRoundtrip {
             }
 
             Ok(())
-        })()
+        }
         .await;
 
         let _ = support::client_result(

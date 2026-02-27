@@ -37,15 +37,16 @@ impl HarnessTest for FilesystemUsageScanBasic {
             return support::skip("no mount points for usage scan");
         }
 
-        let selected_mounts = if let Some(preferred_mount) = support::env("STORAGE_TESTING_MOUNT_POINT") {
-            if mount_points.iter().any(|value| value == &preferred_mount) {
-                vec![preferred_mount]
+        let selected_mounts =
+            if let Some(preferred_mount) = support::env("STORAGE_TESTING_MOUNT_POINT") {
+                if mount_points.iter().any(|value| value == &preferred_mount) {
+                    vec![preferred_mount]
+                } else {
+                    vec![mount_points[0].clone()]
+                }
             } else {
                 vec![mount_points[0].clone()]
-            }
-        } else {
-            vec![mount_points[0].clone()]
-        };
+            };
 
         let scan_result = timeout(
             Duration::from_secs(4),

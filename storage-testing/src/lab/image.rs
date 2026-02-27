@@ -4,7 +4,7 @@ use std::process::Command;
 use std::thread::sleep;
 use std::time::Duration;
 
-use crate::cmd::{run, CommandOutcome};
+use crate::cmd::{CommandOutcome, run};
 use crate::errors::{Result, TestingError};
 use crate::ledger::{self, SpecState};
 use crate::spec::{artifacts_root, load_by_name};
@@ -73,7 +73,10 @@ pub fn plan_attach(spec_name: &str, dry_run: bool) -> Result<Plan> {
 
     for image in &spec.images {
         let path = root.join(&image.file_name);
-        steps.push(format!("losetup --find --show --partscan {}", path.display()));
+        steps.push(format!(
+            "losetup --find --show --partscan {}",
+            path.display()
+        ));
     }
 
     Ok(Plan { dry_run, steps })
@@ -228,22 +231,18 @@ pub fn execute_plan(plan: &Plan) -> Result<Vec<CommandOutcome>> {
 
         if command == "umount"
             && let Some(mount_path) = args.first()
+            && (!Path::new(mount_path).exists() || !is_mountpoint(mount_path))
         {
-            if !Path::new(mount_path).exists() || !is_mountpoint(mount_path) {
-                outcomes.push(CommandOutcome {
-                    command: step.clone(),
-                    stdout: String::new(),
-                    stderr: String::new(),
-                    executed: false,
-                });
-                continue;
-            }
+            outcomes.push(CommandOutcome {
+                command: step.clone(),
+                stdout: String::new(),
+                stderr: String::new(),
+                executed: false,
+            });
+            continue;
         }
 
-        if command == "losetup"
-            && args.len() >= 2
-            && args[0] == "-d"
-            && !is_loop_attached(&args[1])
+        if command == "losetup" && args.len() >= 2 && args[0] == "-d" && !is_loop_attached(&args[1])
         {
             outcomes.push(CommandOutcome {
                 command: step.clone(),

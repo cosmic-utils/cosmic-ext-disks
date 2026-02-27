@@ -18,6 +18,7 @@ pub(crate) fn handle_network_message(app: &mut AppModel, message: NetworkMessage
     match message {
         NetworkMessage::LoadRemotes => {
             app.network.loading = true;
+            app.sidebar.set_network_loading(true);
             return Task::perform(
                 async {
                     match RcloneClient::new().await {
@@ -34,6 +35,7 @@ pub(crate) fn handle_network_message(app: &mut AppModel, message: NetworkMessage
 
         NetworkMessage::RemotesLoaded(result) => {
             app.network.loading = false;
+            app.sidebar.set_network_loading(false);
             match result {
                 Ok(remotes) => {
                     app.network.rclone_available = true;

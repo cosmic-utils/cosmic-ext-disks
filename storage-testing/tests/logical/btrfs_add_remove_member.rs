@@ -53,13 +53,14 @@ impl HarnessTest for LogicalBtrfsAddRemoveMember {
                 .await,
             "add btrfs member",
         )?;
-        let entities_after_add =
-            support::client_result(client.list_logical_entities().await, "list logical entities")?;
+        let entities_after_add = support::client_result(
+            client.list_logical_entities().await,
+            "list logical entities",
+        )?;
         let member_present = entities_after_add.iter().any(|entity| {
-            entity
-                .members
-                .iter()
-                .any(|logical_member| logical_member.device_path.as_deref() == Some(member.as_str()))
+            entity.members.iter().any(|logical_member| {
+                logical_member.device_path.as_deref() == Some(member.as_str())
+            })
         });
         if !member_present {
             return support::failure(format!("btrfs member not found after add: {member}"));
@@ -71,13 +72,14 @@ impl HarnessTest for LogicalBtrfsAddRemoveMember {
                 .await,
             "remove btrfs member",
         )?;
-        let entities_after_remove =
-            support::client_result(client.list_logical_entities().await, "list logical entities")?;
+        let entities_after_remove = support::client_result(
+            client.list_logical_entities().await,
+            "list logical entities",
+        )?;
         let member_still_present = entities_after_remove.iter().any(|entity| {
-            entity
-                .members
-                .iter()
-                .any(|logical_member| logical_member.device_path.as_deref() == Some(member.as_str()))
+            entity.members.iter().any(|logical_member| {
+                logical_member.device_path.as_deref() == Some(member.as_str())
+            })
         });
         if member_still_present {
             return support::failure(format!("btrfs member still present after remove: {member}"));

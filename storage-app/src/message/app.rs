@@ -11,8 +11,8 @@ use crate::state::app::ContextPage;
 use crate::state::dialogs::ShowDialog;
 use crate::state::logical::LogicalDetailTab;
 use storage_types::{
-    FilesystemToolInfo, LogicalEntity, LogicalOperation, UsageCategory, UsageDeleteResult,
-    UsageScanParallelismPreset, UsageScanResult,
+    DiskInfo, FilesystemToolInfo, LogicalEntity, LogicalOperation, UsageCategory,
+    UsageDeleteResult, UsageScanParallelismPreset, UsageScanResult,
 };
 
 /// Messages emitted by the application and its widgets.
@@ -28,6 +28,17 @@ pub enum Message {
     FormatDisk(FormatDiskMessage),
     DriveRemoved(String),
     DriveAdded(String),
+    LoadDrivesIncremental,
+    DriveListLoaded(Result<Vec<DiskInfo>, String>),
+    DriveLoadStarted {
+        total: usize,
+    },
+    DriveLoaded {
+        result: Result<UiDrive, String>,
+        elapsed_ms: u128,
+    },
+    DriveLoadFinished,
+    SidebarSpinnerTick,
     None,
     UpdateNav(Vec<UiDrive>, Option<String>),
     UpdateNavWithChildSelection(Vec<UiDrive>, Option<String>),

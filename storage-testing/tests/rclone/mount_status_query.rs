@@ -21,8 +21,10 @@ impl HarnessTest for RcloneMountStatusQuery {
 
     async fn execute(&self, _ctx: &HarnessContext) -> storage_testing::errors::Result<()> {
         let client = support::rclone_client().await?;
-        let name = support::env("STORAGE_TESTING_RCLONE_NAME").unwrap_or_else(|| "test".to_string());
-        let scope = support::env("STORAGE_TESTING_RCLONE_SCOPE").unwrap_or_else(|| "user".to_string());
+        let name =
+            support::env("STORAGE_TESTING_RCLONE_NAME").unwrap_or_else(|| "test".to_string());
+        let scope =
+            support::env("STORAGE_TESTING_RCLONE_SCOPE").unwrap_or_else(|| "user".to_string());
         let _ = client.get_mount_status(&name, &scope).await;
         Ok(())
     }

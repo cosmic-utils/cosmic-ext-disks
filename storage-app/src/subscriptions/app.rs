@@ -16,6 +16,9 @@ struct ImageOperationSubscription;
 /// Subscription for storage-service Filesystems and LUKS signals (format, mount, unmount, container created/unlocked/locked).
 struct StorageEventsSubscription;
 
+/// Subscription driving sidebar loading spinner animation.
+struct SidebarSpinnerSubscription;
+
 /// Register subscriptions for this application.
 ///
 /// Subscriptions are long-running async tasks running in the background which
@@ -179,6 +182,18 @@ pub(crate) fn subscription(app: &AppModel) -> Subscription<Message> {
                             }
                         }
                     }
+                }
+            }),
+        ));
+    }
+
+    if app.sidebar.has_active_loading() {
+        subs.push(Subscription::run_with_id(
+            std::any::TypeId::of::<SidebarSpinnerSubscription>(),
+            cosmic::iced::stream::channel(1, move |mut output| async move {
+                loop {
+                    tokio::time::sleep(Duration::from_millis(120)).await;
+                    _ = output.send(Message::SidebarSpinnerTick).await;
                 }
             }),
         ));

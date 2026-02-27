@@ -29,7 +29,8 @@ impl HarnessTest for PartitionSetNameTypeFlagsRoundtrip {
         let disk = support::require_env("STORAGE_TESTING_PARTITION_DISK")?;
         let partition = support::require_env("STORAGE_TESTING_PARTITION_DEVICE")?;
 
-        let before = support::client_result(client.list_partitions(&disk).await, "list partitions")?;
+        let before =
+            support::client_result(client.list_partitions(&disk).await, "list partitions")?;
         let current = before
             .iter()
             .find(|entry| entry.device == partition)

@@ -17,7 +17,7 @@ use crate::fl;
 use crate::logging;
 use crate::message::app::{ImagePathPickerKind, Message};
 use crate::message::network::NetworkMessage;
-use crate::models::load_all_drives;
+use crate::models::{build_drive_timed, load_all_drives, load_drive_candidates};
 use crate::state::app::AppModel;
 use crate::state::dialogs::ShowDialog;
 use crate::state::logical::PendingLogicalAction;
@@ -197,6 +197,7 @@ pub(crate) fn update(app: &mut AppModel, message: Message) -> Task<Message> {
             app.filesystem_tools = tools;
         }
         Message::LoadLogicalEntities => {
+            app.sidebar.set_logical_loading(true);
             return Task::perform(
                 async {
                     match LogicalClient::new().await {
@@ -212,10 +213,12 @@ pub(crate) fn update(app: &mut AppModel, message: Message) -> Task<Message> {
         }
         Message::LogicalEntitiesLoaded(result) => match result {
             Ok(entities) => {
+                app.sidebar.set_logical_loading(false);
                 app.logical.last_error = None;
                 app.logical.set_entities(entities);
             }
             Err(error) => {
+                app.sidebar.set_logical_loading(false);
                 app.logical.last_error = Some(error);
             }
         },
@@ -1038,6 +1041,78 @@ pub(crate) fn update(app: &mut AppModel, message: Message) -> Task<Message> {
                     Some(drives) => Message::UpdateNav(drives, None).into(),
                 },
             );
+        }
+        Message::LoadDrivesIncremental => {
+            app.sidebar.start_drive_loading(0);
+            app.sidebar.set_drives(Vec::new());
+            return Task::perform(
+                async {
+                    load_drive_candidates()
+                        .await
+                        .map_err(|error| error.to_string())
+                },
+                |result| Message::DriveListLoaded(result).into(),
+            );
+        }
+        Message::DriveListLoaded(result) => {
+            let disks = match result {
+                Ok(disks) => disks,
+                Err(error) => {
+                    app.sidebar.finish_drive_loading();
+                    tracing::error!(%error, "failed to enumerate drives for incremental loading");
+                    return Task::none();
+                }
+            };
+
+            app.sidebar.start_drive_loading(disks.len());
+            if disks.is_empty() {
+                return Task::done(Message::DriveLoadFinished.into());
+            }
+
+            let mut tasks: Vec<Task<Message>> = vec![Task::done(
+                Message::DriveLoadStarted { total: disks.len() }.into(),
+            )];
+
+            for disk in disks {
+                tasks.push(Task::perform(
+                    async move { build_drive_timed(disk).await },
+                    |(result, elapsed_ms)| Message::DriveLoaded { result, elapsed_ms }.into(),
+                ));
+            }
+
+            return Task::batch(tasks);
+        }
+        Message::DriveLoadStarted { total } => {
+            app.sidebar.start_drive_loading(total);
+        }
+        Message::DriveLoaded { result, elapsed_ms } => {
+            let mut tasks: Vec<Task<Message>> = Vec::new();
+
+            match result {
+                Ok(drive) => {
+                    app.sidebar.upsert_drive_sorted(drive);
+                    tasks.push(nav::update_nav(app, app.sidebar.drives.clone(), None));
+                }
+                Err(error) => {
+                    tracing::warn!(%error, elapsed_ms, "incremental drive build failed");
+                }
+            }
+
+            if app.sidebar.mark_drive_build_finished() {
+                tasks.push(Task::done(Message::DriveLoadFinished.into()));
+            }
+
+            if tasks.is_empty() {
+                return Task::none();
+            }
+
+            return Task::batch(tasks);
+        }
+        Message::DriveLoadFinished => {
+            app.sidebar.finish_drive_loading();
+        }
+        Message::SidebarSpinnerTick => {
+            app.sidebar.advance_spinner_frame();
         }
         Message::None => {}
         Message::UpdateNav(drive_models, selected) => {

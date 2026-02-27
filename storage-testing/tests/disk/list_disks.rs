@@ -23,7 +23,9 @@ impl HarnessTest for DiskListDisks {
         let client = support::disks_client().await?;
         match client.list_disks().await {
             Ok(_) => Ok(()),
-            Err(error) if support::should_skip(&error) => support::skip(format!("disk list: {error}")),
+            Err(error) if support::should_skip(&error) => {
+                support::skip(format!("disk list: {error}"))
+            }
             Err(error) => support::failure(format!("disk list failed: {error}")),
         }
     }

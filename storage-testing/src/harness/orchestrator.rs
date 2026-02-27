@@ -3,9 +3,9 @@ use std::sync::Arc;
 
 use crate::artifacts;
 use crate::errors::{Result, TestingError};
-use crate::ledger;
 use crate::lab::orchestrator as lab;
 use crate::lab::orchestrator::ExecuteOptions;
+use crate::ledger;
 use crate::spec;
 use crate::tests::{self, HarnessContext, TestRef};
 use serde::{Deserialize, Serialize};
@@ -75,10 +75,7 @@ async fn execute_test_case(spec: &str, test: TestRef, ctx: HarnessContext) -> Te
             Err(TestingError::TestSkipped { reason }) => CaseStatus::Skipped(reason),
             Err(error) => CaseStatus::Failed(error.to_string()),
         },
-        Err(_) => CaseStatus::Skipped(format!(
-            "test timed out after {}s",
-            timeout_secs
-        )),
+        Err(_) => CaseStatus::Skipped(format!("test timed out after {}s", timeout_secs)),
     };
 
     let elapsed = started.elapsed().as_millis();
@@ -186,24 +183,51 @@ fn configure_group_environment(spec_name: &str) -> Result<()> {
         .display()
         .to_string();
     let source_image_path = state.image_paths.first().cloned();
-    let first_mount = loaded_spec.mounts.first().map(|mount| mount.mount_point.clone());
+    let first_mount = loaded_spec
+        .mounts
+        .first()
+        .map(|mount| mount.mount_point.clone());
 
-    set_env_if_some("STORAGE_TESTING_PARTITION_DISK", second_loop.clone().or(first_loop_known.clone()));
+    set_env_if_some(
+        "STORAGE_TESTING_PARTITION_DISK",
+        second_loop.clone().or(first_loop_known.clone()),
+    );
     set_env_if_some("STORAGE_TESTING_DISK_DEVICE", first_loop_known.clone());
     set_env_if_some("STORAGE_TESTING_MOUNT_DEVICE", first_partition.clone());
-    set_env_if_some("STORAGE_TESTING_MOUNT_OPTIONS_DEVICE", first_partition.clone());
+    set_env_if_some(
+        "STORAGE_TESTING_MOUNT_OPTIONS_DEVICE",
+        first_partition.clone(),
+    );
     set_env_if_some("STORAGE_TESTING_CHECK_DEVICE", first_partition.clone());
-    set_env_if_some("STORAGE_TESTING_LUKS_DEVICE", second_partition.clone().or(first_partition.clone()));
-    set_env_if_some("STORAGE_TESTING_PARTITION_DEVICE", second_partition.clone().or(first_partition.clone()));
-    set_env_if_some("STORAGE_TESTING_LUKS_PASSPHRASE", Some("storage-test-passphrase".to_string()));
+    set_env_if_some(
+        "STORAGE_TESTING_LUKS_DEVICE",
+        second_partition.clone().or(first_partition.clone()),
+    );
+    set_env_if_some(
+        "STORAGE_TESTING_PARTITION_DEVICE",
+        second_partition.clone().or(first_partition.clone()),
+    );
+    set_env_if_some(
+        "STORAGE_TESTING_LUKS_PASSPHRASE",
+        Some("storage-test-passphrase".to_string()),
+    );
     set_env_if_some("STORAGE_TESTING_IMAGE_DEVICE", first_loop_known.clone());
     set_env_if_some("STORAGE_TESTING_IMAGE_PATH", Some(backup_image_path));
     set_env_if_some("STORAGE_TESTING_IMAGE_SOURCE_PATH", source_image_path);
     set_env_if_some("STORAGE_TESTING_MOUNT_POINT", first_mount.clone());
     set_env_if_some("STORAGE_TESTING_BTRFS_MOUNT", first_mount);
-    set_env_if_some("STORAGE_TESTING_BTRFS_MEMBER_DEVICE", third_partition.clone());
-    set_env_if_some("STORAGE_TESTING_BTRFS_SOURCE_DEVICE", btrfs_source_partition);
-    set_env_if_some("STORAGE_TESTING_LVM_VG", Some("storage_test_vg".to_string()));
+    set_env_if_some(
+        "STORAGE_TESTING_BTRFS_MEMBER_DEVICE",
+        third_partition.clone(),
+    );
+    set_env_if_some(
+        "STORAGE_TESTING_BTRFS_SOURCE_DEVICE",
+        btrfs_source_partition,
+    );
+    set_env_if_some(
+        "STORAGE_TESTING_LVM_VG",
+        Some("storage_test_vg".to_string()),
+    );
 
     if let (Some(part_a), Some(part_b)) = (second_partition.clone(), third_partition.clone()) {
         let md_array_name = format!("/dev/md/storage-testing-{}", std::process::id());
@@ -238,13 +262,11 @@ pub async fn run_all(config: RunConfig) -> Result<RunSummary> {
     let mut set = JoinSet::new();
 
     for (spec, tests) in groups {
-        let permit = semaphore
-            .clone()
-            .acquire_owned()
-            .await
-            .map_err(|error| TestingError::ServiceStartupFailed {
+        let permit = semaphore.clone().acquire_owned().await.map_err(|error| {
+            TestingError::ServiceStartupFailed {
                 reason: format!("harness semaphore closed: {error}"),
-            })?;
+            }
+        })?;
         let dry_run = config.dry_run;
         set.spawn(async move {
             let _permit = permit;

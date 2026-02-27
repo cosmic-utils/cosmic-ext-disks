@@ -27,7 +27,9 @@ impl HarnessTest for ImageBackupRestoreDriveSmoke {
     async fn execute(&self, _ctx: &HarnessContext) -> storage_testing::errors::Result<()> {
         support::require_destructive("image.backup_restore.drive_smoke")?;
         if support::env("STORAGE_TESTING_ENABLE_IMAGE_TESTS").as_deref() != Some("1") {
-            return support::skip("set STORAGE_TESTING_ENABLE_IMAGE_TESTS=1 to run image backup smoke");
+            return support::skip(
+                "set STORAGE_TESTING_ENABLE_IMAGE_TESTS=1 to run image backup smoke",
+            );
         }
         let client = support::image_client().await?;
         let device = support::require_env("STORAGE_TESTING_IMAGE_DEVICE")?;

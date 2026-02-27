@@ -30,10 +30,10 @@ impl HarnessTest for DiskListVolumesSchemaIntegrity {
         };
 
         for volume in volumes {
-            if let Some(parent) = &volume.parent_path {
-                if parent.trim().is_empty() {
-                    return support::failure("volume parent_path must not be empty when present");
-                }
+            if let Some(parent) = &volume.parent_path
+                && parent.trim().is_empty()
+            {
+                return support::failure("volume parent_path must not be empty when present");
             }
         }
         Ok(())

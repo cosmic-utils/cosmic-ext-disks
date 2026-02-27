@@ -42,10 +42,10 @@ pub fn workspace_root() -> PathBuf {
         return PathBuf::from(value);
     }
 
-    if let Ok(current_dir) = std::env::current_dir() {
-        if current_dir.join("resources/lab-specs").exists() {
-            return current_dir;
-        }
+    if let Ok(current_dir) = std::env::current_dir()
+        && current_dir.join("resources/lab-specs").exists()
+    {
+        return current_dir;
     }
 
     let manifest_root = Path::new(env!("CARGO_MANIFEST_DIR"))

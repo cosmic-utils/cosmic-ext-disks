@@ -59,13 +59,19 @@ impl HarnessTest for LogicalLvmCreateResizeDeleteLv {
 
         support::client_result(
             client
-                .lvm_create_logical_volume(vg_name.clone(), "storage_test_lv".to_string(), 16 * 1024 * 1024)
+                .lvm_create_logical_volume(
+                    vg_name.clone(),
+                    "storage_test_lv".to_string(),
+                    16 * 1024 * 1024,
+                )
                 .await,
             "create lvm logical volume",
         )?;
 
-        let entities_after_create =
-            support::client_result(client.list_logical_entities().await, "list logical entities")?;
+        let entities_after_create = support::client_result(
+            client.list_logical_entities().await,
+            "list logical entities",
+        )?;
         if !entities_after_create
             .iter()
             .any(|entity| entity.device_path.as_deref() == Some(lv_path.as_str()))
@@ -88,8 +94,10 @@ impl HarnessTest for LogicalLvmCreateResizeDeleteLv {
             "delete lvm volume group",
         )?;
 
-        let entities_after_delete =
-            support::client_result(client.list_logical_entities().await, "list logical entities")?;
+        let entities_after_delete = support::client_result(
+            client.list_logical_entities().await,
+            "list logical entities",
+        )?;
         if entities_after_delete
             .iter()
             .any(|entity| entity.device_path.as_deref() == Some(lv_path.as_str()))
@@ -99,8 +107,13 @@ impl HarnessTest for LogicalLvmCreateResizeDeleteLv {
             ));
         }
 
-        if entities_after_delete.iter().any(|entity| entity.name == vg_name) {
-            return support::failure(format!("volume group still present after delete: {vg_name}"));
+        if entities_after_delete
+            .iter()
+            .any(|entity| entity.name == vg_name)
+        {
+            return support::failure(format!(
+                "volume group still present after delete: {vg_name}"
+            ));
         }
         Ok(())
     }

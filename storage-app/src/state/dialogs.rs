@@ -5,6 +5,7 @@ use storage_types::{
 };
 
 #[derive(Debug, Clone)]
+#[allow(clippy::large_enum_variant)]
 pub enum ShowDialog {
     DeletePartition(DeletePartitionDialog),
     AddPartition(CreatePartitionDialog),

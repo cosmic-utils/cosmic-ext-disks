@@ -50,6 +50,11 @@ fn provider_logo_widget(provider_type: &str, size: u16) -> Element<'static, Netw
         .into()
 }
 
+fn spinner_frame_glyph(frame: u8) -> &'static str {
+    const GLYPHS: [&str; 10] = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
+    GLYPHS[(frame as usize) % GLYPHS.len()]
+}
+
 /// Render a single network mount item for the sidebar
 pub fn network_mount_item(
     state: &NetworkState,
@@ -114,17 +119,31 @@ pub fn network_mount_item(
 }
 
 /// Section header for sidebar
-fn sidebar_section_header(label: &str, controls_enabled: bool) -> Element<'static, NetworkMessage> {
+fn sidebar_section_header(
+    label: &str,
+    controls_enabled: bool,
+    loading: bool,
+    spinner_frame: u8,
+) -> Element<'static, NetworkMessage> {
     let label_widget = widget::text::caption_heading(label.to_string());
 
     let mut children: Vec<Element<'static, NetworkMessage>> = vec![label_widget.into()];
+
+    if loading {
+        children.push(
+            widget::text::caption(spinner_frame_glyph(spinner_frame).to_string())
+                .font(cosmic::font::semibold())
+                .into(),
+        );
+    }
+
+    children.push(widget::Space::new(Length::Fill, 0).into());
 
     if controls_enabled {
         let add_btn = widget::button::custom(icon::from_name("list-add-symbolic").size(20))
             .padding(4)
             .class(cosmic::theme::Button::Link)
             .on_press(NetworkMessage::BeginCreateRemote);
-        children.push(widget::Space::new(Length::Fill, 0).into());
         children.push(add_btn.into());
     }
 
@@ -138,11 +157,18 @@ fn sidebar_section_header(label: &str, controls_enabled: bool) -> Element<'stati
 pub fn network_section(
     state: &NetworkState,
     controls_enabled: bool,
+    loading: bool,
+    spinner_frame: u8,
 ) -> Element<'static, NetworkMessage> {
     let mut children: Vec<Element<'static, NetworkMessage>> = Vec::new();
 
     // Header
-    children.push(sidebar_section_header("Network", controls_enabled));
+    children.push(sidebar_section_header(
+        "Network",
+        controls_enabled,
+        loading,
+        spinner_frame,
+    ));
 
     // Loading state
     if state.loading {

@@ -35,6 +35,11 @@ pub(crate) fn init(config: &Config) {
                     .expect("Invalid log directive: cosmic_ext_storage level"),
             )
             .add_directive(
+                format!("storage_contracts={}", config.log_level.as_directive())
+                    .parse()
+                    .expect("Invalid log directive: storage_contracts level"),
+            )
+            .add_directive(
                 "wgpu=warn"
                     .parse()
                     .expect("Invalid log directive: wgpu=warn"),
