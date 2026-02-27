@@ -35,6 +35,18 @@ watch:
 watch-tests:
     cargo watch -x "test --workspace"
 
+# Run harness integration workflow
+harness:
+    cargo build --workspace --locked
+    cargo run -p storage-testing --bin harness -- run --runtime auto
+
+# Run lab image create for the given spec (defaults to 2disk).
+lab spec="2disk":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    cargo build -p storage-testing --locked
+    cargo run -p storage-testing --bin lab -- image create "{{spec}}"
+
 # Monitor D-Bus signals
 watch-dbus:
     @echo "Monitoring D-Bus signals from storage service..."

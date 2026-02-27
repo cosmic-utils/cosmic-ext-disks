@@ -1,0 +1,26 @@
+name = "3disk"
+artifacts_root = "target/storage-testing/images/3disk"
+partition_table = "gpt"
+
+[[images]]
+file_name = "disk0.img"
+size_bytes = 2147483648
+
+[[images]]
+file_name = "disk1.img"
+size_bytes = 2147483648
+
+[[images]]
+file_name = "disk2.img"
+size_bytes = 2147483648
+
+[[partitions]]
+index = 1
+start = "1MiB"
+end = "100%"
+type = "primary"
+fs = "ext4"
+
+[[mounts]]
+partition_ref = "p1"
+mount_point = "/mnt/storage-testing/3disk/disk0p1"

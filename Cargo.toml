@@ -8,6 +8,7 @@ members = [
     "storage-types",         # Shared data models
     "storage-contracts",     # Shared service/tool contracts
     "storage-sys",           # Low-level system operations
+    "storage-testing",
 ]
 default-members = ["storage-app"]
 resolver = "2"
