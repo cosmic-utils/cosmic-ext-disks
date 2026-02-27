@@ -1,7 +1,7 @@
-use crate::client::DisksClient;
 use crate::message::dialogs::SmartDialogMessage;
 use crate::state::dialogs::{ShowDialog, SmartDataDialog};
 use cosmic::app::Task;
+use storage_contracts::client::DisksClient;
 
 use crate::message::app::Message;
 use crate::state::app::AppModel;

@@ -5,9 +5,6 @@ pub const REPOSITORY: &str = env!("CARGO_PKG_REPOSITORY");
 pub(crate) use crate::message::app::Message;
 pub(crate) use crate::state::app::{AppModel, ContextPage};
 
-use crate::client::FilesystemsClient;
-use crate::client::LogicalClient;
-use crate::client::RcloneClient;
 use crate::config::Config;
 use crate::models::load_all_drives;
 use crate::state::logical::LogicalState;
@@ -16,6 +13,9 @@ use crate::state::sidebar::SidebarState;
 use cosmic::app::{Core, Task};
 use cosmic::widget::nav_bar;
 use cosmic::{Application, Element};
+use storage_contracts::client::FilesystemsClient;
+use storage_contracts::client::LogicalClient;
+use storage_contracts::client::RcloneClient;
 
 pub(crate) const APP_ID: &str = "com.cosmic.ext.Storage";
 

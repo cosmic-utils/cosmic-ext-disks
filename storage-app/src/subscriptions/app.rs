@@ -1,4 +1,3 @@
-use crate::client::{DisksClient, FilesystemsClient, ImageClient, LuksClient};
 use crate::config::Config;
 use crate::message::app::Message;
 use crate::message::dialogs::ImageOperationDialogMessage;
@@ -7,6 +6,7 @@ use cosmic::iced::Subscription;
 use cosmic::iced::futures::{SinkExt, StreamExt};
 use cosmic::iced::{Event, event, keyboard};
 use std::time::Duration;
+use storage_contracts::client::{DisksClient, FilesystemsClient, ImageClient, LuksClient};
 
 use crate::state::app::AppModel;
 

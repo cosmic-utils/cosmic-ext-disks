@@ -1,10 +1,10 @@
-use crate::client::{DisksClient, PartitionsClient};
 use crate::errors::ui::{UiErrorContext, log_error_and_show_dialog};
 use crate::fl;
 use crate::message::dialogs::FormatDiskMessage;
 use crate::models::{UiDrive, load_all_drives};
 use crate::state::dialogs::{FormatDiskDialog, ShowDialog, SmartDataDialog};
 use cosmic::app::Task;
+use storage_contracts::client::{DisksClient, PartitionsClient};
 
 use crate::message::app::Message;
 use crate::state::app::AppModel;

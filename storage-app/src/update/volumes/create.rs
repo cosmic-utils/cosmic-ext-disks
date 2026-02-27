@@ -2,11 +2,11 @@ use crate::models::{UiDrive, load_all_drives};
 use cosmic::Task;
 
 use crate::app::Message;
-use crate::client::{FilesystemsClient, PartitionsClient};
 use crate::errors::ui::{UiErrorContext, log_error_and_show_dialog};
 use crate::fl;
 use crate::message::dialogs::CreateMessage;
 use crate::state::dialogs::{CreatePartitionStep, FormatPartitionStep, ShowDialog};
+use storage_contracts::client::{FilesystemsClient, PartitionsClient};
 
 use storage_types::CreatePartitionInfo;
 

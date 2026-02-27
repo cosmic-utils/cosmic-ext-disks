@@ -1,6 +1,6 @@
-use crate::client::FilesystemsClient;
 use crate::models::load_all_drives;
 use cosmic::Task;
+use storage_contracts::client::FilesystemsClient;
 use storage_types::MountOptionsSettings;
 
 use crate::app::Message;

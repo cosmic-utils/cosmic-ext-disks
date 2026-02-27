@@ -1245,6 +1245,7 @@ dependencies = [
  "rust-embed",
  "serde",
  "serde_json",
+ "storage-contracts",
  "storage-types",
  "thiserror 2.0.18",
  "tokio",
@@ -5290,11 +5291,13 @@ name = "storage-contracts"
 version = "0.1.0"
 dependencies = [
  "async-trait",
+ "futures-util",
  "serde",
  "serde_json",
  "storage-types",
  "thiserror 2.0.18",
  "uuid 1.21.0",
+ "zbus 5.14.0",
 ]
 
 [[package]]

@@ -1,6 +1,6 @@
-use crate::client::BtrfsClient;
 use crate::models::load_all_drives;
 use cosmic::Task;
+use storage_contracts::client::BtrfsClient;
 
 use crate::app::Message;
 use crate::errors::ui::{UiErrorContext, log_error_and_show_dialog};

@@ -1,9 +1,9 @@
 //! Image backup/restore via storage-service (Phase 1: start operation, return operation_id).
 //! Progress and completion are handled by subscription in the app.
 
-use crate::client::{FilesystemsClient, ImageClient};
 use crate::models::UiDrive;
 use crate::state::dialogs::ImageOperationKind;
+use storage_contracts::client::{FilesystemsClient, ImageClient};
 use storage_types::VolumeInfo;
 
 /// Start a backup or restore operation via the storage-service.

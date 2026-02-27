@@ -11,8 +11,6 @@ use std::collections::HashSet;
 
 use crate::app::APP_ID;
 use crate::app::REPOSITORY;
-use crate::client::FilesystemsClient;
-use crate::client::LogicalClient;
 use crate::config::{Config, LoggingLevel};
 use crate::errors::ui::{UiErrorContext, log_error_and_show_dialog};
 use crate::fl;
@@ -29,6 +27,8 @@ use cosmic::app::Task;
 use cosmic::cosmic_config::CosmicConfigEntry;
 use cosmic::dialog::file_chooser;
 use cosmic::widget::nav_bar;
+use storage_contracts::client::FilesystemsClient;
+use storage_contracts::client::LogicalClient;
 use storage_types::{LogicalEntity, LogicalOperation, UsageCategory, UsageScanParallelismPreset};
 
 const USAGE_TOP_FILES_MIN: u32 = 1;

@@ -1,5 +1,4 @@
 use crate::app::Message;
-use crate::client::LogicalClient;
 use crate::message::dialogs::{
     LogicalBtrfsDialogMessage, LogicalControlDialogMessage, LogicalLvmDialogMessage,
     LogicalMdRaidDialogMessage,
@@ -10,6 +9,7 @@ use crate::state::dialogs::{
     LogicalMdRaidWizardDialog, LogicalWizardStep, ShowDialog,
 };
 use cosmic::app::Task;
+use storage_contracts::client::LogicalClient;
 use storage_types::{LogicalEntityKind, LogicalOperation};
 
 fn md_name_from_device(device: &str) -> String {

@@ -3,7 +3,6 @@ use crate::models::load_all_drives;
 use cosmic::Task;
 
 use crate::app::Message;
-use crate::client::{FilesystemsClient, LuksClient};
 use crate::errors::ui::{UiErrorContext, log_error_and_show_dialog};
 use crate::fl;
 use crate::message::dialogs::{
@@ -13,6 +12,7 @@ use crate::state::dialogs::{
     ChangePassphraseDialog, EditEncryptionOptionsDialog, EditEncryptionOptionsStep,
     FilesystemTarget, ShowDialog, TakeOwnershipDialog, UnlockEncryptedDialog,
 };
+use storage_contracts::client::{FilesystemsClient, LuksClient};
 
 use storage_types::VolumeKind;
 

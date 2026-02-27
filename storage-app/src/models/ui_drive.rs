@@ -3,15 +3,15 @@
 //! UI model for a disk drive with shared clients and hierarchical volumes
 
 use super::{UiVolume, build_volume_tree};
-use crate::client::{DisksClient, PartitionsClient, error::ClientError};
 use std::ops::Deref;
 use std::sync::Arc;
+use storage_contracts::client::{DisksClient, PartitionsClient, error::ClientError};
 use storage_types::{DiskInfo, PartitionInfo};
 
 /// Recursively collect all volumes from a slice of roots into a flat list (each without children).
 fn collect_volumes_flat_slice(
     roots: &[UiVolume],
-    fs_client: Arc<crate::client::FilesystemsClient>,
+    fs_client: Arc<storage_contracts::client::FilesystemsClient>,
 ) -> Vec<UiVolume> {
     let mut out = Vec::new();
     for root in roots {
@@ -23,7 +23,7 @@ fn collect_volumes_flat_slice(
 fn collect_volumes_flat_one(
     volume: &UiVolume,
     out: &mut Vec<UiVolume>,
-    fs_client: Arc<crate::client::FilesystemsClient>,
+    fs_client: Arc<storage_contracts::client::FilesystemsClient>,
 ) {
     if let Ok(flat_vol) =
         UiVolume::with_children(volume.volume.clone(), Vec::new(), Arc::clone(&fs_client))
@@ -63,7 +63,7 @@ pub struct UiDrive {
     partitions_client: Arc<PartitionsClient>,
 
     /// Shared client for filesystem operations (used when building volume tree)
-    filesystems_client: Arc<crate::client::FilesystemsClient>,
+    filesystems_client: Arc<storage_contracts::client::FilesystemsClient>,
 }
 
 #[allow(dead_code)]
@@ -80,7 +80,8 @@ impl UiDrive {
     pub async fn new(disk: DiskInfo) -> Result<Self, ClientError> {
         let client = Arc::new(DisksClient::new().await?);
         let partitions_client = Arc::new(PartitionsClient::new().await?);
-        let filesystems_client = Arc::new(crate::client::FilesystemsClient::new().await?);
+        let filesystems_client =
+            Arc::new(storage_contracts::client::FilesystemsClient::new().await?);
 
         let mut drive = Self {
             disk,

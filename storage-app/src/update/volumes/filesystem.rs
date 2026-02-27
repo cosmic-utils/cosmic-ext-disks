@@ -2,13 +2,13 @@ use crate::models::{UiDrive, load_all_drives};
 use cosmic::Task;
 
 use crate::app::Message;
-use crate::client::filesystems::FilesystemsClient;
 use crate::errors::ui::{UiErrorContext, log_error_and_show_dialog};
 use crate::fl;
 use crate::message::dialogs::EditFilesystemLabelMessage;
 use crate::state::dialogs::{
     ConfirmActionDialog, EditFilesystemLabelDialog, FilesystemTarget, ShowDialog,
 };
+use storage_contracts::client::filesystems::FilesystemsClient;
 
 use crate::message::volumes::VolumesControlMessage;
 use crate::state::volumes::VolumesControl;

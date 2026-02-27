@@ -9,9 +9,9 @@ use cosmic::app::Task;
 use tokio::fs::OpenOptions;
 
 use super::ops::start_image_operation;
-use crate::client::{FilesystemsClient, ImageClient};
 use crate::message::app::Message;
 use crate::state::app::AppModel;
+use storage_contracts::client::{FilesystemsClient, ImageClient};
 
 pub(super) fn new_disk_image(app: &mut AppModel) {
     app.dialog = Some(ShowDialog::NewDiskImage(Box::new(NewDiskImageDialog {
@@ -206,7 +206,7 @@ pub(super) fn image_operation_dialog(
                         async move {
                             let client = ImageClient::new().await?;
                             client.cancel_operation(&operation_id).await?;
-                            Ok::<(), crate::client::error::ClientError>(())
+                            Ok::<(), storage_contracts::client::error::ClientError>(())
                         },
                         |_| Message::None.into(),
                     );

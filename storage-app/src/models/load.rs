@@ -3,7 +3,7 @@
 //! Helper functions for loading UiDrive instances from storage-service
 
 use super::UiDrive;
-use crate::client::{DisksClient, error::ClientError};
+use storage_contracts::client::{DisksClient, error::ClientError};
 
 /// Load all drives from storage-service as UiDrive instances
 ///

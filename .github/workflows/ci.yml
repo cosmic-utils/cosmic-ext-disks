@@ -59,6 +59,24 @@ jobs:
       - name: Run clippy
         run: cargo clippy --workspace --all-features --locked
 
+  harness:
+    name: Harness
+    if: github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: rustup update
+      - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: workspace-${{ runner.os }}
+          save-if: false
+
+      - name: install system deps
+        run: sudo apt install libxkbcommon-dev libbtrfsutil-dev
+
+      - name: Run harness suite
+        run: cargo run -p storage-testing --bin harness -- run --runtime docker
+
   fmt:
     name: Rustfmt
     if: github.event.pull_request.draft == false
