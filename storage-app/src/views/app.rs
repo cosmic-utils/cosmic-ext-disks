@@ -11,6 +11,7 @@ use crate::utils::DiskSegmentKind;
 use crate::views::btrfs::btrfs_management_section;
 use crate::views::dialogs;
 use crate::views::disk as disk_header;
+use crate::views::logical as logical_view;
 use crate::views::network::network_main_view;
 use crate::views::settings::{settings, settings_footer};
 use crate::views::sidebar;
@@ -160,7 +161,11 @@ pub(crate) fn dialog(app: &AppModel) -> Option<Element<'_, Message>> {
             | crate::state::dialogs::ShowDialog::AttachDiskImage(_)
             | crate::state::dialogs::ShowDialog::ImageOperation(_)
             | crate::state::dialogs::ShowDialog::BtrfsCreateSubvolume(_)
-            | crate::state::dialogs::ShowDialog::BtrfsCreateSnapshot(_) => None,
+            | crate::state::dialogs::ShowDialog::BtrfsCreateSnapshot(_)
+            | crate::state::dialogs::ShowDialog::LogicalLvmWizard(_)
+            | crate::state::dialogs::ShowDialog::LogicalMdRaidWizard(_)
+            | crate::state::dialogs::ShowDialog::LogicalBtrfsWizard(_)
+            | crate::state::dialogs::ShowDialog::LogicalControl(_) => None,
 
             crate::state::dialogs::ShowDialog::DeletePartition(state) => {
                 Some(dialogs::confirmation(
@@ -244,6 +249,12 @@ fn full_page_wizard_view(dialog: &ShowDialog) -> Option<Element<'_, Message>> {
         ShowDialog::ImageOperation(state) => Some(dialogs::image_operation(state.as_ref().clone())),
         ShowDialog::BtrfsCreateSubvolume(state) => Some(dialogs::create_subvolume(state.clone())),
         ShowDialog::BtrfsCreateSnapshot(state) => Some(dialogs::create_snapshot(state.clone())),
+        ShowDialog::LogicalLvmWizard(state) => Some(dialogs::logical_lvm_wizard(state.clone())),
+        ShowDialog::LogicalMdRaidWizard(state) => {
+            Some(dialogs::logical_mdraid_wizard(state.clone()))
+        }
+        ShowDialog::LogicalBtrfsWizard(state) => Some(dialogs::logical_btrfs_wizard(state.clone())),
+        ShowDialog::LogicalControl(state) => Some(dialogs::logical_control_dialog(state.clone())),
         _ => None,
     }
 }
@@ -256,14 +267,20 @@ pub(crate) fn nav_bar(app: &AppModel) -> Option<Element<'_, cosmic::Action<Messa
 
     let controls_enabled = app.dialog.is_none();
 
-    let mut nav = sidebar::sidebar(&app.nav, &app.sidebar, &app.network, controls_enabled)
-        .map(Into::into)
-        .apply(widget::container)
-        .padding(8)
-        .class(cosmic::style::Container::Background)
-        // Both width and height must be Shrink for flex layout to respect the max_width constraint
-        .width(cosmic::iced::Length::Shrink)
-        .height(cosmic::iced::Length::Shrink);
+    let mut nav = sidebar::sidebar(
+        &app.nav,
+        &app.sidebar,
+        &app.logical,
+        &app.network,
+        controls_enabled,
+    )
+    .map(Into::into)
+    .apply(widget::container)
+    .padding(8)
+    .class(cosmic::style::Container::Background)
+    // Both width and height must be Shrink for flex layout to respect the max_width constraint
+    .width(cosmic::iced::Length::Shrink)
+    .height(cosmic::iced::Length::Shrink);
 
     if !app.core.is_condensed() {
         nav = nav.max_width(280);
@@ -313,6 +330,10 @@ pub(crate) fn view(app: &AppModel) -> Element<'_, Message> {
     {
         let controls_enabled = app.dialog.is_none();
         return network_main_view(&app.network, controls_enabled).map(Message::Network);
+    }
+
+    if app.logical.selected_entity().is_some() {
+        return logical_view::logical_detail_view(&app.logical);
     }
 
     match app.nav.active_data::<UiDrive>() {

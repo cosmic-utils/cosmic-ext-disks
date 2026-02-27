@@ -1,4 +1,3 @@
-use crate::client::{DisksClient, FilesystemsClient, ImageClient, LuksClient};
 use crate::config::Config;
 use crate::message::app::Message;
 use crate::message::dialogs::ImageOperationDialogMessage;
@@ -7,6 +6,7 @@ use cosmic::iced::Subscription;
 use cosmic::iced::futures::{SinkExt, StreamExt};
 use cosmic::iced::{Event, event, keyboard};
 use std::time::Duration;
+use storage_contracts::client::{DisksClient, FilesystemsClient, ImageClient, LuksClient};
 
 use crate::state::app::AppModel;
 
@@ -15,6 +15,9 @@ struct ImageOperationSubscription;
 
 /// Subscription for storage-service Filesystems and LUKS signals (format, mount, unmount, container created/unlocked/locked).
 struct StorageEventsSubscription;
+
+/// Subscription driving sidebar loading spinner animation.
+struct SidebarSpinnerSubscription;
 
 /// Register subscriptions for this application.
 ///
@@ -179,6 +182,18 @@ pub(crate) fn subscription(app: &AppModel) -> Subscription<Message> {
                             }
                         }
                     }
+                }
+            }),
+        ));
+    }
+
+    if app.sidebar.has_active_loading() {
+        subs.push(Subscription::run_with_id(
+            std::any::TypeId::of::<SidebarSpinnerSubscription>(),
+            cosmic::iced::stream::channel(1, move |mut output| async move {
+                loop {
+                    tokio::time::sleep(Duration::from_millis(120)).await;
+                    _ = output.send(Message::SidebarSpinnerTick).await;
                 }
             }),
         ));

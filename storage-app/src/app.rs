@@ -5,15 +5,14 @@ pub const REPOSITORY: &str = env!("CARGO_PKG_REPOSITORY");
 pub(crate) use crate::message::app::Message;
 pub(crate) use crate::state::app::{AppModel, ContextPage};
 
-use crate::client::FilesystemsClient;
-use crate::client::RcloneClient;
 use crate::config::Config;
-use crate::models::load_all_drives;
+use crate::state::logical::LogicalState;
 use crate::state::network::NetworkState;
 use crate::state::sidebar::SidebarState;
 use cosmic::app::{Core, Task};
 use cosmic::widget::nav_bar;
 use cosmic::{Application, Element};
+use storage_contracts::client::FilesystemsClient;
 
 pub(crate) const APP_ID: &str = "com.cosmic.ext.Storage";
 
@@ -41,26 +40,16 @@ impl Application for AppModel {
             image_op_operation_id: None,
             filesystem_tools: vec![],
             network: NetworkState::new(),
+            logical: LogicalState::default(),
             config: Config::load(Self::APP_ID),
         };
 
+        app.sidebar.set_logical_loading(true);
+        app.sidebar.set_network_loading(true);
+
         let command = app.update_title();
 
-        let nav_command = Task::perform(
-            async {
-                match load_all_drives().await {
-                    Ok(drives) => Some(drives),
-                    Err(e) => {
-                        tracing::error!(%e, "failed to load drives");
-                        None
-                    }
-                }
-            },
-            |drives| match drives {
-                None => Message::None.into(),
-                Some(drives) => Message::UpdateNav(drives, None).into(),
-            },
-        );
+        let nav_command = Task::done(Message::LoadDrivesIncremental.into());
 
         let tools_command = Task::perform(
             async {
@@ -84,36 +73,19 @@ impl Application for AppModel {
             },
         );
 
-        let network_command = Task::perform(
-            async {
-                match RcloneClient::new().await {
-                    Ok(client) => match client.list_remotes().await {
-                        Ok(list) => Some(list.remotes),
-                        Err(e) => {
-                            tracing::warn!(%e, "failed to load network remotes");
-                            None
-                        }
-                    },
-                    Err(e) => {
-                        tracing::info!(%e, "RClone client not available, network features disabled");
-                        None
-                    }
-                }
-            },
-            |remotes| {
-                Message::NetworkRemotesLoaded(
-                    remotes.ok_or_else(|| "RClone not available".to_string()),
-                )
-                .into()
-            },
-        );
+        let network_command = Task::done(Message::LoadNetworkRemotes.into());
+
+        let logical_command = Task::done(Message::LoadLogicalEntities.into());
 
         (
             app,
-            command
-                .chain(nav_command)
-                .chain(tools_command)
-                .chain(network_command),
+            Task::batch(vec![
+                command,
+                nav_command,
+                tools_command,
+                network_command,
+                logical_command,
+            ]),
         )
     }
 

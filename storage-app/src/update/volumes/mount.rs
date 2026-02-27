@@ -3,8 +3,8 @@ use cosmic::Task;
 use std::future::Future;
 
 use crate::app::Message;
-use crate::client::FilesystemsClient;
 use crate::state::dialogs::{ShowDialog, UnmountBusyDialog};
+use storage_contracts::client::FilesystemsClient;
 
 use crate::state::volumes::VolumesControl;
 

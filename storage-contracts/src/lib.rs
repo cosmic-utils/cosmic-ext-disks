@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-only
 
+pub mod client;
 pub mod protocol;
 pub mod traits;
 

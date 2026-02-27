@@ -2,9 +2,9 @@
 
 //! UI model for a volume with hierarchical children and shared client
 
-use crate::client::{FilesystemsClient, error::ClientError};
 use std::ops::Deref;
 use std::sync::Arc;
+use storage_contracts::client::{FilesystemsClient, error::ClientError};
 use storage_types::VolumeInfo;
 
 /// UI model wrapping VolumeInfo with shared client and hierarchical children

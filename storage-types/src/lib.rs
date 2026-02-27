@@ -29,6 +29,7 @@ pub mod common;
 pub mod disk;
 pub mod encryption;
 pub mod filesystem;
+pub mod logical;
 pub mod lvm;
 pub mod partition;
 pub mod partition_types;
@@ -47,6 +48,10 @@ pub use encryption::{EncryptionOptionsSettings, LuksInfo, LuksVersion};
 pub use filesystem::{
     CheckResult, FilesystemInfo, FilesystemToolInfo, FilesystemType, FormatOptions, KillResult,
     MountOptions, MountOptionsSettings, ProcessInfo, UnmountResult,
+};
+pub use logical::{
+    LogicalAggregateSummary, LogicalBlockedReason, LogicalCapabilities, LogicalEntity,
+    LogicalEntityKind, LogicalMember, LogicalOperation, ProgressRatio, summarize_entities,
 };
 pub use lvm::{LogicalVolumeInfo, PhysicalVolumeInfo, VolumeGroupInfo};
 pub use partition::{

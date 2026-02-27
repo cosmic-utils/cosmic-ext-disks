@@ -2,13 +2,13 @@
 
 //! Network mount message handling
 
-use crate::client::RcloneClient;
 use crate::errors::ui::{UiErrorContext, log_error_and_show_dialog};
 use crate::message::app::Message;
 use crate::message::network::NetworkMessage;
 use crate::state::app::AppModel;
 use crate::state::dialogs::ShowDialog;
 use cosmic::app::Task;
+use storage_contracts::client::RcloneClient;
 use storage_types::rclone::{
     ConfigScope, MountStatus, RemoteConfig, rclone_provider, supported_remote_types,
 };
@@ -18,6 +18,7 @@ pub(crate) fn handle_network_message(app: &mut AppModel, message: NetworkMessage
     match message {
         NetworkMessage::LoadRemotes => {
             app.network.loading = true;
+            app.sidebar.set_network_loading(true);
             return Task::perform(
                 async {
                     match RcloneClient::new().await {
@@ -34,6 +35,7 @@ pub(crate) fn handle_network_message(app: &mut AppModel, message: NetworkMessage
 
         NetworkMessage::RemotesLoaded(result) => {
             app.network.loading = false;
+            app.sidebar.set_network_loading(false);
             match result {
                 Ok(remotes) => {
                     app.network.rclone_available = true;

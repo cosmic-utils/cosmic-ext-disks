@@ -11,4 +11,6 @@ thiserror.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 uuid.workspace = true
+futures-util.workspace = true
+zbus.workspace = true
 storage-types = { path = "../storage-types" }

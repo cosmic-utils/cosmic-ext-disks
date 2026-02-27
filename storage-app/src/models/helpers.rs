@@ -3,9 +3,9 @@
 //! Helper functions for building volume hierarchies from flat lists
 
 use super::UiVolume;
-use crate::client::{FilesystemsClient, error::ClientError};
 use std::collections::HashMap;
 use std::sync::Arc;
+use storage_contracts::client::{FilesystemsClient, error::ClientError};
 use storage_types::VolumeInfo;
 
 /// Build a hierarchical volume tree from a flat list with parent_path references

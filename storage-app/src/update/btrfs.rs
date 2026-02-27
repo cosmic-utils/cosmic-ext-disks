@@ -1,4 +1,3 @@
-use crate::client::BtrfsClient;
 use crate::errors::ui::{UiErrorContext, log_error_and_show_dialog};
 use crate::fl;
 use crate::message::app::Message;
@@ -7,6 +6,7 @@ use crate::state::app::AppModel;
 use crate::state::dialogs::{ConfirmActionDialog, FilesystemTarget, ShowDialog};
 use crate::state::volumes::VolumesControl;
 use cosmic::app::Task;
+use storage_contracts::client::BtrfsClient;
 
 /// Handle BTRFS management messages
 pub(super) fn handle_btrfs_message(app: &mut AppModel, message: Message) -> Task<Message> {

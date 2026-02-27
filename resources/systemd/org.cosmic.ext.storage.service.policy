@@ -209,6 +209,28 @@
     </defaults>
   </action>
 
+  <!-- Logical Read Operations -->
+  <action id="org.cosmic.ext.storage.service.logical-read">
+    <description>Read logical storage information</description>
+    <message>Authentication is required to read logical storage information</message>
+    <defaults>
+      <allow_any>no</allow_any>
+      <allow_inactive>no</allow_inactive>
+      <allow_active>yes</allow_active>
+    </defaults>
+  </action>
+
+  <!-- Logical Modify Operations -->
+  <action id="org.cosmic.ext.storage.service.logical-modify">
+    <description>Modify logical storage entities</description>
+    <message>Authentication is required to modify logical storage entities</message>
+    <defaults>
+      <allow_any>auth_admin</allow_any>
+      <allow_inactive>auth_admin</allow_inactive>
+      <allow_active>auth_admin_keep</allow_active>
+    </defaults>
+  </action>
+
   <action id="org.cosmic.ext.storage.service.lvm-modify">
     <description>Modify LVM volumes</description>
     <message>Authentication is required to modify LVM volumes</message>

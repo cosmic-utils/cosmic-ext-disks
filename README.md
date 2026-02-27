@@ -51,6 +51,26 @@ just test               # Run tests
 just clippy             # Run linter
 ```
 
+### Storage Testing Harness
+
+`storage-testing` provides two local binaries for integration and manual testing workflows:
+
+- `harness`: privileged container-based integration execution (`podman`/`docker`, runtime auto-detection)
+- `lab`: host image lifecycle workflows for manual UI CRUD verification
+
+Lab specs are resolved by name from `resources/lab-specs` (no extension input).
+
+```bash
+just harness
+just lab 2disk
+just lab 3disk
+
+# Example lab dry-run
+cargo run -p storage-testing --bin lab -- image create 2disk --dry-run
+```
+
+`lab` mutating commands are destructive by default. Use `--dry-run` for preview.
+
 
 ### Features
 
@@ -81,6 +101,12 @@ just clippy             # Run linter
 
 #### Later
 - Potential move from udisks2.
+- Out-of-v1 logical storage scope (planned future work):
+   - Stratis pools/filesystems
+   - ZFS pools/datasets
+   - dm-cache / dm-writecache
+   - VDO
+   - bcache / bcachefs
 - Any feature requests welcome!
 
 

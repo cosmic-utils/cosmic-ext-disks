@@ -1,6 +1,7 @@
 mod btrfs;
 mod drive;
 mod image;
+mod logical;
 mod nav;
 mod network;
 mod smart;
@@ -10,23 +11,25 @@ use std::collections::HashSet;
 
 use crate::app::APP_ID;
 use crate::app::REPOSITORY;
-use crate::client::FilesystemsClient;
 use crate::config::{Config, LoggingLevel};
 use crate::errors::ui::{UiErrorContext, log_error_and_show_dialog};
 use crate::fl;
 use crate::logging;
 use crate::message::app::{ImagePathPickerKind, Message};
 use crate::message::network::NetworkMessage;
-use crate::models::load_all_drives;
+use crate::models::{build_drive_timed, load_all_drives, load_drive_candidates};
 use crate::state::app::AppModel;
 use crate::state::dialogs::ShowDialog;
+use crate::state::logical::PendingLogicalAction;
 use crate::state::sidebar::SidebarNodeKey;
 use crate::state::volumes::{DetailTab, UsageTabState, VolumesControl};
 use cosmic::app::Task;
 use cosmic::cosmic_config::CosmicConfigEntry;
 use cosmic::dialog::file_chooser;
 use cosmic::widget::nav_bar;
-use storage_types::{UsageCategory, UsageScanParallelismPreset};
+use storage_contracts::client::FilesystemsClient;
+use storage_contracts::client::LogicalClient;
+use storage_types::{LogicalEntity, LogicalOperation, UsageCategory, UsageScanParallelismPreset};
 
 const USAGE_TOP_FILES_MIN: u32 = 1;
 const USAGE_TOP_FILES_MAX: u32 = 1000;
@@ -71,6 +74,102 @@ fn usage_filtered_file_paths(state: &UsageTabState) -> Vec<String> {
     files.into_iter().map(|(_, path)| path).collect()
 }
 
+fn md_name_from_device(device: &str) -> String {
+    device
+        .rsplit('/')
+        .next()
+        .unwrap_or(device)
+        .trim()
+        .to_string()
+}
+
+fn operation_wired(operation: LogicalOperation) -> bool {
+    matches!(
+        operation,
+        LogicalOperation::Activate
+            | LogicalOperation::Deactivate
+            | LogicalOperation::Start
+            | LogicalOperation::Stop
+            | LogicalOperation::Check
+            | LogicalOperation::Repair
+    )
+}
+
+async fn run_logical_operation(
+    entity: LogicalEntity,
+    operation: LogicalOperation,
+) -> Result<(), String> {
+    if !operation_wired(operation) {
+        return Err("Operation is not yet wired in UI".to_string());
+    }
+
+    let client = LogicalClient::new()
+        .await
+        .map_err(|error| error.to_string())?;
+
+    match operation {
+        LogicalOperation::Activate => {
+            let lv_path = entity
+                .device_path
+                .ok_or_else(|| "Logical volume path is missing".to_string())?;
+            client
+                .lvm_activate_logical_volume(lv_path)
+                .await
+                .map_err(|error| error.to_string())
+        }
+        LogicalOperation::Deactivate => {
+            let lv_path = entity
+                .device_path
+                .ok_or_else(|| "Logical volume path is missing".to_string())?;
+            client
+                .lvm_deactivate_logical_volume(lv_path)
+                .await
+                .map_err(|error| error.to_string())
+        }
+        LogicalOperation::Start => {
+            let array_device = entity
+                .device_path
+                .ok_or_else(|| "Array device path is missing".to_string())?;
+            client
+                .mdraid_start_array(array_device)
+                .await
+                .map_err(|error| error.to_string())
+        }
+        LogicalOperation::Stop => {
+            let array_device = entity
+                .device_path
+                .ok_or_else(|| "Array device path is missing".to_string())?;
+            client
+                .mdraid_stop_array(array_device)
+                .await
+                .map_err(|error| error.to_string())
+        }
+        LogicalOperation::Check => {
+            let md_name = entity
+                .device_path
+                .as_deref()
+                .map(md_name_from_device)
+                .ok_or_else(|| "RAID device path is missing".to_string())?;
+            client
+                .mdraid_request_sync_action(md_name, "check".to_string())
+                .await
+                .map_err(|error| error.to_string())
+        }
+        LogicalOperation::Repair => {
+            let md_name = entity
+                .device_path
+                .as_deref()
+                .map(md_name_from_device)
+                .ok_or_else(|| "RAID device path is missing".to_string())?;
+            client
+                .mdraid_request_sync_action(md_name, "repair".to_string())
+                .await
+                .map_err(|error| error.to_string())
+        }
+        _ => Err("Operation is not yet wired in UI".to_string()),
+    }
+}
+
 /// Find the segment index and whether the volume is a child for a given device path
 /// Handles messages emitted by the application and its widgets.
 pub(crate) fn update(app: &mut AppModel, message: Message) -> Task<Message> {
@@ -96,6 +195,109 @@ pub(crate) fn update(app: &mut AppModel, message: Message) -> Task<Message> {
         }
         Message::FilesystemToolsLoaded(tools) => {
             app.filesystem_tools = tools;
+        }
+        Message::LoadLogicalEntities => {
+            app.sidebar.set_logical_loading(true);
+            return Task::perform(
+                async {
+                    match LogicalClient::new().await {
+                        Ok(client) => client
+                            .list_logical_entities()
+                            .await
+                            .map_err(|error| error.to_string()),
+                        Err(error) => Err(error.to_string()),
+                    }
+                },
+                |result| Message::LogicalEntitiesLoaded(result).into(),
+            );
+        }
+        Message::LogicalEntitiesLoaded(result) => match result {
+            Ok(entities) => {
+                app.sidebar.set_logical_loading(false);
+                app.logical.last_error = None;
+                app.logical.set_entities(entities);
+            }
+            Err(error) => {
+                app.sidebar.set_logical_loading(false);
+                app.logical.last_error = Some(error);
+            }
+        },
+        Message::LogicalDetailTabSelected(tab) => {
+            app.logical.detail_tab = tab;
+        }
+        Message::LogicalActionPrompt {
+            entity_id,
+            operation,
+        } => {
+            app.logical.pending_action = Some(PendingLogicalAction {
+                entity_id,
+                operation,
+            });
+            app.logical.operation_status = None;
+        }
+        Message::LogicalActionCancel => {
+            app.logical.pending_action = None;
+        }
+        Message::LogicalActionConfirm => {
+            let Some(pending) = app.logical.pending_action.clone() else {
+                return Task::none();
+            };
+
+            let Some(entity) = app
+                .logical
+                .entities
+                .iter()
+                .find(|candidate| candidate.id == pending.entity_id)
+                .cloned()
+            else {
+                app.logical.pending_action = None;
+                app.logical.operation_status =
+                    Some("Selected logical entity no longer exists".to_string());
+                return Task::none();
+            };
+
+            return Task::perform(
+                async move {
+                    let result = run_logical_operation(entity, pending.operation).await;
+                    Message::LogicalActionFinished {
+                        entity_id: pending.entity_id,
+                        operation: pending.operation,
+                        result,
+                    }
+                },
+                |msg| msg.into(),
+            );
+        }
+        Message::LogicalActionFinished {
+            entity_id,
+            operation,
+            result,
+        } => {
+            app.logical.pending_action = None;
+            app.logical.operation_status = Some(match result {
+                Ok(()) => format!("{operation:?} succeeded for {entity_id}"),
+                Err(error) => format!("{operation:?} failed for {entity_id}: {error}"),
+            });
+
+            return Task::done(cosmic::Action::App(Message::LoadLogicalEntities));
+        }
+        Message::OpenLogicalOperationDialog {
+            entity_id,
+            operation,
+        } => {
+            return logical::open_operation_dialog(app, entity_id, operation);
+        }
+        Message::LogicalLvmDialog(msg) => {
+            return logical::lvm_dialog(app, msg);
+        }
+        Message::LogicalMdRaidDialog(msg) => {
+            return logical::mdraid_dialog(app, msg);
+        }
+        Message::LogicalBtrfsDialog(msg) => {
+            return logical::btrfs_dialog(app, msg);
+        }
+        Message::LogicalControlDialog(msg) => {
+            return logical::control_dialog(app, msg);
         }
         Message::UsageScanLoad {
             scan_id,
@@ -840,6 +1042,78 @@ pub(crate) fn update(app: &mut AppModel, message: Message) -> Task<Message> {
                 },
             );
         }
+        Message::LoadDrivesIncremental => {
+            app.sidebar.start_drive_loading(0);
+            app.sidebar.set_drives(Vec::new());
+            return Task::perform(
+                async {
+                    load_drive_candidates()
+                        .await
+                        .map_err(|error| error.to_string())
+                },
+                |result| Message::DriveListLoaded(result).into(),
+            );
+        }
+        Message::DriveListLoaded(result) => {
+            let disks = match result {
+                Ok(disks) => disks,
+                Err(error) => {
+                    app.sidebar.finish_drive_loading();
+                    tracing::error!(%error, "failed to enumerate drives for incremental loading");
+                    return Task::none();
+                }
+            };
+
+            app.sidebar.start_drive_loading(disks.len());
+            if disks.is_empty() {
+                return Task::done(Message::DriveLoadFinished.into());
+            }
+
+            let mut tasks: Vec<Task<Message>> = vec![Task::done(
+                Message::DriveLoadStarted { total: disks.len() }.into(),
+            )];
+
+            for disk in disks {
+                tasks.push(Task::perform(
+                    async move { build_drive_timed(disk).await },
+                    |(result, elapsed_ms)| Message::DriveLoaded { result, elapsed_ms }.into(),
+                ));
+            }
+
+            return Task::batch(tasks);
+        }
+        Message::DriveLoadStarted { total } => {
+            app.sidebar.start_drive_loading(total);
+        }
+        Message::DriveLoaded { result, elapsed_ms } => {
+            let mut tasks: Vec<Task<Message>> = Vec::new();
+
+            match result {
+                Ok(drive) => {
+                    app.sidebar.upsert_drive_sorted(drive);
+                    tasks.push(nav::update_nav(app, app.sidebar.drives.clone(), None));
+                }
+                Err(error) => {
+                    tracing::warn!(%error, elapsed_ms, "incremental drive build failed");
+                }
+            }
+
+            if app.sidebar.mark_drive_build_finished() {
+                tasks.push(Task::done(Message::DriveLoadFinished.into()));
+            }
+
+            if tasks.is_empty() {
+                return Task::none();
+            }
+
+            return Task::batch(tasks);
+        }
+        Message::DriveLoadFinished => {
+            app.sidebar.finish_drive_loading();
+        }
+        Message::SidebarSpinnerTick => {
+            app.sidebar.advance_spinner_frame();
+        }
         Message::None => {}
         Message::UpdateNav(drive_models, selected) => {
             return nav::update_nav(app, drive_models, selected);
@@ -960,6 +1234,7 @@ pub(crate) fn update(app: &mut AppModel, message: Message) -> Task<Message> {
 
         // Sidebar (custom treeview)
         Message::SidebarSelectDrive { device_path } => {
+            app.logical.selected_entity_id = None;
             app.network.select(None, None);
             app.network.clear_editor();
             app.sidebar.selected_child = None;
@@ -971,6 +1246,7 @@ pub(crate) fn update(app: &mut AppModel, message: Message) -> Task<Message> {
             app.sidebar.selected_child = None;
         }
         Message::SidebarSelectChild { device_path } => {
+            app.logical.selected_entity_id = None;
             app.network.select(None, None);
             app.network.clear_editor();
             app.sidebar.selected_child = Some(SidebarNodeKey::Volume(device_path.clone()));
@@ -1038,6 +1314,12 @@ pub(crate) fn update(app: &mut AppModel, message: Message) -> Task<Message> {
         }
         Message::SidebarToggleExpanded(key) => {
             app.sidebar.toggle_expanded(key);
+        }
+        Message::SidebarSelectLogical { entity_id } => {
+            app.network.select(None, None);
+            app.network.clear_editor();
+            app.sidebar.selected_child = Some(SidebarNodeKey::Logical(entity_id.clone()));
+            app.logical.select_entity(entity_id);
         }
         Message::SidebarDriveEject { device_path } => {
             if let Some(drive) = app.sidebar.find_drive(&device_path) {
@@ -1377,5 +1659,28 @@ fn retry_unmount(volumes: &VolumesControl, device_path: String) -> Task<Message>
     } else {
         tracing::warn!("Volume not found for retry: {}", device_path);
         Task::none()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn md_name_is_extracted_from_device_path() {
+        assert_eq!(md_name_from_device("/dev/md0"), "md0");
+        assert_eq!(md_name_from_device("md127"), "md127");
+    }
+
+    #[test]
+    fn operation_dispatch_support_set_is_expected() {
+        assert!(operation_wired(LogicalOperation::Activate));
+        assert!(operation_wired(LogicalOperation::Deactivate));
+        assert!(operation_wired(LogicalOperation::Start));
+        assert!(operation_wired(LogicalOperation::Stop));
+        assert!(operation_wired(LogicalOperation::Check));
+        assert!(operation_wired(LogicalOperation::Repair));
+        assert!(!operation_wired(LogicalOperation::Delete));
+        assert!(!operation_wired(LogicalOperation::SetLabel));
     }
 }

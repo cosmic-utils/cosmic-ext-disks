@@ -20,8 +20,8 @@ release:
 # Canonical workspace verification flow
 check:
     cargo clippy --workspace --all-targets
-    cargo fmt --all -- --check
-    cargo test --workspace --no-run
+    cargo fmt --all
+    cargo test --workspace
 
 # Clean build artifacts
 clean:
@@ -34,6 +34,18 @@ watch:
 # Watch and run tests
 watch-tests:
     cargo watch -x "test --workspace"
+
+# Run harness integration workflow
+harness:
+    cargo build --workspace --locked
+    cargo run -p storage-testing --bin harness -- run
+
+# Run lab image create for the given spec (defaults to 2disk).
+lab spec="2disk":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    cargo build -p storage-testing --locked
+    cargo run -p storage-testing --bin lab -- image create "{{spec}}"
 
 # Monitor D-Bus signals
 watch-dbus:
