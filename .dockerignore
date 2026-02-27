@@ -1,0 +1,23 @@
+# Keep Docker build context small for storage-testing harness image
+
+# Rust/Cargo build outputs (very large)
+target/
+**/target/
+
+# VCS and editor metadata
+.git/
+.github/
+.vscode/
+.idea/
+
+# Local caches and temp files
+*.log
+*.tmp
+*.swp
+.DS_Store
+
+# Python caches (if present)
+**/__pycache__/
+
+# Node artifacts (if present)
+**/node_modules/

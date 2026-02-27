@@ -38,7 +38,7 @@ watch-tests:
 # Run harness integration workflow
 harness:
     cargo build --workspace --locked
-    cargo run -p storage-testing --bin harness -- run --runtime auto
+    cargo run -p storage-testing --bin harness -- run
 
 # Run lab image create for the given spec (defaults to 2disk).
 lab spec="2disk":

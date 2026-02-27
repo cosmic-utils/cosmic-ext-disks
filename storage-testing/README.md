@@ -2,17 +2,19 @@
 
 `storage-testing` provides two local binaries for integration and manual lab workflows:
 
-- `harness`: runs integration tests in a privileged container using `podman`/`docker` runtime auto-detection.
+- `harness`: runs integration tests directly on host.
 - `lab`: prepares loop-backed disk images on host for manual CRUD testing through the COSMIC UI.
 
 ## Commands
 
 ### harness
 
+Host harness commands require root privileges for loop/LVM/mdadm operations.
+
 ```bash
 just harness
-cargo run -p storage-testing --bin harness -- shell --runtime auto
-cargo run -p storage-testing --bin harness -- cleanup --runtime auto
+sudo cargo run -p storage-testing --bin harness -- run --suite logical
+sudo cargo run -p storage-testing --bin harness -- cleanup
 ```
 
 ### lab

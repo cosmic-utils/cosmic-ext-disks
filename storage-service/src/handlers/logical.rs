@@ -147,7 +147,7 @@ impl LogicalHandler {
         let devices: Vec<String> = serde_json::from_str(&devices_json).map_err(|error| {
             zbus::fdo::Error::InvalidArgs(format!("Invalid devices JSON: {error}"))
         })?;
-        let mut args = vec![vg_name];
+        let mut args = vec!["--yes".to_string(), vg_name];
         args.extend(devices);
         Self::run_cmd("vgcreate", &args)?;
         Self::emit_topology_changed(connection, "lvm-create-vg").await
@@ -206,6 +206,8 @@ impl LogicalHandler {
             &[
                 "-L".to_string(),
                 format!("{size_bytes}B"),
+                "-y".to_string(),
+                "-Zn".to_string(),
                 "-n".to_string(),
                 lv_name,
                 vg_name,
@@ -281,9 +283,12 @@ impl LogicalHandler {
         })?;
         let mut args = vec![
             "--create".to_string(),
+            "--force".to_string(),
+            "--run".to_string(),
             array_device,
             "--level".to_string(),
             level,
+            "--metadata=0.90".to_string(),
             "--raid-devices".to_string(),
             devices.len().to_string(),
         ];

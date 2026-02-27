@@ -20,6 +20,10 @@ pub enum TestingError {
     ContainerRuntimeFailed { reason: String },
     #[error("service startup failed: {reason}")]
     ServiceStartupFailed { reason: String },
+    #[error("test failed: {reason}")]
+    TestFailed { reason: String },
+    #[error("test skipped: {reason}")]
+    TestSkipped { reason: String },
 }
 
 pub type Result<T> = std::result::Result<T, TestingError>;

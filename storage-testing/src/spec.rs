@@ -19,6 +19,7 @@ pub struct LabSpec {
 pub struct ImageSpec {
     pub file_name: String,
     pub size_bytes: u64,
+    pub loop_device: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -37,10 +38,26 @@ pub struct MountSpec {
 }
 
 pub fn workspace_root() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR"))
+    if let Ok(value) = std::env::var("STORAGE_TESTING_WORKSPACE_ROOT") {
+        return PathBuf::from(value);
+    }
+
+    if let Ok(current_dir) = std::env::current_dir() {
+        if current_dir.join("resources/lab-specs").exists() {
+            return current_dir;
+        }
+    }
+
+    let manifest_root = Path::new(env!("CARGO_MANIFEST_DIR"))
         .parent()
         .unwrap_or_else(|| Path::new("."))
-        .to_path_buf()
+        .to_path_buf();
+
+    if manifest_root.join("resources/lab-specs").exists() {
+        return manifest_root;
+    }
+
+    PathBuf::from(".")
 }
 
 pub fn specs_root() -> PathBuf {

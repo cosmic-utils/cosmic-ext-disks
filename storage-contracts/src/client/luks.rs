@@ -76,6 +76,16 @@ impl LuksClient {
         Ok(self.proxy.unlock(device, passphrase).await?)
     }
 
+    /// Format a device with LUKS encryption
+    pub async fn format(
+        &self,
+        device: &str,
+        passphrase: &str,
+        version: &str,
+    ) -> Result<(), ClientError> {
+        Ok(self.proxy.format(device, passphrase, version).await?)
+    }
+
     /// Lock a LUKS volume
     pub async fn lock(&self, cleartext_device: &str) -> Result<(), ClientError> {
         Ok(self.proxy.lock(cleartext_device).await?)

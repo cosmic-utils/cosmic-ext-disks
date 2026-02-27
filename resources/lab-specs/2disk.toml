@@ -5,10 +5,12 @@ partition_table = "gpt"
 [[images]]
 file_name = "disk0.img"
 size_bytes = 2147483648
+loop_device = "/dev/loop20"
 
 [[images]]
 file_name = "disk1.img"
 size_bytes = 2147483648
+loop_device = "/dev/loop21"
 
 [[partitions]]
 index = 1
